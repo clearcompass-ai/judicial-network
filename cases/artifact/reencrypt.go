@@ -8,22 +8,19 @@ DESCRIPTION:
     not the ciphertext.
 
 KEY ARCHITECTURAL DECISIONS:
-    - content_digest UNCHANGED: re-encryption does not modify plaintext.
-      artifact_cid CHANGES: new key → new ciphertext → new CID.
-    - Delegates to SDK lifecycle.ReEncryptWithGrant for the actual
-      decrypt → re-encrypt → push cycle. No local crypto.
-    - Concurrent batch mode with configurable parallelism and retry.
-    - Old key cryptographically erased after successful re-encryption.
+    - AES-GCM only. PRE artifacts are not re-encrypted (PRE transforms access,
+      not storage). Therefore this file uses ArtifactKeyStore only — no
+      DelegationKeyStore involvement.
+    - content_digest UNCHANGED (same plaintext). artifact_cid CHANGES (new key).
+    - Delegates to SDK lifecycle.ReEncryptWithGrant.
 
 OVERVIEW:
-    Per artifact: (1) ReEncryptWithGrant → new CT + new key
-    (2) new_cid = storage.Compute(newCT) (3) push + store new key
-    (4) delete old key (cryptographic erasure). Batch mode: semaphore
-    concurrency, per-CID retry with configurable attempts/delay.
+    Per artifact: ReEncryptWithGrant → new CT + new key → push + store.
+    Batch: semaphore concurrency, per-CID retry.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle: ReEncryptWithGrant for SDK re-encryption cycle
-    - ortholog-sdk/storage: ContentStore for push/delete, CID for addressing
+    - ortholog-sdk/lifecycle: ReEncryptWithGrant, ArtifactKeyStore
+    - ortholog-sdk/storage: ContentStore, CID
 */
 package artifact
 
@@ -40,20 +37,17 @@ import (
 // 1) Types
 // -------------------------------------------------------------------------------------------------
 
-// ReencryptConfig configures a single re-encryption operation.
 type ReencryptConfig struct {
 	OldCID              storage.CID
 	DeleteOldCiphertext bool
 }
 
-// ReencryptResult holds the outcome of a single re-encryption.
 type ReencryptResult struct {
 	OldCID                 storage.CID
 	NewCID                 storage.CID
 	ContentDigestUnchanged bool
 }
 
-// BatchReencryptConfig configures a batch re-encryption operation.
 type BatchReencryptConfig struct {
 	CIDs                []storage.CID
 	Concurrency         int
@@ -63,7 +57,6 @@ type BatchReencryptConfig struct {
 	RetryDelay          time.Duration
 }
 
-// BatchReencryptResult holds the aggregate outcome.
 type BatchReencryptResult struct {
 	Total     int
 	Succeeded int
@@ -73,7 +66,7 @@ type BatchReencryptResult struct {
 }
 
 // -------------------------------------------------------------------------------------------------
-// 2) ReencryptArtifact — single artifact
+// 2) ReencryptArtifact
 // -------------------------------------------------------------------------------------------------
 
 func ReencryptArtifact(
@@ -84,7 +77,6 @@ func ReencryptArtifact(
 	if cfg.OldCID.IsZero() {
 		return nil, fmt.Errorf("artifact/reencrypt: zero old CID")
 	}
-
 	sdkResult, err := lifecycle.ReEncryptWithGrant(lifecycle.ReEncryptWithGrantParams{
 		OldCID:              cfg.OldCID,
 		KeyStore:            keyStore,
@@ -94,7 +86,6 @@ func ReencryptArtifact(
 	if err != nil {
 		return nil, fmt.Errorf("artifact/reencrypt: %w", err)
 	}
-
 	return &ReencryptResult{
 		OldCID:                 cfg.OldCID,
 		NewCID:                 sdkResult.NewCID,
@@ -103,7 +94,7 @@ func ReencryptArtifact(
 }
 
 // -------------------------------------------------------------------------------------------------
-// 3) BatchReencrypt — multiple artifacts
+// 3) BatchReencrypt
 // -------------------------------------------------------------------------------------------------
 
 func BatchReencrypt(
@@ -114,22 +105,18 @@ func BatchReencrypt(
 	if keyStore == nil || contentStore == nil {
 		return nil, fmt.Errorf("artifact/reencrypt: nil key store or content store")
 	}
-
 	concurrency := cfg.Concurrency
 	if concurrency <= 0 {
 		concurrency = 1
 	}
-
 	result := &BatchReencryptResult{
 		Total:   len(cfg.CIDs),
 		Results: make(map[string]storage.CID),
 		Errors:  make(map[string]error),
 	}
-
 	if len(cfg.CIDs) == 0 {
 		return result, nil
 	}
-
 	if concurrency == 1 {
 		for i, cid := range cfg.CIDs {
 			reResult, err := reencryptWithRetry(cid, cfg, keyStore, contentStore)
@@ -146,21 +133,17 @@ func BatchReencrypt(
 		}
 		return result, nil
 	}
-
 	var mu sync.Mutex
 	completed := 0
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
-
 	for _, cid := range cfg.CIDs {
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(c storage.CID) {
 			defer wg.Done()
 			defer func() { <-sem }()
-
 			reResult, err := reencryptWithRetry(c, cfg, keyStore, contentStore)
-
 			mu.Lock()
 			completed++
 			current := completed
@@ -172,20 +155,14 @@ func BatchReencrypt(
 				result.Results[c.String()] = reResult.NewCID
 			}
 			mu.Unlock()
-
 			if cfg.ProgressCallback != nil {
 				cfg.ProgressCallback(current, result.Total, c, err)
 			}
 		}(cid)
 	}
-
 	wg.Wait()
 	return result, nil
 }
-
-// -------------------------------------------------------------------------------------------------
-// 4) Retry helper
-// -------------------------------------------------------------------------------------------------
 
 func reencryptWithRetry(
 	cid storage.CID,
@@ -202,15 +179,10 @@ func reencryptWithRetry(
 	if delay <= 0 {
 		delay = 1 * time.Second
 	}
-
 	for attempt := 0; attempt < attempts; attempt++ {
 		result, err := ReencryptArtifact(
-			ReencryptConfig{
-				OldCID:              cid,
-				DeleteOldCiphertext: cfg.DeleteOldCiphertext,
-			},
-			keyStore,
-			contentStore,
+			ReencryptConfig{OldCID: cid, DeleteOldCiphertext: cfg.DeleteOldCiphertext},
+			keyStore, contentStore,
 		)
 		if err == nil {
 			return result, nil

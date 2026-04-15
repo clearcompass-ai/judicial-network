@@ -4,24 +4,26 @@ FILE PATH:
 
 DESCRIPTION:
     Destroys artifact keys and performs backend cleanup for cryptographic
-    erasure. Key destruction is THE cryptographic guarantee — after deletion,
-    ciphertext is computationally irrecoverable regardless of CAS state.
+    erasure. Key destruction is THE cryptographic guarantee.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Key destruction is step 1, content deletion is step 2 (defense-in-depth).
-      Step 1 alone is sufficient for NIST SP 800-88 compliance.
-    - IPFS returns ErrNotSupported for Delete (best-effort GC). This is
-      expected and documented. The function succeeds if step 1 succeeds.
-    - For Umbral PRE: wrapped delegation key destroyed → KFrags useless → no new CFrags.
-    - Control Header on log remains (proves record existed). CID points nowhere.
+    - AES-GCM: keyStore.Delete destroys the 44-byte ArtifactKey.
+    - PRE: delKeyStore.Delete destroys the wrapped delegation key.
+      Without the wrapped key, no one can call UnwrapDelegationKey,
+      so no new KFrags/CFrags can be produced. Existing CFrags become
+      useless without M valid fragments for a new capsule.
+    - Both deletions are attempted. Either alone is sufficient for
+      cryptographic erasure of the respective path.
+    - Content store deletion is defense-in-depth (IPFS returns 501).
 
 OVERVIEW:
-    ExpungeArtifact: keyStore.Delete(cid) → contentStore.Delete(cid).
+    ExpungeArtifact: keyStore.Delete + delKeyStore.Delete + contentStore.Delete.
     BatchExpunge: multiple CIDs, continues on individual failures.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle: ArtifactKeyStore for key destruction
+    - ortholog-sdk/lifecycle: ArtifactKeyStore for AES-GCM key destruction
     - ortholog-sdk/storage: ContentStore for ciphertext removal
+    - DelegationKeyStore (defined in publish.go) for PRE key destruction
 */
 package artifact
 
@@ -44,9 +46,10 @@ type ExpungeConfig struct {
 
 // ExpungeResult holds the outcome of an expungement operation.
 type ExpungeResult struct {
-	KeyDestroyed       bool
-	ContentDeleted     bool
-	ContentDeleteError error
+	AESKeyDestroyed        bool
+	DelegationKeyDestroyed bool
+	ContentDeleted         bool
+	ContentDeleteError     error
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -54,16 +57,20 @@ type ExpungeResult struct {
 // -------------------------------------------------------------------------------------------------
 
 // ExpungeArtifact performs cryptographic erasure of an artifact.
+// Destroys key material from BOTH stores (AES-GCM and PRE delegation).
+// Either store may be nil if the artifact type is known.
+// At least one key store must be non-nil.
 func ExpungeArtifact(
 	cfg ExpungeConfig,
 	keyStore lifecycle.ArtifactKeyStore,
+	delKeyStore DelegationKeyStore,
 	contentStore storage.ContentStore,
 ) (*ExpungeResult, error) {
 	if cfg.ArtifactCID.IsZero() {
 		return nil, fmt.Errorf("artifact/expunge: zero artifact CID")
 	}
-	if keyStore == nil {
-		return nil, fmt.Errorf("artifact/expunge: nil key store")
+	if keyStore == nil && delKeyStore == nil {
+		return nil, fmt.Errorf("artifact/expunge: both key stores are nil")
 	}
 
 	result := &ExpungeResult{}
@@ -75,16 +82,31 @@ func ExpungeArtifact(
 		}
 	}
 
-	if err := keyStore.Delete(cfg.ArtifactCID); err != nil {
-		return nil, fmt.Errorf("artifact/expunge: destroy key: %w", err)
+	// Destroy AES-GCM key (if store provided).
+	if keyStore != nil {
+		if err := keyStore.Delete(cfg.ArtifactCID); err == nil {
+			result.AESKeyDestroyed = true
+		}
+		// Non-fatal: key may not exist if this is a PRE-only artifact.
 	}
-	result.KeyDestroyed = true
 
+	// Destroy PRE wrapped delegation key (if store provided).
+	if delKeyStore != nil {
+		if err := delKeyStore.Delete(cfg.ArtifactCID); err == nil {
+			result.DelegationKeyDestroyed = true
+		}
+		// Non-fatal: key may not exist if this is an AES-GCM-only artifact.
+	}
+
+	if !result.AESKeyDestroyed && !result.DelegationKeyDestroyed {
+		return nil, fmt.Errorf("artifact/expunge: no key material destroyed for %s", cfg.ArtifactCID)
+	}
+
+	// Defense-in-depth: delete ciphertext from content store.
 	if contentStore != nil {
 		err := contentStore.Delete(cfg.ArtifactCID)
 		if err != nil {
 			result.ContentDeleteError = err
-			result.ContentDeleted = false
 		} else {
 			result.ContentDeleted = true
 		}
@@ -109,10 +131,11 @@ type BatchExpungeResult struct {
 func BatchExpunge(
 	cids []storage.CID,
 	keyStore lifecycle.ArtifactKeyStore,
+	delKeyStore DelegationKeyStore,
 	contentStore storage.ContentStore,
 ) (*BatchExpungeResult, error) {
-	if keyStore == nil {
-		return nil, fmt.Errorf("artifact/expunge: nil key store")
+	if keyStore == nil && delKeyStore == nil {
+		return nil, fmt.Errorf("artifact/expunge: both key stores are nil")
 	}
 
 	result := &BatchExpungeResult{
@@ -123,14 +146,13 @@ func BatchExpunge(
 	for _, cid := range cids {
 		expResult, err := ExpungeArtifact(
 			ExpungeConfig{ArtifactCID: cid},
-			keyStore,
-			contentStore,
+			keyStore, delKeyStore, contentStore,
 		)
 		if err != nil {
 			result.Errors[cid.String()] = err
 			continue
 		}
-		if expResult.KeyDestroyed {
+		if expResult.AESKeyDestroyed || expResult.DelegationKeyDestroyed {
 			result.KeysDestroyed++
 		}
 		if expResult.ContentDeleted {

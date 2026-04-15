@@ -1,43 +1,42 @@
 /*
 FILE PATH:
-    cases/artifact/retrieve.go
+
+	cases/artifact/retrieve.go
 
 DESCRIPTION:
-    Performs sealing checks, resolves authorized recipients from disclosure
-    orders, and delegates to the SDK's GrantArtifactAccess for artifact
-    retrieval. This file is the judicial network's authorization policy
-    adapter — it does the ONE thing the SDK cannot: read disclosure order
-    Domain Payloads to extract the authorized recipients list.
+
+	Performs sealing checks, resolves authorized recipients from disclosure
+	orders, and delegates to the SDK's GrantArtifactAccess for artifact
+	retrieval. This is the judicial network's authorization policy adapter.
 
 KEY ARCHITECTURAL DECISIONS:
-    - No local interface redefinitions. Uses builder.EntryFetcher directly.
-    - PRE DELEGATION KEY UNWRAP (MANDATORY per spec):
-      retrieve.go fetches the ECIES-wrapped delegation key from keyStore,
-      calls lifecycle.UnwrapDelegationKey(wrappedKey, ownerMasterKey) to
-      recover sk_del, then passes sk_del (NOT the master key) as
-      OwnerSecretKey to GrantArtifactAccess. OwnerPubKey is pk_del from
-      the Domain Payload — NOT pk_owner.
-    - Error classification via SDK error message: checks for the stable
-      prefix "grant denied" in the SDK's error format.
-    - Disclosure order scanning walks the authority chain backward from
-      AuthorityTip, collecting recipients from all matching orders.
+  - TWO KEY STORES: ArtifactKeyStore (AES-GCM, passed to SDK via params.KeyStore)
+    and DelegationKeyStore (PRE wrapped keys, read by judicial-network code).
+    The SDK never sees wrapped delegation keys or the master identity key.
+  - PRE UNWRAP OUTSIDE SDK: retrieve.go calls delKeyStore.Get → lifecycle.UnwrapDelegationKey
+    → passes unwrapped sk_del as OwnerSecretKey. The SDK receives a 32-byte
+    scalar and calls PRE_GenerateKFrags with it. In production, the HSM
+    performs ECIES_Decrypt internally and never exports the master key.
+  - GrantArtifactAccessParams.OwnerSecretKey receives sk_del (per-artifact
+    delegation key), NOT the master identity key. This field name is locked
+    in the SDK. The judicial network is responsible for the unwrap step.
 
 OVERVIEW:
-    (1) Validate request
-    (2) Sealing check: read Authority_Tip → if sealed, return ErrSealed
-    (3) Resolve authorization:
-        a. Read filing entry Domain Payload → initial authorized_recipients
-        b. Scan authority chain for disclosure orders targeting this artifact
-        c. Merge recipients from filing + all matching disclosure orders
-    (4) For PRE schemas: keyStore.Get(cid) → UnwrapDelegationKey → sk_del
-    (5) Pass merged AuthorizedRecipients + sk_del to SDK GrantArtifactAccess
-    (6) Return GrantArtifactAccessResult to caller
+
+	(1) Validate request
+	(2) Sealing check → ErrSealed
+	(3) Resolve authorized recipients from filing + disclosure orders
+	(4) PRE path: delKeyStore.Get(cid) → UnwrapDelegationKey(wrapped, masterKey) → skDel
+	(5) Pass skDel as OwnerSecretKey + Capsule to GrantArtifactAccess
+	    (pk_del is NOT a grant input — it belongs on the decrypt path)
+	(6) Return GrantArtifactAccessResult
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/builder: EntryFetcher (canonical interface, no local copy)
-    - ortholog-sdk/lifecycle: GrantArtifactAccess, UnwrapDelegationKey, ArtifactKeyStore
-    - ortholog-sdk/core/smt: LeafReader for sealing check + authority chain
-    - judicial-network/schemas: ExtractDisclosureRecipients, DisclosureOrderAppliesToArtifact
+  - ortholog-sdk/builder: EntryFetcher
+  - ortholog-sdk/lifecycle: GrantArtifactAccess, UnwrapDelegationKey, ArtifactKeyStore
+  - ortholog-sdk/core/smt: LeafReader for sealing check + authority chain
+  - judicial-network/schemas: disclosure order payload extraction
+  - DelegationKeyStore (defined in publish.go, same package)
 */
 package artifact
 
@@ -48,8 +47,8 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
+	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
@@ -87,20 +86,21 @@ type RetrievalRequest struct {
 
 	// ── PRE fields (evidence artifacts) ──────────────────────────────
 
-	// OwnerMasterKey is the artifact owner's master identity secret key
-	// (32-byte secp256k1 scalar). Used ONLY for ECIES unwrapping of the
-	// per-artifact delegation key via lifecycle.UnwrapDelegationKey.
-	// NEVER passed directly as OwnerSecretKey to GrantArtifactAccess.
-	// In production: HSM performs ECIES_Decrypt internally.
+	// OwnerMasterKey is the owner's master identity secret key (32 bytes).
+	// Used ONLY for ECIES unwrapping of the per-artifact delegation key.
+	// NEVER passed to GrantArtifactAccess. In production: HSM performs
+	// ECIES_Decrypt internally and this field is not needed — the HSM
+	// returns sk_del directly.
 	OwnerMasterKey []byte
 
-	// PkDel is the per-artifact delegation public key (65-byte uncompressed
-	// secp256k1) from the filing entry's Domain Payload. This is the key
-	// that was used for PRE_Encrypt at publish time. Passed as OwnerPubKey
-	// to GrantArtifactAccess. NOT pk_owner.
+	// PkDel is the per-artifact delegation public key (65 bytes) from the
+	// filing entry's Domain Payload. NOT an input to GrantArtifactAccess
+	// (KFrag generation needs only sk_del + recipient pubkey). Carried on
+	// the request for downstream use: the free tier proxy passes it as
+	// OwnerPubKey to VerifyAndDecryptArtifact (PRE_DecryptFrags needs it).
 	PkDel []byte
 
-	// Capsule is the Umbral PRE capsule from the filing entry's Domain Payload.
+	// Capsule from the filing entry's Domain Payload.
 	Capsule *sdkartifact.Capsule
 }
 
@@ -111,9 +111,14 @@ type RetrievalRequest struct {
 // RetrieveArtifact performs sealing check, resolves authorized recipients,
 // unwraps the PRE delegation key if needed, and delegates to SDK
 // GrantArtifactAccess.
+//
+// keyStore: AES-GCM key material (passed to SDK via params.KeyStore).
+// delKeyStore: PRE wrapped delegation keys (read by this function, not by SDK).
+// delKeyStore may be nil if the schema is known to be AES-GCM only.
 func RetrieveArtifact(
 	req RetrievalRequest,
 	keyStore lifecycle.ArtifactKeyStore,
+	delKeyStore DelegationKeyStore,
 	retrievalProvider storage.RetrievalProvider,
 	extractor schema.SchemaParameterExtractor,
 	leafReader smt.LeafReader,
@@ -141,7 +146,7 @@ func RetrieveArtifact(
 		}
 	}
 
-	// (4) Resolve authorized recipients from filing entry + disclosure orders.
+	// (4) Resolve authorized recipients.
 	authorizedRecipients, err := resolveAuthorizedRecipients(
 		req.FilingEntryPos, req.CaseRootPos, req.ArtifactCID,
 		fetcher, leafReader,
@@ -177,35 +182,39 @@ func RetrieveArtifact(
 		Fetcher:              fetcher,
 	}
 
-	// (6) PRE-specific: unwrap delegation key from keyStore.
-	// The keyStore holds ECIES-wrapped sk_del (stored by publish.go).
-	// UnwrapDelegationKey recovers sk_del using the owner's master key.
-	// sk_del is passed as OwnerSecretKey. pk_del is passed as OwnerPubKey.
-	// The master key NEVER reaches GrantArtifactAccess.
+	// (6) PRE path: unwrap delegation key OUTSIDE the SDK.
+	// The SDK receives the unwrapped 32-byte sk_del via OwnerSecretKey.
+	// The SDK never sees the wrapped key or the master key.
 	if schemaParams.ArtifactEncryption == types.EncryptionUmbralPRE {
-		if keyStore == nil {
+		if delKeyStore == nil {
+			return nil, fmt.Errorf("artifact/retrieve: nil DelegationKeyStore for umbral_pre")
+		}
+
+		// Fetch ECIES-wrapped delegation key from judicial-network store.
+		wrappedSkDel, err := delKeyStore.Get(req.ArtifactCID)
+		if err != nil {
+			return nil, fmt.Errorf("artifact/retrieve: fetch delegation key: %w", err)
+		}
+		if wrappedSkDel == nil {
 			return nil, ErrExpunged
 		}
 
-		// Fetch the wrapped delegation key from the key store.
-		wrappedKey, err := keyStore.Get(req.ArtifactCID)
-		if err != nil {
-			if isKeyNotFoundError(err) {
-				return nil, ErrExpunged
-			}
-			return nil, fmt.Errorf("artifact/retrieve: fetch delegation key: %w", err)
-		}
-
 		// Unwrap: ECIES-decrypt with owner's master key → sk_del.
-		// In production the master key lives in an HSM and
-		// UnwrapDelegationKey calls HSM.ECIES_Decrypt internally.
-		skDel, err := lifecycle.UnwrapDelegationKey(wrappedKey, req.OwnerMasterKey)
+		// In production: skDel = hsm.ECIESDecrypt(wrappedSkDel)
+		// The master key never reaches the SDK.
+		skDel, err := lifecycle.UnwrapDelegationKey(wrappedSkDel, req.OwnerMasterKey)
 		if err != nil {
 			return nil, fmt.Errorf("artifact/retrieve: unwrap delegation key: %w", err)
 		}
 
-		grantParams.OwnerSecretKey = skDel    // per-artifact delegation key
-		grantParams.OwnerPubKey = req.PkDel   // per-artifact delegation public key
+		// Pass unwrapped delegation key to SDK — SDK doesn't know the difference
+		// between sk_del and any other 32-byte scalar.
+		// GrantArtifactAccessParams has OwnerSecretKey + Capsule only.
+		// pk_del is NOT an input to KFrag generation — it belongs on the
+		// decrypt path (VerifyAndDecryptArtifactParams.OwnerPubKey) where
+		// the recipient calls PRE_DecryptFrags. Stored on the request for
+		// callers who need it downstream (e.g., free tier proxy mode).
+		grantParams.OwnerSecretKey = skDel // per-artifact delegation key
 		grantParams.Capsule = req.Capsule
 	}
 
@@ -224,7 +233,7 @@ func RetrieveArtifact(
 }
 
 // -------------------------------------------------------------------------------------------------
-// 4) Sealing check — O(1), one leaf read
+// 4) Sealing check
 // -------------------------------------------------------------------------------------------------
 
 func checkSealed(caseRootPos types.LogPosition, leafReader smt.LeafReader) (bool, error) {
@@ -246,7 +255,7 @@ func checkSealed(caseRootPos types.LogPosition, leafReader smt.LeafReader) (bool
 }
 
 // -------------------------------------------------------------------------------------------------
-// 5) Authorized recipients resolution — domain-specific payload reading
+// 5) Authorized recipients resolution
 // -------------------------------------------------------------------------------------------------
 
 func resolveAuthorizedRecipients(
@@ -305,7 +314,7 @@ func extractInitialRecipients(canonicalBytes []byte) []string {
 }
 
 // -------------------------------------------------------------------------------------------------
-// 6) Disclosure order scanning — authority chain walk
+// 6) Disclosure order scanning
 // -------------------------------------------------------------------------------------------------
 
 const maxAuthorityChainScan = 200
@@ -321,7 +330,6 @@ func scanDisclosureOrders(
 	if err != nil || leaf == nil {
 		return nil
 	}
-
 	if leaf.AuthorityTip.Equal(caseRootPos) {
 		return nil
 	}
@@ -340,19 +348,16 @@ func scanDisclosureOrders(
 		if fetchErr != nil || meta == nil {
 			break
 		}
-
 		entry, desErr := deserializeEntry(meta.CanonicalBytes)
 		if desErr != nil || entry == nil {
 			break
 		}
-
 		if len(entry.DomainPayload) > 0 {
 			if schemas.DisclosureOrderAppliesToArtifact(entry.DomainPayload, artifactCIDStr) {
 				recipients, _ := schemas.ExtractDisclosureRecipients(entry.DomainPayload)
 				allRecipients = append(allRecipients, recipients...)
 			}
 		}
-
 		if entry.Header.PriorAuthority == nil {
 			break
 		}
@@ -363,15 +368,9 @@ func scanDisclosureOrders(
 }
 
 // -------------------------------------------------------------------------------------------------
-// 7) Error classification helpers
+// 7) Error classification
 // -------------------------------------------------------------------------------------------------
 
-// isAuthorizationError checks if the SDK returned a grant authorization
-// failure. The SDK wraps denial as:
-//
-//	fmt.Errorf("lifecycle/artifact: grant denied: %s", check.Reason)
-//
-// The stable prefix "grant denied" is the reliable indicator.
 func isAuthorizationError(err error) bool {
 	if err == nil {
 		return false

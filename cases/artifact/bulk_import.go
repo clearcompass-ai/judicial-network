@@ -7,24 +7,20 @@ DESCRIPTION:
     Used during court onboarding when migrating records from legacy CMS systems.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Sequential processing: historical imports are not latency-sensitive.
-      Rate limiting requires sequential control flow.
-    - ContinueOnError: individual record failures are recorded but do not
-      stop the batch. Legacy records may have corrupt data.
-    - Uses builder.EntryFetcher (SDK canonical type) — no local redefinition.
-    - PRE delegation key pattern is inherited from PublishArtifact — no
-      additional logic needed here.
+    - Sequential processing with rate limiting.
+    - ContinueOnError for corrupt legacy records.
+    - Passes both keyStore (AES-GCM) and delKeyStore (PRE) through to
+      PublishArtifact. Either may be nil depending on the import schemas.
 
 OVERVIEW:
     Each ImportRecord is encrypted via PublishArtifact with configurable
-    rate limiting (tokens/second). Progress callbacks report per-record
-    status. Summary report includes per-record CIDs and errors.
+    rate limiting. Progress callbacks report per-record status.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/builder: EntryFetcher for schema resolution in PublishArtifact
-    - ortholog-sdk/lifecycle: ArtifactKeyStore for key persistence
-    - ortholog-sdk/storage: ContentStore for ciphertext push
-    - cases/artifact/publish.go: PublishArtifact for per-record encryption
+    - ortholog-sdk/builder: EntryFetcher
+    - ortholog-sdk/lifecycle: ArtifactKeyStore
+    - ortholog-sdk/storage: ContentStore
+    - DelegationKeyStore (defined in publish.go)
 */
 package artifact
 
@@ -83,18 +79,19 @@ type BulkImportResult struct {
 // 2) BulkImport
 // -------------------------------------------------------------------------------------------------
 
-// BulkImport processes a batch of historical records, encrypting and
-// pushing each to the content store via PublishArtifact.
+// BulkImport processes a batch of historical records.
+// keyStore: AES-GCM keys. delKeyStore: PRE delegation keys. Either may be nil.
 func BulkImport(
 	cfg BulkImportConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycle.ArtifactKeyStore,
+	delKeyStore DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
 	fetcher builder.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*BulkImportResult, error) {
-	if contentStore == nil || keyStore == nil {
-		return nil, fmt.Errorf("artifact/bulk_import: nil content store or key store")
+	if contentStore == nil {
+		return nil, fmt.Errorf("artifact/bulk_import: nil content store")
 	}
 
 	result := &BulkImportResult{
@@ -123,6 +120,7 @@ func BulkImport(
 			},
 			contentStore,
 			keyStore,
+			delKeyStore,
 			extractor,
 			fetcher,
 			resolver,

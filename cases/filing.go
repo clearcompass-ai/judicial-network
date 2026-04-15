@@ -4,29 +4,25 @@ FILE PATH:
 
 DESCRIPTION:
     Handles subsequent filings on an existing case. A filing is a Path B
-    entry (delegated authority) appended to the case root entity. The filing
-    may include an artifact that is encrypted via the artifact sub-package
-    and referenced by CID in the Domain Payload.
+    entry appended to the case root entity. May include an artifact that is
+    encrypted via the artifact sub-package.
 
 KEY ARCHITECTURAL DECISIONS:
-    - No local interface redefinitions. Uses builder.EntryFetcher directly
-      from the SDK (import path: builder/, NOT core/builder/).
-    - Uses builder.BuildPathBEntry as a package-level function.
-    - PathBParams.Payload (not DomainPayload) — matches SDK field name exactly.
-    - DelegationPointers required for Path B.
-    - Domain Payload carries pk_del for PRE evidence artifacts. retrieve.go
-      reads pk_del to pass as OwnerPubKey to GrantArtifactAccess.
+    - Two key stores passed through: keyStore (AES-GCM) and delKeyStore (PRE).
+      Filing.go does not use either directly — they flow to artifact.PublishArtifact.
+    - builder.BuildPathBEntry as package-level function. PathBParams.Payload field.
+    - Domain Payload carries pk_del for PRE evidence artifacts.
 
 OVERVIEW:
-    (1) If plaintext provided: call artifact.PublishArtifact to encrypt + push.
-    (2) Assemble Domain Payload with artifact fields + disclosure fields + pk_del.
-    (3) Build the entry via builder.BuildPathBEntry (delegated filing).
-    (4) Return the unsigned entry for the caller to sign and submit.
+    (1) If plaintext: call artifact.PublishArtifact (both stores passed through).
+    (2) Assemble Domain Payload with artifact + disclosure + pk_del fields.
+    (3) Build entry via builder.BuildPathBEntry.
+    (4) Return unsigned entry.
 
 KEY DEPENDENCIES:
     - ortholog-sdk/builder: BuildPathBEntry, PathBParams, EntryFetcher
     - ortholog-sdk/core/envelope: Entry type
-    - judicial-network/cases/artifact: PublishArtifact for document encryption
+    - judicial-network/cases/artifact: PublishArtifact, DelegationKeyStore
 */
 package cases
 
@@ -75,12 +71,13 @@ type FilingResult struct {
 // 2) File
 // -------------------------------------------------------------------------------------------------
 
-// File creates a filing entry on an existing case, optionally encrypting
-// and storing an artifact.
+// File creates a filing entry on an existing case.
+// keyStore: AES-GCM keys. delKeyStore: PRE delegation keys. Both passed to PublishArtifact.
 func File(
 	cfg FilingConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycle.ArtifactKeyStore,
+	delKeyStore artifact.DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
 	fetcher builder.EntryFetcher,
 	resolver did.DIDResolver,
@@ -115,6 +112,7 @@ func File(
 			},
 			contentStore,
 			keyStore,
+			delKeyStore,
 			extractor,
 			fetcher,
 			resolver,
@@ -132,7 +130,7 @@ func File(
 		return nil, fmt.Errorf("cases/filing: marshal payload: %w", err)
 	}
 
-	// (3) Build the entry via SDK builder.BuildPathBEntry.
+	// (3) Build entry.
 	var schemaRefPtr *types.LogPosition
 	if !cfg.SchemaRef.IsNull() {
 		schemaRefPtr = &cfg.SchemaRef
@@ -180,14 +178,9 @@ func assembleFilingPayload(
 		if published.Capsule != "" {
 			payload["capsule"] = published.Capsule
 		}
-
-		// pk_del: per-artifact delegation public key for PRE evidence.
-		// retrieve.go reads this field and passes it as OwnerPubKey
-		// to GrantArtifactAccess. This is NOT pk_owner.
 		if published.PkDel != "" {
 			payload["pk_del"] = published.PkDel
 		}
-
 		if published.DisclosureScope != "" {
 			payload["disclosure_scope"] = published.DisclosureScope
 		}

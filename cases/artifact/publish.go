@@ -8,19 +8,20 @@ DESCRIPTION:
     field. Write-side entry point for all artifact operations.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Schema-driven dispatch: the encryption scheme comes from SchemaParameters,
-      not from caller choice. The schema is the authority.
-    - content_digest computed BEFORE encryption: storage.Compute(plaintext).
-      Survives re-encryption (plaintext unchanged). artifact_cid computed
-      AFTER encryption: storage.Compute(ciphertext). Changes on re-encryption.
+    - TWO KEY STORES, strict type separation:
+      ArtifactKeyStore (SDK): stores artifact.ArtifactKey (Key[32]+Nonce[12]).
+        Used by AES-GCM path only. 44-byte fixed struct.
+      DelegationKeyStore (judicial-network): stores []byte ECIES ciphertext.
+        Used by PRE path only. ~113 bytes variable. Domain-owned interface.
+      The SDK's ArtifactKeyStore cannot hold wrapped delegation keys because
+      artifact.ArtifactKey is a fixed 44-byte struct and ECIES output is ~113
+      bytes. This is by design — the SDK documents that ArtifactKeyStore is
+      "Not used by the PRE path."
     - PRE DELEGATION KEY PATTERN (MANDATORY per spec):
       Master identity key NEVER enters PRE operations. publish.go calls
       lifecycle.GenerateDelegationKey(ownerPubKey) → (pkDel, wrappedSkDel).
-      PRE_Encrypt uses pkDel (NOT pk_owner). wrappedSkDel is stored in the
-      ArtifactKeyStore. Collusion extracts sk_del (one artifact only).
-      sk_owner is isolated. Zero lateral movement.
-    - AES-GCM stores raw key material (Key[32]+Nonce[12]) in keyStore.
-      PRE stores ECIES-wrapped delegation key in keyStore. Same interface.
+      PRE_Encrypt uses pkDel (NOT pk_owner). wrappedSkDel stored in
+      DelegationKeyStore. Collusion extracts sk_del only. Zero lateral movement.
 
 OVERVIEW:
     AES-GCM path:
@@ -28,21 +29,21 @@ OVERVIEW:
       (2) ciphertext, artKey = EncryptArtifact(plaintext)
       (3) artifact_cid = storage.Compute(ciphertext)
       (4) contentStore.Push(artifact_cid, ciphertext)
-      (5) keyStore.Store(artifact_cid, artKey)
+      (5) keyStore.Store(artifact_cid, artKey)   ← ArtifactKeyStore (44-byte struct)
 
     PRE path:
       (1) content_digest = storage.Compute(plaintext)
       (2) pkDel, wrappedSkDel = lifecycle.GenerateDelegationKey(ownerPubKey)
-      (3) capsule, ciphertext = PRE_Encrypt(pkDel, plaintext)  ← pkDel NOT pk_owner
+      (3) capsule, ciphertext = PRE_Encrypt(pkDel, plaintext)
       (4) artifact_cid = storage.Compute(ciphertext)
       (5) contentStore.Push(artifact_cid, ciphertext)
-      (6) keyStore.Store(artifact_cid, wrappedSkDel)
-      (7) Return: capsule, pkDel (base64), content_digest for Domain Payload
+      (6) delKeyStore.Store(artifact_cid, wrappedSkDel) ← DelegationKeyStore ([]byte)
+      (7) Return: capsule, pkDel (base64) for Domain Payload
 
 KEY DEPENDENCIES:
     - ortholog-sdk/builder: EntryFetcher for schema resolution
-    - ortholog-sdk/crypto/artifact: EncryptArtifact, PRE_Encrypt
-    - ortholog-sdk/lifecycle: ArtifactKeyStore, GenerateDelegationKey
+    - ortholog-sdk/crypto/artifact: EncryptArtifact, PRE_Encrypt, ArtifactKey
+    - ortholog-sdk/lifecycle: ArtifactKeyStore (AES-GCM), GenerateDelegationKey (PRE)
     - ortholog-sdk/storage: ContentStore, CID computation
     - ortholog-sdk/did: DIDResolver for PRE owner public key resolution
 */
@@ -63,62 +64,68 @@ import (
 )
 
 // -------------------------------------------------------------------------------------------------
-// 1) Types
+// 1) DelegationKeyStore — judicial-network-owned interface for PRE wrapped keys
+// -------------------------------------------------------------------------------------------------
+
+// DelegationKeyStore maps artifact CID to ECIES-wrapped PRE delegation keys.
+// This is a domain concern — the SDK provides GenerateDelegationKey and
+// UnwrapDelegationKey primitives; the judicial network stores the wrapped
+// output however it wants.
+//
+// Separate from lifecycle.ArtifactKeyStore which stores artifact.ArtifactKey
+// (fixed 44-byte struct for AES-GCM). ECIES-wrapped delegation keys are
+// ~113 bytes of variable-length ciphertext and do not fit ArtifactKey.
+//
+// Production: backed by the same KMS/HSM infrastructure as ArtifactKeyStore.
+// Testing: InMemoryDelegationKeyStore below.
+type DelegationKeyStore interface {
+	Store(cid storage.CID, wrappedKey []byte) error
+	Get(cid storage.CID) ([]byte, error)
+	Delete(cid storage.CID) error
+}
+
+// -------------------------------------------------------------------------------------------------
+// 2) Types
 // -------------------------------------------------------------------------------------------------
 
 // PublishConfig configures a single artifact publish operation.
 type PublishConfig struct {
-	// Plaintext is the raw artifact bytes (PDF, image, audio, etc.).
-	Plaintext []byte
-
-	// SchemaRef is the log position of the governing schema entry.
-	SchemaRef types.LogPosition
-
-	// OwnerDID is the artifact owner's DID. For Umbral PRE, this DID's
-	// public key is resolved via DIDResolver. GenerateDelegationKey wraps
-	// the delegation secret key under this public key via ECIES.
-	OwnerDID string
-
-	// Metadata is optional domain-specific metadata passed through.
-	Metadata map[string]string
-
-	// DisclosureScope controls who may receive access grants.
-	DisclosureScope string
-
-	// InitialRecipients are DIDs pre-authorized at filing time.
+	Plaintext         []byte
+	SchemaRef         types.LogPosition
+	OwnerDID          string
+	Metadata          map[string]string
+	DisclosureScope   string
 	InitialRecipients []string
 }
 
 // PublishedArtifact is the result of a successful publish operation.
 type PublishedArtifact struct {
-	ArtifactCID   storage.CID
-	ContentDigest storage.CID
-	Scheme        string
-	Capsule       string
-	CapsuleRaw    *sdkartifact.Capsule
-	Metadata      map[string]string
-
-	// PkDel is the base64-encoded per-artifact delegation public key.
-	// Empty for AES-GCM. For PRE, this goes into the Domain Payload
-	// and is read by retrieve.go as OwnerPubKey for GrantArtifactAccess.
-	// This is NOT the owner's identity public key.
-	PkDel string
-
+	ArtifactCID       storage.CID
+	ContentDigest     storage.CID
+	Scheme            string
+	Capsule           string
+	CapsuleRaw        *sdkartifact.Capsule
+	Metadata          map[string]string
+	PkDel             string // base64 per-artifact delegation pubkey (PRE only)
 	DisclosureScope   string
 	InitialRecipients []string
 }
 
 // -------------------------------------------------------------------------------------------------
-// 2) PublishArtifact
+// 3) PublishArtifact
 // -------------------------------------------------------------------------------------------------
 
-// PublishArtifact encrypts plaintext, pushes ciphertext to the content
-// store, and stores the encryption key. Returns a PublishedArtifact
-// whose fields populate the entry's Domain Payload.
+// PublishArtifact encrypts plaintext, pushes ciphertext to the content store,
+// and stores the encryption key material.
+//
+// AES-GCM artifacts store keys in keyStore (lifecycle.ArtifactKeyStore).
+// PRE artifacts store wrapped delegation keys in delKeyStore (DelegationKeyStore).
+// delKeyStore may be nil if the schema is known to be AES-GCM only.
 func PublishArtifact(
 	cfg PublishConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycle.ArtifactKeyStore,
+	delKeyStore DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
 	fetcher builder.EntryFetcher,
 	resolver did.DIDResolver,
@@ -128,9 +135,6 @@ func PublishArtifact(
 	}
 	if contentStore == nil {
 		return nil, fmt.Errorf("artifact/publish: nil content store")
-	}
-	if keyStore == nil {
-		return nil, fmt.Errorf("artifact/publish: nil key store")
 	}
 
 	contentDigest := storage.Compute(cfg.Plaintext)
@@ -143,9 +147,15 @@ func PublishArtifact(
 	var result *PublishedArtifact
 	switch schemaParams.ArtifactEncryption {
 	case types.EncryptionAESGCM:
+		if keyStore == nil {
+			return nil, fmt.Errorf("artifact/publish: nil ArtifactKeyStore for AES-GCM")
+		}
 		result, err = publishAESGCM(cfg, contentStore, keyStore, contentDigest)
 	case types.EncryptionUmbralPRE:
-		result, err = publishUmbralPRE(cfg, contentStore, keyStore, contentDigest, resolver)
+		if delKeyStore == nil {
+			return nil, fmt.Errorf("artifact/publish: nil DelegationKeyStore for umbral_pre")
+		}
+		result, err = publishUmbralPRE(cfg, contentStore, delKeyStore, contentDigest, resolver)
 	default:
 		return nil, fmt.Errorf("artifact/publish: unknown encryption scheme %d", schemaParams.ArtifactEncryption)
 	}
@@ -160,7 +170,7 @@ func PublishArtifact(
 }
 
 // -------------------------------------------------------------------------------------------------
-// 3) AES-GCM publish path
+// 4) AES-GCM publish path — uses ArtifactKeyStore (44-byte struct)
 // -------------------------------------------------------------------------------------------------
 
 func publishAESGCM(
@@ -188,25 +198,13 @@ func publishAESGCM(
 }
 
 // -------------------------------------------------------------------------------------------------
-// 4) Umbral PRE publish path — DELEGATION KEY PATTERN
+// 5) Umbral PRE publish path — uses DelegationKeyStore ([]byte ECIES)
 // -------------------------------------------------------------------------------------------------
 
-// publishUmbralPRE implements the mandatory delegation key pattern:
-//
-//	(1) Resolve owner's identity public key via DIDResolver
-//	(2) GenerateDelegationKey(ownerPK) → pkDel (ephemeral), wrappedSkDel (ECIES)
-//	(3) PRE_Encrypt(pkDel, plaintext) — pkDel, NOT pk_owner
-//	(4) keyStore.Store(artifactCID, wrappedSkDel) — delegation key, not master
-//	(5) Return pkDel (base64) for Domain Payload
-//
-// Security invariant: ownerPK is used ONLY as the ECIES wrapping target
-// inside GenerateDelegationKey. It never enters PRE_Encrypt. If a grant
-// is compromised, the attacker recovers sk_del (one artifact). sk_owner
-// is isolated. Zero lateral movement.
 func publishUmbralPRE(
 	cfg PublishConfig,
 	contentStore storage.ContentStore,
-	keyStore lifecycle.ArtifactKeyStore,
+	delKeyStore DelegationKeyStore,
 	contentDigest storage.CID,
 	resolver did.DIDResolver,
 ) (*PublishedArtifact, error) {
@@ -217,38 +215,34 @@ func publishUmbralPRE(
 		return nil, fmt.Errorf("artifact/publish: OwnerDID required for umbral_pre")
 	}
 
-	// (1) Resolve owner's identity public key.
 	ownerPK, err := resolvePublicKey(cfg.OwnerDID, resolver)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/publish: resolve owner pk: %w", err)
 	}
 
-	// (2) Generate per-artifact delegation keypair.
-	// pkDel: ephemeral public key for PRE_Encrypt.
-	// wrappedSkDel: ECIES-wrapped private key stored in keyStore.
-	// ownerPK is the ECIES wrapping target only — never enters PRE.
+	// GenerateDelegationKey returns:
+	//   pkDel:        65-byte uncompressed secp256k1 public key (ephemeral)
+	//   wrappedSkDel: ~113 bytes ECIES ciphertext (sk_del wrapped for ownerPK)
 	pkDel, wrappedSkDel, err := lifecycle.GenerateDelegationKey(ownerPK)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/publish: generate delegation key: %w", err)
 	}
 
-	// (3) PRE_Encrypt with pkDel — NOT pk_owner.
+	// PRE_Encrypt with pkDel — NOT pk_owner. Master key never enters PRE.
 	capsule, ciphertext, err := sdkartifact.PRE_Encrypt(pkDel, cfg.Plaintext)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/publish: pre_encrypt: %w", err)
 	}
 
-	// (4) Push ciphertext to content store.
 	artifactCID := storage.Compute(ciphertext)
 	if err := contentStore.Push(artifactCID, ciphertext); err != nil {
 		return nil, fmt.Errorf("artifact/publish: push: %w", err)
 	}
 
-	// (5) Store wrapped delegation key (NOT raw key, NOT master key).
-	// ArtifactKeyStore holds ECIES-wrapped sk_del. At grant time,
-	// retrieve.go calls UnwrapDelegationKey(wrappedSkDel, ownerMasterSK)
-	// to recover sk_del for KFrag generation.
-	if err := keyStore.Store(artifactCID, wrappedSkDel); err != nil {
+	// Store ECIES-wrapped delegation key in DelegationKeyStore ([]byte).
+	// NOT in ArtifactKeyStore — ArtifactKey is a fixed 44-byte struct
+	// and cannot hold ~113 bytes of ECIES ciphertext.
+	if err := delKeyStore.Store(artifactCID, wrappedSkDel); err != nil {
 		return nil, fmt.Errorf("artifact/publish: store delegation key: %w", err)
 	}
 
@@ -266,7 +260,7 @@ func publishUmbralPRE(
 }
 
 // -------------------------------------------------------------------------------------------------
-// 5) Helpers
+// 6) Helpers
 // -------------------------------------------------------------------------------------------------
 
 func resolveSchemaParams(
