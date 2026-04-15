@@ -1,0 +1,167 @@
+/*
+FILE PATH:
+    schemas/evidence_artifact.go
+
+DESCRIPTION:
+    Defines tn-evidence-artifact-v1 — the ONLY judicial schema that uses
+    Umbral PRE encryption and sealed grant authorization mode.
+
+KEY ARCHITECTURAL DECISIONS:
+    - Sealed grant mode: recipient must be on the authorized recipients
+      list. This list is assembled by retrieve.go from filing entry +
+      disclosure orders, then passed to the SDK as []string.
+    - Umbral PRE with delegation keys: publish.go calls GenerateDelegationKey
+      to produce a per-artifact keypair. PRE_Encrypt uses pk_del (NOT
+      pk_owner). The wrapped delegation secret key is stored in the
+      ArtifactKeyStore. Master identity key NEVER enters PRE operations.
+    - PkDel field: the per-artifact delegation public key (base64) is stored
+      in the Domain Payload. retrieve.go reads it and passes it as
+      OwnerPubKey to GrantArtifactAccess. This is NOT the owner's identity
+      public key — it is the ephemeral per-artifact key.
+
+OVERVIEW:
+    Schema parameters: artifact_encryption=umbral_pre, grant_authorization_mode=sealed,
+    grant_entry_required=true, grant_requires_audit_entry=true,
+    re_encryption_threshold={m:3,n:5}. Evidence types: exhibit,
+    victim_statement, sealed_doc, forensic_report, surveillance,
+    juvenile_record. Classifications: public, restricted, sealed, expungeable.
+
+KEY DEPENDENCIES:
+    - schemas/registry.go: ThresholdConfig, SchemaPosition, DisclosureScopeType shared types
+*/
+package schemas
+
+import "encoding/json"
+
+// -------------------------------------------------------------------------------------------------
+// 1) Evidence type and classification enums
+// -------------------------------------------------------------------------------------------------
+
+// EvidenceType classifies the kind of evidence artifact.
+type EvidenceType string
+
+const (
+	EvidenceTypeExhibit         EvidenceType = "exhibit"
+	EvidenceTypeVictimStatement EvidenceType = "victim_statement"
+	EvidenceTypeSealedDoc       EvidenceType = "sealed_doc"
+	EvidenceTypeForensicReport  EvidenceType = "forensic_report"
+	EvidenceTypeSurveillance    EvidenceType = "surveillance"
+	EvidenceTypeJuvenileRecord  EvidenceType = "juvenile_record"
+)
+
+// EvidenceClassification determines access control and retention policy.
+type EvidenceClassification string
+
+const (
+	ClassificationPublic      EvidenceClassification = "public"
+	ClassificationRestricted  EvidenceClassification = "restricted"
+	ClassificationSealed      EvidenceClassification = "sealed"
+	ClassificationExpungeable EvidenceClassification = "expungeable"
+)
+
+// -------------------------------------------------------------------------------------------------
+// 2) Evidence artifact Domain Payload
+// -------------------------------------------------------------------------------------------------
+
+// EvidenceArtifactPayload is the Domain Payload structure for entries
+// governed by tn-evidence-artifact-v1.
+//
+// Contains SDK well-known fields (read by SchemaParameterExtractor)
+// and judicial-specific evidence fields (read by domain code only).
+// The SDK never reads the judicial fields (SDK-D6).
+type EvidenceArtifactPayload struct {
+	// ── SDK well-known SchemaParameters fields ───────────────────────
+	ActivationDelay         int64            `json:"activation_delay,omitempty"`
+	CosignatureThreshold    int              `json:"cosignature_threshold,omitempty"`
+	OverrideRequiresWitness bool             `json:"override_requires_witness,omitempty"`
+	MigrationPolicy         string           `json:"migration_policy,omitempty"`
+	ArtifactEncryption      string           `json:"artifact_encryption"`
+	GrantEntryRequired      bool             `json:"grant_entry_required"`
+	GrantAuthorizationMode  string           `json:"grant_authorization_mode"`
+	GrantRequiresAuditEntry bool             `json:"grant_requires_audit_entry"`
+	ReEncryptionThreshold   *ThresholdConfig `json:"re_encryption_threshold,omitempty"`
+	PredecessorSchema       *SchemaPosition  `json:"predecessor_schema,omitempty"`
+
+	// ── Judicial evidence fields ─────────────────────────────────────
+	EvidenceType           EvidenceType           `json:"evidence_type"`
+	Classification         EvidenceClassification `json:"classification"`
+	ContentDigest          string                 `json:"content_digest,omitempty"`
+	ArtifactCID            string                 `json:"artifact_cid,omitempty"`
+	Capsule                string                 `json:"capsule,omitempty"`
+	ChainOfCustodyRequired bool                   `json:"chain_of_custody_required"`
+	CaseRef                string                 `json:"case_ref,omitempty"`
+	FiledBy                string                 `json:"filed_by,omitempty"`
+	Description            string                 `json:"description,omitempty"`
+
+	// ── PRE delegation key ───────────────────────────────────────────
+	// PkDel is the base64-encoded per-artifact delegation public key.
+	// Generated by lifecycle.GenerateDelegationKey at publish time.
+	// This is NOT the owner's identity public key. It is the ephemeral
+	// key that PRE_Encrypt used. retrieve.go reads this field and passes
+	// it as OwnerPubKey to GrantArtifactAccess.
+	// Collusion extracts sk_del (one artifact only). sk_owner is isolated.
+	PkDel string `json:"pk_del,omitempty"`
+
+	// ── Selective disclosure fields ──────────────────────────────────
+	DisclosureScope      DisclosureScopeType `json:"disclosure_scope,omitempty"`
+	DisclosureOrderRef   string              `json:"disclosure_order_ref,omitempty"`
+	AuthorizedRecipients []string            `json:"authorized_recipients,omitempty"`
+}
+
+// -------------------------------------------------------------------------------------------------
+// 3) Schema entry defaults
+// -------------------------------------------------------------------------------------------------
+
+// DefaultEvidenceArtifactParams returns the schema entry Domain Payload
+// for tn-evidence-artifact-v1.
+func DefaultEvidenceArtifactParams() []byte {
+	params := map[string]interface{}{
+		"artifact_encryption":        "umbral_pre",
+		"grant_authorization_mode":   "sealed",
+		"grant_entry_required":       true,
+		"grant_requires_audit_entry": true,
+		"re_encryption_threshold":    map[string]interface{}{"m": 3, "n": 5},
+		"override_requires_witness":  true,
+		"migration_policy":           "amendment",
+	}
+	b, _ := json.Marshal(params)
+	return b
+}
+
+// -------------------------------------------------------------------------------------------------
+// 4) Serialization
+// -------------------------------------------------------------------------------------------------
+
+func SerializeEvidencePayload(p *EvidenceArtifactPayload) ([]byte, error) {
+	return json.Marshal(p)
+}
+
+func DeserializeEvidencePayload(data []byte) (*EvidenceArtifactPayload, error) {
+	var p EvidenceArtifactPayload
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// -------------------------------------------------------------------------------------------------
+// 5) Registry registration
+// -------------------------------------------------------------------------------------------------
+
+func evidenceArtifactRegistration() *SchemaRegistration {
+	return &SchemaRegistration{
+		URI: SchemaEvidenceArtifactV1,
+		Serialize: func(payload interface{}) ([]byte, error) {
+			p, ok := payload.(*EvidenceArtifactPayload)
+			if !ok {
+				return nil, ErrDeserialize
+			}
+			return SerializeEvidencePayload(p)
+		},
+		Deserialize: func(data []byte) (interface{}, error) {
+			return DeserializeEvidencePayload(data)
+		},
+		DefaultParams:   DefaultEvidenceArtifactParams,
+		IdentifierScope: IdentifierScopeRealDID,
+	}
+}
