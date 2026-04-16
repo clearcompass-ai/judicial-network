@@ -1,28 +1,16 @@
 /*
-FILE PATH:
-    cases/filing.go
-
-DESCRIPTION:
-    Handles subsequent filings on an existing case. A filing is a Path B
-    entry appended to the case root entity. May include an artifact that is
-    encrypted via the artifact sub-package.
-
+FILE PATH: cases/filing.go
+DESCRIPTION: Handles subsequent filings on an existing case. Supports BOTH
+    Path A (same-signer amendments) and Path B (delegated filings).
 KEY ARCHITECTURAL DECISIONS:
-    - Two key stores passed through: keyStore (AES-GCM) and delKeyStore (PRE).
-      Filing.go does not use either directly — they flow to artifact.PublishArtifact.
-    - builder.BuildPathBEntry as package-level function. PathBParams.Payload field.
-    - Domain Payload carries pk_del for PRE evidence artifacts.
-
-OVERVIEW:
-    (1) If plaintext: call artifact.PublishArtifact (both stores passed through).
-    (2) Assemble Domain Payload with artifact + disclosure + pk_del fields.
-    (3) Build entry via builder.BuildPathBEntry.
-    (4) Return unsigned entry.
-
-KEY DEPENDENCIES:
-    - ortholog-sdk/builder: BuildPathBEntry, PathBParams, EntryFetcher
-    - ortholog-sdk/core/envelope: Entry type
-    - judicial-network/cases/artifact: PublishArtifact, DelegationKeyStore
+    - Path A: BuildAmendment when SignerDID matches case root entity signer
+      and no DelegationPointers are provided. Attorney files motion then exhibit.
+    - Path B: BuildPathBEntry when DelegationPointers are provided. Delegated
+      filings from attorneys with delegation chains.
+    - Both paths use same artifact.PublishArtifact pipeline.
+    - Decision between A/B: if DelegationPointers empty → Path A, else Path B.
+OVERVIEW: File → artifact encryption + Path A or Path B entry.
+KEY DEPENDENCIES: ortholog-sdk/builder, cases/artifact
 */
 package cases
 
@@ -41,16 +29,11 @@ import (
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )
 
-// -------------------------------------------------------------------------------------------------
-// 1) Types
-// -------------------------------------------------------------------------------------------------
-
-// FilingConfig configures a filing operation.
 type FilingConfig struct {
 	SignerDID          string
 	CaseRootPos        types.LogPosition
 	SchemaRef          types.LogPosition
-	DelegationPointers []types.LogPosition
+	DelegationPointers []types.LogPosition // Empty → Path A; populated → Path B
 	EventTime          int64
 	DocumentType       string
 	DocumentTitle      string
@@ -61,18 +44,15 @@ type FilingConfig struct {
 	ExtraPayload       map[string]interface{}
 }
 
-// FilingResult holds the outcome of a filing operation.
 type FilingResult struct {
 	Entry     *envelope.Entry
 	Published *artifact.PublishedArtifact
+	Path      string // "A" or "B"
 }
 
-// -------------------------------------------------------------------------------------------------
-// 2) File
-// -------------------------------------------------------------------------------------------------
-
 // File creates a filing entry on an existing case.
-// keyStore: AES-GCM keys. delKeyStore: PRE delegation keys. Both passed to PublishArtifact.
+// Path A when no DelegationPointers (same-signer amendment).
+// Path B when DelegationPointers provided (delegated filing).
 func File(
 	cfg FilingConfig,
 	contentStore storage.ContentStore,
@@ -88,13 +68,10 @@ func File(
 	if cfg.CaseRootPos.IsNull() {
 		return nil, fmt.Errorf("cases/filing: null case root position")
 	}
-	if len(cfg.DelegationPointers) == 0 {
-		return nil, fmt.Errorf("cases/filing: empty delegation pointers (Path B requires delegation chain)")
-	}
 
 	result := &FilingResult{}
 
-	// (1) Encrypt and store artifact if plaintext provided.
+	// Encrypt and store artifact if plaintext provided.
 	if len(cfg.Plaintext) > 0 {
 		ownerDID := cfg.OwnerDID
 		if ownerDID == "" {
@@ -110,12 +87,7 @@ func File(
 				DisclosureScope:   cfg.DisclosureScope,
 				InitialRecipients: cfg.InitialRecipients,
 			},
-			contentStore,
-			keyStore,
-			delKeyStore,
-			extractor,
-			fetcher,
-			resolver,
+			contentStore, keyStore, delKeyStore, extractor, fetcher, resolver,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("cases/filing: publish artifact: %w", err)
@@ -123,45 +95,58 @@ func File(
 		result.Published = published
 	}
 
-	// (2) Assemble Domain Payload.
+	// Assemble Domain Payload.
 	payload := assembleFilingPayload(cfg, result.Published)
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("cases/filing: marshal payload: %w", err)
 	}
 
-	// (3) Build entry.
 	var schemaRefPtr *types.LogPosition
 	if !cfg.SchemaRef.IsNull() {
 		schemaRefPtr = &cfg.SchemaRef
 	}
 
-	entry, err := builder.BuildPathBEntry(builder.PathBParams{
-		SignerDID:          cfg.SignerDID,
-		TargetRoot:         cfg.CaseRootPos,
-		DelegationPointers: cfg.DelegationPointers,
-		Payload:            payloadBytes,
-		SchemaRef:          schemaRefPtr,
-		EventTime:          cfg.EventTime,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("cases/filing: build entry: %w", err)
+	// Decision: Path A (no delegation pointers) or Path B (delegation pointers).
+	if len(cfg.DelegationPointers) == 0 {
+		// Path A: same-signer amendment. Signer must match case root entity signer.
+		entry, bErr := builder.BuildAmendment(builder.AmendmentParams{
+			SignerDID:  cfg.SignerDID,
+			TargetRoot: cfg.CaseRootPos,
+			Payload:    payloadBytes,
+			SchemaRef:  schemaRefPtr,
+			EventTime:  cfg.EventTime,
+		})
+		if bErr != nil {
+			return nil, fmt.Errorf("cases/filing: build Path A amendment: %w", bErr)
+		}
+		result.Entry = entry
+		result.Path = "A"
+	} else {
+		// Path B: delegated filing via delegation chain.
+		entry, bErr := builder.BuildPathBEntry(builder.PathBParams{
+			SignerDID:          cfg.SignerDID,
+			TargetRoot:         cfg.CaseRootPos,
+			DelegationPointers: cfg.DelegationPointers,
+			Payload:            payloadBytes,
+			SchemaRef:          schemaRefPtr,
+			EventTime:          cfg.EventTime,
+		})
+		if bErr != nil {
+			return nil, fmt.Errorf("cases/filing: build Path B entry: %w", bErr)
+		}
+		result.Entry = entry
+		result.Path = "B"
 	}
 
-	result.Entry = entry
 	return result, nil
 }
-
-// -------------------------------------------------------------------------------------------------
-// 3) Domain Payload assembly
-// -------------------------------------------------------------------------------------------------
 
 func assembleFilingPayload(
 	cfg FilingConfig,
 	published *artifact.PublishedArtifact,
 ) map[string]interface{} {
 	payload := make(map[string]interface{})
-
 	payload["document_type"] = cfg.DocumentType
 	payload["document_title"] = cfg.DocumentTitle
 	payload["filed_by"] = cfg.SignerDID

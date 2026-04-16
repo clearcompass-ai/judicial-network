@@ -1,42 +1,16 @@
 /*
-FILE PATH:
-
-	cases/artifact/retrieve.go
-
-DESCRIPTION:
-
-	Performs sealing checks, resolves authorized recipients from disclosure
-	orders, and delegates to the SDK's GrantArtifactAccess for artifact
-	retrieval. This is the judicial network's authorization policy adapter.
-
+FILE PATH: cases/artifact/retrieve.go
+DESCRIPTION: Sealing checks, authorized recipients, SDK GrantArtifactAccess.
 KEY ARCHITECTURAL DECISIONS:
-  - TWO KEY STORES: ArtifactKeyStore (AES-GCM, passed to SDK via params.KeyStore)
-    and DelegationKeyStore (PRE wrapped keys, read by judicial-network code).
-    The SDK never sees wrapped delegation keys or the master identity key.
-  - PRE UNWRAP OUTSIDE SDK: retrieve.go calls delKeyStore.Get → lifecycle.UnwrapDelegationKey
-    → passes unwrapped sk_del as OwnerSecretKey. The SDK receives a 32-byte
-    scalar and calls PRE_GenerateKFrags with it. In production, the HSM
-    performs ECIES_Decrypt internally and never exports the master key.
-  - GrantArtifactAccessParams.OwnerSecretKey receives sk_del (per-artifact
-    delegation key), NOT the master identity key. This field name is locked
-    in the SDK. The judicial network is responsible for the unwrap step.
-
-OVERVIEW:
-
-	(1) Validate request
-	(2) Sealing check → ErrSealed
-	(3) Resolve authorized recipients from filing + disclosure orders
-	(4) PRE path: delKeyStore.Get(cid) → UnwrapDelegationKey(wrapped, masterKey) → skDel
-	(5) Pass skDel as OwnerSecretKey + Capsule to GrantArtifactAccess
-	    (pk_del is NOT a grant input — it belongs on the decrypt path)
-	(6) Return GrantArtifactAccessResult
-
-KEY DEPENDENCIES:
-  - ortholog-sdk/builder: EntryFetcher
-  - ortholog-sdk/lifecycle: GrantArtifactAccess, UnwrapDelegationKey, ArtifactKeyStore
-  - ortholog-sdk/core/smt: LeafReader for sealing check + authority chain
-  - judicial-network/schemas: disclosure order payload extraction
-  - DelegationKeyStore (defined in publish.go, same package)
+    - DRIFT 1 FIX: Uses verifier.EvaluateOrigin for entity state check
+      (handles path compression, revocation, succession). Manual AuthorityTip
+      check retained for sealing detection (authority-lane concern).
+    - TWO KEY STORES: ArtifactKeyStore (AES-GCM) and DelegationKeyStore (PRE).
+    - PRE UNWRAP OUTSIDE SDK: delKeyStore.Get → UnwrapDelegationKey → sk_del.
+    - GrantArtifactAccessParams.OwnerSecretKey receives sk_del, NOT master key.
+OVERVIEW: RetrieveArtifact → entity state check → sealing check →
+    authorized recipients → GrantArtifactAccess.
+KEY DEPENDENCIES: ortholog-sdk/builder, lifecycle, smt, verifier, judicial-network/schemas
 */
 package artifact
 
@@ -54,24 +28,17 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
-
-// -------------------------------------------------------------------------------------------------
-// 1) Errors
-// -------------------------------------------------------------------------------------------------
 
 var ErrSealed = errors.New("artifact/retrieve: document is sealed")
 var ErrExpunged = errors.New("artifact/retrieve: document has been expunged")
 var ErrNotFound = errors.New("artifact/retrieve: artifact not found")
 var ErrUnauthorized = errors.New("artifact/retrieve: requester not authorized")
+var ErrCaseRevoked = errors.New("artifact/retrieve: case entity revoked or succeeded")
 
-// -------------------------------------------------------------------------------------------------
-// 2) Types
-// -------------------------------------------------------------------------------------------------
-
-// RetrievalRequest configures an artifact retrieval operation.
 type RetrievalRequest struct {
 	ArtifactCID     storage.CID
 	ContentDigest   storage.CID
@@ -83,38 +50,13 @@ type RetrievalRequest struct {
 	GranterDID      string
 	SchemaRef       types.LogPosition
 	RetrievalExpiry time.Duration
-
-	// ── PRE fields (evidence artifacts) ──────────────────────────────
-
-	// OwnerMasterKey is the owner's master identity secret key (32 bytes).
-	// Used ONLY for ECIES unwrapping of the per-artifact delegation key.
-	// NEVER passed to GrantArtifactAccess. In production: HSM performs
-	// ECIES_Decrypt internally and this field is not needed — the HSM
-	// returns sk_del directly.
-	OwnerMasterKey []byte
-
-	// PkDel is the per-artifact delegation public key (65 bytes) from the
-	// filing entry's Domain Payload. NOT an input to GrantArtifactAccess
-	// (KFrag generation needs only sk_del + recipient pubkey). Carried on
-	// the request for downstream use: the free tier proxy passes it as
-	// OwnerPubKey to VerifyAndDecryptArtifact (PRE_DecryptFrags needs it).
-	PkDel []byte
-
-	// Capsule from the filing entry's Domain Payload.
+	OwnerMasterKey  []byte
+	// PkDel: per-artifact delegation public key. NOT a grant input.
+	// Carried for downstream decrypt path (VerifyAndDecryptArtifact.OwnerPubKey).
+	PkDel   []byte
 	Capsule *sdkartifact.Capsule
 }
 
-// -------------------------------------------------------------------------------------------------
-// 3) RetrieveArtifact
-// -------------------------------------------------------------------------------------------------
-
-// RetrieveArtifact performs sealing check, resolves authorized recipients,
-// unwraps the PRE delegation key if needed, and delegates to SDK
-// GrantArtifactAccess.
-//
-// keyStore: AES-GCM key material (passed to SDK via params.KeyStore).
-// delKeyStore: PRE wrapped delegation keys (read by this function, not by SDK).
-// delKeyStore may be nil if the schema is known to be AES-GCM only.
 func RetrieveArtifact(
 	req RetrievalRequest,
 	keyStore lifecycle.ArtifactKeyStore,
@@ -129,33 +71,29 @@ func RetrieveArtifact(
 		return nil, ErrNotFound
 	}
 
-	// (2) Sealing check.
-	sealed, err := checkSealed(req.CaseRootPos, leafReader)
+	// DRIFT 1 FIX: Use SDK verifier.EvaluateOrigin for entity state check.
+	// Handles path compression (TargetIntermediate), revocation, succession.
+	// Then check authority lane for sealing (enforcement-specific).
+	blocked, err := checkEntityAccess(req.CaseRootPos, leafReader, fetcher)
 	if err != nil {
-		return nil, fmt.Errorf("artifact/retrieve: sealing check: %w", err)
+		return nil, fmt.Errorf("artifact/retrieve: access check: %w", err)
 	}
-	if sealed {
-		return nil, ErrSealed
+	if blocked != nil {
+		return nil, blocked
 	}
 
-	// (3) Resolve schema parameters.
 	schemaParams, err := resolveSchemaParams(req.SchemaRef, extractor, fetcher)
 	if err != nil {
-		schemaParams = &types.SchemaParameters{
-			ArtifactEncryption: types.EncryptionAESGCM,
-		}
+		schemaParams = &types.SchemaParameters{ArtifactEncryption: types.EncryptionAESGCM}
 	}
 
-	// (4) Resolve authorized recipients.
 	authorizedRecipients, err := resolveAuthorizedRecipients(
-		req.FilingEntryPos, req.CaseRootPos, req.ArtifactCID,
-		fetcher, leafReader,
+		req.FilingEntryPos, req.CaseRootPos, req.ArtifactCID, fetcher, leafReader,
 	)
 	if err != nil {
 		authorizedRecipients = nil
 	}
 
-	// (5) Build grant params.
 	expiry := req.RetrievalExpiry
 	if expiry <= 0 {
 		expiry = 1 * time.Hour
@@ -182,39 +120,22 @@ func RetrieveArtifact(
 		Fetcher:              fetcher,
 	}
 
-	// (6) PRE path: unwrap delegation key OUTSIDE the SDK.
-	// The SDK receives the unwrapped 32-byte sk_del via OwnerSecretKey.
-	// The SDK never sees the wrapped key or the master key.
 	if schemaParams.ArtifactEncryption == types.EncryptionUmbralPRE {
 		if delKeyStore == nil {
 			return nil, fmt.Errorf("artifact/retrieve: nil DelegationKeyStore for umbral_pre")
 		}
-
-		// Fetch ECIES-wrapped delegation key from judicial-network store.
-		wrappedSkDel, err := delKeyStore.Get(req.ArtifactCID)
-		if err != nil {
-			return nil, fmt.Errorf("artifact/retrieve: fetch delegation key: %w", err)
+		wrappedSkDel, dErr := delKeyStore.Get(req.ArtifactCID)
+		if dErr != nil {
+			return nil, fmt.Errorf("artifact/retrieve: fetch delegation key: %w", dErr)
 		}
 		if wrappedSkDel == nil {
 			return nil, ErrExpunged
 		}
-
-		// Unwrap: ECIES-decrypt with owner's master key → sk_del.
-		// In production: skDel = hsm.ECIESDecrypt(wrappedSkDel)
-		// The master key never reaches the SDK.
-		skDel, err := lifecycle.UnwrapDelegationKey(wrappedSkDel, req.OwnerMasterKey)
-		if err != nil {
-			return nil, fmt.Errorf("artifact/retrieve: unwrap delegation key: %w", err)
+		skDel, uErr := lifecycle.UnwrapDelegationKey(wrappedSkDel, req.OwnerMasterKey)
+		if uErr != nil {
+			return nil, fmt.Errorf("artifact/retrieve: unwrap delegation key: %w", uErr)
 		}
-
-		// Pass unwrapped delegation key to SDK — SDK doesn't know the difference
-		// between sk_del and any other 32-byte scalar.
-		// GrantArtifactAccessParams has OwnerSecretKey + Capsule only.
-		// pk_del is NOT an input to KFrag generation — it belongs on the
-		// decrypt path (VerifyAndDecryptArtifactParams.OwnerPubKey) where
-		// the recipient calls PRE_DecryptFrags. Stored on the request for
-		// callers who need it downstream (e.g., free tier proxy mode).
-		grantParams.OwnerSecretKey = skDel // per-artifact delegation key
+		grantParams.OwnerSecretKey = skDel
 		grantParams.Capsule = req.Capsule
 	}
 
@@ -228,64 +149,81 @@ func RetrieveArtifact(
 		}
 		return nil, fmt.Errorf("artifact/retrieve: grant: %w", err)
 	}
-
 	return result, nil
 }
 
 // -------------------------------------------------------------------------------------------------
-// 4) Sealing check
+// Entity access check (Drift 1 fix: SDK verifier.EvaluateOrigin + authority lane)
 // -------------------------------------------------------------------------------------------------
 
-func checkSealed(caseRootPos types.LogPosition, leafReader smt.LeafReader) (bool, error) {
+// checkEntityAccess uses SDK verifier.EvaluateOrigin to check entity state
+// (handles path compression, revocation, succession that raw leaf reads miss),
+// then checks the authority lane for sealing enforcement entries.
+// Returns nil if access is allowed, or a typed error if blocked.
+func checkEntityAccess(
+	caseRootPos types.LogPosition,
+	leafReader smt.LeafReader,
+	fetcher builder.EntryFetcher,
+) (error, error) {
 	if caseRootPos.IsNull() {
-		return false, nil
+		return nil, nil
 	}
-	key := smt.DeriveKey(caseRootPos)
-	leaf, err := leafReader.Get(key)
+
+	leafKey := smt.DeriveKey(caseRootPos)
+
+	// Step 1: SDK origin evaluation — catches revocation, succession, and
+	// path compression that raw AuthorityTip comparisons miss.
+	eval, err := verifier.EvaluateOrigin(leafKey, leafReader, fetcher)
 	if err != nil {
-		return false, fmt.Errorf("read leaf: %w", err)
+		// Entity not found is not an error — case may not exist yet.
+		if errors.Is(err, verifier.ErrLeafNotFound) {
+			return nil, nil
+		}
+		return nil, err
 	}
-	if leaf == nil {
-		return false, nil
+
+	switch eval.State {
+	case verifier.OriginRevoked:
+		return ErrCaseRevoked, nil
+	case verifier.OriginSucceeded:
+		return ErrCaseRevoked, nil
+	}
+
+	// Step 2: Authority lane check — sealing is an enforcement concern.
+	// AuthorityTip diverged from both self AND OriginTip = enforcement active.
+	leaf, err := leafReader.Get(leafKey)
+	if err != nil || leaf == nil {
+		return nil, nil
 	}
 	if !leaf.AuthorityTip.Equal(caseRootPos) && !leaf.AuthorityTip.Equal(leaf.OriginTip) {
-		return true, nil
+		return ErrSealed, nil
 	}
-	return false, nil
+
+	return nil, nil
 }
 
 // -------------------------------------------------------------------------------------------------
-// 5) Authorized recipients resolution
+// Authorized recipients resolution
 // -------------------------------------------------------------------------------------------------
 
 func resolveAuthorizedRecipients(
-	filingPos types.LogPosition,
-	caseRootPos types.LogPosition,
-	artifactCID storage.CID,
-	fetcher builder.EntryFetcher,
-	leafReader smt.LeafReader,
+	filingPos, caseRootPos types.LogPosition, artifactCID storage.CID,
+	fetcher builder.EntryFetcher, leafReader smt.LeafReader,
 ) ([]string, error) {
 	recipients := make(map[string]bool)
-
 	if !filingPos.IsNull() {
 		filingMeta, err := fetcher.Fetch(filingPos)
 		if err == nil && filingMeta != nil {
-			initial := extractInitialRecipients(filingMeta.CanonicalBytes)
-			for _, d := range initial {
+			for _, d := range extractInitialRecipients(filingMeta.CanonicalBytes) {
 				recipients[d] = true
 			}
 		}
 	}
-
 	if !caseRootPos.IsNull() {
-		disclosureRecipients := scanDisclosureOrders(
-			caseRootPos, artifactCID.String(), fetcher, leafReader,
-		)
-		for _, d := range disclosureRecipients {
+		for _, d := range scanDisclosureOrders(caseRootPos, artifactCID.String(), fetcher, leafReader) {
 			recipients[d] = true
 		}
 	}
-
 	if len(recipients) == 0 {
 		return nil, nil
 	}
@@ -298,58 +236,48 @@ func resolveAuthorizedRecipients(
 
 func extractInitialRecipients(canonicalBytes []byte) []string {
 	entry, err := deserializeEntry(canonicalBytes)
-	if err != nil || entry == nil {
-		return nil
-	}
-	if len(entry.DomainPayload) == 0 {
+	if err != nil || entry == nil || len(entry.DomainPayload) == 0 {
 		return nil
 	}
 	var payload struct {
 		AuthorizedRecipients []string `json:"authorized_recipients"`
 	}
-	if err := json.Unmarshal(entry.DomainPayload, &payload); err != nil {
+	if json.Unmarshal(entry.DomainPayload, &payload) != nil {
 		return nil
 	}
 	return payload.AuthorizedRecipients
 }
 
 // -------------------------------------------------------------------------------------------------
-// 6) Disclosure order scanning
+// Disclosure order scanning
 // -------------------------------------------------------------------------------------------------
 
 const maxAuthorityChainScan = 200
 
 func scanDisclosureOrders(
-	caseRootPos types.LogPosition,
-	artifactCIDStr string,
-	fetcher builder.EntryFetcher,
-	leafReader smt.LeafReader,
+	caseRootPos types.LogPosition, artifactCIDStr string,
+	fetcher builder.EntryFetcher, leafReader smt.LeafReader,
 ) []string {
 	key := smt.DeriveKey(caseRootPos)
 	leaf, err := leafReader.Get(key)
-	if err != nil || leaf == nil {
-		return nil
-	}
-	if leaf.AuthorityTip.Equal(caseRootPos) {
+	if err != nil || leaf == nil || leaf.AuthorityTip.Equal(caseRootPos) {
 		return nil
 	}
 
 	var allRecipients []string
 	current := leaf.AuthorityTip
 	visited := make(map[types.LogPosition]bool)
-
 	for depth := 0; depth < maxAuthorityChainScan; depth++ {
 		if visited[current] || current.Equal(caseRootPos) {
 			break
 		}
 		visited[current] = true
-
-		meta, fetchErr := fetcher.Fetch(current)
-		if fetchErr != nil || meta == nil {
+		meta, fErr := fetcher.Fetch(current)
+		if fErr != nil || meta == nil {
 			break
 		}
-		entry, desErr := deserializeEntry(meta.CanonicalBytes)
-		if desErr != nil || entry == nil {
+		entry, dErr := deserializeEntry(meta.CanonicalBytes)
+		if dErr != nil || entry == nil {
 			break
 		}
 		if len(entry.DomainPayload) > 0 {
@@ -363,27 +291,19 @@ func scanDisclosureOrders(
 		}
 		current = *entry.Header.PriorAuthority
 	}
-
 	return allRecipients
 }
 
 // -------------------------------------------------------------------------------------------------
-// 7) Error classification
+// Error classification
 // -------------------------------------------------------------------------------------------------
 
 func isAuthorizationError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return containsStr(err.Error(), "grant denied")
+	return err != nil && containsStr(err.Error(), "grant denied")
 }
 
 func isKeyNotFoundError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return errors.Is(err, storage.ErrContentNotFound) ||
-		containsStr(err.Error(), "key not found")
+	return err != nil && (errors.Is(err, storage.ErrContentNotFound) || containsStr(err.Error(), "key not found"))
 }
 
 func containsStr(s, substr string) bool {
