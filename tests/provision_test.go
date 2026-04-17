@@ -26,8 +26,8 @@ func TestProvisionCourt_ThreeLogs(t *testing.T) {
 	cfg := onboarding.CourtProvisionConfig{
 		Spoke: spoke,
 		AuthoritySet: map[string]struct{}{
-			"did:web:courts.nashville.gov":               {},
-			"did:web:courts.nashville.gov:chief-judge":   {},
+			"did:web:courts.nashville.gov":             {},
+			"did:web:courts.nashville.gov:chief-judge": {},
 		},
 		InitialOfficers: []onboarding.InitialOfficer{
 			{
@@ -45,7 +45,7 @@ func TestProvisionCourt_ThreeLogs(t *testing.T) {
 		SchemaURIs: []string{"tn-criminal-case-v1"},
 	}
 
-	registry := schemas.NewDefaultRegistry()
+	registry := schemas.NewRegistry()
 	result, err := onboarding.ProvisionCourt(cfg, registry)
 	if err != nil {
 		t.Fatalf("ProvisionCourt failed: %v", err)
@@ -114,7 +114,7 @@ func TestProvisionCourt_OfficerFiltering(t *testing.T) {
 		},
 	}
 
-	registry := schemas.NewDefaultRegistry()
+	registry := schemas.NewRegistry()
 	result, err := onboarding.ProvisionCourt(cfg, registry)
 	if err != nil {
 		t.Fatalf("ProvisionCourt failed: %v", err)
@@ -152,7 +152,7 @@ func TestProvisionCourt_ScopePayload(t *testing.T) {
 		},
 	}
 
-	registry := schemas.NewDefaultRegistry()
+	registry := schemas.NewRegistry()
 	result, err := onboarding.ProvisionCourt(cfg, registry)
 	if err != nil {
 		t.Fatalf("ProvisionCourt failed: %v", err)
@@ -168,7 +168,7 @@ func TestProvisionCourt_ScopePayload(t *testing.T) {
 
 	// Verify the scope entry for officers log has correct payload.
 	if result.Officers.ScopeEntry != nil {
-		payload := result.Officers.ScopeEntry.DomainPayload()
+		payload := result.Officers.ScopeEntry.DomainPayload
 		if payload == nil {
 			t.Error("Officers scope entry has nil DomainPayload")
 		}
@@ -183,7 +183,7 @@ func TestProvisionCourt_NilSpoke(t *testing.T) {
 		},
 	}
 
-	_, err := onboarding.ProvisionCourt(cfg, schemas.NewDefaultRegistry())
+	_, err := onboarding.ProvisionCourt(cfg, schemas.NewRegistry())
 	if err == nil {
 		t.Fatal("Expected error for nil spoke config")
 	}
@@ -200,7 +200,7 @@ func TestProvisionCourt_EmptyAuthoritySet(t *testing.T) {
 		AuthoritySet: map[string]struct{}{},
 	}
 
-	_, err := onboarding.ProvisionCourt(cfg, schemas.NewDefaultRegistry())
+	_, err := onboarding.ProvisionCourt(cfg, schemas.NewRegistry())
 	if err == nil {
 		t.Fatal("Expected error for empty authority set")
 	}
@@ -219,7 +219,7 @@ func TestProvisionCourt_CourtDIDNotInAuthoritySet(t *testing.T) {
 		},
 	}
 
-	_, err := onboarding.ProvisionCourt(cfg, schemas.NewDefaultRegistry())
+	_, err := onboarding.ProvisionCourt(cfg, schemas.NewRegistry())
 	if err == nil {
 		t.Fatal("Expected error when court DID not in authority set")
 	}
@@ -238,7 +238,7 @@ func TestProvisionCourt_ScopePayloadContainsCourtAndLogDIDs(t *testing.T) {
 		AuthoritySet: map[string]struct{}{spoke.CourtDID: {}},
 	}
 
-	result, err := onboarding.ProvisionCourt(cfg, schemas.NewDefaultRegistry())
+	result, err := onboarding.ProvisionCourt(cfg, schemas.NewRegistry())
 	if err != nil {
 		t.Fatalf("ProvisionCourt failed: %v", err)
 	}
