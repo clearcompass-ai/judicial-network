@@ -1,5 +1,3 @@
-github.com/clearcompass-ai/ortholog-sdk v0.1.1 h1:cC43/6gxVyYrZHI+DSL4eN8bxP+cS5pIfm/95u3FhMg=
-github.com/clearcompass-ai/ortholog-sdk v0.1.1/go.mod h1:aVJyq3kpiKHCPs4ITtIXFoauErWOMZsjDqcxAjMILa0=
 github.com/clearcompass-ai/ortholog-sdk v0.1.2-0.20260417155647-7949e6e364ca h1:axKUIjaMFDrNwiEniZ6G+0LujrW4fpdXjrO36TZTN+k=
 github.com/clearcompass-ai/ortholog-sdk v0.1.2-0.20260417155647-7949e6e364ca/go.mod h1:aVJyq3kpiKHCPs4ITtIXFoauErWOMZsjDqcxAjMILa0=
 github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564 h1:I6KUy4CI6hHjqnyJLNCEi7YHVMkwwtfSr2k9splgdSM=

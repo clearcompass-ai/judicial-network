@@ -31,7 +31,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 
-	"github.com/clearcompass-ai/judicial-network/exchange/auth"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 )
 
 // ─── Publish ────────────────────────────────────────────────────────

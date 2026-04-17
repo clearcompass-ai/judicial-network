@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/judicial-network/exchange/auth"
-	"github.com/clearcompass-ai/judicial-network/exchange/index"
-	"github.com/clearcompass-ai/judicial-network/exchange/keystore"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
 
 // ─── mTLS Auth ──────────────────────────────────────────────────────

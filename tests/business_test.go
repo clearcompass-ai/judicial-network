@@ -9,7 +9,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/exchange/index"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 )
 
 // ─── Sealed Filter ──────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-package api
+package core
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 
-	"github.com/clearcompass-ai/judicial-network/api/handlers"
+	"github.com/clearcompass-ai/judicial-network/api/core/handlers"
 )
 
 // ServerConfig configures the verification service.

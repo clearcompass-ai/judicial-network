@@ -31,9 +31,9 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 
-	"github.com/clearcompass-ai/judicial-network/exchange/auth"
-	"github.com/clearcompass-ai/judicial-network/exchange/index"
-	"github.com/clearcompass-ai/judicial-network/exchange/keystore"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
 
 // Dependencies shared across all exchange handlers.

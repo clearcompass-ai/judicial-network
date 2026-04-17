@@ -18,7 +18,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 
-	"github.com/clearcompass-ai/judicial-network/exchange/auth"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 
 	"github.com/dustinxie/ecc"
 )
