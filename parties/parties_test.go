@@ -2,6 +2,8 @@ package parties
 
 import (
 	"testing"
+
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // -------------------------------------------------------------------------
@@ -10,17 +12,27 @@ import (
 
 func TestCreateBinding_Success(t *testing.T) {
 	result, err := CreateBinding(BindingConfig{
-		SignerDID:     "did:web:courts.nashville.gov",
-		PartyDID:      "did:web:exchange:party:jones",
-		CaseRef:       "2027-CR-4471",
-		PartyRole:     "defendant",
-		PartiesLogDID: "did:web:courts.nashville.gov:parties",
+		SignerDID: "did:web:courts.nashville.gov",
+		PartyDID:  "did:web:exchange:party:jones",
+		CaseRef:   "2027-CR-4471",
+		CaseDID:   "did:web:courts.nashville.gov:cases",
+		CaseSeq:   100,
+		Role:      "defendant",
+		EventTime: 1700000000,
 	})
 	if err != nil {
 		t.Fatalf("CreateBinding: %v", err)
 	}
 	if result == nil {
 		t.Fatal("result is nil")
+	}
+	if result.Entry == nil {
+		t.Fatal("result.Entry is nil")
+	}
+
+	raw := envelope.Serialize(result.Entry)
+	if _, err := envelope.Deserialize(raw); err != nil {
+		t.Fatalf("roundtrip: %v", err)
 	}
 }
 
@@ -31,8 +43,30 @@ func TestCreateBinding_EmptyConfig(t *testing.T) {
 	}
 }
 
+func TestCreateBinding_AllRoles(t *testing.T) {
+	for _, role := range []string{"plaintiff", "defendant", "witness", "victim", "guardian_ad_litem"} {
+		t.Run(role, func(t *testing.T) {
+			result, err := CreateBinding(BindingConfig{
+				SignerDID: "did:web:test",
+				PartyDID:  "did:web:party:" + role,
+				CaseRef:   "2027-CR-001",
+				CaseDID:   "did:web:test:cases",
+				CaseSeq:   1,
+				Role:      role,
+				EventTime: 1700000000,
+			})
+			if err != nil {
+				t.Fatalf("%s: %v", role, err)
+			}
+			if result.Entry == nil {
+				t.Errorf("%s: entry nil", role)
+			}
+		})
+	}
+}
+
 // -------------------------------------------------------------------------
-// 2) VendorDIDStore: create + generate + resolve
+// 2) VendorDIDStore
 // -------------------------------------------------------------------------
 
 func TestNewVendorDIDStore(t *testing.T) {
@@ -101,10 +135,6 @@ func TestLookupVendorDID_NotFound(t *testing.T) {
 	}
 }
 
-// -------------------------------------------------------------------------
-// 3) Multiple mappings
-// -------------------------------------------------------------------------
-
 func TestVendorDIDStore_MultipleMappings(t *testing.T) {
 	store := NewVendorDIDStore()
 	GenerateVendorDID("ex.test", "did:web:judge-a", store)
@@ -116,10 +146,6 @@ func TestVendorDIDStore_MultipleMappings(t *testing.T) {
 	}
 }
 
-// -------------------------------------------------------------------------
-// 4) Roundtrip: generate → lookup → resolve
-// -------------------------------------------------------------------------
-
 func TestVendorDID_FullRoundtrip(t *testing.T) {
 	store := NewVendorDIDStore()
 	realDID := "did:web:courts.nashville.gov:role:judge-mcclendon-2026"
@@ -129,7 +155,6 @@ func TestVendorDID_FullRoundtrip(t *testing.T) {
 		t.Fatalf("generate: %v", err)
 	}
 
-	// Resolve: vendor → real.
 	resolved, err := ResolveVendorDID(vendorDID, store)
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -138,7 +163,6 @@ func TestVendorDID_FullRoundtrip(t *testing.T) {
 		t.Errorf("resolved = %q, want %q", resolved, realDID)
 	}
 
-	// Lookup: real → vendor.
 	found, err := LookupVendorDID(realDID, store)
 	if err != nil {
 		t.Fatalf("lookup: %v", err)
@@ -149,31 +173,38 @@ func TestVendorDID_FullRoundtrip(t *testing.T) {
 }
 
 // -------------------------------------------------------------------------
-// 5) UpdateBinding config
+// 3) UpdateBindingConfig fields
 // -------------------------------------------------------------------------
 
 func TestUpdateBindingConfig_Fields(t *testing.T) {
 	cfg := UpdateBindingConfig{
 		SignerDID: "did:web:test",
-		PartyDID:  "did:web:party",
-		CaseRef:   "2027-CR-001",
+		NewRole:   "witness",
+		NewStatus: "active",
 	}
 	if cfg.SignerDID == "" {
 		t.Error("SignerDID required")
 	}
+	if cfg.NewRole != "witness" {
+		t.Errorf("NewRole = %q", cfg.NewRole)
+	}
 }
 
 // -------------------------------------------------------------------------
-// 6) LinkPartyCaseConfig
+// 4) LinkPartyCaseConfig fields
 // -------------------------------------------------------------------------
 
 func TestLinkPartyCaseConfig_Fields(t *testing.T) {
 	cfg := LinkPartyCaseConfig{
 		SignerDID:     "did:web:test",
 		PartyDID:      "did:web:party",
-		CaseDocketRef: "2027-CR-001",
+		PartiesLogDID: "did:web:test:parties",
+		Role:          "defendant",
 	}
-	if cfg.CaseDocketRef == "" {
-		t.Error("CaseDocketRef required")
+	if cfg.SignerDID == "" {
+		t.Error("SignerDID required")
+	}
+	if cfg.Role != "defendant" {
+		t.Errorf("Role = %q", cfg.Role)
 	}
 }

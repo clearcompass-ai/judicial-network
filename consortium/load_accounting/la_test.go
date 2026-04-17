@@ -11,11 +11,14 @@ import (
 
 func TestDefaultLoadAccountingParams(t *testing.T) {
 	params := DefaultLoadAccountingParams()
-	if params.SLAResponseWindow == 0 {
-		t.Error("SLAResponseWindow must be set")
+	if params.SLAResponseWindowSec == 0 {
+		t.Error("SLAResponseWindowSec must be set")
 	}
-	if params.SettlementPeriod == "" {
-		t.Error("SettlementPeriod must be set")
+	if params.SettlementPeriodDays == 0 {
+		t.Error("SettlementPeriodDays must be set")
+	}
+	if params.MinStructuralPinners == 0 {
+		t.Error("MinStructuralPinners must be set")
 	}
 }
 
@@ -36,12 +39,13 @@ func TestBuildLoadAccountingSchema(t *testing.T) {
 
 func TestBuildLoadAccountingSchema_CustomParams(t *testing.T) {
 	params := LoadAccountingParams{
-		SignerDID:          "did:web:consortium",
-		SLAResponseWindow:  10 * time.Minute,
-		MaxDrillFrequency:  "monthly",
-		ExchangeRate:       0.05,
-		SettlementPeriod:   "monthly",
-		SurplusExchangeRate: 0.8,
+		SettlementUnit:          "USD",
+		SettlementPeriodDays:    30,
+		SLAResponseWindowSec:    600,
+		MaxDrillFrequencyPerDay: 2,
+		StorageRatePerGBMonth:   0.05,
+		PinObligationPercent:    10.0,
+		MinStructuralPinners:    5,
 	}
 	data, err := BuildLoadAccountingSchema(params)
 	if err != nil {
@@ -59,8 +63,10 @@ func TestBuildLoadAccountingSchema_CustomParams(t *testing.T) {
 func TestIsObjectiveSLAFailure_True(t *testing.T) {
 	result := DrillResult{
 		NodeDID:      "escrow-node-1",
-		Passed:       false,
+		DrillType:    "escrow_liveness",
+		Success:      false,
 		ResponseTime: 10 * time.Second,
+		Timestamp:    time.Now(),
 	}
 	if !IsObjectiveSLAFailure(result) {
 		t.Error("failed drill should be objective SLA failure")
@@ -70,8 +76,10 @@ func TestIsObjectiveSLAFailure_True(t *testing.T) {
 func TestIsObjectiveSLAFailure_False(t *testing.T) {
 	result := DrillResult{
 		NodeDID:      "escrow-node-1",
-		Passed:       true,
+		DrillType:    "escrow_liveness",
+		Success:      true,
 		ResponseTime: 100 * time.Millisecond,
+		Timestamp:    time.Now(),
 	}
 	if IsObjectiveSLAFailure(result) {
 		t.Error("passed drill should not be SLA failure")
@@ -85,27 +93,32 @@ func TestIsObjectiveSLAFailure_False(t *testing.T) {
 func TestDrillResult_Fields(t *testing.T) {
 	r := DrillResult{
 		NodeDID:      "did:web:escrow-1",
-		Passed:       true,
+		DrillType:    "blob_availability",
+		Success:      true,
 		ResponseTime: 200 * time.Millisecond,
+		Timestamp:    time.Now(),
+		ErrorDetail:  "",
 	}
 	if r.NodeDID == "" {
 		t.Error("NodeDID required")
 	}
+	if r.DrillType == "" {
+		t.Error("DrillType required")
+	}
 }
 
 // -------------------------------------------------------------------------
-// 5) SettlementLedger struct
+// 5) SettlementLedger
 // -------------------------------------------------------------------------
 
 func TestSettlementLedger_EnsureMember(t *testing.T) {
 	ledger := &SettlementLedger{
-		Members: map[string]*MemberUsage{},
+		MemberUsage: map[string]*MemberUsage{},
 	}
 	m := ledger.ensureMember("did:web:davidson")
 	if m == nil {
 		t.Fatal("ensureMember must return non-nil")
 	}
-	// Second call returns same instance.
 	m2 := ledger.ensureMember("did:web:davidson")
 	if m != m2 {
 		t.Error("should return same instance")
@@ -114,9 +127,9 @@ func TestSettlementLedger_EnsureMember(t *testing.T) {
 
 func TestSettlementLedger_ToJSON(t *testing.T) {
 	ledger := &SettlementLedger{
-		Members:  map[string]*MemberUsage{},
-		StartPos: 0,
-		EndPos:   100,
+		MemberUsage: map[string]*MemberUsage{},
+		StartPos:    0,
+		EndPos:      100,
 	}
 	ledger.ensureMember("did:web:test")
 
@@ -135,11 +148,40 @@ func TestSettlementLedger_ToJSON(t *testing.T) {
 
 func TestMemberUsage_Fields(t *testing.T) {
 	m := MemberUsage{
-		DID:          "did:web:davidson",
-		EntryCount:   50000,
-		StorageBytes: 25_000_000_000,
+		EntryCount:      50000,
+		DelegationCount: 200,
+		SchemaCount:     11,
+		CommentaryCount: 5000,
+		AmendmentCount:  44000,
+		OtherCount:      789,
 	}
 	if m.EntryCount != 50000 {
 		t.Error("EntryCount mismatch")
+	}
+	total := m.DelegationCount + m.SchemaCount + m.CommentaryCount + m.AmendmentCount + m.OtherCount
+	if total == 0 {
+		t.Error("subcounts must be nonzero")
+	}
+}
+
+// -------------------------------------------------------------------------
+// 7) LoadAccountingParams struct
+// -------------------------------------------------------------------------
+
+func TestLoadAccountingParams_Fields(t *testing.T) {
+	p := LoadAccountingParams{
+		SettlementUnit:          "write_credits",
+		SettlementPeriodDays:    90,
+		SLAResponseWindowSec:    300,
+		MaxDrillFrequencyPerDay: 4,
+		StorageRatePerGBMonth:   0.02,
+		PinObligationPercent:    5.0,
+		MinStructuralPinners:    3,
+	}
+	if p.SettlementUnit != "write_credits" {
+		t.Errorf("SettlementUnit = %q", p.SettlementUnit)
+	}
+	if p.MinStructuralPinners != 3 {
+		t.Errorf("MinStructuralPinners = %d", p.MinStructuralPinners)
 	}
 }
