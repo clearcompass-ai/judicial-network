@@ -1,0 +1,17 @@
+# Davidson County Witness Configuration
+# 3-of-4 quorum. AOC-managed witness set.
+
+quorum: 3
+
+witnesses:
+  - did: "did:web:witness1.courts.tn.gov"
+    endpoint: "https://witness1.courts.tn.gov/v1"
+
+  - did: "did:web:witness2.courts.tn.gov"
+    endpoint: "https://witness2.courts.tn.gov/v1"
+
+  - did: "did:web:witness3.courts.tn.gov"
+    endpoint: "https://witness3.courts.tn.gov/v1"
+
+  - did: "did:web:witness4.courts.tn.gov"
+    endpoint: "https://witness4.courts.tn.gov/v1"

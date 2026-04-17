@@ -1,0 +1,13 @@
+# Davidson County Log Configuration
+
+officers:
+  did: "did:web:courts.nashville.gov:officers"
+  operator_endpoint: "https://operator.courts.tn.gov/v1"
+
+cases:
+  did: "did:web:courts.nashville.gov:cases"
+  operator_endpoint: "https://operator.courts.tn.gov/v1"
+
+parties:
+  did: "did:web:courts.nashville.gov:parties"
+  operator_endpoint: "https://operator.courts.tn.gov/v1"

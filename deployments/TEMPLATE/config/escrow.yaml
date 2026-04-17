@@ -1,0 +1,25 @@
+# Escrow Configuration Template
+# M-of-N escrow nodes for key recovery and custody dispute resolution.
+# Escrow is paid for liveness (cosignature SLA), not storage.
+
+threshold: 3  # M in M-of-N
+
+nodes:
+  - did: "did:web:escrow1.STATE.gov"
+    endpoint: "https://escrow1.STATE.gov/v1"
+
+  - did: "did:web:escrow2.STATE.gov"
+    endpoint: "https://escrow2.STATE.gov/v1"
+
+  - did: "did:web:escrow3.STATE.gov"
+    endpoint: "https://escrow3.STATE.gov/v1"
+
+  - did: "did:web:escrow4.STATE.gov"
+    endpoint: "https://escrow4.STATE.gov/v1"
+
+  - did: "did:web:escrow5.STATE.gov"
+    endpoint: "https://escrow5.STATE.gov/v1"
+
+# Fire drill parameters
+max_drill_frequency_per_day: 4
+sla_response_window_seconds: 300

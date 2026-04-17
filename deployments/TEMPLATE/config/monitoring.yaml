@@ -1,0 +1,21 @@
+# Monitoring Configuration Template
+# Alert destinations and check thresholds.
+
+alerts:
+  # Log-based alerts (always enabled)
+  log:
+    level: "warn"
+    path: "/var/log/court/monitoring.log"
+
+  # PagerDuty integration (optional)
+  # pagerduty:
+  #   service_key: "PAGERDUTY_KEY"
+  #   severity: "critical"
+
+thresholds:
+  anchor_freshness_max_seconds: 7200
+  delegation_health_check_interval_seconds: 3600
+  blob_availability_check_interval_seconds: 1800
+  sealing_compliance_check_interval_seconds: 900
+  mirror_consistency_max_lag_entries: 100
+  shard_health_check_interval_seconds: 86400

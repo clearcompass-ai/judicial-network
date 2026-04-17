@@ -1,0 +1,26 @@
+# Storage Configuration Template
+# Backend for artifact storage (court documents, evidence, etc.).
+
+# Options: gcs, s3, ipfs
+backend: "gcs"
+
+# GCS configuration (when backend: gcs)
+gcs:
+  bucket: "COURT-artifacts"
+  project: "COURT-project"
+  credentials_file: "/etc/court/gcs-credentials.json"
+
+# S3 configuration (when backend: s3)
+# s3:
+#   bucket: "COURT-artifacts"
+#   region: "us-east-1"
+#   credentials_file: "/etc/court/aws-credentials"
+
+# IPFS configuration (when backend: ipfs)
+# ipfs:
+#   endpoint: "/ip4/127.0.0.1/tcp/5001"
+#   gateway: "https://ipfs.COURT.gov"
+
+# Retrieval credential expiry (seconds).
+# Recommendation: 300s (5 min) for production.
+resolve_expiry_seconds: 300

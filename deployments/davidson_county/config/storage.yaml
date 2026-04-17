@@ -1,0 +1,12 @@
+# Davidson County Storage Configuration
+# GCS backend. 50,000 cases/year × 500KB avg = ~25GB/year.
+# 50-year archive in Coldline: ~$5/month.
+
+backend: "gcs"
+
+gcs:
+  bucket: "davidson-court-artifacts"
+  project: "tn-courts-davidson"
+  credentials_file: "/etc/court/gcs-credentials.json"
+
+resolve_expiry_seconds: 300

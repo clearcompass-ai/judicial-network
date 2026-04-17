@@ -1,0 +1,8 @@
+# Davidson County Anchor Configuration
+# Anchors to TN state anchor log for cross-county verification.
+
+parent:
+  did: "did:web:courts.tn.gov:anchor"
+  endpoint: "https://anchor.courts.tn.gov/v1"
+
+anchor_interval_seconds: 3600

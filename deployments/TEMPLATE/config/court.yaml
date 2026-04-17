@@ -1,0 +1,12 @@
+# Court Configuration Template
+# Copy this directory and fill in court-specific values.
+
+# The institutional DID for this court.
+court_did: "did:web:courts.JURISDICTION.gov"
+
+# Human-readable name.
+court_name: "COUNTY County Court"
+
+# State/jurisdiction.
+jurisdiction: "STATE"
+county: "COUNTY"

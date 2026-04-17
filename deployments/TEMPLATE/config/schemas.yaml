@@ -1,0 +1,23 @@
+# Schema Configuration Template
+# Schema URIs to adopt at court provisioning.
+# Published as entries on the cases log.
+
+schemas:
+  # Statewide schemas (adopted by all courts in the state)
+  - uri: "tn-criminal-case-v1"
+  - uri: "tn-civil-case-v1"
+  - uri: "tn-chancery-case-v1"
+  - uri: "tn-juvenile-case-v1"
+
+  # Judicial officer schemas
+  - uri: "tn-court-officer-v1"
+
+  # Sealing and enforcement schemas
+  - uri: "tn-sealing-order-v1"
+  - uri: "tn-expungement-order-v1"
+
+  # Daily operations
+  - uri: "tn-daily-assignment-v1"
+
+  # Court-specific schemas (optional)
+  # - uri: "tn-COUNTY-business-case-v1"

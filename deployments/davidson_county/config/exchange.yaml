@@ -1,0 +1,6 @@
+# Davidson County Exchange Configuration
+
+exchange_did: "did:web:exchange.courts.tn.gov"
+exchange_endpoint: "https://exchange.courts.tn.gov/v1"
+
+initial_credit_balance: 100000

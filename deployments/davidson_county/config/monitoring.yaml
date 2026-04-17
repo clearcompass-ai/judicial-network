@@ -1,0 +1,18 @@
+# Davidson County Monitoring Configuration
+
+alerts:
+  pagerduty:
+    service_key: "${DAVIDSON_PAGERDUTY_KEY}"
+    severity: "critical"
+
+  log:
+    level: "warn"
+    path: "/var/log/court/davidson-monitoring.log"
+
+thresholds:
+  anchor_freshness_max_seconds: 7200
+  delegation_health_check_interval_seconds: 3600
+  blob_availability_check_interval_seconds: 1800
+  sealing_compliance_check_interval_seconds: 900
+  mirror_consistency_max_lag_entries: 100
+  shard_health_check_interval_seconds: 86400

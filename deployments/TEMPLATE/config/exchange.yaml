@@ -1,0 +1,9 @@
+# Exchange Configuration Template
+# The exchange handles key custody and entry submission.
+
+exchange_did: "did:web:exchange.JURISDICTION.gov"
+exchange_endpoint: "https://exchange.JURISDICTION.gov/v1"
+
+# Write credit contract.
+# Credits are purchased out-of-band (operator invoices exchange).
+initial_credit_balance: 10000

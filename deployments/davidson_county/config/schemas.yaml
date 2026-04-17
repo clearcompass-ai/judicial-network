@@ -1,0 +1,21 @@
+# Davidson County Schema Configuration
+# All statewide schemas plus Davidson-specific.
+
+schemas:
+  # Statewide
+  - uri: "tn-criminal-case-v1"
+  - uri: "tn-civil-case-v1"
+  - uri: "tn-chancery-case-v1"
+  - uri: "tn-juvenile-case-v1"
+  - uri: "tn-court-officer-v1"
+  - uri: "tn-sealing-order-v1"
+  - uri: "tn-expungement-order-v1"
+  - uri: "tn-daily-assignment-v1"
+
+  # Davidson-specific
+  - uri: "tn-davidson-scheduling-order-v1"
+  - uri: "tn-davidson-motion-ruling-v1"
+  - uri: "tn-davidson-judgment-v1"
+  - uri: "tn-davidson-sealing-order-v1"
+  - uri: "tn-davidson-expungement-order-v1"
+  - uri: "tn-davidson-filing-v1"

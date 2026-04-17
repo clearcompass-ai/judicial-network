@@ -1,0 +1,10 @@
+# Anchor Configuration Template
+# Parent anchor log for cross-court verification.
+# Remove this file if operating standalone (no cross-court verification).
+
+parent:
+  did: "did:web:courts.STATE.gov:anchor"
+  endpoint: "https://anchor.STATE.gov/v1"
+
+# Anchor publication frequency.
+anchor_interval_seconds: 3600

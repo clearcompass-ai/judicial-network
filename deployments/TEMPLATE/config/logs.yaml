@@ -1,0 +1,14 @@
+# Log Configuration Template
+# Three logs per court: officers, cases, parties.
+
+officers:
+  did: "did:web:courts.JURISDICTION.gov:officers"
+  operator_endpoint: "https://operator.JURISDICTION.gov/v1"
+
+cases:
+  did: "did:web:courts.JURISDICTION.gov:cases"
+  operator_endpoint: "https://operator.JURISDICTION.gov/v1"
+
+parties:
+  did: "did:web:courts.JURISDICTION.gov:parties"
+  operator_endpoint: "https://operator.JURISDICTION.gov/v1"

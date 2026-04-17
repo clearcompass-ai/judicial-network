@@ -1,0 +1,23 @@
+# Davidson County Escrow Configuration
+# 3-of-5 threshold. Escrow paid for liveness, not storage.
+
+threshold: 3
+
+nodes:
+  - did: "did:web:escrow1.courts.tn.gov"
+    endpoint: "https://escrow1.courts.tn.gov/v1"
+
+  - did: "did:web:escrow2.courts.tn.gov"
+    endpoint: "https://escrow2.courts.tn.gov/v1"
+
+  - did: "did:web:escrow3.courts.tn.gov"
+    endpoint: "https://escrow3.courts.tn.gov/v1"
+
+  - did: "did:web:escrow4.courts.tn.gov"
+    endpoint: "https://escrow4.courts.tn.gov/v1"
+
+  - did: "did:web:escrow5.courts.tn.gov"
+    endpoint: "https://escrow5.courts.tn.gov/v1"
+
+max_drill_frequency_per_day: 4
+sla_response_window_seconds: 300

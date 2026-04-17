@@ -1,0 +1,17 @@
+# Witness Configuration Template
+# Witnesses cosign tree heads to prevent equivocation.
+
+quorum: 3  # K in K-of-N witness cosignature
+
+witnesses:
+  - did: "did:web:witness1.STATE.gov"
+    endpoint: "https://witness1.STATE.gov/v1"
+
+  - did: "did:web:witness2.STATE.gov"
+    endpoint: "https://witness2.STATE.gov/v1"
+
+  - did: "did:web:witness3.STATE.gov"
+    endpoint: "https://witness3.STATE.gov/v1"
+
+  - did: "did:web:witness4.STATE.gov"
+    endpoint: "https://witness4.STATE.gov/v1"

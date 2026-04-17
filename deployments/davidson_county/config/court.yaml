@@ -1,0 +1,6 @@
+# Davidson County Court Configuration
+
+court_did: "did:web:courts.nashville.gov"
+court_name: "Davidson County Court"
+jurisdiction: "tn"
+county: "davidson"
