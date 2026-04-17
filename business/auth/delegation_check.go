@@ -24,6 +24,7 @@ KEY DEPENDENCIES:
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -168,13 +169,8 @@ func hasScope(domainPayload any, requiredScope string) bool {
 }
 
 // WithSignerDID re-exports for business package convenience.
-func WithSignerDID(ctx interface{ Value(any) any }, did string) interface{} {
-	return exchangeAuth.WithSignerDID(ctx.(interface {
-		Value(any) any
-		Deadline() (interface{}, bool)
-		Done() <-chan struct{}
-		Err() error
-	}), did)
+func WithSignerDID(ctx context.Context, did string) context.Context {
+	return exchangeAuth.WithSignerDID(ctx, did)
 }
 
 // extractScope is shared with domain payload parsing in handlers

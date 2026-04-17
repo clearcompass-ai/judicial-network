@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // DailyDocketConfig configures the daily docket generation.
@@ -59,7 +60,7 @@ type JudgeAssignment struct {
 // domain application flags it for review. The entry is still on the
 // log (the builder accepted it — delegation was live), but monitoring
 // detects the assignment violation.
-func GenerateDailyDocket(cfg DailyDocketConfig) (*builder.EntryBuildResult, error) {
+func GenerateDailyDocket(cfg DailyDocketConfig) (*envelope.Entry, error) {
 	if cfg.SignerDID == "" {
 		return nil, fmt.Errorf("davidson/daily_docket: empty signer DID")
 	}
@@ -80,8 +81,8 @@ func GenerateDailyDocket(cfg DailyDocketConfig) (*builder.EntryBuildResult, erro
 	}
 
 	return builder.BuildCommentary(builder.CommentaryParams{
-		SignerDID:     cfg.SignerDID,
-		DomainPayload: payload,
+		SignerDID: cfg.SignerDID,
+		Payload:   payload,
 	})
 }
 

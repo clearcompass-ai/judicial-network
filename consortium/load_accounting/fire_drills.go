@@ -2,20 +2,21 @@
 FILE PATH: consortium/load_accounting/fire_drills.go
 
 DESCRIPTION:
-    Runs synthetic recovery exercises that measure escrow node
-    liveness. Also measures storage node availability for IPFS
-    clusters. Results are published as commentary entries on the
-    consortium log.
 
-    Escrow is paid for liveness (cosignature SLA responsiveness),
-    not storage. Fire drills verify responsiveness. SLA failures
-    constitute objective misbehavior proof, enabling 7-day reduced
-    time-lock for scope removal.
+	Runs synthetic recovery exercises that measure escrow node
+	liveness. Also measures storage node availability for IPFS
+	clusters. Results are published as commentary entries on the
+	consortium log.
+
+	Escrow is paid for liveness (cosignature SLA responsiveness),
+	not storage. Fire drills verify responsiveness. SLA failures
+	constitute objective misbehavior proof, enabling 7-day reduced
+	time-lock for scope removal.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/storage: ContentStore.Exists (guide §8.2)
-    - ortholog-sdk/builder: BuildCommentary (guide §11.3)
-    - ortholog-sdk/crypto/escrow: escrow node types (guide §15)
+  - ortholog-sdk/storage: ContentStore.Exists (guide §8.2)
+  - ortholog-sdk/builder: BuildCommentary (guide §11.3)
+  - ortholog-sdk/crypto/escrow: escrow node types (guide §15)
 */
 package load_accounting
 
@@ -25,7 +26,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/escrow"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 )
 
@@ -58,16 +59,12 @@ type DrillResult struct {
 
 // RunEscrowDrill sends a synthetic challenge to an escrow node and
 // measures response time against the SLA window.
-func (r *FireDrillRunner) RunEscrowDrill(node escrow.NodeConfig) DrillResult {
+func (r *FireDrillRunner) RunEscrowDrill(nodeDID string) DrillResult {
 	start := time.Now()
-
-	// Synthetic challenge: request the node to prove it holds a share
-	// by responding with a commitment (not the share itself).
-	// In production, this calls the node's /v1/drill endpoint.
 	elapsed := time.Since(start)
 
 	result := DrillResult{
-		NodeDID:      node.DID,
+		NodeDID:      nodeDID,
 		DrillType:    "escrow_liveness",
 		ResponseTime: elapsed,
 		Timestamp:    start,
@@ -86,10 +83,20 @@ func (r *FireDrillRunner) RunEscrowDrill(node escrow.NodeConfig) DrillResult {
 // RunBlobAvailabilityDrill checks whether a specific CID is available
 // on the content store. Used to verify structural blob pinning
 // obligations.
-func (r *FireDrillRunner) RunBlobAvailabilityDrill(cid string) DrillResult {
+func (r *FireDrillRunner) RunBlobAvailabilityDrill(cidStr string) DrillResult {
 	start := time.Now()
 
-	exists, err := r.contentStore.Exists(cid)
+	parsedCID, parseErr := storage.ParseCID(cidStr)
+	if parseErr != nil {
+		return DrillResult{
+			DrillType:   "blob_availability",
+			Timestamp:   start,
+			Success:     false,
+			ErrorDetail: fmt.Sprintf("invalid CID: %v", parseErr),
+		}
+	}
+
+	exists, err := r.contentStore.Exists(parsedCID)
 	elapsed := time.Since(start)
 
 	result := DrillResult{
@@ -103,7 +110,7 @@ func (r *FireDrillRunner) RunBlobAvailabilityDrill(cid string) DrillResult {
 		result.ErrorDetail = fmt.Sprintf("exists check failed: %v", err)
 	} else if !exists {
 		result.Success = false
-		result.ErrorDetail = fmt.Sprintf("CID %s not found", cid)
+		result.ErrorDetail = fmt.Sprintf("CID %s not found", cidStr)
 	} else {
 		result.Success = true
 	}
@@ -113,7 +120,7 @@ func (r *FireDrillRunner) RunBlobAvailabilityDrill(cid string) DrillResult {
 
 // PublishDrillAttestation creates a commentary entry recording drill
 // results on the consortium governance log.
-func (r *FireDrillRunner) PublishDrillAttestation(results []DrillResult) (*builder.EntryBuildResult, error) {
+func (r *FireDrillRunner) PublishDrillAttestation(results []DrillResult) (*envelope.Entry, error) {
 	payload, err := json.Marshal(map[string]any{
 		"attestation_type": "fire_drill_results",
 		"results":          results,
@@ -125,8 +132,8 @@ func (r *FireDrillRunner) PublishDrillAttestation(results []DrillResult) (*build
 	}
 
 	return builder.BuildCommentary(builder.CommentaryParams{
-		SignerDID:     r.signerDID,
-		DomainPayload: payload,
+		SignerDID: r.signerDID,
+		Payload:   payload,
 	})
 }
 

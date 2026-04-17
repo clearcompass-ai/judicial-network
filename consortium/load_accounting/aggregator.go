@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/log"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
@@ -79,30 +79,31 @@ func (a *Aggregator) ComputeSettlement(startPos, endPos uint64) (*SettlementLedg
 	}
 
 	// Scan entries in the bounded range.
-	scanResult, err := a.queryAPI.ScanFromPosition(log.ScanParams{
-		StartPosition: startPos,
-		Limit:         endPos - startPos,
-	})
+	entries, err := a.queryAPI.ScanFromPosition(startPos, int(endPos-startPos))
 	if err != nil {
 		return nil, fmt.Errorf("load_accounting/aggregator: scan: %w", err)
 	}
 
-	for _, entry := range scanResult.Entries {
+	for _, meta := range entries {
 		ledger.TotalEntries++
 
-		signerDID := entry.Entry.SignerDID()
+		entry, dErr := envelope.Deserialize(meta.CanonicalBytes)
+		if dErr != nil {
+			continue
+		}
+		signerDID := entry.Header.SignerDID
 		usage := ledger.ensureMember(signerDID)
 
-		classification := builder.ClassifyEntry(entry.Entry)
-		switch classification.Type {
-		case "delegation":
+		// Lightweight classification from header fields.
+		// Full ClassifyEntry requires LeafReader+Fetcher (not available here).
+		h := &entry.Header
+		switch {
+		case h.DelegateDID != nil:
 			usage.DelegationCount++
-		case "schema":
-			usage.SchemaCount++
-		case "commentary":
+		case h.TargetRoot == nil && h.AuthorityPath == nil:
 			usage.CommentaryCount++
-		case "amendment", "scope_amendment":
-			usage.AmendmentCount++
+		case h.AuthoritySet != nil || (h.AuthorityPath != nil && *h.AuthorityPath == envelope.AuthorityScopeAuthority):
+			usage.AmendmentCount++ // scope amendments
 		default:
 			usage.OtherCount++
 		}
@@ -142,20 +143,21 @@ func (a *Aggregator) ComputeArtifactUsage(
 
 	usage := make(map[string]int64) // member DID → total bytes
 
-	scanResult, err := a.queryAPI.ScanFromPosition(log.ScanParams{
-		StartPosition: startPos,
-		Limit:         endPos - startPos,
-	})
+	entries, err := a.queryAPI.ScanFromPosition(startPos, int(endPos-startPos))
 	if err != nil {
 		return nil, fmt.Errorf("load_accounting/aggregator: artifact scan: %w", err)
 	}
 
-	for _, entry := range scanResult.Entries {
-		_, sizeBytes, hasCID := extractCID(entry)
+	for _, meta := range entries {
+		_, sizeBytes, hasCID := extractCID(meta)
 		if !hasCID {
 			continue
 		}
-		signerDID := entry.Entry.SignerDID()
+		entry, dErr := envelope.Deserialize(meta.CanonicalBytes)
+		if dErr != nil {
+			continue
+		}
+		signerDID := entry.Header.SignerDID
 		usage[signerDID] += sizeBytes
 	}
 

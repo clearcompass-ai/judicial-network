@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // BulkImportConfig configures a historical case import.
@@ -113,7 +114,7 @@ func RunBulkImport(cfg BulkImportConfig) (*BulkImportResult, error) {
 	}
 
 	// Phase 1: case roots
-	var caseRoots []*builder.EntryBuildResult
+	var caseRoots []*envelope.Entry
 	for i, c := range cfg.Cases {
 		payload, _ := json.Marshal(map[string]any{
 			"docket_number": c.DocketNumber,
@@ -127,8 +128,8 @@ func RunBulkImport(cfg BulkImportConfig) (*BulkImportResult, error) {
 		})
 
 		entry, err := builder.BuildRootEntity(builder.RootEntityParams{
-			SignerDID:     cfg.SignerDID,
-			DomainPayload: payload,
+			SignerDID: cfg.SignerDID,
+			Payload:   payload,
 		})
 		if err != nil {
 			result.FailedCases++
@@ -165,8 +166,8 @@ func RunBulkImport(cfg BulkImportConfig) (*BulkImportResult, error) {
 			})
 
 			_, err := builder.BuildAmendment(builder.AmendmentParams{
-				SignerDID:     cfg.SignerDID,
-				DomainPayload: payload,
+				SignerDID: cfg.SignerDID,
+				Payload:   payload,
 				// TargetRoot: set by caller after Phase 1 submission
 			})
 			if err != nil {

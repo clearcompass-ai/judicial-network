@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // LoadAccountingParams defines the settlement policy for a consortium.
@@ -84,14 +85,14 @@ func BuildLoadAccountingSchema(params LoadAccountingParams) ([]byte, error) {
 func PublishLoadAccountingEntity(
 	signerDID string,
 	params LoadAccountingParams,
-) (*builder.EntryBuildResult, error) {
+) (*envelope.Entry, error) {
 	payload, err := BuildLoadAccountingSchema(params)
 	if err != nil {
 		return nil, err
 	}
 
 	return builder.BuildRootEntity(builder.RootEntityParams{
-		SignerDID:     signerDID,
-		DomainPayload: payload,
+		SignerDID: signerDID,
+		Payload:   payload,
 	})
 }

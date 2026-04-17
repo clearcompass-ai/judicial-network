@@ -20,7 +20,6 @@ package handlers
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -28,6 +27,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 
@@ -52,22 +52,15 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Generate fresh AES-256-GCM key.
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		writeError(w, http.StatusInternalServerError, "key generation failed")
-		return
-	}
-
-	// Encrypt.
-	ciphertext, err := artifact.Encrypt(plaintext, key)
+	// Encrypt — SDK generates key internally.
+	ciphertext, artKey, err := artifact.EncryptArtifact(plaintext)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "encryption failed")
 		return
 	}
 
 	// Compute CID of ciphertext.
-	cid := storage.ComputeCID(ciphertext)
+	cid := storage.Compute(ciphertext)
 
 	// Compute content digest of plaintext.
 	digest := sha256.Sum256(plaintext)
@@ -80,7 +73,7 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, "push request failed")
 		return
 	}
-	pushReq.Header.Set("X-Artifact-CID", cid)
+	pushReq.Header.Set("X-Artifact-CID", cid.String())
 	pushReq.Header.Set("Content-Type", "application/octet-stream")
 
 	pushResp, err := http.DefaultClient.Do(pushReq)
@@ -97,9 +90,9 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	// Return metadata. Caller embeds cid + digest in entry Domain Payload.
 	writeJSON(w, http.StatusOK, map[string]any{
-		"cid":            cid,
+		"cid":            cid.String(),
 		"content_digest": hex.EncodeToString(digest[:]),
-		"encryption_key": base64.StdEncoding.EncodeToString(key),
+		"encryption_key": base64.StdEncoding.EncodeToString(artKey.Key[:]),
 		"encryption":     "AES-256-GCM",
 	})
 }
@@ -148,20 +141,22 @@ func (h *ArtifactGrantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		DomainPayload: grantPayload,
 	}
 
-	result, err := dispatchBuilder(buildReq)
+	entry, err := dispatchBuilder(buildReq)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "grant build failed")
 		return
 	}
 
+	entryBytes := envelope.Serialize(entry)
+
 	// Sign with granter's custodied key.
-	sig, err := h.deps.KeyStore.Sign(req.GranterDID, result.EntryBytes)
+	sig, err := h.deps.KeyStore.Sign(req.GranterDID, entryBytes)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "grant signing failed")
 		return
 	}
 
-	signed := append(result.EntryBytes, sig...)
+	signed := append(entryBytes, sig...)
 
 	// Submit to operator.
 	resp, err := http.Post(

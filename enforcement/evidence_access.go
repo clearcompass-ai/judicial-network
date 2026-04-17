@@ -1,12 +1,15 @@
 /*
 FILE PATH: enforcement/evidence_access.go
 DESCRIPTION: Sealed evidence access enforcement. Bridge between judicial
-    enforcement logic and SDK artifact access.
+
+	enforcement logic and SDK artifact access.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Reads disclosure orders from authority chain to assemble recipient list.
-    - Passes to GrantArtifactAccess sealed mode.
-    - Uses did_keys.ResolveEncryptionKey for recipient key resolution.
-    - Wraps retrieve.go with enforcement-layer policy.
+  - Reads disclosure orders from authority chain to assemble recipient list.
+  - Passes to GrantArtifactAccess sealed mode.
+  - Uses did_keys.ResolveEncryptionKey for recipient key resolution.
+  - Wraps retrieve.go with enforcement-layer policy.
+
 OVERVIEW: GrantEvidenceAccess → sealed-mode artifact grant with enforcement checks.
 KEY DEPENDENCIES: ortholog-sdk/lifecycle, cases/artifact
 */

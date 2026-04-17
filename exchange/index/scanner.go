@@ -26,6 +26,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 )
 
@@ -93,52 +94,47 @@ func (s *Scanner) Run(ctx context.Context) {
 }
 
 func (s *Scanner) scanBatch(fromPos uint64) (uint64, error) {
-	result, err := s.queryAPI.ScanFromPosition(sdklog.ScanParams{
-		StartPosition: fromPos,
-		Limit:         s.batchSize,
-	})
+	entries, err := s.queryAPI.ScanFromPosition(fromPos, int(s.batchSize))
 	if err != nil {
 		return fromPos, err
 	}
 
-	if len(result.Entries) == 0 {
+	if len(entries) == 0 {
 		return fromPos, nil
 	}
 
 	maxPos := fromPos
-	for _, entry := range result.Entries {
-		pos := entry.LogPosition
+	for _, meta := range entries {
+		pos := meta.Position.Sequence
 		if pos > maxPos {
 			maxPos = pos
 		}
 
-		signerDID := entry.Entry.SignerDID()
-		entryType := entry.Entry.EntryType()
+		// Deserialize entry from canonical bytes.
+		entry, err := envelope.Deserialize(meta.CanonicalBytes)
+		if err != nil {
+			continue
+		}
+
+		signerDID := entry.Header.SignerDID
 
 		// Index by signer DID.
 		s.store.AddDIDMapping(s.logID, signerDID, pos)
 
-		// Index by entry type.
-		s.store.AddTypeMapping(s.logID, entryType, pos)
-
 		// Parse Domain Payload for domain-specific fields.
-		s.indexDomainPayload(pos, entry.Entry.DomainPayload())
+		s.indexDomainPayload(pos, entry.DomainPayload)
 	}
 
 	return maxPos + 1, nil
 }
 
-func (s *Scanner) indexDomainPayload(pos uint64, payload any) {
-	m, ok := payload.(map[string]any)
-	if !ok {
-		// Try unmarshalling raw bytes.
-		raw, ok := payload.([]byte)
-		if !ok {
-			return
-		}
-		if err := json.Unmarshal(raw, &m); err != nil {
-			return
-		}
+func (s *Scanner) indexDomainPayload(pos uint64, payload []byte) {
+	if len(payload) == 0 {
+		return
+	}
+	var m map[string]any
+	if err := json.Unmarshal(payload, &m); err != nil {
+		return
 	}
 
 	// Index docket_number if present.

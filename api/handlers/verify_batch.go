@@ -1,107 +1,69 @@
-/*
-FILE PATH: api/handlers/verify_batch.go
-
-DESCRIPTION:
-    POST /v1/verify/batch
-
-    Batch EvaluateOrigin across multiple entries, potentially on
-    different logs. Efficiency endpoint — one HTTP call instead of
-    N sequential origin queries.
-
-    Request body: array of { log_id, position } pairs.
-    Response: array of origin evaluation results, same order.
-
-    Cap at 500 entries per request to bound response time.
-
-KEY DEPENDENCIES:
-    - ortholog-sdk/verifier: EvaluateOrigin (guide §23.1)
-*/
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
+	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
 
-// VerifyBatchHandler handles POST /v1/verify/batch.
-type VerifyBatchHandler struct {
-	deps *Dependencies
-}
+// VerifyBatchHandler handles GET /v1/verify/batch/{logID}/{positions}.
+// Positions is a comma-separated list of uint64.
+type VerifyBatchHandler struct{ deps *Dependencies }
 
 func NewVerifyBatchHandler(deps *Dependencies) *VerifyBatchHandler {
 	return &VerifyBatchHandler{deps: deps}
 }
 
-// BatchRequest is the request body.
-type BatchRequest struct {
-	Entries []BatchEntry `json:"entries"`
-}
-
-// BatchEntry identifies one entry to evaluate.
-type BatchEntry struct {
-	LogID    string `json:"log_id"`
-	Position uint64 `json:"position"`
-}
-
-// BatchResult is one evaluation result.
-type BatchResult struct {
-	LogID    string `json:"log_id"`
-	Position uint64 `json:"position"`
-	State    string `json:"state,omitempty"`
-	Error    string `json:"error,omitempty"`
+type batchItem struct {
+	Position  uint64                      `json:"position"`
+	Origin    *verifier.OriginEvaluation  `json:"origin,omitempty"`
+	Authority *verifier.AuthorityEvaluation `json:"authority,omitempty"`
+	Error     string                      `json:"error,omitempty"`
 }
 
 func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var req BatchRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	logID := r.PathValue("logID")
+	positionsStr := r.PathValue("positions")
+
+	fetcher, err := h.deps.fetcherFor(logID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
-	if len(req.Entries) == 0 {
-		writeError(w, http.StatusBadRequest, "entries array is empty")
-		return
-	}
-	if len(req.Entries) > 500 {
-		writeError(w, http.StatusBadRequest, "maximum 500 entries per request")
-		return
-	}
+	parts := strings.Split(positionsStr, ",")
+	results := make([]batchItem, 0, len(parts))
 
-	results := make([]BatchResult, 0, len(req.Entries))
-
-	for _, item := range req.Entries {
-		result := BatchResult{
-			LogID:    item.LogID,
-			Position: item.Position,
-		}
-
-		query, ok := h.deps.resolveLog(item.LogID)
-		if !ok {
-			result.Error = "unknown log"
-			results = append(results, result)
-			continue
-		}
-
-		entry, err := query.FetchEntry(item.Position)
+	for _, p := range parts {
+		pos, err := strconv.ParseUint(strings.TrimSpace(p), 10, 64)
 		if err != nil {
-			result.Error = "entry not found"
-			results = append(results, result)
+			results = append(results, batchItem{Error: "invalid position: " + p})
 			continue
 		}
 
-		originResult, err := h.deps.OriginEvaluator.EvaluateOrigin(item.Position, entry.Entry)
+		item := batchItem{Position: pos}
+		leafKey := smt.DeriveKey(types.LogPosition{LogDID: logID, Sequence: pos})
+
+		origin, err := verifier.EvaluateOrigin(leafKey, h.deps.LeafReader, fetcher)
 		if err != nil {
-			result.Error = "evaluation failed"
-			results = append(results, result)
-			continue
+			item.Error = err.Error()
+		} else {
+			item.Origin = origin
 		}
 
-		result.State = originResult.State
-		results = append(results, result)
+		auth, err := verifier.EvaluateAuthority(
+			leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor,
+		)
+		if err == nil {
+			item.Authority = auth
+		}
+
+		results = append(results, item)
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"results": results,
-		"total":   len(results),
-	})
+	writeJSON(w, http.StatusOK, map[string]any{"results": results})
 }

@@ -28,6 +28,8 @@ import (
 	"net/http"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
+	"github.com/clearcompass-ai/ortholog-sdk/types"
 
 	"github.com/clearcompass-ai/judicial-network/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/exchange/index"
@@ -53,10 +55,11 @@ func NewEntryBuildHandler(deps *Dependencies) *EntryBuildHandler {
 }
 
 type BuildRequest struct {
-	Builder       string          `json:"builder"` // "root_entity", "amendment", "delegation", etc.
+	Builder       string          `json:"builder"`
 	SignerDID     string          `json:"signer_did"`
 	DomainPayload json.RawMessage `json:"domain_payload"`
 	TargetRoot    *uint64         `json:"target_root,omitempty"`
+	LogDID        string          `json:"log_did,omitempty"`
 }
 
 func (h *EntryBuildHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -72,44 +75,45 @@ func (h *EntryBuildHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		req.SignerDID = callerDID
 	}
 
-	result, err := dispatchBuilder(req)
+	entry, err := dispatchBuilder(req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	entryBytes := envelope.Serialize(entry)
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"entry_bytes":    result.EntryBytes,
-		"canonical_hash": result.CanonicalHash,
+		"entry_bytes": entryBytes,
 	})
 }
 
-func dispatchBuilder(req BuildRequest) (*builder.EntryBuildResult, error) {
+func dispatchBuilder(req BuildRequest) (*envelope.Entry, error) {
 	switch req.Builder {
 	case "root_entity":
 		return builder.BuildRootEntity(builder.RootEntityParams{
-			SignerDID:     req.SignerDID,
-			DomainPayload: req.DomainPayload,
+			SignerDID: req.SignerDID,
+			Payload:   req.DomainPayload,
 		})
 	case "amendment":
-		var targetRoot uint64
+		var targetRoot types.LogPosition
 		if req.TargetRoot != nil {
-			targetRoot = *req.TargetRoot
+			targetRoot = types.LogPosition{LogDID: req.LogDID, Sequence: *req.TargetRoot}
 		}
 		return builder.BuildAmendment(builder.AmendmentParams{
-			SignerDID:     req.SignerDID,
-			TargetRoot:    targetRoot,
-			DomainPayload: req.DomainPayload,
+			SignerDID:  req.SignerDID,
+			TargetRoot: targetRoot,
+			Payload:    req.DomainPayload,
 		})
 	case "commentary":
 		return builder.BuildCommentary(builder.CommentaryParams{
-			SignerDID:     req.SignerDID,
-			DomainPayload: req.DomainPayload,
+			SignerDID: req.SignerDID,
+			Payload:   req.DomainPayload,
 		})
 	case "enforcement":
 		return builder.BuildEnforcement(builder.EnforcementParams{
-			SignerDID:     req.SignerDID,
-			DomainPayload: req.DomainPayload,
+			SignerDID: req.SignerDID,
+			Payload:   req.DomainPayload,
 		})
 	default:
 		return nil, fmt.Errorf("unknown builder: %s", req.Builder)
@@ -203,20 +207,22 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build.
-	result, err := dispatchBuilder(req)
+	entry, err := dispatchBuilder(req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	entryBytes := envelope.Serialize(entry)
+
 	// Sign.
-	sig, err := h.deps.KeyStore.Sign(req.SignerDID, result.EntryBytes)
+	sig, err := h.deps.KeyStore.Sign(req.SignerDID, entryBytes)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "signing failed")
 		return
 	}
 
-	signed := append(result.EntryBytes, sig...)
+	signed := append(entryBytes, sig...)
 
 	// Submit to operator.
 	resp, err := http.Post(

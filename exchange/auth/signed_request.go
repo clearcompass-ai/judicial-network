@@ -26,6 +26,7 @@ KEY DEPENDENCIES:
 package auth
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
@@ -141,7 +142,7 @@ func (sa *SignerAuth) Wrap(next http.Handler) http.Handler {
 		}
 
 		// Attach authenticated signer DID to request context.
-		ctx := withSignerDID(r.Context(), signerDID)
+		ctx := WithSignerDID(r.Context(), signerDID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -194,7 +195,8 @@ func (sa *SignerAuth) authenticate(r *http.Request) (string, error) {
 // Context key for authenticated signer DID.
 type signerDIDKey struct{}
 
-func withSignerDID(ctx context.Context, did string) context.Context {
+// WithSignerDID attaches an authenticated signer DID to the context.
+func WithSignerDID(ctx context.Context, did string) context.Context {
 	return context.WithValue(ctx, signerDIDKey{}, did)
 }
 

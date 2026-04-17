@@ -1,41 +1,37 @@
-/*
-FILE PATH: exchange/handlers/management.go
-
-DESCRIPTION:
-    Management handlers: delegations, keys, identity, and scope
-    governance. Each wraps SDK primitives with key custody.
-
-    Delegation:  POST /v1/delegations, DELETE /v1/delegations/{did}
-    Keys:        POST /v1/keys/generate, POST /v1/keys/rotate,
-                 POST /v1/keys/escrow, GET /v1/keys
-    Identity:    POST /v1/dids, GET /v1/dids
-    Scope:       POST /v1/scope/propose, POST /v1/scope/approve/{pos},
-                 POST /v1/scope/execute/{pos}
-
-KEY DEPENDENCIES:
-    - ortholog-sdk/builder: BuildDelegation, BuildRevocation,
-      BuildKeyRotation, BuildKeyPrecommit (guide §11.3)
-    - ortholog-sdk/did: GenerateDIDKey, CreateDIDDocument (guide §17)
-    - ortholog-sdk/lifecycle: ProposeAmendment, BuildApprovalCosignature,
-      ExecuteAmendment, ExecuteRemoval (guide §20.2)
-    - ortholog-sdk/crypto/escrow: SplitGF256, EncryptForNode (guide §15)
-    - exchange/keystore: key custody
-*/
 package handlers
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/crypto/escrow"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	"github.com/clearcompass-ai/ortholog-sdk/types"
 
 	"github.com/clearcompass-ai/judicial-network/exchange/auth"
+
+	"github.com/dustinxie/ecc"
 )
+
+// parseSecp256k1PubKey parses a 65-byte uncompressed secp256k1 public key.
+func parseSecp256k1PubKey(data []byte) (*ecdsa.PublicKey, error) {
+	c := ecc.P256k1()
+	x, y := elliptic.Unmarshal(c, data)
+	if x == nil {
+		return nil, fmt.Errorf("invalid secp256k1 public key (%d bytes)", len(data))
+	}
+	return &ecdsa.PublicKey{Curve: c, X: x, Y: y}, nil
+}
 
 // ─── Delegation Create ──────────────────────────────────────────────
 
@@ -63,24 +59,17 @@ func (h *DelegationCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		req.DelegatorDID = callerDID
 	}
 
-	result, err := builder.BuildDelegation(builder.DelegationParams{
-		SignerDID:     req.DelegatorDID,
-		DelegateDID:   req.DelegateDID,
-		DomainPayload: req.DomainPayload,
+	entry, err := builder.BuildDelegation(builder.DelegationParams{
+		SignerDID:   req.DelegatorDID,
+		DelegateDID: req.DelegateDID,
+		Payload:     req.DomainPayload,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	sig, err := h.deps.KeyStore.Sign(req.DelegatorDID, result.EntryBytes)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "signing failed")
-		return
-	}
-
-	signed := append(result.EntryBytes, sig...)
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	signAndSubmit(w, h.deps, req.DelegatorDID, entry)
 }
 
 // ─── Delegation Revoke ──────────────────────────────────────────────
@@ -93,36 +82,29 @@ func NewDelegationRevokeHandler(deps *Dependencies) *DelegationRevokeHandler {
 
 func (h *DelegationRevokeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	callerDID := auth.SignerDIDFromContext(r.Context())
-	targetDID := r.PathValue("did")
+	_ = r.PathValue("did") // targetDID for logging/audit
 
 	var body struct {
-		Reason string `json:"reason"`
+		Reason    string `json:"reason"`
+		TargetPos uint64 `json:"target_pos"` // log position of the delegation to revoke
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 
 	payload, _ := json.Marshal(map[string]any{
 		"revocation_reason": body.Reason,
-		"target_did":        targetDID,
 	})
 
-	result, err := builder.BuildRevocation(builder.RevocationParams{
-		SignerDID:     callerDID,
-		TargetDID:     targetDID,
-		DomainPayload: payload,
+	entry, err := builder.BuildRevocation(builder.RevocationParams{
+		SignerDID:  callerDID,
+		TargetRoot: types.LogPosition{Sequence: body.TargetPos},
+		Payload:    payload,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	sig, err := h.deps.KeyStore.Sign(callerDID, result.EntryBytes)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "signing failed")
-		return
-	}
-
-	signed := append(result.EntryBytes, sig...)
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	signAndSubmit(w, h.deps, callerDID, entry)
 }
 
 // ─── Key Generate ───────────────────────────────────────────────────
@@ -165,7 +147,8 @@ func (h *KeyRotateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		DID          string `json:"did"`
-		RotationTier int    `json:"rotation_tier"` // 1, 2, or 3
+		RotationTier int    `json:"rotation_tier"`
+		TargetPos    uint64 `json:"target_pos"` // DID profile entity position
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request")
@@ -175,37 +158,29 @@ func (h *KeyRotateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		req.DID = callerDID
 	}
 
-	// Rotate key in keystore.
 	newInfo, err := h.deps.KeyStore.Rotate(req.DID, req.RotationTier)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Build + sign + submit key rotation entry.
 	payload, _ := json.Marshal(map[string]any{
 		"rotation_tier": req.RotationTier,
 		"key_id":        newInfo.KeyID,
 	})
 
-	rotEntry, err := builder.BuildKeyRotation(builder.KeyRotationParams{
-		SignerDID:     req.DID,
-		NewPublicKey:  newInfo.PublicKey,
-		DomainPayload: payload,
+	entry, err := builder.BuildKeyRotation(builder.KeyRotationParams{
+		SignerDID:    req.DID,
+		TargetRoot:   types.LogPosition{Sequence: req.TargetPos},
+		NewPublicKey: newInfo.PublicKey,
+		Payload:      payload,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "rotation entry build failed")
 		return
 	}
 
-	sig, err := h.deps.KeyStore.Sign(req.DID, rotEntry.EntryBytes)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "signing failed")
-		return
-	}
-
-	signed := append(rotEntry.EntryBytes, sig...)
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	signAndSubmit(w, h.deps, req.DID, entry)
 }
 
 // ─── Key Escrow ─────────────────────────────────────────────────────
@@ -218,33 +193,40 @@ func NewKeyEscrowHandler(deps *Dependencies) *KeyEscrowHandler {
 
 func (h *KeyEscrowHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		DID       string              `json:"did"`
-		Nodes     []escrow.NodeConfig `json:"nodes"`
-		Threshold int                 `json:"threshold"`
+		DID         string   `json:"did"`
+		NodePubKeys []string `json:"node_pub_keys"` // hex-encoded 65-byte secp256k1
+		Threshold   int      `json:"threshold"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	// Export private key for splitting.
 	privKey, err := h.deps.KeyStore.ExportForEscrow(req.DID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Split via Shamir.
-	shares, err := escrow.SplitGF256(privKey, len(req.Nodes), req.Threshold)
+	shares, err := escrow.SplitGF256(privKey, req.Threshold, len(req.NodePubKeys))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "shamir split failed")
 		return
 	}
 
-	// Encrypt each share for its target node via ECIES.
 	var encryptedShares [][]byte
-	for i, node := range req.Nodes {
-		encrypted, err := escrow.EncryptForNode(shares[i], node)
+	for i, hexKey := range req.NodePubKeys {
+		pubKeyBytes, err := hex.DecodeString(hexKey)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid node public key hex")
+			return
+		}
+		pubKey, err := parseSecp256k1PubKey(pubKeyBytes)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid secp256k1 public key")
+			return
+		}
+		encrypted, err := escrow.EncryptForNode(shares[i].Value, pubKey)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "ecies encrypt failed")
 			return
@@ -283,26 +265,16 @@ func NewDIDCreateHandler(deps *Dependencies) *DIDCreateHandler {
 
 func (h *DIDCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Method string `json:"method"` // "web"
-		Domain string `json:"domain"` // "courts.nashville.gov"
-		Path   string `json:"path"`   // "criminal" or "role:judge-mcclendon-2026"
+		Domain string `json:"domain"`
+		Path   string `json:"path"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	didStr, doc, err := did.CreateDIDDocument(did.CreateParams{
-		Method: req.Method,
-		Domain: req.Domain,
-		Path:   req.Path,
-	})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+	didStr := did.NewWebDID(req.Domain, req.Path)
 
-	// Generate and store key for this DID.
 	keyInfo, err := h.deps.KeyStore.Generate(didStr, "signing")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -310,10 +282,9 @@ func (h *DIDCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"did":          didStr,
-		"document":     doc,
-		"public_key":   keyInfo.PublicKey,
-		"key_id":       keyInfo.KeyID,
+		"did":        didStr,
+		"public_key": keyInfo.PublicKey,
+		"key_id":     keyInfo.KeyID,
 	})
 }
 
@@ -330,10 +301,10 @@ func (h *DIDListHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dids := make([]map[string]any, 0, len(keys))
 	for _, k := range keys {
 		dids = append(dids, map[string]any{
-			"did":      k.DID,
-			"key_id":   k.KeyID,
-			"purpose":  k.Purpose,
-			"created":  k.Created,
+			"did":     k.DID,
+			"key_id":  k.KeyID,
+			"purpose": k.Purpose,
+			"created": k.Created,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"dids": dids})
@@ -351,7 +322,7 @@ func (h *ScopeProposeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	callerDID := auth.SignerDIDFromContext(r.Context())
 
 	var req struct {
-		ProposalType string          `json:"proposal_type"` // "add_authority", "remove_authority", etc.
+		ProposalType string          `json:"proposal_type"`
 		TargetDID    string          `json:"target_did"`
 		Description  string          `json:"description"`
 		Payload      json.RawMessage `json:"payload"`
@@ -361,11 +332,9 @@ func (h *ScopeProposeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	proposalType := lifecycle.ProposalTypeFromString(req.ProposalType)
-
 	proposal, err := lifecycle.ProposeAmendment(lifecycle.AmendmentProposalParams{
 		ProposerDID:     callerDID,
-		ProposalType:    proposalType,
+		ProposalType:    proposalTypeFromString(req.ProposalType),
 		TargetDID:       req.TargetDID,
 		Description:     req.Description,
 		ProposalPayload: req.Payload,
@@ -375,14 +344,8 @@ func (h *ScopeProposeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	sig, err := h.deps.KeyStore.Sign(callerDID, proposal.EntryBytes)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "signing failed")
-		return
-	}
-
-	signed := append(proposal.EntryBytes, sig...)
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	// ProposeAmendment returns *AmendmentProposal with .Entry field.
+	signAndSubmit(w, h.deps, callerDID, proposal.Entry)
 }
 
 // ─── Scope Approve ──────────────────────────────────────────────────
@@ -402,23 +365,18 @@ func (h *ScopeApproveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	approval, err := lifecycle.BuildApprovalCosignature(lifecycle.ApprovalParams{
-		ApproverDID:  callerDID,
-		ProposalPos:  pos,
-	})
+	// BuildApprovalCosignature takes 3 args: signerDID, proposalPos, eventTime.
+	entry, err := lifecycle.BuildApprovalCosignature(
+		callerDID,
+		types.LogPosition{Sequence: pos},
+		time.Now().UTC().UnixMicro(),
+	)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	sig, err := h.deps.KeyStore.Sign(callerDID, approval.EntryBytes)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "signing failed")
-		return
-	}
-
-	signed := append(approval.EntryBytes, sig...)
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	signAndSubmit(w, h.deps, callerDID, entry)
 }
 
 // ─── Scope Execute ──────────────────────────────────────────────────
@@ -438,26 +396,69 @@ func (h *ScopeExecuteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	execution, err := lifecycle.ExecuteAmendment(lifecycle.AmendmentExecutionParams{
-		ExecutorDID: callerDID,
-		ProposalPos: pos,
+	var req struct {
+		NewAuthoritySet   map[string]struct{} `json:"new_authority_set"`
+		ApprovalPositions []uint64            `json:"approval_positions"`
+		PriorAuthority    *uint64             `json:"prior_authority,omitempty"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	approvals := make([]types.LogPosition, len(req.ApprovalPositions))
+	for i, p := range req.ApprovalPositions {
+		approvals[i] = types.LogPosition{Sequence: p}
+	}
+
+	var prior *types.LogPosition
+	if req.PriorAuthority != nil {
+		p := types.LogPosition{Sequence: *req.PriorAuthority}
+		prior = &p
+	}
+
+	entry, err := lifecycle.ExecuteAmendment(lifecycle.ExecuteAmendmentParams{
+		ExecutorDID:       callerDID,
+		ScopePos:          types.LogPosition{Sequence: pos},
+		NewAuthoritySet:   req.NewAuthoritySet,
+		ApprovalPositions: approvals,
+		PriorAuthority:    prior,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	sig, err := h.deps.KeyStore.Sign(callerDID, execution.EntryBytes)
+	signAndSubmit(w, h.deps, callerDID, entry)
+}
+
+// ─── Shared ─────────────────────────────────────────────────────────
+
+// signAndSubmit serializes an entry, signs it, and forwards to the operator.
+func signAndSubmit(w http.ResponseWriter, deps *Dependencies, signerDID string, entry *envelope.Entry) {
+	entryBytes := envelope.Serialize(entry)
+
+	sig, err := deps.KeyStore.Sign(signerDID, entryBytes)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "signing failed")
 		return
 	}
 
-	signed := append(execution.EntryBytes, sig...)
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	signed := append(entryBytes, sig...)
+	submitToOperator(w, deps.OperatorEndpoint, signed)
 }
 
-// ─── Shared ─────────────────────────────────────────────────────────
+// proposalTypeFromString maps a string label to the SDK's ProposalType enum.
+// The SDK provides ProposalType.String() (enum→string) but not the reverse.
+func proposalTypeFromString(s string) lifecycle.ProposalType {
+	switch s {
+	case "add_authority":
+		return lifecycle.ProposalAddAuthority
+	case "remove_authority":
+		return lifecycle.ProposalRemoveAuthority
+	case "change_parameters":
+		return lifecycle.ProposalChangeParameters
+	default:
+		return lifecycle.ProposalDomainExtension
+	}
+}
 
 func submitToOperator(w http.ResponseWriter, endpoint string, signed []byte) {
 	resp, err := http.Post(

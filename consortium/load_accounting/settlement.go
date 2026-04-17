@@ -2,15 +2,16 @@
 FILE PATH: consortium/load_accounting/settlement.go
 
 DESCRIPTION:
-    Publishes settlement period boundaries as commentary entries on
-    the consortium governance log. Tracks deficit/surplus per member.
-    Triggers scope removal for persistent free-riders via
-    ExecuteRemoval (guide §20.2) with objective triggers enabling
-    the 7-day reduced time-lock.
+
+	Publishes settlement period boundaries as commentary entries on
+	the consortium governance log. Tracks deficit/surplus per member.
+	Triggers scope removal for persistent free-riders via
+	ExecuteRemoval (guide §20.2) with objective triggers enabling
+	the 7-day reduced time-lock.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/builder: BuildCommentary (guide §11.3)
-    - ortholog-sdk/lifecycle: ExecuteRemoval, ActivateRemoval (guide §20.2)
+  - ortholog-sdk/builder: BuildCommentary (guide §11.3)
+  - ortholog-sdk/lifecycle: ExecuteRemoval, ActivateRemoval (guide §20.2)
 */
 package load_accounting
 
@@ -20,15 +21,17 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // SettlementManager handles periodic settlement computation and
 // publication.
 type SettlementManager struct {
-	signerDID    string
-	aggregator   *Aggregator
-	params       LoadAccountingParams
+	signerDID  string
+	aggregator *Aggregator
+	params     LoadAccountingParams
 }
 
 // NewSettlementManager creates a settlement manager.
@@ -42,12 +45,12 @@ func NewSettlementManager(signerDID string, aggregator *Aggregator, params LoadA
 
 // SettlementBoundary records a settlement period boundary on-log.
 type SettlementBoundary struct {
-	PeriodStart   time.Time        `json:"period_start"`
-	PeriodEnd     time.Time        `json:"period_end"`
-	StartPos      uint64           `json:"start_pos"`
-	EndPos        uint64           `json:"end_pos"`
-	Ledger        *SettlementLedger `json:"ledger"`
-	DeficitMembers []string        `json:"deficit_members,omitempty"`
+	PeriodStart    time.Time         `json:"period_start"`
+	PeriodEnd      time.Time         `json:"period_end"`
+	StartPos       uint64            `json:"start_pos"`
+	EndPos         uint64            `json:"end_pos"`
+	Ledger         *SettlementLedger `json:"ledger"`
+	DeficitMembers []string          `json:"deficit_members,omitempty"`
 }
 
 // ComputeAndPublishSettlement computes the settlement ledger for a
@@ -55,7 +58,7 @@ type SettlementBoundary struct {
 func (sm *SettlementManager) ComputeAndPublishSettlement(
 	periodStart, periodEnd time.Time,
 	startPos, endPos uint64,
-) (*builder.EntryBuildResult, error) {
+) (*envelope.Entry, error) {
 	ledger, err := sm.aggregator.ComputeSettlement(startPos, endPos)
 	if err != nil {
 		return nil, fmt.Errorf("load_accounting/settlement: compute: %w", err)
@@ -79,8 +82,8 @@ func (sm *SettlementManager) ComputeAndPublishSettlement(
 	}
 
 	return builder.BuildCommentary(builder.CommentaryParams{
-		SignerDID:     sm.signerDID,
-		DomainPayload: payload,
+		SignerDID: sm.signerDID,
+		Payload:   payload,
 	})
 }
 
@@ -114,14 +117,16 @@ func EvaluateDeficit(
 // to 7 days.
 func InitiateFreeloacherRemoval(
 	executorDID string,
+	scopePos types.LogPosition,
 	targetDID string,
-	reason string,
-	evidencePointers []uint64,
+	triggerType lifecycle.ObjectiveTrigger,
+	triggerPositions []types.LogPosition,
 ) (*lifecycle.RemovalExecution, error) {
-	return lifecycle.ExecuteRemoval(lifecycle.RemovalExecutionParams{
-		ExecutorDID:      executorDID,
-		TargetDID:        targetDID,
-		Reason:           reason,
-		EvidencePointers: evidencePointers,
+	return lifecycle.ExecuteRemoval(lifecycle.RemovalParams{
+		ExecutorDID:       executorDID,
+		ScopePos:          scopePos,
+		TargetDID:         targetDID,
+		ObjectiveTriggers: triggerPositions,
+		TriggerType:       triggerType,
 	})
 }
