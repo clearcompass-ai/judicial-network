@@ -23,6 +23,7 @@ import (
 
 // SuccessionConfig configures a judicial rotation.
 type SuccessionConfig struct {
+	Destination string // DID of target exchange. Required.
 	CurrentJudgeDID   string            // Outgoing judge (signer of succession)
 	NewJudgeDID       string            // Incoming judge
 	DelegationRootPos types.LogPosition // Position of the delegation entry being succeeded
@@ -57,6 +58,7 @@ func RotateJudge(cfg SuccessionConfig) (*SuccessionResult, error) {
 	})
 
 	entry, err := builder.BuildSuccession(builder.SuccessionParams{
+		Destination: cfg.Destination,
 		SignerDID:    cfg.CurrentJudgeDID,
 		TargetRoot:   cfg.DelegationRootPos,
 		NewSignerDID: cfg.NewJudgeDID,

@@ -33,6 +33,7 @@ import (
 
 // BulkImportConfig configures a historical case import.
 type BulkImportConfig struct {
+	Destination string // DID of target exchange. Required.
 	// SignerDID is the court's institutional DID.
 	SignerDID string
 
@@ -128,6 +129,7 @@ func RunBulkImport(cfg BulkImportConfig) (*BulkImportResult, error) {
 		})
 
 		entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+			Destination: cfg.Destination,
 			SignerDID: cfg.SignerDID,
 			Payload:   payload,
 		})
@@ -166,6 +168,7 @@ func RunBulkImport(cfg BulkImportConfig) (*BulkImportResult, error) {
 			})
 
 			_, err := builder.BuildAmendment(builder.AmendmentParams{
+				Destination: cfg.Destination,
 				SignerDID: cfg.SignerDID,
 				Payload:   payload,
 				// TargetRoot: set by caller after Phase 1 submission

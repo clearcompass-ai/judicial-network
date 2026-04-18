@@ -25,6 +25,7 @@ func TestCaseStatusAmendment_CarriesStatus(t *testing.T) {
 	casePos := types.LogPosition{LogDID: casesLogDID, Sequence: 100}
 
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  courtDID,
 		TargetRoot: casePos,
 		Payload: mustJSON(t, map[string]any{
@@ -55,6 +56,7 @@ func TestEvidenceChain_MultipleAmendments(t *testing.T) {
 
 	// First amendment: initial filing.
 	a1, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  courtDID,
 		TargetRoot: casePos,
 		Payload:    mustJSON(t, map[string]any{"event": "initial_filing", "seq": 1}),
@@ -65,6 +67,7 @@ func TestEvidenceChain_MultipleAmendments(t *testing.T) {
 
 	// Second amendment: evidence submitted.
 	a2, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  courtDID,
 		TargetRoot: casePos,
 		Payload:    mustJSON(t, map[string]any{"event": "evidence_submitted", "seq": 2}),
@@ -75,6 +78,7 @@ func TestEvidenceChain_MultipleAmendments(t *testing.T) {
 
 	// Third amendment: hearing held.
 	a3, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  courtDID,
 		TargetRoot: casePos,
 		Payload:    mustJSON(t, map[string]any{"event": "hearing_held", "seq": 3}),
@@ -109,6 +113,7 @@ func TestDelegationChainVerification_PathBShape(t *testing.T) {
 
 	// Judge acts via 2-hop delegation chain.
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:          judgeDID,
 		TargetRoot:         casePos,
 		DelegationPointers: []types.LogPosition{deleg1, deleg2},
@@ -136,6 +141,7 @@ func TestDelegationChainVerification_PathBShape(t *testing.T) {
 
 func TestSealingCheck_EnforcementDetectable(t *testing.T) {
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   types.LogPosition{LogDID: casesLogDID, Sequence: 100},
 		ScopePointer: types.LogPosition{LogDID: casesLogDID, Sequence: 1},
@@ -173,6 +179,7 @@ func TestAppellateHistory_CrossLogReference(t *testing.T) {
 	}
 
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:        courtDID,
 		TargetRoot:       casePos,
 		EvidencePointers: []types.LogPosition{appellateRef},
@@ -200,6 +207,7 @@ func TestAppellateHistory_CrossLogReference(t *testing.T) {
 func TestBackgroundCheck_MultiLogEntries(t *testing.T) {
 	// Simulate entries from two different county logs.
 	davidson, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:courts.nashville.gov",
 		Payload:   mustJSON(t, map[string]any{"docket": "2027-CR-4471", "county": "davidson"}),
 	})
@@ -208,6 +216,7 @@ func TestBackgroundCheck_MultiLogEntries(t *testing.T) {
 	}
 
 	shelby, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:courts.memphis.gov",
 		Payload:   mustJSON(t, map[string]any{"docket": "2027-CR-9901", "county": "shelby"}),
 	})

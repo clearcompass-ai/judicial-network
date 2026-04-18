@@ -69,7 +69,7 @@ func DefaultLoadAccountingParams() LoadAccountingParams {
 // BuildLoadAccountingSchema creates the schema entry payload for the
 // load accounting schema. This is published as a root entity on the
 // consortium governance log.
-func BuildLoadAccountingSchema(params LoadAccountingParams) ([]byte, error) {
+func BuildLoadAccountingSchema(params LoadAccountingParams, destination string) ([]byte, error) {
 	payload, err := json.Marshal(map[string]any{
 		"schema_type":       "load_accounting_v1",
 		"load_accounting":   params,
@@ -83,15 +83,16 @@ func BuildLoadAccountingSchema(params LoadAccountingParams) ([]byte, error) {
 // PublishLoadAccountingEntity creates a root entity entry carrying the
 // load accounting parameters. Submit to the consortium log operator.
 func PublishLoadAccountingEntity(
-	signerDID string,
+	signerDID string, destination string,
 	params LoadAccountingParams,
 ) (*envelope.Entry, error) {
-	payload, err := BuildLoadAccountingSchema(params)
+	payload, err := BuildLoadAccountingSchema(params, destination)
 	if err != nil {
 		return nil, err
 	}
 
 	return builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: destination,
 		SignerDID: signerDID,
 		Payload:   payload,
 	})

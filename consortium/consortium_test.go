@@ -28,6 +28,7 @@ func TestScopeCreation_ConsortiumFormation(t *testing.T) {
 	}
 
 	entry, err := builder.BuildScopeCreation(builder.ScopeCreationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    courtDID1,
 		AuthoritySet: authoritySet,
 		Payload: mustJSON(t, map[string]any{
@@ -60,6 +61,7 @@ func TestScopeCreation_ConsortiumFormation(t *testing.T) {
 
 func TestScopeCreation_SignerMustBeInAuthoritySet(t *testing.T) {
 	_, err := builder.BuildScopeCreation(builder.ScopeCreationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: courtDID1,
 		AuthoritySet: map[string]struct{}{
 			courtDID2: {}, // court1 (signer) NOT in set.
@@ -75,6 +77,7 @@ func TestScopeCreation_SignerMustBeInAuthoritySet(t *testing.T) {
 
 func TestScopeCreation_EmptyAuthoritySet_Rejected(t *testing.T) {
 	_, err := builder.BuildScopeCreation(builder.ScopeCreationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    courtDID1,
 		AuthoritySet: map[string]struct{}{},
 		Payload:      []byte("{}"),
@@ -93,6 +96,7 @@ func TestScopeAmendment_AddMember(t *testing.T) {
 	newMember := "did:web:courts.knoxville.gov"
 
 	entry, err := builder.BuildScopeAmendment(builder.ScopeAmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    courtDID1,
 		TargetRoot:   scopePos,
 		ScopePointer: scopePos,
@@ -129,6 +133,7 @@ func TestScopeRemoval_RemoveMember(t *testing.T) {
 	scopePos := types.LogPosition{LogDID: consortiumLog, Sequence: 1}
 
 	entry, err := builder.BuildScopeRemoval(builder.ScopeRemovalParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    courtDID1,
 		TargetRoot:   scopePos,
 		ScopePointer: scopePos,
@@ -202,6 +207,7 @@ func TestAmendmentProposal_RemoveAuthority(t *testing.T) {
 
 func TestAnchorEntry_CrossCourt(t *testing.T) {
 	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    "did:web:operator.courts.tn.gov",
 		SourceLogDID: "did:web:courts.nashville.gov:cases",
 		TreeHeadRef:  "a1b2c3d4e5f6",
@@ -263,6 +269,7 @@ func TestCrossLogProof_TypeStructure(t *testing.T) {
 
 func TestMirrorEntry_CrossLogRelay(t *testing.T) {
 	entry, err := builder.BuildMirrorEntry(builder.MirrorParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:      courtDID1,
 		SourceLogDID:   "did:web:courts.memphis.gov:cases",
 		SourcePosition: types.LogPosition{LogDID: "did:web:courts.memphis.gov:cases", Sequence: 200},

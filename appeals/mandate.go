@@ -24,6 +24,7 @@ import (
 )
 
 type MandateConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID          string
 	LowerCourtCasePos  types.LogPosition
 	LowerCourtScopePos types.LogPosition
@@ -82,6 +83,7 @@ func IssueMandateReverse(
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: cfg.Destination,
 		SignerDID:      cfg.SignerDID,
 		TargetRoot:     cfg.LowerCourtCasePos,
 		ScopePointer:   cfg.LowerCourtScopePos,
@@ -106,6 +108,7 @@ func IssueMandateAffirm(cfg MandateConfig) (*envelope.Entry, error) {
 	})
 
 	return builder.BuildCommentary(builder.CommentaryParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payload,
 		EventTime: cfg.EventTime,

@@ -19,6 +19,7 @@ import (
 
 // JudgeDelegationConfig configures a judge delegation.
 type JudgeDelegationConfig struct {
+	Destination string // DID of target exchange. Required.
 	DivisionDID   string // Who is delegating (division scope authority)
 	JudgeDID      string // Who receives delegated authority
 	Division      string // "criminal", "civil", etc.
@@ -46,6 +47,7 @@ func DelegateJudge(cfg JudgeDelegationConfig) (*envelope.Entry, error) {
 	})
 
 	return builder.BuildDelegation(builder.DelegationParams{
+		Destination: cfg.Destination,
 		SignerDID:   cfg.DivisionDID,
 		DelegateDID: cfg.JudgeDID,
 		Payload:     payload,

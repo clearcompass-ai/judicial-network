@@ -22,6 +22,7 @@ import (
 )
 
 type AppealInitiationConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID          string
 	LowerCourtCasePos  types.LogPosition
 	LowerCourtDID      string
@@ -69,6 +70,7 @@ func FileAppeal(
 	})
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payload,
 		SchemaRef: cfg.SchemaRef,

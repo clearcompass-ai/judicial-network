@@ -13,6 +13,7 @@ import (
 
 // UngracefulMigrationConfig configures recovery from a failed exchange.
 type UngracefulMigrationConfig struct {
+	Destination string // DID of target exchange. Required.
 	CourtDID          string
 	FailedExchangeDID string
 	NewExchangeDID    string
@@ -109,6 +110,7 @@ func PublishMigrationRecord(
 	})
 
 	return builder.BuildCommentary(builder.CommentaryParams{
+		Destination: cfg.Destination,
 		SignerDID: signerDID,
 		Payload:   payload,
 	})

@@ -21,6 +21,7 @@ import (
 
 // AmendmentConfig configures a case amendment.
 type AmendmentConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID        string            // Must be same signer as case root entity
 	CaseRootPos      types.LogPosition
 	AmendmentType    string // "status_change", "reassignment", "artifact_update"
@@ -61,6 +62,7 @@ func AmendCase(cfg AmendmentConfig) (*envelope.Entry, error) {
 	}
 
 	return builder.BuildAmendment(builder.AmendmentParams{
+		Destination: cfg.Destination,
 		SignerDID:        cfg.SignerDID,
 		TargetRoot:       cfg.CaseRootPos,
 		Payload:          payloadBytes,

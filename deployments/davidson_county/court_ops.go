@@ -11,6 +11,7 @@ import (
 
 // DivisionConfig describes a new division within Davidson County.
 type DivisionConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID         string
 	DivisionName      string
 	DivisionDID       string
@@ -39,6 +40,7 @@ func CreateDivision(cfg DivisionConfig) (*DivisionProvision, error) {
 	})
 
 	divEntity, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   divPayload,
 	})
@@ -56,6 +58,7 @@ func CreateDivision(cfg DivisionConfig) (*DivisionProvision, error) {
 		})
 
 		judgeDelegation, err := builder.BuildDelegation(builder.DelegationParams{
+			Destination: cfg.Destination,
 			SignerDID:   cfg.SignerDID,
 			DelegateDID: cfg.PresidingJudgeDID,
 			Payload:     scopeLimit,
@@ -74,6 +77,7 @@ func CreateDivision(cfg DivisionConfig) (*DivisionProvision, error) {
 		})
 
 		clerkDelegation, err := builder.BuildDelegation(builder.DelegationParams{
+			Destination: cfg.Destination,
 			SignerDID:   cfg.PresidingJudgeDID,
 			DelegateDID: cfg.ClerkDID,
 			Payload:     clerkScope,
@@ -89,12 +93,13 @@ func CreateDivision(cfg DivisionConfig) (*DivisionProvision, error) {
 
 // RevokeOfficer creates a revocation entry. TargetPos is the log
 // position of the delegation entry being revoked.
-func RevokeOfficer(signerDID string, targetPos uint64, reason string) (*envelope.Entry, error) {
+func RevokeOfficer(signerDID string, targetPos uint64, reason, destination string) (*envelope.Entry, error) {
 	payload, _ := json.Marshal(map[string]any{
 		"revocation_reason": reason,
 	})
 
 	return builder.BuildRevocation(builder.RevocationParams{
+		Destination: destination,
 		SignerDID:  signerDID,
 		TargetRoot: types.LogPosition{Sequence: targetPos},
 		Payload:    payload,
@@ -102,7 +107,7 @@ func RevokeOfficer(signerDID string, targetPos uint64, reason string) (*envelope
 }
 
 // PublishRecusal creates a commentary entry recording a judge's recusal.
-func PublishRecusal(judgeDID, caseDocketNumber, reason string) (*envelope.Entry, error) {
+func PublishRecusal(judgeDID, caseDocketNumber, reason, destination string) (*envelope.Entry, error) {
 	payload, _ := json.Marshal(map[string]any{
 		"type":          "recusal",
 		"docket_number": caseDocketNumber,
@@ -111,6 +116,7 @@ func PublishRecusal(judgeDID, caseDocketNumber, reason string) (*envelope.Entry,
 	})
 
 	return builder.BuildCommentary(builder.CommentaryParams{
+		Destination: destination,
 		SignerDID: judgeDID,
 		Payload:   payload,
 	})

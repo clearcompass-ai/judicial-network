@@ -30,6 +30,7 @@ import (
 
 // SealedBindingConfig configures a sealed party binding.
 type SealedBindingConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID   string // Authorized court officer DID
 	VendorDID   string // Opaque vendor-specific DID (from privacy.go)
 	RealDID     string // Real party DID (will be encrypted)
@@ -104,6 +105,7 @@ func CreateSealedBinding(
 	}
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payload,
 		SchemaRef: schemaRefPtr,

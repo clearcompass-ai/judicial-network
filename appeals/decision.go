@@ -29,6 +29,7 @@ import (
 )
 
 type DecisionConfig struct {
+	Destination string // DID of target exchange. Required.
 	JudgeDID           string
 	AppealCaseRootPos  types.LogPosition
 	CandidatePositions []types.LogPosition
@@ -108,6 +109,7 @@ func RecordDecision(
 	}
 
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
+		Destination: cfg.Destination,
 		SignerDID:          cfg.JudgeDID,
 		TargetRoot:         cfg.AppealCaseRootPos,
 		DelegationPointers: assembly.DelegationPointers,

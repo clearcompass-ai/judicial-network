@@ -24,6 +24,7 @@ import (
 
 // AnchorConfig configures an anchor publishing operation.
 type AnchorConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID    string // Operator DID signing the anchor entry
 	SourceLogDID string // Log being anchored (e.g., county cases log)
 	EventTime    int64
@@ -63,6 +64,7 @@ func PublishAnchor(
 	headRef := hex.EncodeToString(headHash[:])
 
 	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
+		Destination: cfg.Destination,
 		SignerDID:    cfg.SignerDID,
 		SourceLogDID: cfg.SourceLogDID,
 		TreeHeadRef:  headRef,

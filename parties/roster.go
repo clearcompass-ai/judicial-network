@@ -39,6 +39,7 @@ type PartyLink struct {
 
 // LinkPartyCaseConfig configures a cross-log party-case link.
 type LinkPartyCaseConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID    string            // Court clerk signing the commentary
 	CaseRootPos  types.LogPosition // Case root on cases log
 	BindingPos   types.LogPosition // Party binding on parties log
@@ -64,6 +65,7 @@ func LinkPartyToCase(cfg LinkPartyCaseConfig) (*envelope.Entry, error) {
 	})
 
 	return builder.BuildCommentary(builder.CommentaryParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payload,
 		EventTime: cfg.EventTime,

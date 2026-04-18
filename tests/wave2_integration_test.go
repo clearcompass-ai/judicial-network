@@ -25,6 +25,7 @@ func TestIntegration_CaseLifecycle_FileAmendSealUnseal(t *testing.T) {
 
 	// Step 1: File case (root entity).
 	caseEntry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: courtDID,
 		Payload: mustJSONW2(t, map[string]any{
 			"docket_number": "2027-CR-9999",
@@ -41,6 +42,7 @@ func TestIntegration_CaseLifecycle_FileAmendSealUnseal(t *testing.T) {
 
 	// Step 2: Amend case (update status).
 	amendEntry, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  courtDID,
 		TargetRoot: casePos,
 		Payload: mustJSONW2(t, map[string]any{
@@ -54,6 +56,7 @@ func TestIntegration_CaseLifecycle_FileAmendSealUnseal(t *testing.T) {
 
 	// Step 3: Seal case (enforcement — Path C).
 	sealEntry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos,
 		ScopePointer: scopePos,
@@ -65,6 +68,7 @@ func TestIntegration_CaseLifecycle_FileAmendSealUnseal(t *testing.T) {
 
 	// Step 4: Unseal case (enforcement — Path C, overrides prior).
 	unsealEntry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos,
 		ScopePointer: scopePos,
@@ -161,6 +165,7 @@ func TestIntegration_JuvenileAutoSeal(t *testing.T) {
 
 	// File juvenile case.
 	_, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:courts.test.gov",
 		Payload: mustJSONW2(t, map[string]any{
 			"docket_number":           "2027-JV-0042",
@@ -174,6 +179,7 @@ func TestIntegration_JuvenileAutoSeal(t *testing.T) {
 
 	// Auto-seal at disposition — activation_delay=0.
 	sealEntry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos,
 		ScopePointer: scopePos,
@@ -207,6 +213,7 @@ func TestIntegration_PathB_FullDelegationChain(t *testing.T) {
 
 	// Build delegation chain: court → judge (depth 1).
 	d1, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: judgeDID,
 		Payload:     mustJSONW2(t, map[string]any{"role": "judge"}),
@@ -217,6 +224,7 @@ func TestIntegration_PathB_FullDelegationChain(t *testing.T) {
 
 	// Judge → clerk (depth 2).
 	d2, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   judgeDID,
 		DelegateDID: clerkDID,
 		Payload:     mustJSONW2(t, map[string]any{"role": "clerk"}),
@@ -232,6 +240,7 @@ func TestIntegration_PathB_FullDelegationChain(t *testing.T) {
 
 	// Clerk acts on case via 2-hop delegation (Path B).
 	action, err := builder.BuildPathBEntry(builder.PathBParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:          clerkDID,
 		TargetRoot:         casePos,
 		DelegationPointers: []types.LogPosition{d1Pos, d2Pos},

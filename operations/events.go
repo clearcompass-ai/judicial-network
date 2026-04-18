@@ -33,6 +33,7 @@ import (
 // EventConfig configures an operational event.
 // All fields except SignerDID and EventType are optional.
 type EventConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID string
 	EventType string // "scheduling", "closure", "notice", "duty", "conference", etc.
 	EventTime int64
@@ -92,6 +93,7 @@ func PublishEvent(cfg EventConfig) (*EventResult, error) {
 	}
 
 	entry, err := builder.BuildCommentary(builder.CommentaryParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payloadBytes,
 		EventTime: cfg.EventTime,

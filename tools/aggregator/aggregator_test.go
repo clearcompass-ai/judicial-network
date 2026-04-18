@@ -56,6 +56,7 @@ func mustJSON(t *testing.T, v any) []byte {
 
 func TestClassify_NewCase(t *testing.T) {
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:test",
 		Payload:   mustJSON(t, map[string]any{"docket_number": "2027-CR-001", "case_type": "criminal"}),
 	})
@@ -86,6 +87,7 @@ func TestClassify_NewCase(t *testing.T) {
 
 func TestClassify_Amendment(t *testing.T) {
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  "did:web:test",
 		TargetRoot: types.LogPosition{LogDID: "test", Sequence: 10},
 		Payload:    mustJSON(t, map[string]any{"status": "disposed"}),
@@ -117,6 +119,7 @@ func TestClassify_Amendment(t *testing.T) {
 
 func TestClassify_Delegation(t *testing.T) {
 	entry, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   "did:web:court",
 		DelegateDID: "did:web:judge",
 		Payload:     mustJSON(t, map[string]any{"role": "judge"}),
@@ -145,6 +148,7 @@ func TestClassify_Delegation(t *testing.T) {
 
 func TestClassify_Enforcement(t *testing.T) {
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    "did:web:judge",
 		TargetRoot:   types.LogPosition{LogDID: "test", Sequence: 100},
 		ScopePointer: types.LogPosition{LogDID: "test", Sequence: 1},
@@ -174,6 +178,7 @@ func TestClassify_Enforcement(t *testing.T) {
 
 func TestClassify_PathBOrder(t *testing.T) {
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:          "did:web:judge",
 		TargetRoot:         types.LogPosition{LogDID: "test", Sequence: 100},
 		DelegationPointers: []types.LogPosition{{LogDID: "test", Sequence: 5}},
@@ -203,6 +208,7 @@ func TestClassify_PathBOrder(t *testing.T) {
 
 func TestClassify_Commentary(t *testing.T) {
 	entry, err := builder.BuildCommentary(builder.CommentaryParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:judge",
 		Payload:   mustJSON(t, map[string]any{"type": "recusal"}),
 	})
@@ -230,6 +236,7 @@ func TestClassify_Commentary(t *testing.T) {
 
 func TestClassify_Cosignature(t *testing.T) {
 	entry, err := builder.BuildCosignature(builder.CosignatureParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:     "did:web:clerk",
 		CosignatureOf: types.LogPosition{LogDID: "test", Sequence: 50},
 		Payload:       mustJSON(t, map[string]any{"endorsement": "approved"}),
@@ -293,6 +300,7 @@ func TestNewScanner_NotNil(t *testing.T) {
 
 func TestClassify_PayloadExtracted(t *testing.T) {
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:test",
 		Payload:   mustJSON(t, map[string]any{"docket_number": "2027-CR-X", "case_type": "civil"}),
 	})

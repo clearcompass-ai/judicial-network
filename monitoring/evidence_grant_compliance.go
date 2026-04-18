@@ -37,6 +37,7 @@ const MonitorGrantCompliance monitoring.MonitorID = "judicial.grant_compliance"
 
 // GrantComplianceConfig configures the evidence grant compliance monitor.
 type GrantComplianceConfig struct {
+	Destination string // DID of target exchange. Required.
 	LocalLogDID       string
 	ScanStartSeq      uint64
 	ScanCount         int
@@ -171,6 +172,7 @@ func CheckGrantCompliance(
 			"swept_at":         now.UTC().Format(time.RFC3339),
 		})
 		attestation, bErr := builder.BuildCommentary(builder.CommentaryParams{
+			Destination: cfg.Destination,
 			SignerDID: cfg.AttesterSignerDID,
 			Payload:   attestPayload,
 			EventTime: now.UTC().UnixMicro(),

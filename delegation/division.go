@@ -19,6 +19,7 @@ import (
 
 // DivisionConfig configures a division scope creation.
 type DivisionConfig struct {
+	Destination string // DID of target exchange. Required.
 	CourtDID     string
 	DivisionName string // "criminal", "civil", "family", "juvenile"
 	AuthoritySet map[string]struct{}
@@ -42,6 +43,7 @@ func CreateDivision(cfg DivisionConfig) (*envelope.Entry, error) {
 	})
 
 	return builder.BuildScopeCreation(builder.ScopeCreationParams{
+		Destination: cfg.Destination,
 		SignerDID:    cfg.CourtDID,
 		AuthoritySet: cfg.AuthoritySet,
 		Payload:      payload,

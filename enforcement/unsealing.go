@@ -21,6 +21,7 @@ import (
 )
 
 type UnsealingConfig struct {
+	Destination string // DID of target exchange. Required.
 	JudgeDID       string
 	CaseRootPos    types.LogPosition
 	ScopePos       types.LogPosition
@@ -48,6 +49,7 @@ func UnsealCase(cfg UnsealingConfig) (*SealingResult, error) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: cfg.Destination,
 		SignerDID:      cfg.JudgeDID,
 		TargetRoot:     cfg.CaseRootPos,
 		ScopePointer:   cfg.ScopePos,
@@ -66,9 +68,9 @@ func UnsealCase(cfg UnsealingConfig) (*SealingResult, error) {
 // RequestUnsealCosignature creates a cosignature entry from a second judge
 // approving the unsealing order. Required because cosignature_threshold=1.
 func RequestUnsealCosignature(
-	cosignerDID string,
+	cosignerDID string, destination string,
 	unsealingEntryPos types.LogPosition,
 	eventTime int64,
 ) (*envelope.Entry, error) {
-	return lifecycle.BuildApprovalCosignature(cosignerDID, unsealingEntryPos, eventTime)
+	return lifecycle.BuildApprovalCosignature(cosignerDID, destination, unsealingEntryPos, eventTime)
 }

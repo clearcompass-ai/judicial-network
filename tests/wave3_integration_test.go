@@ -251,6 +251,7 @@ func TestIntegration_CustodyTransfer_ArtifactReEncryption(t *testing.T) {
 func TestIntegration_AnchorPublishing(t *testing.T) {
 	// Davidson County anchor to TN state log.
 	anchor, err := builder.BuildAnchorEntry(builder.AnchorParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    "did:web:operator.courts.tn.gov",
 		SourceLogDID: "did:web:courts.nashville.gov:cases",
 		TreeHeadRef:  "abcdef0123456789",
@@ -293,6 +294,7 @@ func TestIntegration_BulkHistoricalImport(t *testing.T) {
 	var entries []*envelope.Entry
 	for _, docket := range dockets {
 		entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+			Destination: "did:web:exchange.test",
 			SignerDID: courtDID,
 			Payload: mustJSONW3(t, map[string]any{
 				"docket_number": docket,

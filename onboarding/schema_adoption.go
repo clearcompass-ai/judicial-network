@@ -32,6 +32,7 @@ import (
 
 // SchemaAdoptionConfig configures schema adoption.
 type SchemaAdoptionConfig struct {
+	Destination string // DID of target exchange. Required.
 	// LocalSignerDID signs the local copy of the schema (court DID).
 	LocalSignerDID string
 
@@ -127,6 +128,7 @@ func AdoptSchema(
 	}
 
 	localEntry, err := builder.BuildSchemaEntry(builder.SchemaEntryParams{
+		Destination: cfg.Destination,
 		SignerDID:             cfg.LocalSignerDID,
 		Payload:               sourceEntry.DomainPayload,
 		CommutativeOperations: sourceEntry.Header.CommutativeOperations,

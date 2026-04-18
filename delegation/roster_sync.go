@@ -40,6 +40,7 @@ type RosterAction struct {
 
 // ReconcileRosterConfig configures roster reconciliation.
 type ReconcileRosterConfig struct {
+	Destination string // DID of target exchange. Required.
 	RootEntityPos types.LogPosition
 	Roster        []RosterEntry
 	SchemaRef     *types.LogPosition
@@ -92,6 +93,7 @@ func ReconcileRoster(
 			}
 
 			entry, bErr := builder.BuildDelegation(builder.DelegationParams{
+				Destination: cfg.Destination,
 				SignerDID:   signerDID,
 				DelegateDID: r.DID,
 				Payload:     []byte(payload),
@@ -114,6 +116,7 @@ func ReconcileRoster(
 	for did, node := range liveByDID {
 		if _, inRoster := rosterByDID[did]; !inRoster {
 			entry, bErr := builder.BuildRevocation(builder.RevocationParams{
+				Destination: cfg.Destination,
 				SignerDID:  node.SignerDID,
 				TargetRoot: node.Position,
 				EventTime:  cfg.EventTime,

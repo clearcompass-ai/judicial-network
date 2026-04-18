@@ -29,6 +29,7 @@ import (
 
 // JudicialActionConfig configures a judge-signed action.
 type JudicialActionConfig struct {
+	Destination string // DID of target exchange. Required.
 	JudgeDID           string
 	CaseRootPos        types.LogPosition
 	ActionType         string // "ruling", "order", "sentence", "disposition"
@@ -131,6 +132,7 @@ func RecordJudicialAction(
 	}
 
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
+		Destination: cfg.Destination,
 		SignerDID:          cfg.JudgeDID,
 		TargetRoot:         cfg.CaseRootPos,
 		DelegationPointers: assembly.DelegationPointers,

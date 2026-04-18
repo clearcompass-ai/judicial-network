@@ -13,6 +13,7 @@ import (
 
 // GracefulMigrationConfig configures a cooperative exchange transfer.
 type GracefulMigrationConfig struct {
+	Destination string // DID of target exchange. Required.
 	CourtDID         string
 	SourceExchangeDID string
 	DestExchangeDID  string
@@ -77,6 +78,7 @@ func PlanGracefulMigration(cfg GracefulMigrationConfig) (*GracefulMigrationPlan,
 		})
 
 		entry, err := builder.BuildSuccession(builder.SuccessionParams{
+			Destination: cfg.Destination,
 			SignerDID:    cfg.CourtDID,
 			TargetRoot:   entityPos,
 			NewSignerDID: cfg.DestExchangeDID,
@@ -96,6 +98,7 @@ func PlanGracefulMigration(cfg GracefulMigrationConfig) (*GracefulMigrationPlan,
 		})
 
 		entry, err := builder.BuildKeyRotation(builder.KeyRotationParams{
+			Destination: cfg.Destination,
 			SignerDID:    cfg.CourtDID,
 			TargetRoot:   key.EntityPos,
 			NewPublicKey: key.PublicKey,

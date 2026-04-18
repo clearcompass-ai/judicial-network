@@ -28,6 +28,7 @@ import (
 
 // DailyDocketConfig configures the daily docket generation.
 type DailyDocketConfig struct {
+	Destination string // DID of target exchange. Required.
 	// SignerDID is the presiding judge or clerk who publishes assignments.
 	SignerDID string
 
@@ -81,6 +82,7 @@ func GenerateDailyDocket(cfg DailyDocketConfig) (*envelope.Entry, error) {
 	}
 
 	return builder.BuildCommentary(builder.CommentaryParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payload,
 	})

@@ -140,6 +140,7 @@ func TestIntegration_Aggregator_AllEntryTypes(t *testing.T) {
 			name: "root_entity",
 			entry: mustBuild(t, func() (*envelope.Entry, error) {
 				return builder.BuildRootEntity(builder.RootEntityParams{
+					Destination: "did:web:exchange.test",
 					SignerDID: "did:web:test",
 					Payload:   mustJSONW5(t, map[string]any{"docket_number": "X", "case_type": "criminal"}),
 				})
@@ -150,6 +151,7 @@ func TestIntegration_Aggregator_AllEntryTypes(t *testing.T) {
 			name: "amendment",
 			entry: mustBuild(t, func() (*envelope.Entry, error) {
 				return builder.BuildAmendment(builder.AmendmentParams{
+					Destination: "did:web:exchange.test",
 					SignerDID:  "did:web:test",
 					TargetRoot: types.LogPosition{LogDID: "t", Sequence: 10},
 					Payload:    mustJSONW5(t, map[string]any{"status": "disposed"}),
@@ -161,6 +163,7 @@ func TestIntegration_Aggregator_AllEntryTypes(t *testing.T) {
 			name: "delegation",
 			entry: mustBuild(t, func() (*envelope.Entry, error) {
 				return builder.BuildDelegation(builder.DelegationParams{
+					Destination: "did:web:exchange.test",
 					SignerDID:   "did:web:court",
 					DelegateDID: "did:web:judge",
 					Payload:     mustJSONW5(t, map[string]any{"role": "judge"}),
@@ -172,6 +175,7 @@ func TestIntegration_Aggregator_AllEntryTypes(t *testing.T) {
 			name: "enforcement",
 			entry: mustBuild(t, func() (*envelope.Entry, error) {
 				return builder.BuildEnforcement(builder.EnforcementParams{
+					Destination: "did:web:exchange.test",
 					SignerDID:    "did:web:j",
 					TargetRoot:   types.LogPosition{LogDID: "t", Sequence: 100},
 					ScopePointer: types.LogPosition{LogDID: "t", Sequence: 1},
@@ -184,6 +188,7 @@ func TestIntegration_Aggregator_AllEntryTypes(t *testing.T) {
 			name: "path_b",
 			entry: mustBuild(t, func() (*envelope.Entry, error) {
 				return builder.BuildPathBEntry(builder.PathBParams{
+					Destination: "did:web:exchange.test",
 					SignerDID:          "did:web:j",
 					TargetRoot:         types.LogPosition{LogDID: "t", Sequence: 100},
 					DelegationPointers: []types.LogPosition{{LogDID: "t", Sequence: 5}},
@@ -196,6 +201,7 @@ func TestIntegration_Aggregator_AllEntryTypes(t *testing.T) {
 			name: "commentary",
 			entry: mustBuild(t, func() (*envelope.Entry, error) {
 				return builder.BuildCommentary(builder.CommentaryParams{
+					Destination: "did:web:exchange.test",
 					SignerDID: "did:web:j",
 					Payload:   mustJSONW5(t, map[string]any{"note": "test"}),
 				})
@@ -206,6 +212,7 @@ func TestIntegration_Aggregator_AllEntryTypes(t *testing.T) {
 			name: "cosignature",
 			entry: mustBuild(t, func() (*envelope.Entry, error) {
 				return builder.BuildCosignature(builder.CosignatureParams{
+					Destination: "did:web:exchange.test",
 					SignerDID:     "did:web:clerk",
 					CosignatureOf: types.LogPosition{LogDID: "t", Sequence: 50},
 					Payload:       mustJSONW5(t, map[string]any{"endorsement": "approved"}),

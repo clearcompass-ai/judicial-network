@@ -190,6 +190,7 @@ func TestBulkImport_RootEntities(t *testing.T) {
 	// Simulate importing 3 historical cases.
 	for i, docket := range []string{"2020-CR-1001", "2021-CV-2002", "2022-CH-3003"} {
 		entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+			Destination: "did:web:exchange.test",
 			SignerDID: courtDID,
 			Payload: mustJSON(t, map[string]any{
 				"docket_number": docket,
@@ -220,6 +221,7 @@ func TestSuccessionEntry_Shape(t *testing.T) {
 	entityPos := types.LogPosition{LogDID: officersLog, Sequence: 1}
 
 	entry, err := builder.BuildSuccession(builder.SuccessionParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:    courtDID,
 		TargetRoot:   entityPos,
 		NewSignerDID: destExchange,

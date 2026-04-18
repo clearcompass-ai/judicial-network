@@ -55,6 +55,7 @@ func NewEntryBuildHandler(deps *Dependencies) *EntryBuildHandler {
 }
 
 type BuildRequest struct {
+	Destination string
 	Builder       string          `json:"builder"`
 	SignerDID     string          `json:"signer_did"`
 	DomainPayload json.RawMessage `json:"domain_payload"`
@@ -92,6 +93,7 @@ func dispatchBuilder(req BuildRequest) (*envelope.Entry, error) {
 	switch req.Builder {
 	case "root_entity":
 		return builder.BuildRootEntity(builder.RootEntityParams{
+			Destination: req.Destination,
 			SignerDID: req.SignerDID,
 			Payload:   req.DomainPayload,
 		})
@@ -101,17 +103,20 @@ func dispatchBuilder(req BuildRequest) (*envelope.Entry, error) {
 			targetRoot = types.LogPosition{LogDID: req.LogDID, Sequence: *req.TargetRoot}
 		}
 		return builder.BuildAmendment(builder.AmendmentParams{
+			Destination: req.Destination,
 			SignerDID:  req.SignerDID,
 			TargetRoot: targetRoot,
 			Payload:    req.DomainPayload,
 		})
 	case "commentary":
 		return builder.BuildCommentary(builder.CommentaryParams{
+			Destination: req.Destination,
 			SignerDID: req.SignerDID,
 			Payload:   req.DomainPayload,
 		})
 	case "enforcement":
 		return builder.BuildEnforcement(builder.EnforcementParams{
+			Destination: req.Destination,
 			SignerDID: req.SignerDID,
 			Payload:   req.DomainPayload,
 		})

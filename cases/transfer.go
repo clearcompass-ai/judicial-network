@@ -28,6 +28,7 @@ import (
 
 // DivisionTransferConfig configures an intra-county division transfer.
 type DivisionTransferConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID      string
 	CaseRootPos    types.LogPosition
 	TargetDivision string
@@ -52,6 +53,7 @@ func TransferDivision(cfg DivisionTransferConfig) (*envelope.Entry, error) {
 	})
 
 	return builder.BuildAmendment(builder.AmendmentParams{
+		Destination: cfg.Destination,
 		SignerDID:  cfg.SignerDID,
 		TargetRoot: cfg.CaseRootPos,
 		Payload:    payload,
@@ -62,6 +64,7 @@ func TransferDivision(cfg DivisionTransferConfig) (*envelope.Entry, error) {
 
 // CountyTransferConfig configures an inter-county case transfer.
 type CountyTransferConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID       string
 	SourceCasePos   types.LogPosition
 	TargetCountyDID string
@@ -124,6 +127,7 @@ func TransferCounty(
 	})
 
 	amendment, err := builder.BuildAmendment(builder.AmendmentParams{
+		Destination: cfg.Destination,
 		SignerDID:  cfg.SignerDID,
 		TargetRoot: cfg.SourceCasePos,
 		Payload:    payload,

@@ -39,6 +39,7 @@ func TestBuildJudgeDelegation_Depth1(t *testing.T) {
 	})
 
 	entry, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: judgeDID,
 		Payload:     scopePayload,
@@ -76,6 +77,7 @@ func TestBuildJudgeDelegation_Depth1(t *testing.T) {
 
 func TestBuildClerkDelegation_Depth2(t *testing.T) {
 	entry, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   judgeDID,
 		DelegateDID: clerkDID,
 		Payload: mustJSON(t, map[string]any{
@@ -100,6 +102,7 @@ func TestBuildClerkDelegation_Depth2(t *testing.T) {
 
 func TestBuildDeputyDelegation_Depth3(t *testing.T) {
 	entry, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   clerkDID,
 		DelegateDID: deputyDID,
 		Payload: mustJSON(t, map[string]any{
@@ -125,6 +128,7 @@ func TestBuildRevocation(t *testing.T) {
 	targetPos := types.LogPosition{LogDID: "did:web:courts.nashville.gov:officers", Sequence: 42}
 
 	entry, err := builder.BuildRevocation(builder.RevocationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  courtDID,
 		TargetRoot: targetPos,
 		Payload:    mustJSON(t, map[string]any{"reason": "officer_departed"}),
@@ -155,6 +159,7 @@ func TestBuildRevocation(t *testing.T) {
 
 func TestBuildDelegation_EmptyDelegate_Rejected(t *testing.T) {
 	_, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: "",
 		Payload:     []byte("{}"),
@@ -168,6 +173,7 @@ func TestBuildDelegation_EmptyDelegate_Rejected(t *testing.T) {
 
 func TestBuildDelegation_EmptySigner_Rejected(t *testing.T) {
 	_, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   "",
 		DelegateDID: judgeDID,
 		Payload:     []byte("{}"),
@@ -181,6 +187,7 @@ func TestBuildDelegation_EmptySigner_Rejected(t *testing.T) {
 
 func TestDelegationEntry_SerializeRoundtrip(t *testing.T) {
 	original, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: judgeDID,
 		Payload:     mustJSON(t, map[string]any{"role": "judge", "division": "criminal"}),
@@ -214,6 +221,7 @@ func TestDelegationEntry_SerializeRoundtrip(t *testing.T) {
 
 func TestBuildCommentary_ZeroSMTImpact(t *testing.T) {
 	entry, err := builder.BuildCommentary(builder.CommentaryParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: courtDID,
 		Payload:   mustJSON(t, map[string]any{"type": "daily_docket", "date": "2027-03-15"}),
 	})
@@ -238,6 +246,7 @@ func TestBuildCommentary_ZeroSMTImpact(t *testing.T) {
 func TestMultipleDelegations_SameSigner(t *testing.T) {
 	// Court delegates to two different judges — both should succeed.
 	entry1, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: judgeDID,
 		Payload:     mustJSON(t, map[string]any{"division": "criminal"}),
@@ -247,6 +256,7 @@ func TestMultipleDelegations_SameSigner(t *testing.T) {
 	}
 
 	entry2, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: outsideDID,
 		Payload:     mustJSON(t, map[string]any{"division": "civil"}),

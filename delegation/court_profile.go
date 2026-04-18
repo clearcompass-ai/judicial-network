@@ -18,6 +18,7 @@ import (
 
 // CourtProfileConfig configures institutional DID creation.
 type CourtProfileConfig struct {
+	Destination string // DID of target exchange. Required.
 	CourtDID     string
 	CourtName    string
 	AuthoritySet map[string]struct{}
@@ -51,6 +52,7 @@ func CreateCourtProfile(cfg CourtProfileConfig) (*CourtProfileResult, error) {
 	})
 
 	entry, err := builder.BuildScopeCreation(builder.ScopeCreationParams{
+		Destination: cfg.Destination,
 		SignerDID:    cfg.CourtDID,
 		AuthoritySet: cfg.AuthoritySet,
 		Payload:      payload,

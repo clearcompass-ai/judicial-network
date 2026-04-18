@@ -21,6 +21,7 @@ import (
 
 // InitiationConfig configures a new case filing.
 type InitiationConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID    string // Court clerk or filing attorney DID
 	DocketNumber string
 	CaseType     string // "criminal", "civil", "family", "juvenile"
@@ -60,6 +61,7 @@ func InitiateCase(cfg InitiationConfig) (*InitiationResult, error) {
 	}
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payloadBytes,
 		SchemaRef: cfg.SchemaRef,

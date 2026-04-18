@@ -25,6 +25,7 @@ import (
 
 // MirrorConfig configures a single delegation mirror operation.
 type MirrorConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID        string            // Operator or court DID signing the mirror
 	SourcePosition   types.LogPosition // Delegation entry position on officers log
 	SourceLogDID     string            // Officers log DID
@@ -43,6 +44,7 @@ func MirrorDelegation(cfg MirrorConfig) (*envelope.Entry, error) {
 	}
 
 	return builder.BuildMirrorEntry(builder.MirrorParams{
+		Destination: cfg.Destination,
 		SignerDID:      cfg.SignerDID,
 		SourcePosition: cfg.SourcePosition,
 		SourceLogDID:   cfg.SourceLogDID,

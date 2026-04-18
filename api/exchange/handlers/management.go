@@ -60,6 +60,7 @@ func (h *DelegationCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 
 	entry, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: h.deps.ExchangeDID,
 		SignerDID:   req.DelegatorDID,
 		DelegateDID: req.DelegateDID,
 		Payload:     req.DomainPayload,
@@ -95,6 +96,7 @@ func (h *DelegationRevokeHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	})
 
 	entry, err := builder.BuildRevocation(builder.RevocationParams{
+		Destination: h.deps.ExchangeDID,
 		SignerDID:  callerDID,
 		TargetRoot: types.LogPosition{Sequence: body.TargetPos},
 		Payload:    payload,
@@ -170,6 +172,7 @@ func (h *KeyRotateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	entry, err := builder.BuildKeyRotation(builder.KeyRotationParams{
+		Destination: h.deps.ExchangeDID,
 		SignerDID:    req.DID,
 		TargetRoot:   types.LogPosition{Sequence: req.TargetPos},
 		NewPublicKey: newInfo.PublicKey,
@@ -367,7 +370,7 @@ func (h *ScopeApproveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	// BuildApprovalCosignature takes 3 args: signerDID, proposalPos, eventTime.
 	entry, err := lifecycle.BuildApprovalCosignature(
-		callerDID,
+		callerDID, h.deps.ExchangeDID,
 		types.LogPosition{Sequence: pos},
 		time.Now().UTC().UnixMicro(),
 	)

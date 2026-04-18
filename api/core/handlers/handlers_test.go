@@ -56,6 +56,7 @@ var _ sdklog.OperatorQueryAPI = (*mockQueryAPI)(nil)
 func buildTestEntry(t *testing.T) []byte {
 	t.Helper()
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:courts.test.gov",
 		Payload:   []byte(`{"docket":"2027-CR-0001"}`),
 	})

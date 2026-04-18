@@ -48,6 +48,7 @@ type CosignatureQuerier interface {
 
 // SealingConfig configures a sealing order.
 type SealingConfig struct {
+	Destination string // DID of target exchange. Required.
 	JudgeDID       string
 	CaseRootPos    types.LogPosition
 	ScopePos       types.LogPosition
@@ -88,6 +89,7 @@ func SealCase(cfg SealingConfig) (*SealingResult, error) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
+		Destination: cfg.Destination,
 		SignerDID:      cfg.JudgeDID,
 		TargetRoot:     cfg.CaseRootPos,
 		ScopePointer:   cfg.ScopePos,

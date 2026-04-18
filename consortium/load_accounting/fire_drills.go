@@ -33,6 +33,7 @@ import (
 // FireDrillRunner executes periodic liveness checks against escrow
 // nodes and storage backends.
 type FireDrillRunner struct {
+	destination string
 	signerDID    string
 	contentStore storage.ContentStore
 	slaWindow    time.Duration
@@ -132,6 +133,7 @@ func (r *FireDrillRunner) PublishDrillAttestation(results []DrillResult) (*envel
 	}
 
 	return builder.BuildCommentary(builder.CommentaryParams{
+		Destination: r.destination,
 		SignerDID: r.signerDID,
 		Payload:   payload,
 	})

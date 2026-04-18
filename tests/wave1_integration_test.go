@@ -94,6 +94,7 @@ func TestIntegration_DelegationChain_3Depths(t *testing.T) {
 
 	// Depth 1: court → judge.
 	d1, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: judgeDID,
 		Payload:     mustJSONInteg(t, map[string]any{"role": "judge", "division": "criminal"}),
@@ -104,6 +105,7 @@ func TestIntegration_DelegationChain_3Depths(t *testing.T) {
 
 	// Depth 2: judge → clerk.
 	d2, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   judgeDID,
 		DelegateDID: clerkDID,
 		Payload:     mustJSONInteg(t, map[string]any{"role": "clerk"}),
@@ -114,6 +116,7 @@ func TestIntegration_DelegationChain_3Depths(t *testing.T) {
 
 	// Depth 3: clerk → deputy.
 	d3, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   clerkDID,
 		DelegateDID: deputyDID,
 		Payload:     mustJSONInteg(t, map[string]any{"role": "deputy"}),
@@ -153,6 +156,7 @@ func TestIntegration_Revocation_TargetsDelegation(t *testing.T) {
 
 	// Create delegation.
 	delegation, err := builder.BuildDelegation(builder.DelegationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:   courtDID,
 		DelegateDID: judgeDID,
 		Payload:     mustJSONInteg(t, map[string]any{"role": "judge"}),
@@ -169,6 +173,7 @@ func TestIntegration_Revocation_TargetsDelegation(t *testing.T) {
 
 	// Revoke it.
 	revocation, err := builder.BuildRevocation(builder.RevocationParams{
+		Destination: "did:web:exchange.test",
 		SignerDID:  courtDID,
 		TargetRoot: delegPos,
 		Payload:    mustJSONInteg(t, map[string]any{"reason": "officer_departed"}),
@@ -253,6 +258,7 @@ func TestIntegration_SchemaEntry_Construction(t *testing.T) {
 
 	// Build a schema entry using the SDK.
 	entry, err := builder.BuildSchemaEntry(builder.SchemaEntryParams{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:courts.schema-test.gov",
 		Payload:   params,
 	})

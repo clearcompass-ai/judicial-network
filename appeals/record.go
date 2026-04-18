@@ -75,6 +75,7 @@ type AppellateDeps struct {
 
 // RecordTransferConfig configures a record-on-appeal transfer.
 type RecordTransferConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID          string
 	LowerCourtCasePos  types.LogPosition
 	AppellateSchemaRef types.LogPosition
@@ -210,6 +211,7 @@ func TransferRecord(
 	})
 
 	manifest, err := builder.BuildCommentary(builder.CommentaryParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   manifestPayload,
 		EventTime: cfg.EventTime,

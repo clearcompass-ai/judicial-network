@@ -22,6 +22,7 @@ import (
 
 // BindingConfig configures a new party-case binding.
 type BindingConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID string // Court clerk or authorized officer
 	PartyDID  string // Party's real DID
 	CaseRef   string // Docket number
@@ -59,6 +60,7 @@ func CreateBinding(cfg BindingConfig) (*BindingResult, error) {
 	})
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
+		Destination: cfg.Destination,
 		SignerDID: cfg.SignerDID,
 		Payload:   payload,
 		SchemaRef: cfg.SchemaRef,
@@ -73,6 +75,7 @@ func CreateBinding(cfg BindingConfig) (*BindingResult, error) {
 
 // UpdateBindingConfig configures a binding role or status change.
 type UpdateBindingConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID   string // Must be same signer as original binding
 	BindingPos  types.LogPosition
 	NewRole     string // Empty to keep current
@@ -102,6 +105,7 @@ func UpdateBinding(cfg UpdateBindingConfig) (*envelope.Entry, error) {
 	payloadBytes, _ := json.Marshal(payload)
 
 	return builder.BuildAmendment(builder.AmendmentParams{
+		Destination: cfg.Destination,
 		SignerDID:  cfg.SignerDID,
 		TargetRoot: cfg.BindingPos,
 		Payload:    payloadBytes,

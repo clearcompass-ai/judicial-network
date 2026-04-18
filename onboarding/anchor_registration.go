@@ -28,6 +28,7 @@ import (
 
 // AnchorRegistrationConfig configures the initial anchor publication.
 type AnchorRegistrationConfig struct {
+	Destination string // DID of target exchange. Required.
 	// CountyOperatorDID signs the anchor entry.
 	CountyOperatorDID string
 
@@ -99,6 +100,7 @@ func RegisterFirstAnchor(
 	headRef := hex.EncodeToString(headHash[:])
 
 	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
+		Destination: cfg.Destination,
 		SignerDID:    cfg.CountyOperatorDID,
 		SourceLogDID: cfg.CountyLogDID,
 		TreeHeadRef:  headRef,

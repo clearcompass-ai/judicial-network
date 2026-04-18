@@ -29,6 +29,7 @@ import (
 // SettlementManager handles periodic settlement computation and
 // publication.
 type SettlementManager struct {
+	destination string
 	signerDID  string
 	aggregator *Aggregator
 	params     LoadAccountingParams
@@ -82,6 +83,7 @@ func (sm *SettlementManager) ComputeAndPublishSettlement(
 	}
 
 	return builder.BuildCommentary(builder.CommentaryParams{
+		Destination: sm.destination,
 		SignerDID: sm.signerDID,
 		Payload:   payload,
 	})

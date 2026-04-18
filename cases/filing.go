@@ -30,6 +30,7 @@ import (
 )
 
 type FilingConfig struct {
+	Destination string // DID of target exchange. Required.
 	SignerDID          string
 	CaseRootPos        types.LogPosition
 	SchemaRef          types.LogPosition
@@ -111,6 +112,7 @@ func File(
 	if len(cfg.DelegationPointers) == 0 {
 		// Path A: same-signer amendment. Signer must match case root entity signer.
 		entry, bErr := builder.BuildAmendment(builder.AmendmentParams{
+			Destination: cfg.Destination,
 			SignerDID:  cfg.SignerDID,
 			TargetRoot: cfg.CaseRootPos,
 			Payload:    payloadBytes,
@@ -125,6 +127,7 @@ func File(
 	} else {
 		// Path B: delegated filing via delegation chain.
 		entry, bErr := builder.BuildPathBEntry(builder.PathBParams{
+			Destination: cfg.Destination,
 			SignerDID:          cfg.SignerDID,
 			TargetRoot:         cfg.CaseRootPos,
 			DelegationPointers: cfg.DelegationPointers,

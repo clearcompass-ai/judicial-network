@@ -18,6 +18,7 @@ import (
 )
 
 type ClerkDelegationConfig struct {
+	Destination string // DID of target exchange. Required.
 	JudgeDID      string
 	ClerkDID      string
 	Division      string
@@ -44,6 +45,7 @@ func DelegateClerk(cfg ClerkDelegationConfig) (*envelope.Entry, error) {
 	})
 
 	return builder.BuildDelegation(builder.DelegationParams{
+		Destination: cfg.Destination,
 		SignerDID:   cfg.JudgeDID,
 		DelegateDID: cfg.ClerkDID,
 		Payload:     payload,
