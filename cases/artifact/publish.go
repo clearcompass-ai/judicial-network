@@ -18,7 +18,6 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
@@ -76,7 +75,7 @@ func PublishArtifact(
 	keyStore lifecycle.ArtifactKeyStore,
 	delKeyStore DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*PublishedArtifact, error) {
 	if len(cfg.Plaintext) == 0 {
@@ -210,7 +209,7 @@ func publishUmbralPRE(
 func resolveSchemaParams(
 	schemaRef types.LogPosition,
 	extractor schema.SchemaParameterExtractor,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 ) (*types.SchemaParameters, error) {
 	if extractor == nil || schemaRef.IsNull() {
 		return &types.SchemaParameters{

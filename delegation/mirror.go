@@ -59,7 +59,7 @@ func BulkMirrorSync(
 	rootEntityPos types.LogPosition,
 	signerDID string,
 	sourceLogDID string,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	querier verifier.DelegationQuerier,
 	eventTime int64,

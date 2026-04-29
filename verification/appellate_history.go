@@ -12,9 +12,10 @@ package verification
 import (
 	"fmt"
 
+	"github.com/clearcompass-ai/judicial-network/topology"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
 )
 
 type AppealStep struct {
@@ -46,7 +47,7 @@ func VerifyAppealChain(
 			continue
 		}
 
-		err := verifier.VerifyCrossLogProof(*steps[i].Proof, sourceKeys, quorum, blsVerifier)
+		err := verifier.VerifyCrossLogProof(*steps[i].Proof, sourceKeys, quorum, blsVerifier, topology.ExtractAnchorPayload)
 		if err != nil {
 			steps[i].ProofVerified = false
 			continue

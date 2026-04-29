@@ -25,6 +25,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
@@ -34,7 +35,8 @@ import (
 
 func buildAndHex(t *testing.T, entry *envelope.Entry) common.RawEntry {
 	t.Helper()
-	raw := envelope.Serialize(entry)
+	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+	raw := envelope.Serialize(signed)
 	return common.RawEntry{
 		Sequence:     42,
 		CanonicalHex: hex.EncodeToString(raw),

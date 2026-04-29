@@ -58,7 +58,7 @@ func CreateSealedBinding(
 	keyStore lifecycle.ArtifactKeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*SealedBindingResult, error) {
 	if cfg.SignerDID == "" || cfg.VendorDID == "" || cfg.RealDID == "" {

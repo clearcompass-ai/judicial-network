@@ -91,7 +91,10 @@ func DefaultCriminalCaseParams() []byte {
 			"sealing_order":   map[string]interface{}{"activation_delay": 259200, "cosignatures": 0},
 			"unsealing_order": map[string]interface{}{"activation_delay": 604800, "cosignatures": 1},
 		},
-		"commutative_operations": []string{"witness_attestation"},
+		// CommutativeOpWitnessAttestation per the judicial domain enum.
+		// SDK v7.75 declares CommutativeOperations as []uint32 — the
+		// codes are domain-interpreted, opaque to the SDK.
+		"commutative_operations": []uint32{CommutativeOpWitnessAttestation},
 	}
 	b, _ := json.Marshal(params)
 	return b

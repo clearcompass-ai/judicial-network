@@ -6,6 +6,8 @@ import (
 
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 // -------------------------------------------------------------------------
@@ -36,6 +38,7 @@ func TestPublishEvent_EmptyEventType(t *testing.T) {
 
 func TestPublishEvent_Scheduling(t *testing.T) {
 	result, err := PublishEvent(EventConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:courts.nashville.gov:role:scheduling-system-2026",
 		EventType: "scheduling",
 		EventTime: 1700000000,
@@ -75,6 +78,7 @@ func TestPublishEvent_Scheduling(t *testing.T) {
 
 func TestPublishEvent_Closure_NoRefs(t *testing.T) {
 	result, err := PublishEvent(EventConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:courts.nashville.gov",
 		EventType: "closure",
 		Payload: map[string]interface{}{
@@ -107,6 +111,7 @@ func TestPublishEvent_MultiRef(t *testing.T) {
 		{LogDID: "did:web:court:cases", Sequence: 300},
 	}
 	result, err := PublishEvent(EventConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:court",
 		EventType: "consolidated_hearing",
 		Refs:      refs,
@@ -132,6 +137,7 @@ func TestPublishEvent_MultiRef(t *testing.T) {
 
 func TestPublishEvent_SerializeRoundtrip(t *testing.T) {
 	result, err := PublishEvent(EventConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:test",
 		EventType: "notice",
 		Payload:   map[string]interface{}{"text": "procedure change"},
@@ -140,7 +146,8 @@ func TestPublishEvent_SerializeRoundtrip(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	raw := envelope.Serialize(result.Entry)
+	signed := testutil.SignEntry(t, result.Entry, testutil.GenerateSigningKey(t))
+	raw := envelope.Serialize(signed)
 	restored, err := envelope.Deserialize(raw)
 	if err != nil {
 		t.Fatalf("roundtrip: %v", err)
@@ -156,6 +163,7 @@ func TestPublishEvent_SerializeRoundtrip(t *testing.T) {
 
 func TestPublishEvent_ResultFields(t *testing.T) {
 	result, _ := PublishEvent(EventConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:test",
 		EventType: "duty",
 		Refs:      []types.LogPosition{{LogDID: "did:web:x", Sequence: 1}},

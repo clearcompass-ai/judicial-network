@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 )
 
 // ExchangeClient wraps the exchange's build-sign-submit API.
@@ -17,10 +19,16 @@ type ExchangeClient struct {
 }
 
 // NewExchangeClient creates a client pointing at the exchange.
+//
+// HTTP transport: sdklog.DefaultClient — same SDK-tuned client the
+// exchange itself uses internally for operator submits (Phase 1E).
+// Honors 503 + Retry-After from the exchange when WAL pressure
+// upstream propagates back as 503; absorbs locally instead of
+// surfacing to the human/CMS caller.
 func NewExchangeClient(baseURL string) *ExchangeClient {
 	return &ExchangeClient{
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 30 * time.Second},
+		client:  sdklog.DefaultClient(30 * time.Second),
 	}
 }
 

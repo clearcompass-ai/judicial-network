@@ -2,6 +2,7 @@ package migration
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,7 +10,14 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
+
+// ErrArbitrationDenied surfaces the arbitration verdict when a
+// hostile-recovery override fails its policy check (insufficient
+// approvals, missing or non-independent witness, etc.). Stable
+// sentinel for audit pipelines.
+var ErrArbitrationDenied = errors.New("migration/ungraceful: arbitration denied — override not authorized")
 
 // UngracefulMigrationConfig configures recovery from a failed exchange.
 type UngracefulMigrationConfig struct {
@@ -59,6 +67,7 @@ func InitiateUngracefulMigration(cfg UngracefulMigrationConfig) (*lifecycle.Init
 	}
 
 	return lifecycle.InitiateRecovery(lifecycle.InitiateRecoveryParams{
+		Destination:      cfg.Destination,
 		NewExchangeDID:   cfg.NewExchangeDID,
 		HolderDID:        cfg.FailedExchangeDID,
 		Reason:           fmt.Sprintf("Exchange %s unresponsive, initiating ungraceful migration", cfg.FailedExchangeDID),
@@ -83,6 +92,53 @@ func ExecuteKeyRecovery(params lifecycle.ExecuteRecoveryParams) (*lifecycle.Reco
 // Correction #4: this is where ActivateRemoval is used.
 func EjectFailedExchange(params lifecycle.RemovalParams) (*lifecycle.RemovalExecution, error) {
 	return lifecycle.ExecuteRemoval(params)
+}
+
+// ArbitrateHostileRecovery is the consensus-override path documented
+// in ortholog-sdk/docs/recovery.md Part 2: Arbitrated / Hostile
+// Recovery. When cooperative escrow recovery is impossible (stolen
+// keys, rogue staff, escrow-node failure) the network administrators
+// vote and an independent witness cosigns; SDK math evaluates whether
+// the supermajority + independence policy was satisfied.
+//
+// Wraps lifecycle.EvaluateArbitration. Returns the SDK's
+// *ArbitrationResult unchanged on the success path; on denial,
+// returns *ArbitrationResult AND ErrArbitrationDenied so callers can
+// errors.Is the rejection. Infrastructure errors propagate verbatim.
+//
+// The caller is responsible for:
+//   - Discovering EscrowApprovals via QueryByCosignatureOf on the
+//     RecoveryRequest entry (typically via OperatorQueryAPI).
+//   - Resolving the SchemaParams for the override's governance
+//     scope (override threshold + witness requirement).
+//   - Supplying the EscrowNodeSet from the consortium config.
+//   - Publishing the resulting override entry only AFTER the SDK
+//     has authorized; this function does NOT publish.
+func ArbitrateHostileRecovery(
+	recoveryRequestPos types.LogPosition,
+	escrowApprovals []types.EntryWithMetadata,
+	totalEscrowNodes int,
+	escrowNodeSet map[string]bool,
+	witnessCosig *types.EntryWithMetadata,
+	schemaParams *types.SchemaParameters,
+) (*lifecycle.ArbitrationResult, error) {
+	res, err := lifecycle.EvaluateArbitration(lifecycle.ArbitrationParams{
+		RecoveryRequestPos: recoveryRequestPos,
+		EscrowApprovals:    escrowApprovals,
+		TotalEscrowNodes:   totalEscrowNodes,
+		EscrowNodeSet:      escrowNodeSet,
+		WitnessCosignature: witnessCosig,
+		SchemaParams:       schemaParams,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("migration/ungraceful: arbitrate: %w", err)
+	}
+	if !res.OverrideAuthorized {
+		return res, fmt.Errorf("%w: %s (approvals=%d/%d, witness=%v)",
+			ErrArbitrationDenied, res.Reason, res.ApprovalCount,
+			res.RequiredCount, res.HasWitnessCosig)
+	}
+	return res, nil
 }
 
 // ActivateExchangeRemoval finalizes the removal after the time-lock

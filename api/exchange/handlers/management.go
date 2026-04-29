@@ -16,6 +16,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/crypto/escrow"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
@@ -229,7 +230,8 @@ func (h *KeyEscrowHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid secp256k1 public key")
 			return
 		}
-		encrypted, err := escrow.EncryptForNode(shares[i].Value, pubKey)
+		shareValue := shares[i].Value
+		encrypted, err := escrow.EncryptForNode(shareValue[:], pubKey)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "ecies encrypt failed")
 			return
@@ -463,8 +465,21 @@ func proposalTypeFromString(s string) lifecycle.ProposalType {
 	}
 }
 
+// operatorSubmitClient is package-level so all 4 submit-to-operator
+// sites share the SDK's tuned transport: MaxIdleConnsPerHost=100
+// (vs stdlib 2) plus the RetryAfterRoundTripper that honors the
+// operator's WAL-pressure 503 + Retry-After responses transparently.
+// One client, one conn pool, one retry policy — no behavior drift
+// across the 4 sites.
+var operatorSubmitClient = sdklog.DefaultClient(30 * time.Second)
+
+// submitToOperator posts signed canonical wire bytes to the
+// operator's /v1/entries endpoint via the SDK-tuned client. Every
+// submit-to-operator site in api/exchange/handlers routes through
+// here so the wire shape, retry policy, and timeout are owned in
+// one place.
 func submitToOperator(w http.ResponseWriter, endpoint string, signed []byte) {
-	resp, err := http.Post(
+	resp, err := operatorSubmitClient.Post(
 		endpoint+"/v1/entries",
 		"application/octet-stream",
 		bytes.NewReader(signed),

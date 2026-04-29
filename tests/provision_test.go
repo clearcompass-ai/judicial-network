@@ -24,6 +24,7 @@ func TestProvisionCourt_ThreeLogs(t *testing.T) {
 	}
 
 	cfg := onboarding.CourtProvisionConfig{
+		ExchangeDID: "did:web:exchange.test",
 		Spoke: spoke,
 		AuthoritySet: map[string]struct{}{
 			"did:web:courts.nashville.gov":             {},
@@ -94,6 +95,7 @@ func TestProvisionCourt_OfficerFiltering(t *testing.T) {
 	}
 
 	cfg := onboarding.CourtProvisionConfig{
+		ExchangeDID: "did:web:exchange.test",
 		Spoke: spoke,
 		AuthoritySet: map[string]struct{}{
 			"did:web:test.court.gov": {},
@@ -146,6 +148,7 @@ func TestProvisionCourt_ScopePayload(t *testing.T) {
 	}
 
 	cfg := onboarding.CourtProvisionConfig{
+		ExchangeDID: "did:web:exchange.test",
 		Spoke: spoke,
 		AuthoritySet: map[string]struct{}{
 			"did:web:courts.nashville.gov": {},
@@ -177,6 +180,7 @@ func TestProvisionCourt_ScopePayload(t *testing.T) {
 
 func TestProvisionCourt_NilSpoke(t *testing.T) {
 	cfg := onboarding.CourtProvisionConfig{
+		ExchangeDID: "did:web:exchange.test",
 		Spoke: nil,
 		AuthoritySet: map[string]struct{}{
 			"did:web:test": {},
@@ -191,6 +195,7 @@ func TestProvisionCourt_NilSpoke(t *testing.T) {
 
 func TestProvisionCourt_EmptyAuthoritySet(t *testing.T) {
 	cfg := onboarding.CourtProvisionConfig{
+		ExchangeDID: "did:web:exchange.test",
 		Spoke: &topology.SpokeConfig{
 			CourtDID:    "did:web:test",
 			OfficersDID: "did:web:test:officers",
@@ -208,6 +213,7 @@ func TestProvisionCourt_EmptyAuthoritySet(t *testing.T) {
 
 func TestProvisionCourt_CourtDIDNotInAuthoritySet(t *testing.T) {
 	cfg := onboarding.CourtProvisionConfig{
+		ExchangeDID: "did:web:exchange.test",
 		Spoke: &topology.SpokeConfig{
 			CourtDID:    "did:web:test",
 			OfficersDID: "did:web:test:officers",
@@ -234,6 +240,7 @@ func TestProvisionCourt_ScopePayloadContainsCourtAndLogDIDs(t *testing.T) {
 	}
 
 	cfg := onboarding.CourtProvisionConfig{
+		ExchangeDID: "did:web:exchange.test",
 		Spoke:        spoke,
 		AuthoritySet: map[string]struct{}{spoke.CourtDID: {}},
 	}

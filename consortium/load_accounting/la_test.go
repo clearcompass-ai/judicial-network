@@ -28,7 +28,7 @@ func TestDefaultLoadAccountingParams(t *testing.T) {
 
 func TestBuildLoadAccountingSchema(t *testing.T) {
 	params := DefaultLoadAccountingParams()
-	data, err := BuildLoadAccountingSchema(params)
+	data, err := BuildLoadAccountingSchema(params, "did:web:exchange.test")
 	if err != nil {
 		t.Fatalf("BuildLoadAccountingSchema: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestBuildLoadAccountingSchema_CustomParams(t *testing.T) {
 		PinObligationPercent:    10.0,
 		MinStructuralPinners:    5,
 	}
-	data, err := BuildLoadAccountingSchema(params)
+	data, err := BuildLoadAccountingSchema(params, "did:web:exchange.test")
 	if err != nil {
 		t.Fatalf("custom params: %v", err)
 	}

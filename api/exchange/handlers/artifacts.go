@@ -19,11 +19,12 @@ KEY DEPENDENCIES:
 package handlers
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -42,12 +43,29 @@ func NewArtifactPublishHandler(deps *Dependencies) *ArtifactPublishHandler {
 	return &ArtifactPublishHandler{deps: deps}
 }
 
+// maxArtifactPlaintextBytes caps the plaintext size accepted by
+// the publish endpoint. Sized for the largest expected court filing
+// PDF (16 MiB typical, 64 MiB ceiling). Mirrors operator BUG #3:
+// http.MaxBytesReader detects overflow as *http.MaxBytesError and
+// the handler returns 413, rather than silently truncating to a
+// downstream encryption / CID-mismatch error with no attribution.
+const maxArtifactPlaintextBytes int64 = 64 << 20
+
 func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = auth.SignerDIDFromContext(r.Context())
 
-	// Read plaintext from request body.
-	plaintext, err := io.ReadAll(io.LimitReader(r.Body, 64<<20)) // 64MB max
+	// Read plaintext from request body. http.MaxBytesReader caps at
+	// maxArtifactPlaintextBytes; oversize requests surface as
+	// *http.MaxBytesError → 413 (BUG #3 mirror).
+	r.Body = http.MaxBytesReader(w, r.Body, maxArtifactPlaintextBytes)
+	plaintext, err := io.ReadAll(r.Body)
 	if err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge,
+				fmt.Sprintf("plaintext exceeds %d bytes", maxErr.Limit))
+			return
+		}
 		writeError(w, http.StatusBadRequest, "read body failed")
 		return
 	}
@@ -65,26 +83,24 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// Compute content digest of plaintext.
 	digest := sha256.Sum256(plaintext)
 
-	// Push ciphertext to artifact store.
-	pushReq, err := http.NewRequest("POST",
-		h.deps.ArtifactStoreEndpoint+"/v1/artifacts",
-		bytes.NewReader(ciphertext))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "push request failed")
-		return
-	}
-	pushReq.Header.Set("X-Artifact-CID", cid.String())
-	pushReq.Header.Set("Content-Type", "application/octet-stream")
-
-	pushResp, err := http.DefaultClient.Do(pushReq)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "artifact store unreachable")
-		return
-	}
-	defer pushResp.Body.Close()
-
-	if pushResp.StatusCode != http.StatusOK && pushResp.StatusCode != http.StatusCreated {
-		writeError(w, pushResp.StatusCode, "artifact store push failed")
+	// Push ciphertext to artifact store via the SDK's
+	// storage.HTTPContentStore. Per the architecture spec, the
+	// judicial-network never imports ortholog-artifact-store/
+	// directly — every wire call to it goes through the SDK's
+	// ContentStore interface. The SDK owns:
+	//   - URL shape (POST /v1/artifacts)
+	//   - X-Artifact-CID header contract
+	//   - 200/201/204 acceptance set
+	//   - error mapping (storage.ErrContentNotFound on 404)
+	// Caller injection of the ContentStore would be more ideal; this
+	// site uses the SDK's default HTTP client today, with the
+	// interface in place so a future Dependency wire-up swap is
+	// trivial.
+	contentStore := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+		BaseURL: h.deps.ArtifactStoreEndpoint,
+	})
+	if err := contentStore.Push(cid, ciphertext); err != nil {
+		writeError(w, http.StatusBadGateway, "artifact store: "+err.Error())
 		return
 	}
 
@@ -158,20 +174,7 @@ func (h *ArtifactGrantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	signed := append(entryBytes, sig...)
 
-	// Submit to operator.
-	resp, err := http.Post(
-		h.deps.OperatorEndpoint+"/v1/entries",
-		"application/octet-stream",
-		bytes.NewReader(signed),
-	)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "operator unreachable")
-		return
-	}
-	defer resp.Body.Close()
-
-	var opResp map[string]any
-	json.NewDecoder(resp.Body).Decode(&opResp)
-
-	writeJSON(w, resp.StatusCode, opResp)
+	// Submit to operator via shared SDK-tuned client (see
+	// management.go::operatorSubmitClient).
+	submitToOperator(w, h.deps.OperatorEndpoint, signed)
 }

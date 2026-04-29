@@ -77,7 +77,7 @@ type AdoptionReport struct {
 // and Migration before submitting (e.g., for governance review).
 func AdoptSchema(
 	cfg SchemaAdoptionConfig,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	extractor schema.SchemaParameterExtractor,
 ) (*AdoptionReport, error) {
 	if cfg.LocalSignerDID == "" {
@@ -127,12 +127,21 @@ func AdoptSchema(
 		eventTime = time.Now().UTC().UnixMicro()
 	}
 
+	// Decode the source schema's structured parameters (including
+	// CommutativeOperations, which now lives inside types.SchemaParameters
+	// rather than on ControlHeader). The local copy is byte-stable
+	// because BuildSchemaEntry re-marshals via canonical JSON.
+	sourceParams, err := schema.NewJSONParameterExtractor().Extract(sourceEntry)
+	if err != nil {
+		report.Reason = fmt.Sprintf("extract source schema parameters: %v", err)
+		return report, nil
+	}
+
 	localEntry, err := builder.BuildSchemaEntry(builder.SchemaEntryParams{
 		Destination: cfg.Destination,
-		SignerDID:             cfg.LocalSignerDID,
-		Payload:               sourceEntry.DomainPayload,
-		CommutativeOperations: sourceEntry.Header.CommutativeOperations,
-		EventTime:             eventTime,
+		SignerDID:   cfg.LocalSignerDID,
+		Parameters:  *sourceParams,
+		EventTime:   eventTime,
 	})
 	if err != nil {
 		report.Reason = fmt.Sprintf("build local schema entry: %v", err)

@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// ─── Unit: Registry contains all 11 schemas ─────────────────────────
+// ─── Unit: Registry contains all 12 schemas ─────────────────────────
 
-func TestRegistry_ContainsAll11Schemas(t *testing.T) {
+func TestRegistry_ContainsAll12Schemas(t *testing.T) {
 	r := NewRegistry()
 
 	expected := []string{
@@ -22,6 +22,7 @@ func TestRegistry_ContainsAll11Schemas(t *testing.T) {
 		SchemaPartyBindingSealedV1,
 		SchemaSealingOrderV1,
 		SchemaShardGenesisV1,
+		SchemaKeyAttestationV1, // Wave 1 file 9/11
 	}
 
 	for _, uri := range expected {

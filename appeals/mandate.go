@@ -46,7 +46,7 @@ type MandateResult struct {
 // decision via cross-log proof.
 func IssueMandateReverse(
 	cfg MandateConfig,
-	fetcher verifier.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	extractor schema.SchemaParameterExtractor,
 	sourceProver verifier.MerkleProver,

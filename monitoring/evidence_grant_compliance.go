@@ -60,7 +60,7 @@ type GrantComplianceResult struct {
 func CheckGrantCompliance(
 	cfg GrantComplianceConfig,
 	queryAPI sdklog.OperatorQueryAPI,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader interface{},
 	extractor schema.SchemaParameterExtractor,
 	now time.Time,

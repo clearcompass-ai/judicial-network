@@ -13,6 +13,22 @@ DESCRIPTION:
       POST /v1/entries/build-sign-submit → all three in one call
       GET  /v1/entries/status/{hash}     → submission tracking
 
+WAVE 1 ADMISSION GATEKEEPER:
+    Per ortholog-sdk/docs/implementation-obligations.md ("Exchange
+    Admission Gatekeeper"), the build path MUST consult a domain
+    scope_limit registry BEFORE signing. The cryptographic chain on
+    the log will eventually catch a violation at read time
+    (verification/scope_enforcement.go), but the exchange is the
+    earliest place we can refuse to sign — and refusing to sign is
+    the only place we can prevent a write that the operator would
+    otherwise accept and persist forever.
+
+    Wiring: Dependencies.ScopeChecker (nil = AllowAll, used by tests
+    that don't yet have a roster). Production deployments inject a
+    registry-backed checker so a request to issue, e.g., a sealing
+    order under a key whose scope_limit is "daily_assignment" returns
+    403 Forbidden before KeyStore.Sign is ever called.
+
 KEY DEPENDENCIES:
     - ortholog-sdk/builder: all Build* functions (guide §11.3)
     - exchange/keystore: Sign (key custody)
@@ -23,9 +39,11 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
@@ -36,6 +54,86 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
 
+// ScopeChecker authorizes a signing request before the exchange
+// invokes its key custody. Implementations consult a roster (e.g.,
+// the YAML-driven officer registry maintained by
+// delegation/roster_sync.go) and return ErrScopeForbidden when the
+// signer's scope_limit does not permit the requested builder.
+//
+// Returning a non-nil error fail-closes admission: KeyStore.Sign is
+// not called, no signing payload reaches the wire, no operator round
+// trip is initiated.
+type ScopeChecker interface {
+	// Allowed returns nil iff the (signerDID, builder) pair is
+	// permitted under the signer's scope_limit. Returns
+	// ErrScopeForbidden on policy denial; returns other error types
+	// for infrastructure failure (registry unavailable, malformed
+	// scope, etc.). The handler maps ErrScopeForbidden → 403 and any
+	// other non-nil error → 500.
+	Allowed(signerDID, builder string) error
+}
+
+// ErrScopeForbidden is the canonical "this signer cannot issue this
+// builder type" sentinel. Domains construct a wrapping error around
+// this sentinel so audit pipelines key on errors.Is.
+var ErrScopeForbidden = errors.New("exchange/handlers: scope_limit forbids this builder for signer")
+
+// allowAll is the default ScopeChecker for tests / single-tenant
+// deployments where every authenticated signer has full breadth.
+// Production deployments inject a roster-backed checker.
+type allowAll struct{}
+
+func (allowAll) Allowed(string, string) error { return nil }
+
+// AllowAllScopeChecker returns a ScopeChecker that authorizes every
+// signing request. Tests and pre-roster deployments use this.
+func AllowAllScopeChecker() ScopeChecker { return allowAll{} }
+
+// InMemoryScopeChecker is a roster-backed ScopeChecker. Map values
+// are the case-insensitive set of allowed builder names. An empty
+// or missing entry denies every builder (closed-by-default — the
+// inverse of AllowAllScopeChecker).
+type InMemoryScopeChecker struct {
+	byDID map[string]map[string]struct{}
+}
+
+// NewInMemoryScopeChecker constructs a roster from a DID-keyed map
+// of allowed builder names. Names are normalized (trim+lower) at
+// construction time so call-time comparison is byte-equality.
+func NewInMemoryScopeChecker(roster map[string][]string) *InMemoryScopeChecker {
+	out := &InMemoryScopeChecker{byDID: make(map[string]map[string]struct{}, len(roster))}
+	for did, names := range roster {
+		set := make(map[string]struct{}, len(names))
+		for _, n := range names {
+			n = strings.ToLower(strings.TrimSpace(n))
+			if n == "" {
+				continue
+			}
+			set[n] = struct{}{}
+		}
+		out.byDID[did] = set
+	}
+	return out
+}
+
+// Allowed implements ScopeChecker.
+func (c *InMemoryScopeChecker) Allowed(signerDID, builderName string) error {
+	if c == nil {
+		return fmt.Errorf("exchange/handlers: nil scope checker")
+	}
+	set, ok := c.byDID[signerDID]
+	if !ok {
+		return fmt.Errorf("%w: signer %q not in roster", ErrScopeForbidden, signerDID)
+	}
+	if len(set) == 0 {
+		return fmt.Errorf("%w: signer %q has empty scope_limit", ErrScopeForbidden, signerDID)
+	}
+	if _, found := set[strings.ToLower(strings.TrimSpace(builderName))]; !found {
+		return fmt.Errorf("%w: signer=%q builder=%q", ErrScopeForbidden, signerDID, builderName)
+	}
+	return nil
+}
+
 // Dependencies shared across all exchange handlers.
 type Dependencies struct {
 	OperatorEndpoint      string
@@ -44,6 +142,22 @@ type Dependencies struct {
 	KeyStore              keystore.KeyStore
 	Index                 *index.LogIndex
 	ExchangeDID           string
+
+	// ScopeChecker authorizes every build/full request BEFORE the
+	// exchange invokes its key custody. nil → AllowAllScopeChecker
+	// (tests / pre-roster deployments). Production wires an
+	// InMemoryScopeChecker (or backend-of-choice) populated from the
+	// roster_sync output.
+	ScopeChecker ScopeChecker
+}
+
+// scopeOrAllowAll returns the configured checker or the AllowAll
+// default. Callers receive a non-nil ScopeChecker unconditionally.
+func (d *Dependencies) scopeOrAllowAll() ScopeChecker {
+	if d == nil || d.ScopeChecker == nil {
+		return allowAll{}
+	}
+	return d.ScopeChecker
 }
 
 // ─── Build ──────────────────────────────────────────────────────────
@@ -76,13 +190,30 @@ func (h *EntryBuildHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		req.SignerDID = callerDID
 	}
 
+	// Wave 1 admission gatekeeper: refuse to build (and thereby refuse
+	// to subsequently sign) when the signer's scope_limit does not
+	// permit this builder type. ErrScopeForbidden → 403; any other
+	// error → 500 (registry infra failure).
+	if err := h.deps.scopeOrAllowAll().Allowed(req.SignerDID, req.Builder); err != nil {
+		if errors.Is(err, ErrScopeForbidden) {
+			writeError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "scope check infra: "+err.Error())
+		return
+	}
+
 	entry, err := dispatchBuilder(req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	entryBytes := envelope.Serialize(entry)
+	// SDK v7.75 forbids Serialize on unsigned entries. The build
+	// endpoint returns SigningPayload — the exact bytes the caller
+	// (or the exchange's key custody) must hash and sign before the
+	// envelope can be re-assembled and submitted.
+	entryBytes := envelope.SigningPayload(entry)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"entry_bytes": entryBytes,
@@ -172,8 +303,10 @@ func (h *EntrySubmitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Forward to operator.
-	resp, err := http.Post(
+	// Forward to operator via the SDK-tuned shared client
+	// (sdklog.DefaultClient — RetryAfterRoundTripper + 100-conn
+	// pool). See management.go::operatorSubmitClient.
+	resp, err := operatorSubmitClient.Post(
 		h.deps.OperatorEndpoint+"/v1/entries",
 		"application/octet-stream",
 		bytes.NewReader(body),
@@ -211,6 +344,19 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		req.SignerDID = callerDID
 	}
 
+	// Wave 1 admission gatekeeper: same gate as EntryBuildHandler so
+	// the build-sign-submit shortcut cannot bypass the scope_limit
+	// check that the staged path enforces. The order is fail-fast:
+	// scope first, builder dispatch second, sign last.
+	if err := h.deps.scopeOrAllowAll().Allowed(req.SignerDID, req.Builder); err != nil {
+		if errors.Is(err, ErrScopeForbidden) {
+			writeError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "scope check infra: "+err.Error())
+		return
+	}
+
 	// Build.
 	entry, err := dispatchBuilder(req)
 	if err != nil {
@@ -218,33 +364,32 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryBytes := envelope.Serialize(entry)
-
-	// Sign.
-	sig, err := h.deps.KeyStore.Sign(req.SignerDID, entryBytes)
+	// v7.75 split: signers sign over SigningPayload (preamble +
+	// header + payload) — never over a Serialize that already
+	// includes a signatures section. After signing, re-build the
+	// entry with the signature attached and Serialize the result
+	// for transport to the operator.
+	signingPayload := envelope.SigningPayload(entry)
+	sig, err := h.deps.KeyStore.Sign(req.SignerDID, signingPayload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "signing failed")
 		return
 	}
-
-	signed := append(entryBytes, sig...)
-
-	// Submit to operator.
-	resp, err := http.Post(
-		h.deps.OperatorEndpoint+"/v1/entries",
-		"application/octet-stream",
-		bytes.NewReader(signed),
-	)
+	signedEntry, err := envelope.NewEntry(entry.Header, entry.DomainPayload, []envelope.Signature{
+		{
+			SignerDID: entry.Header.SignerDID,
+			AlgoID:    envelope.SigAlgoECDSA,
+			Bytes:     sig,
+		},
+	})
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "operator unreachable")
+		writeError(w, http.StatusInternalServerError, "assemble signed entry: "+err.Error())
 		return
 	}
-	defer resp.Body.Close()
+	signed := envelope.Serialize(signedEntry)
 
-	var opResp map[string]any
-	json.NewDecoder(resp.Body).Decode(&opResp)
-
-	writeJSON(w, resp.StatusCode, opResp)
+	// Submit to operator via shared SDK-tuned client.
+	submitToOperator(w, h.deps.OperatorEndpoint, signed)
 }
 
 // ─── Status ─────────────────────────────────────────────────────────

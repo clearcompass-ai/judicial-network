@@ -47,7 +47,7 @@ type SealingComplianceConfig struct {
 func CheckSealingCompliance(
 	cfg SealingComplianceConfig,
 	queryAPI sdklog.OperatorQueryAPI,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	extractor schema.SchemaParameterExtractor,
 	now time.Time,

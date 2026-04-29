@@ -94,14 +94,14 @@ type CountyTransferResult struct {
 // for the target county log.
 func TransferCounty(
 	cfg CountyTransferConfig,
-	fetcher verifier.EntryFetcher,
+	fetcher types.EntryFetcher,
 	sourceProver verifier.MerkleProver,
 	localProver verifier.MerkleProver,
 	sourceHead types.CosignedTreeHead,
 	localHead types.CosignedTreeHead,
 	anchorRef types.LogPosition,
 	// Delegation mirror dependencies.
-	builderFetcher builder.EntryFetcher,
+	builderFetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	querier verifier.DelegationQuerier,
 ) (*CountyTransferResult, error) {

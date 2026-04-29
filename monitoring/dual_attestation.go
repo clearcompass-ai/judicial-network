@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
@@ -43,7 +42,7 @@ type DualAttestationConfig struct {
 func CheckDualAttestation(
 	cfg DualAttestationConfig,
 	queryAPI sdklog.OperatorQueryAPI,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	now time.Time,
 ) ([]monitoring.Alert, error) {

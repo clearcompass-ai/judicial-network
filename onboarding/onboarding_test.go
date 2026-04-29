@@ -19,7 +19,8 @@ func testSpoke() *topology.SpokeConfig {
 
 func testConfig() CourtProvisionConfig {
 	return CourtProvisionConfig{
-		Spoke: testSpoke(),
+		Spoke:       testSpoke(),
+		ExchangeDID: "did:web:exchange.test",
 		AuthoritySet: map[string]struct{}{
 			"did:web:courts.test.gov": {},
 		},

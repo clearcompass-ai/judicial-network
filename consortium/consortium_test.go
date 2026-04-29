@@ -161,6 +161,7 @@ func TestScopeRemoval_RemoveMember(t *testing.T) {
 
 func TestAmendmentProposal_AddAuthority(t *testing.T) {
 	proposal, err := lifecycle.ProposeAmendment(lifecycle.AmendmentProposalParams{
+		Destination:  "did:web:exchange.test",
 		ProposerDID:  courtDID1,
 		ProposalType: lifecycle.ProposalAddAuthority,
 		TargetDID:    "did:web:courts.knoxville.gov",
@@ -187,6 +188,7 @@ func TestAmendmentProposal_AddAuthority(t *testing.T) {
 
 func TestAmendmentProposal_RemoveAuthority(t *testing.T) {
 	proposal, err := lifecycle.ProposeAmendment(lifecycle.AmendmentProposalParams{
+		Destination:  "did:web:exchange.test",
 		ProposerDID:  courtDID1,
 		ProposalType: lifecycle.ProposalRemoveAuthority,
 		TargetDID:    courtDID2,

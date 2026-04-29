@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/clearcompass-ai/judicial-network/topology"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
@@ -33,7 +34,7 @@ func (h *VerifyCrossLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 	quorum := h.deps.WitnessQuorum[req.SourceLogDID]
 
-	err := verifier.VerifyCrossLogProof(req.Proof, keys, quorum, h.deps.BLSVerifier)
+	err := verifier.VerifyCrossLogProof(req.Proof, keys, quorum, h.deps.BLSVerifier, topology.ExtractAnchorPayload)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"valid": false,

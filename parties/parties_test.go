@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 // -------------------------------------------------------------------------
@@ -12,13 +14,14 @@ import (
 
 func TestCreateBinding_Success(t *testing.T) {
 	result, err := CreateBinding(BindingConfig{
-		SignerDID: "did:web:courts.nashville.gov",
-		PartyDID:  "did:web:exchange:party:jones",
-		CaseRef:   "2027-CR-4471",
-		CaseDID:   "did:web:courts.nashville.gov:cases",
-		CaseSeq:   100,
-		Role:      "defendant",
-		EventTime: 1700000000,
+		Destination: "did:web:exchange.test",
+		SignerDID:   "did:web:courts.nashville.gov",
+		PartyDID:    "did:web:exchange:party:jones",
+		CaseRef:     "2027-CR-4471",
+		CaseDID:     "did:web:courts.nashville.gov:cases",
+		CaseSeq:     100,
+		Role:        "defendant",
+		EventTime:   1700000000,
 	})
 	if err != nil {
 		t.Fatalf("CreateBinding: %v", err)
@@ -30,7 +33,8 @@ func TestCreateBinding_Success(t *testing.T) {
 		t.Fatal("result.Entry is nil")
 	}
 
-	raw := envelope.Serialize(result.Entry)
+	signed := testutil.SignEntry(t, result.Entry, testutil.GenerateSigningKey(t))
+	raw := envelope.Serialize(signed)
 	if _, err := envelope.Deserialize(raw); err != nil {
 		t.Fatalf("roundtrip: %v", err)
 	}
@@ -47,13 +51,14 @@ func TestCreateBinding_AllRoles(t *testing.T) {
 	for _, role := range []string{"plaintiff", "defendant", "witness", "victim", "guardian_ad_litem"} {
 		t.Run(role, func(t *testing.T) {
 			result, err := CreateBinding(BindingConfig{
-				SignerDID: "did:web:test",
-				PartyDID:  "did:web:party:" + role,
-				CaseRef:   "2027-CR-001",
-				CaseDID:   "did:web:test:cases",
-				CaseSeq:   1,
-				Role:      role,
-				EventTime: 1700000000,
+				Destination: "did:web:exchange.test",
+				SignerDID:   "did:web:test",
+				PartyDID:    "did:web:party:" + role,
+				CaseRef:     "2027-CR-001",
+				CaseDID:     "did:web:test:cases",
+				CaseSeq:     1,
+				Role:        role,
+				EventTime:   1700000000,
 			})
 			if err != nil {
 				t.Fatalf("%s: %v", role, err)

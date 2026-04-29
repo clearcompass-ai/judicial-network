@@ -1,29 +1,112 @@
+/*
+FILE PATH: tools/common/operator_client.go
+
+DESCRIPTION:
+    OperatorClient is a thin compatibility shim over the SDK's
+    log.HTTPEntryFetcher (/raw → wire bytes) plus a small in-package
+    GET against /v1/query/scan (operator metadata listing). It
+    preserves the legacy RawEntry shape so the aggregator (Scanner,
+    Reconciler, Deserializer) keeps working while every wire call now
+    flows through the SDK-canonical endpoints.
+
+KEY ARCHITECTURAL DECISIONS:
+    - SDK is the source of truth for entry-byte retrieval. FetchEntry
+      delegates to log.HTTPEntryFetcher (v0.7.75): GET
+      /v1/entries/{seq}/raw, auto 302-follow to bucket, X-Sequence
+      and X-Log-Time response headers. The fetcher's body cap is
+      enforced by the SDK with cap+1 overflow detection (BUG #3).
+    - ScanFrom targets the SDK-canonical /v1/query/scan endpoint and
+      mirrors the SDK's queryListResponse / queryEntryResponse JSON
+      shape exactly. A future PR can swap the in-package GET for a
+      direct log.HTTPOperatorQueryAPI call (one-line change); the
+      current shim already produces an identical wire request.
+    - Each ScanFrom row is back-filled with CanonicalBytes via the SDK
+      fetcher because /v1/query/scan deliberately omits the bytes
+      (egress mandate, per ortholog-operator/api/queries.go).
+    - Connection pooling and 503-Retry-After backpressure come from
+      the SDK's log.DefaultClient — every fetcher in the process
+      shares the tuned transport.
+    - Backwards compatibility: NewOperatorClient(url) still works;
+      the optional logDID variadic arg lets callers (the cmd/main
+      wiring) pass cfg.CasesLogDID. Without a logDID, ScanFrom returns
+      a clear error rather than silently scanning the wrong log.
+
+OVERVIEW:
+    NewOperatorClient(baseURL [, logDID])
+    FetchEntry(seq) → *RawEntry            (SDK HTTPEntryFetcher)
+    ScanFrom(start, count) → []RawEntry    (/v1/query/scan + per-row Fetch)
+    TreeHead() → map[string]any            (passthrough)
+
+KEY DEPENDENCIES:
+    - ortholog-sdk/log: HTTPEntryFetcher, DefaultClient
+    - ortholog-sdk/types: EntryWithMetadata, LogPosition
+*/
 package common
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
+
+	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
+	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
-// OperatorClient reads entries from the log operator's HTTP API.
-// Read-only. No privilege. Public data.
+// defaultOperatorTimeout caps every operator round-trip (incl. SDK
+// 503-Retry-After replays). Matches the prior hand-rolled value.
+const defaultOperatorTimeout = 15 * time.Second
+
+// maxScanResponseBytes caps the metadata response body. Sized for a
+// 1000-row response (~1 KiB per row) with headroom; matches the SDK's
+// pending HTTPOperatorQueryAPI cap.
+const maxScanResponseBytes = 16 << 20
+
+// OperatorClient adapts the SDK's HTTP fetcher (and a thin scan
+// helper) to the legacy RawEntry API consumed by tools/aggregator.
+// Read-only.
 type OperatorClient struct {
 	baseURL string
-	client  *http.Client
+	logDID  string
+	fetcher *sdklog.HTTPEntryFetcher
+	httpc   *http.Client
 }
 
-// NewOperatorClient creates a client pointing at the operator.
-func NewOperatorClient(baseURL string) *OperatorClient {
+// NewOperatorClient creates a client backed by the SDK fetcher.
+// logDID populates types.LogPosition.LogDID on returned entries; pass
+// the log DID this process scans against (cfg.CasesLogDID for
+// court-tools callers). Without a logDID, FetchEntry still works but
+// ScanFrom fails fast.
+func NewOperatorClient(baseURL string, optionalLogDID ...string) *OperatorClient {
+	logDID := ""
+	if len(optionalLogDID) > 0 {
+		logDID = optionalLogDID[0]
+	}
+
+	fetcher := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
+		BaseURL: baseURL,
+		LogDID:  logDID,
+		Timeout: defaultOperatorTimeout,
+	})
+
+	// SDK-tuned client for /scan and /tree/head: connection pool
+	// of 100 idle conns/host + RetryAfterRoundTripper (BUG #2/#6
+	// contract). The SDK fetcher composed above already uses this
+	// client internally; the shim's own HTTP path matches.
 	return &OperatorClient{
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 15 * time.Second},
+		logDID:  logDID,
+		fetcher: fetcher,
+		httpc:   sdklog.DefaultClient(defaultOperatorTimeout),
 	}
 }
 
-// RawEntry is the JSON response from the operator's entry read endpoint.
+// RawEntry is the legacy shape consumed by tools/aggregator. Preserved
+// for compatibility; new code should use types.EntryWithMetadata.
 type RawEntry struct {
 	Sequence         uint64 `json:"sequence"`
 	CanonicalHex     string `json:"canonical_hex"`
@@ -32,78 +115,171 @@ type RawEntry struct {
 	SignatureHex     string `json:"signature_hex,omitempty"`
 }
 
-// FetchEntry reads a single entry by sequence number.
-// Returns nil, nil if the entry does not exist (404).
+// FetchEntry retrieves a single entry by sequence. Returns (nil, nil)
+// when the operator returns 404. Wire path: SDK HTTPEntryFetcher →
+// GET /v1/entries/{seq}/raw.
 func (c *OperatorClient) FetchEntry(seq uint64) (*RawEntry, error) {
-	url := fmt.Sprintf("%s/v1/entries/%d", c.baseURL, seq)
-
-	resp, err := c.client.Get(url)
+	pos := types.LogPosition{LogDID: c.logDID, Sequence: seq}
+	ewm, err := c.fetcher.Fetch(pos)
 	if err != nil {
 		return nil, fmt.Errorf("operator: fetch %d: %w", seq, err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
+	if ewm == nil {
 		return nil, nil
 	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-	if err != nil {
-		return nil, fmt.Errorf("operator: read %d: %w", seq, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("operator: HTTP %d for seq %d: %s", resp.StatusCode, seq, body)
-	}
-
-	var entry RawEntry
-	if err := json.Unmarshal(body, &entry); err != nil {
-		return nil, fmt.Errorf("operator: parse %d: %w", seq, err)
-	}
-	return &entry, nil
+	return entryToRaw(ewm), nil
 }
 
-// ScanFrom reads a batch of entries starting at startPos.
-// Returns up to count entries. Returns empty slice (not error) at log end.
+// ScanFrom reads up to count entries starting at startPos. Returns an
+// empty slice (not error) at log end. Wire path: GET /v1/query/scan
+// (SDK-canonical JSON metadata) + per-row HTTPEntryFetcher.Fetch to
+// back-fill CanonicalBytes (the deserializer requires the wire bytes).
 func (c *OperatorClient) ScanFrom(startPos uint64, count int) ([]RawEntry, error) {
-	url := fmt.Sprintf("%s/v1/entries?start=%d&count=%d", c.baseURL, startPos, count)
-
-	resp, err := c.client.Get(url)
+	if c.logDID == "" {
+		return nil, fmt.Errorf("operator: ScanFrom requires logDID at construction")
+	}
+	metas, err := c.scanMetadata(startPos, count)
 	if err != nil {
 		return nil, fmt.Errorf("operator: scan from %d: %w", startPos, err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
-	if err != nil {
-		return nil, fmt.Errorf("operator: read scan: %w", err)
+	out := make([]RawEntry, 0, len(metas))
+	for _, m := range metas {
+		full, fErr := c.fetcher.Fetch(m.Position)
+		if fErr != nil {
+			return nil, fmt.Errorf("operator: scan fetch seq %d: %w", m.Position.Sequence, fErr)
+		}
+		if full == nil {
+			// Race: present in scan, gone before /raw. Skip.
+			continue
+		}
+		// Prefer LogTime from /raw header; fall back to the metadata.
+		merged := *full
+		if merged.LogTime.IsZero() {
+			merged.LogTime = m.LogTime
+		}
+		out = append(out, *entryToRaw(&merged))
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("operator: scan HTTP %d: %s", resp.StatusCode, body)
-	}
-
-	var entries []RawEntry
-	if err := json.Unmarshal(body, &entries); err != nil {
-		return nil, fmt.Errorf("operator: parse scan: %w", err)
-	}
-	return entries, nil
+	return out, nil
 }
 
-// TreeHead fetches the operator's current tree head (latest checkpoint).
+// TreeHead fetches the operator's current tree head. Passthrough —
+// the SDK does not yet ship a typed helper for /v1/tree/head.
 func (c *OperatorClient) TreeHead() (map[string]any, error) {
-	resp, err := c.client.Get(c.baseURL + "/v1/tree/head")
+	resp, err := c.httpc.Get(c.baseURL + "/v1/tree/head")
 	if err != nil {
 		return nil, fmt.Errorf("operator: tree head: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// BUG #3 mirror: read cap+1 to detect oversize responses
+	// instead of silently truncating. Tree heads are tiny
+	// (~hundreds of bytes); anything > 64 KiB is operator
+	// misbehavior worth surfacing.
+	const treeHeadBodyCap = 64 << 10
+	body, err := io.ReadAll(io.LimitReader(resp.Body, treeHeadBodyCap+1))
 	if err != nil {
 		return nil, fmt.Errorf("operator: read tree head: %w", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("operator: tree head: HTTP %d: %s", resp.StatusCode, body)
+	}
+	if len(body) > treeHeadBodyCap {
+		return nil, fmt.Errorf("operator: tree head response exceeds %d bytes", treeHeadBodyCap)
+	}
 
 	var result map[string]any
-	json.Unmarshal(body, &result)
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("operator: parse tree head: %w", err)
+	}
 	return result, nil
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Internal: /v1/query/scan helper
+// ─────────────────────────────────────────────────────────────────────
+//
+// Mirrors the SDK's pending HTTPOperatorQueryAPI shape exactly. When
+// the SDK pin is bumped to include HTTPOperatorQueryAPI, this helper
+// becomes a single delegated call.
+
+// scanEntryResponse is one row of /v1/query/scan. Field tags match
+// ortholog-operator/api/queries.go::EntryResponse and the SDK's
+// queryEntryResponse byte-for-byte.
+type scanEntryResponse struct {
+	SequenceNumber  uint64 `json:"sequence_number"`
+	CanonicalHash   string `json:"canonical_hash"`
+	LogTime         string `json:"log_time"`
+	SignerDID       string `json:"signer_did,omitempty"`
+	ProtocolVersion uint16 `json:"protocol_version"`
+	PayloadSize     int    `json:"payload_size"`
+	CanonicalSize   int    `json:"canonical_size"`
+}
+
+// scanListResponse mirrors the operator's outer JSON envelope.
+type scanListResponse struct {
+	Entries []scanEntryResponse `json:"entries"`
+	Count   int                 `json:"count"`
+}
+
+// scanMetadata calls /v1/query/scan and returns SDK-shaped
+// EntryWithMetadata (CanonicalBytes nil — egress mandate).
+func (c *OperatorClient) scanMetadata(startPos uint64, count int) ([]types.EntryWithMetadata, error) {
+	v := url.Values{}
+	v.Set("start", strconv.FormatUint(startPos, 10))
+	if count > 0 {
+		v.Set("count", strconv.Itoa(count))
+	}
+	resp, err := c.httpc.Get(c.baseURL + "/v1/query/scan?" + v.Encode())
+	if err != nil {
+		return nil, fmt.Errorf("scan request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// BUG #3 mirror: read cap+1 to detect oversize responses
+	// instead of silently truncating. The operator caps scan
+	// payload at maxScanResponseBytes; anything past that is
+	// operator misbehavior the consumer must see.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxScanResponseBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("scan read: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("scan HTTP %d: %s", resp.StatusCode, body)
+	}
+	if len(body) > maxScanResponseBytes {
+		return nil, fmt.Errorf("scan response exceeds %d bytes", maxScanResponseBytes)
+	}
+
+	var list scanListResponse
+	if err := json.Unmarshal(body, &list); err != nil {
+		return nil, fmt.Errorf("scan parse: %w", err)
+	}
+
+	out := make([]types.EntryWithMetadata, 0, len(list.Entries))
+	for _, r := range list.Entries {
+		ewm := types.EntryWithMetadata{
+			Position: types.LogPosition{LogDID: c.logDID, Sequence: r.SequenceNumber},
+		}
+		if r.LogTime != "" {
+			if t, err := time.Parse(time.RFC3339Nano, r.LogTime); err == nil {
+				ewm.LogTime = t.UTC()
+			}
+		}
+		out = append(out, ewm)
+	}
+	return out, nil
+}
+
+// entryToRaw flattens an SDK EntryWithMetadata into the legacy
+// RawEntry shape. CanonicalBytes is hex-encoded for the deserializer;
+// LogTime is converted to micros to match the legacy field.
+func entryToRaw(ewm *types.EntryWithMetadata) *RawEntry {
+	r := &RawEntry{
+		Sequence:     ewm.Position.Sequence,
+		CanonicalHex: hex.EncodeToString(ewm.CanonicalBytes),
+	}
+	if !ewm.LogTime.IsZero() {
+		r.LogTimeUnixMicro = ewm.LogTime.UnixMicro()
+	}
+	return r
 }

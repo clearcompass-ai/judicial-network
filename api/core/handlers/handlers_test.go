@@ -11,6 +11,8 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 // ═════════════════════════════════════════════════════════════════════
@@ -63,7 +65,8 @@ func buildTestEntry(t *testing.T) []byte {
 	if err != nil {
 		t.Fatalf("build test entry: %v", err)
 	}
-	return envelope.Serialize(entry)
+	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+	return envelope.Serialize(signed)
 }
 
 func emptyDeps() *Dependencies {

@@ -127,7 +127,7 @@ type ActivationCheck struct {
 // If both are nil, the cosignature-threshold condition will resolve as 0/N.
 func CheckSealingActivation(
 	pendingPos types.LogPosition,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	extractor schema.SchemaParameterExtractor,
 	now time.Time,

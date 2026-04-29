@@ -13,7 +13,6 @@ package verification
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
@@ -32,7 +31,7 @@ type CaseState struct {
 func GetCaseStatus(
 	caseRootPos types.LogPosition,
 	leafReader smt.LeafReader,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 ) (*CaseState, error) {
 	leafKey := smt.DeriveKey(caseRootPos)
 

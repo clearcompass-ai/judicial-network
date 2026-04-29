@@ -69,7 +69,7 @@ type AppellateDeps struct {
 	KeyStore     lifecycle.ArtifactKeyStore
 	DelKeyStore  artifact.DelegationKeyStore
 	Extractor    schema.SchemaParameterExtractor
-	Fetcher      builder.EntryFetcher
+	Fetcher      types.EntryFetcher
 	Resolver     did.DIDResolver
 }
 

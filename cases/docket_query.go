@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -45,7 +44,7 @@ func LookupDocket(
 	docketNumber string,
 	signerDID string,
 	scanner DocketScanner,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 ) (*DocketQueryResult, error) {
 	if docketNumber == "" {

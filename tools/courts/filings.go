@@ -1,7 +1,6 @@
 package courts
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -41,10 +40,19 @@ func (s *Server) CreateFiling(w http.ResponseWriter, r *http.Request) {
 	filingType := r.FormValue("filing_type")
 	description := r.FormValue("description")
 
-	// Read document bytes.
-	docBytes, err := io.ReadAll(io.LimitReader(file, 50<<20))
+	// Read document bytes. BUG #3 mirror: cap+1 read so oversize
+	// uploads surface as 413 instead of being silently truncated to
+	// a smaller plaintext that downstream encryption / CID push
+	// processes happily.
+	const filingDocCap = 50 << 20 // 50 MiB
+	docBytes, err := io.ReadAll(io.LimitReader(file, filingDocCap+1))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "read document: "+err.Error())
+		return
+	}
+	if int64(len(docBytes)) > filingDocCap {
+		writeError(w, http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("document exceeds %d bytes", filingDocCap))
 		return
 	}
 
@@ -159,40 +167,34 @@ func (s *Server) GetFiling(w http.ResponseWriter, r *http.Request) {
 	w.Write(ct)
 }
 
+// pushToArtifactStore + fetchFromArtifactStore both delegate to the
+// SDK's storage.HTTPContentStore. Per the architecture spec, the
+// judicial-network never imports ortholog-artifact-store/ directly —
+// every wire call goes through the SDK's ContentStore interface so
+// the URL shape, X-Artifact-CID header, accepted status set, and
+// 404 → ErrContentNotFound mapping are all SDK-owned.
 func (s *Server) pushToArtifactStore(ciphertext []byte, cidStr string) error {
-	req, err := http.NewRequest("POST", s.cfg.ArtifactStoreURL+"/v1/artifacts", bytes.NewReader(ciphertext))
+	cid, err := storage.ParseCID(cidStr)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse CID: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("X-Artifact-CID", cidStr)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, body)
-	}
-	return nil
+	return s.contentStore().Push(cid, ciphertext)
 }
 
 func (s *Server) fetchFromArtifactStore(cidStr string) ([]byte, error) {
-	url := fmt.Sprintf("%s/v1/artifacts/%s", s.cfg.ArtifactStoreURL, cidStr)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(url)
+	cid, err := storage.ParseCID(cidStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse CID: %w", err)
 	}
-	defer resp.Body.Close()
+	return s.contentStore().Fetch(cid)
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-	return io.ReadAll(resp.Body)
+// contentStore returns a freshly-configured SDK HTTPContentStore for
+// each call. The SDK constructor is cheap (struct + http.Client).
+// Production deployments may want to cache one per Server; this
+// shape keeps the test scaffolding simple.
+func (s *Server) contentStore() *storage.HTTPContentStore {
+	return storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+		BaseURL: s.cfg.ArtifactStoreURL,
+	})
 }

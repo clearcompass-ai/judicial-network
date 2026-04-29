@@ -57,7 +57,7 @@ func main() {
 	}
 
 	exchange := common.NewExchangeClient(cfg.ExchangeURL)
-	operator := common.NewOperatorClient(cfg.OperatorURL)
+	operator := common.NewOperatorClient(cfg.OperatorURL, cfg.CasesLogDID)
 	verify := common.NewVerifyClient(cfg.VerificationURL)
 
 	// -------------------------------------------------------------------------
