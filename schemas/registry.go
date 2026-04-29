@@ -1,8 +1,10 @@
 /*
 FILE PATH: schemas/registry.go
-DESCRIPTION: Central schema registry — 11 schemas.
+DESCRIPTION: Central schema registry — 15 schemas (12 case/officer + 3 delegation).
 KEY ARCHITECTURAL DECISIONS: Thread-safe. SDK JSONParameterExtractor.
-OVERVIEW: NewRegistry() → 11 schemas. Appellate decisions use existing case schemas.
+OVERVIEW: NewRegistry() → 15 schemas. Appellate decisions use existing case
+          schemas. judicial-delegation-v1, judicial-revocation-v1, and
+          judicial-succession-v1 are the canonical authority-grant entries.
 KEY DEPENDENCIES: ortholog-sdk/schema, ortholog-sdk/core/envelope, ortholog-sdk/types
 */
 package schemas
@@ -101,6 +103,9 @@ func (r *Registry) registerAll() {
 	r.Register(partyBindingSealedRegistration())
 	r.Register(sealingOrderRegistration())
 	r.Register(keyAttestationRegistration())
+	r.Register(judicialDelegationRegistration())
+	r.Register(judicialRevocationRegistration())
+	r.Register(judicialSuccessionRegistration())
 }
 
 func (r *Registry) Register(reg *SchemaRegistration) {
