@@ -29,11 +29,13 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"time"
+
+	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
 )
 
 // SignedRequest is the envelope a signer sends when not using mTLS.
@@ -46,47 +48,85 @@ type SignedRequest struct {
 	Signature []byte          `json:"signature"` // Ed25519 over canonical bytes
 }
 
-// NonceStore tracks used nonces to prevent replay.
+// NonceStore composes the SDK's strict-forever NonceStore (the replay
+// gate) with a freshness window (the staleness gate). The SDK contract
+// (sdkauth/nonce_store.go::CONTRACT — STRICT FOREVER) requires nonce
+// reservations to be permanent — pre-this-refactor the JN local store
+// pruned entries on a TTL, which violated that contract and made every
+// signed request older than the window unprotected against replay.
+//
+// The new design splits the two concerns:
+//
+//   - sdkauth.NonceStore (memory or redis backend) for replay defense.
+//     Reservations are permanent; the strict-forever contract holds.
+//   - window for freshness. Requests with timestamp older than window
+//     are rejected before the nonce is reserved, so the store does not
+//     accumulate reservations for requests that would have failed
+//     freshness anyway. This is the backpressure that keeps the
+//     strict-forever store bounded in practice.
+//
+// The Check API is preserved for backward compatibility with existing
+// auth_test.go assertions; new call sites should use Reserve directly.
 type NonceStore struct {
-	mu     sync.Mutex
-	nonces map[string]time.Time
+	store  sdkauth.NonceStore
 	window time.Duration
 }
 
-// NewNonceStore creates a nonce store with a given validity window.
+// NewNonceStore creates a strict-forever nonce store backed by the
+// SDK's InMemoryNonceStore plus a freshness window.
 func NewNonceStore(window time.Duration) *NonceStore {
 	return &NonceStore{
-		nonces: make(map[string]time.Time),
+		store:  sdkauth.NewInMemoryNonceStore(),
 		window: window,
 	}
 }
 
-// Check returns true if the nonce is fresh (not seen before and within window).
-func (ns *NonceStore) Check(nonce string, timestamp time.Time) bool {
-	ns.mu.Lock()
-	defer ns.mu.Unlock()
-
-	// Prune expired nonces.
-	cutoff := time.Now().Add(-ns.window)
-	for k, t := range ns.nonces {
-		if t.Before(cutoff) {
-			delete(ns.nonces, k)
-		}
-	}
-
-	// Check timestamp is within window.
-	if time.Since(timestamp) > ns.window {
-		return false
-	}
-
-	// Check nonce not replayed.
-	if _, exists := ns.nonces[nonce]; exists {
-		return false
-	}
-
-	ns.nonces[nonce] = timestamp
-	return true
+// NewNonceStoreWithBackend wires an arbitrary sdkauth.NonceStore (e.g.,
+// a configured RedisNonceStore for multi-replica deployments) plus a
+// freshness window. Use this from the deployment factory; tests and
+// single-replica deployments use NewNonceStore.
+func NewNonceStoreWithBackend(store sdkauth.NonceStore, window time.Duration) *NonceStore {
+	return &NonceStore{store: store, window: window}
 }
+
+// Check returns true if the nonce is fresh (timestamp within window
+// AND not seen before). Backward-compatible API.
+//
+// Errors from the underlying SDK store are folded into a false return
+// for compatibility; new call sites should use Reserve which surfaces
+// the typed sentinel (ErrNonceReserved / ErrNonceStoreUnavailable).
+func (ns *NonceStore) Check(nonce string, timestamp time.Time) bool {
+	if ns.window > 0 && time.Since(timestamp) > ns.window {
+		return false
+	}
+	return ns.Reserve(context.Background(), nonce) == nil
+}
+
+// Reserve records the nonce as seen via the SDK store. Returns
+// sdkauth.ErrNonceReserved on replay, sdkauth.ErrNonceStoreUnavailable
+// on infrastructure failure, sdkauth.ErrNonceEmpty on empty input.
+func (ns *NonceStore) Reserve(ctx context.Context, nonce string) error {
+	return ns.store.Reserve(ctx, nonce)
+}
+
+// CheckFreshness returns nil if timestamp is within the configured
+// window, ErrTimestampStale otherwise. Splits the freshness check
+// out so callers can fail-fast on stale timestamps before reserving
+// (avoids growing the strict-forever store with would-be-rejected
+// reservations).
+func (ns *NonceStore) CheckFreshness(timestamp time.Time) error {
+	if ns.window <= 0 {
+		return nil
+	}
+	if time.Since(timestamp) > ns.window {
+		return ErrTimestampStale
+	}
+	return nil
+}
+
+// ErrTimestampStale is returned by CheckFreshness when a signed
+// request's timestamp is older than the configured window.
+var ErrTimestampStale = errors.New("auth: signed request timestamp older than window")
 
 // VerifySignedRequest verifies the Ed25519 signature over the canonical
 // request bytes. The canonical form is: signer_did + action + payload + timestamp + nonce.
@@ -173,9 +213,24 @@ func (sa *SignerAuth) authenticate(r *http.Request) (string, error) {
 		return "", fmt.Errorf("auth: missing signer_did")
 	}
 
-	// Verify nonce freshness.
-	if !sa.nonceStore.Check(signed.Nonce, signed.Timestamp) {
-		return "", fmt.Errorf("auth: nonce expired or replayed")
+	// Freshness gate: reject stale timestamps before any nonce work.
+	// Avoids bloating the strict-forever NonceStore with reservations
+	// for requests that would have failed freshness anyway.
+	if err := sa.nonceStore.CheckFreshness(signed.Timestamp); err != nil {
+		return "", fmt.Errorf("auth: %w", err)
+	}
+	// Replay gate: SDK strict-forever Reserve. Returns typed sentinel
+	// on collision (ErrNonceReserved) or infrastructure failure
+	// (ErrNonceStoreUnavailable).
+	if err := sa.nonceStore.Reserve(r.Context(), signed.Nonce); err != nil {
+		switch {
+		case errors.Is(err, sdkauth.ErrNonceReserved):
+			return "", fmt.Errorf("auth: nonce replayed")
+		case errors.Is(err, sdkauth.ErrNonceStoreUnavailable):
+			return "", fmt.Errorf("auth: nonce store unavailable")
+		default:
+			return "", fmt.Errorf("auth: nonce reserve: %w", err)
+		}
 	}
 
 	// Verify signature.
