@@ -19,7 +19,6 @@ KEY DEPENDENCIES:
 package handlers
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -175,20 +174,7 @@ func (h *ArtifactGrantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	signed := append(entryBytes, sig...)
 
-	// Submit to operator.
-	resp, err := http.Post(
-		h.deps.OperatorEndpoint+"/v1/entries",
-		"application/octet-stream",
-		bytes.NewReader(signed),
-	)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "operator unreachable")
-		return
-	}
-	defer resp.Body.Close()
-
-	var opResp map[string]any
-	json.NewDecoder(resp.Body).Decode(&opResp)
-
-	writeJSON(w, resp.StatusCode, opResp)
+	// Submit to operator via shared SDK-tuned client (see
+	// management.go::operatorSubmitClient).
+	submitToOperator(w, h.deps.OperatorEndpoint, signed)
 }

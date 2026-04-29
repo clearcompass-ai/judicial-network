@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
@@ -109,6 +110,44 @@ func testDeps(t *testing.T) *Dependencies {
 		KeyStore:              newMockKS(),
 		Index:                 index.NewLogIndex(),
 		ExchangeDID:           "did:web:test-exchange",
+	}
+}
+
+// -------------------------------------------------------------------------
+// Phase 1E pin: shared operator submit client honors 503-Retry-After
+// -------------------------------------------------------------------------
+
+// TestSubmitToOperator_RetriesOn503 pins the SDK-transport wiring for
+// the package-level operatorSubmitClient. A 503 with Retry-After: 1
+// followed by a 202 succeeds transparently — proving every
+// submit-to-operator site (entries.go EntrySubmitHandler /
+// EntryFullHandler, artifacts.go grant, management.go scope ops)
+// inherits 503-Retry-After backpressure honoring through the shared
+// client. A future regression that drops sdklog.DefaultClient back
+// to a bare http.Client breaks this test deterministically.
+func TestSubmitToOperator_RetriesOn503(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := calls.Add(1)
+		if n == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"position":42}`))
+	}))
+	defer srv.Close()
+
+	rec := httptest.NewRecorder()
+	submitToOperator(rec, srv.URL, []byte("signed-entry-bytes"))
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status: got %d, want 202\nbody: %s", rec.Code, rec.Body.String())
+	}
+	if got := calls.Load(); got < 2 {
+		t.Errorf("expected ≥ 2 attempts (503 → 202), got %d", got)
 	}
 }
 
