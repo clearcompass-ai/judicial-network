@@ -24,6 +24,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -42,12 +44,29 @@ func NewArtifactPublishHandler(deps *Dependencies) *ArtifactPublishHandler {
 	return &ArtifactPublishHandler{deps: deps}
 }
 
+// maxArtifactPlaintextBytes caps the plaintext size accepted by
+// the publish endpoint. Sized for the largest expected court filing
+// PDF (16 MiB typical, 64 MiB ceiling). Mirrors operator BUG #3:
+// http.MaxBytesReader detects overflow as *http.MaxBytesError and
+// the handler returns 413, rather than silently truncating to a
+// downstream encryption / CID-mismatch error with no attribution.
+const maxArtifactPlaintextBytes int64 = 64 << 20
+
 func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = auth.SignerDIDFromContext(r.Context())
 
-	// Read plaintext from request body.
-	plaintext, err := io.ReadAll(io.LimitReader(r.Body, 64<<20)) // 64MB max
+	// Read plaintext from request body. http.MaxBytesReader caps at
+	// maxArtifactPlaintextBytes; oversize requests surface as
+	// *http.MaxBytesError → 413 (BUG #3 mirror).
+	r.Body = http.MaxBytesReader(w, r.Body, maxArtifactPlaintextBytes)
+	plaintext, err := io.ReadAll(r.Body)
 	if err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge,
+				fmt.Sprintf("plaintext exceeds %d bytes", maxErr.Limit))
+			return
+		}
 		writeError(w, http.StatusBadRequest, "read body failed")
 		return
 	}

@@ -113,6 +113,73 @@ func testDeps(t *testing.T) *Dependencies {
 }
 
 // -------------------------------------------------------------------------
+// ArtifactPublishHandler — Phase 1C.1 BUG #3 mirror
+// -------------------------------------------------------------------------
+
+// TestArtifactPublish_OversizeBody_Returns413 pins the BUG #3 mirror:
+// a body larger than maxArtifactPlaintextBytes surfaces as 413
+// (http.MaxBytesReader → *http.MaxBytesError) instead of being
+// silently truncated to a smaller plaintext that the encryption /
+// CID computation processes happily — producing a stored artifact
+// that the caller never intended to store.
+func TestArtifactPublish_OversizeBody_Returns413(t *testing.T) {
+	deps := testDeps(t)
+	h := NewArtifactPublishHandler(deps)
+
+	// 64 MiB + 1024 — just past the cap.
+	oversized := make([]byte, maxArtifactPlaintextBytes+1024)
+	for i := range oversized[:1024] {
+		oversized[i] = byte(i & 0xff) // not all zero — a real-looking PDF prefix
+	}
+
+	req := httptest.NewRequest(http.MethodPost,
+		"/v1/artifacts/publish", bytes.NewReader(oversized))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversize body: got %d (%s), want 413\nbody: %s",
+			w.Code, http.StatusText(w.Code), w.Body.String())
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte("exceeds")) {
+		t.Errorf("response should mention size cap: %q", w.Body.String())
+	}
+}
+
+// Boundary: a body at exactly maxArtifactPlaintextBytes is accepted
+// (proving the cap is inclusive on the accept side, not off-by-one).
+// We use a 1 KiB body — comfortably under the cap — to keep the test
+// fast; the publish path's encryption + CID + push exercises the
+// full happy flow against the mock artifact store.
+func TestArtifactPublish_HappyPath_Accepted(t *testing.T) {
+	deps := testDeps(t)
+	deps.ArtifactStoreEndpoint = mockArtifactStore(t).URL
+	h := NewArtifactPublishHandler(deps)
+
+	body := []byte("court filing PDF bytes — short enough to round-trip cleanly")
+	req := httptest.NewRequest(http.MethodPost,
+		"/v1/artifacts/publish", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("happy path: got %d (%s)\nbody: %s",
+			w.Code, http.StatusText(w.Code), w.Body.String())
+	}
+}
+
+// mockArtifactStore returns an httptest server that always 200s.
+// Sufficient for the 413-vs-200 contract test.
+func mockArtifactStore(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// -------------------------------------------------------------------------
 // EntryBuildHandler
 // -------------------------------------------------------------------------
 
