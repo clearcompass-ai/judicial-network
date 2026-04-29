@@ -54,6 +54,7 @@ const (
 	SchemaPartyBindingV1       = "tn-party-binding-v1"
 	SchemaPartyBindingSealedV1 = "tn-party-binding-sealed-v1"
 	SchemaSealingOrderV1       = "tn-sealing-order-v1"
+	// SchemaKeyAttestationV1 is declared in schemas/key_attestation.go.
 )
 
 var (
@@ -99,6 +100,7 @@ func (r *Registry) registerAll() {
 	r.Register(partyBindingRegistration())
 	r.Register(partyBindingSealedRegistration())
 	r.Register(sealingOrderRegistration())
+	r.Register(keyAttestationRegistration())
 }
 
 func (r *Registry) Register(reg *SchemaRegistration) {
