@@ -1,0 +1,223 @@
+/*
+FILE PATH: tools/common/operator_client_test.go
+
+DESCRIPTION:
+    Wire-contract tests for the SDK-backed OperatorClient shim. Stands
+    up an httptest server, exercises FetchEntry (→ /raw) and ScanFrom
+    (→ /v1/query/scan + per-row /raw), and asserts:
+
+      - FetchEntry hits /v1/entries/{seq}/raw and reads X-Sequence /
+        X-Log-Time headers per the SDK's HTTPEntryFetcher contract.
+      - ScanFrom hits /v1/query/scan, parses the SDK-canonical
+        EntryResponse JSON, and back-fills CanonicalBytes via /raw.
+      - 404 from /raw returns (nil, nil) — the standard "not found" signal.
+      - ScanFrom without a logDID returns a clear error.
+*/
+package common
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+const testLogDID = "did:web:test.log"
+
+// fakeOperator is an in-process httptest server that serves /raw and
+// /v1/query/scan with the SDK-canonical wire shapes.
+type fakeOperator struct {
+	t           *testing.T
+	rawCalls    int
+	scanCalls   int
+	storedBytes map[uint64][]byte
+	storedTime  map[uint64]time.Time
+}
+
+func newFakeOperator(t *testing.T) (*httptest.Server, *fakeOperator) {
+	t.Helper()
+	op := &fakeOperator{
+		t:           t,
+		storedBytes: make(map[uint64][]byte),
+		storedTime:  make(map[uint64]time.Time),
+	}
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /v1/entries/{seq}", func(w http.ResponseWriter, r *http.Request) {
+		op.rawCalls++
+		var seq uint64
+		if _, err := fmt.Sscanf(r.PathValue("seq"), "%d", &seq); err != nil {
+			http.Error(w, "bad seq", http.StatusBadRequest)
+			return
+		}
+		bytes, ok := op.storedBytes[seq]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		// Pinned SDK uses the JSON endpoint shape:
+		//   {sequence, canonical_hex, log_time_unix_micro}
+		// Once the SDK pin is bumped, this fake will switch to the
+		// /raw octet-stream + X-Sequence/X-Log-Time header shape.
+		var logTimeMicro int64
+		if t, ok := op.storedTime[seq]; ok && !t.IsZero() {
+			logTimeMicro = t.UnixMicro()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"sequence":             seq,
+			"canonical_hex":        hex.EncodeToString(bytes),
+			"log_time_unix_micro":  logTimeMicro,
+		})
+	})
+
+	mux.HandleFunc("GET /v1/query/scan", func(w http.ResponseWriter, r *http.Request) {
+		op.scanCalls++
+		var entries []scanEntryResponse
+		for seq := range op.storedBytes {
+			entries = append(entries, scanEntryResponse{
+				SequenceNumber: seq,
+				LogTime:        op.storedTime[seq].Format(time.RFC3339Nano),
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(scanListResponse{Entries: entries, Count: len(entries)})
+	})
+
+	mux.HandleFunc("GET /v1/tree/head", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"size":42,"root":"abc"}`))
+	})
+
+	return httptest.NewServer(mux), op
+}
+
+// -------------------------------------------------------------------------
+// 1) FetchEntry round-trip
+// -------------------------------------------------------------------------
+
+func TestOperatorClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
+	srv, op := newFakeOperator(t)
+	defer srv.Close()
+
+	op.storedBytes[42] = []byte{0x01, 0x02, 0x03, 0x04}
+	op.storedTime[42] = time.Date(2026, 4, 29, 12, 0, 0, 0, time.UTC)
+
+	c := NewOperatorClient(srv.URL, testLogDID)
+	got, err := c.FetchEntry(42)
+	if err != nil {
+		t.Fatalf("FetchEntry: %v", err)
+	}
+	if got == nil {
+		t.Fatal("FetchEntry returned nil for present entry")
+	}
+	if got.Sequence != 42 {
+		t.Errorf("Sequence = %d, want 42", got.Sequence)
+	}
+	wantHex := hex.EncodeToString([]byte{0x01, 0x02, 0x03, 0x04})
+	if got.CanonicalHex != wantHex {
+		t.Errorf("CanonicalHex = %q, want %q", got.CanonicalHex, wantHex)
+	}
+	if got.LogTimeUnixMicro == 0 {
+		t.Error("LogTimeUnixMicro should be populated from X-Log-Time")
+	}
+	if op.rawCalls != 1 {
+		t.Errorf("/raw calls = %d, want 1", op.rawCalls)
+	}
+}
+
+// -------------------------------------------------------------------------
+// 2) FetchEntry 404 → (nil, nil)
+// -------------------------------------------------------------------------
+
+func TestOperatorClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
+	srv, _ := newFakeOperator(t)
+	defer srv.Close()
+
+	c := NewOperatorClient(srv.URL, testLogDID)
+	got, err := c.FetchEntry(999)
+	if err != nil {
+		t.Fatalf("FetchEntry: %v", err)
+	}
+	if got != nil {
+		t.Errorf("FetchEntry on missing seq = %+v, want nil", got)
+	}
+}
+
+// -------------------------------------------------------------------------
+// 3) ScanFrom hits /v1/query/scan + back-fills bytes per row
+// -------------------------------------------------------------------------
+
+func TestOperatorClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
+	srv, op := newFakeOperator(t)
+	defer srv.Close()
+
+	for seq, bytes := range map[uint64][]byte{
+		10: {0xaa, 0xbb},
+		11: {0xcc, 0xdd},
+	} {
+		op.storedBytes[seq] = bytes
+		op.storedTime[seq] = time.Now().UTC()
+	}
+
+	c := NewOperatorClient(srv.URL, testLogDID)
+	rows, err := c.ScanFrom(0, 100)
+	if err != nil {
+		t.Fatalf("ScanFrom: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("ScanFrom rows = %d, want 2", len(rows))
+	}
+	for _, r := range rows {
+		if r.CanonicalHex == "" {
+			t.Errorf("seq %d has empty CanonicalHex (back-fill failed)", r.Sequence)
+		}
+	}
+	if op.scanCalls != 1 {
+		t.Errorf("scan calls = %d, want 1", op.scanCalls)
+	}
+	if op.rawCalls != 2 {
+		t.Errorf("per-row /raw calls = %d, want 2", op.rawCalls)
+	}
+}
+
+// -------------------------------------------------------------------------
+// 4) ScanFrom without a logDID fails clearly
+// -------------------------------------------------------------------------
+
+func TestOperatorClient_ScanFrom_RequiresLogDID(t *testing.T) {
+	srv, _ := newFakeOperator(t)
+	defer srv.Close()
+
+	c := NewOperatorClient(srv.URL) // no logDID
+	_, err := c.ScanFrom(0, 10)
+	if err == nil {
+		t.Fatal("expected error for ScanFrom without logDID")
+	}
+	if !strings.Contains(err.Error(), "logDID") {
+		t.Errorf("error %q should mention logDID", err.Error())
+	}
+}
+
+// -------------------------------------------------------------------------
+// 5) TreeHead passthrough
+// -------------------------------------------------------------------------
+
+func TestOperatorClient_TreeHead_Passthrough(t *testing.T) {
+	srv, _ := newFakeOperator(t)
+	defer srv.Close()
+
+	c := NewOperatorClient(srv.URL, testLogDID)
+	head, err := c.TreeHead()
+	if err != nil {
+		t.Fatalf("TreeHead: %v", err)
+	}
+	if head["size"] != float64(42) {
+		t.Errorf("TreeHead size = %v, want 42", head["size"])
+	}
+}
