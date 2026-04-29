@@ -11,18 +11,15 @@ DESCRIPTION:
 
 KEY ARCHITECTURAL DECISIONS:
     - SDK is the source of truth for entry-byte retrieval. FetchEntry
-      delegates to log.HTTPEntryFetcher. At the current SDK pin
-      (d6b9792) the fetcher targets GET /v1/entries/{seq} (JSON
-      with canonical_hex). Once the pin is bumped to a commit that
-      ships the /raw migration, the shim picks up auto 302-follow to
-      bucket and X-Sequence/X-Log-Time headers automatically — no
-      caller change.
+      delegates to log.HTTPEntryFetcher (v0.7.75): GET
+      /v1/entries/{seq}/raw, auto 302-follow to bucket, X-Sequence
+      and X-Log-Time response headers. The fetcher's body cap is
+      enforced by the SDK with cap+1 overflow detection (BUG #3).
     - ScanFrom targets the SDK-canonical /v1/query/scan endpoint and
       mirrors the SDK's queryListResponse / queryEntryResponse JSON
-      shape exactly (so the eventual log.HTTPOperatorQueryAPI swap is
-      a one-line change). The pinned SDK does not yet ship the
-      concrete query client; this shim plus the SDK fetcher reproduce
-      its semantics.
+      shape exactly. A future PR can swap the in-package GET for a
+      direct log.HTTPOperatorQueryAPI call (one-line change); the
+      current shim already produces an identical wire request.
     - Each ScanFrom row is back-filled with CanonicalBytes via the SDK
       fetcher because /v1/query/scan deliberately omits the bytes
       (egress mandate, per ortholog-operator/api/queries.go).

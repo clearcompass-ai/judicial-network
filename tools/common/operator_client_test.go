@@ -47,7 +47,11 @@ func newFakeOperator(t *testing.T) (*httptest.Server, *fakeOperator) {
 	}
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /v1/entries/{seq}", func(w http.ResponseWriter, r *http.Request) {
+	// SDK v0.7.75: HTTPEntryFetcher targets /v1/entries/{seq}/raw.
+	// Response: 200 + application/octet-stream + raw wire bytes.
+	// Headers: X-Sequence (uint64 decimal), X-Log-Time (RFC-3339Nano UTC).
+	// The operator stamps both per commit 8afc27b.
+	mux.HandleFunc("GET /v1/entries/{seq}/raw", func(w http.ResponseWriter, r *http.Request) {
 		op.rawCalls++
 		var seq uint64
 		if _, err := fmt.Sscanf(r.PathValue("seq"), "%d", &seq); err != nil {
@@ -59,21 +63,13 @@ func newFakeOperator(t *testing.T) (*httptest.Server, *fakeOperator) {
 			http.NotFound(w, r)
 			return
 		}
-		// Pinned SDK uses the JSON endpoint shape:
-		//   {sequence, canonical_hex, log_time_unix_micro}
-		// Once the SDK pin is bumped, this fake will switch to the
-		// /raw octet-stream + X-Sequence/X-Log-Time header shape.
-		var logTimeMicro int64
+		w.Header().Set("X-Sequence", fmt.Sprintf("%d", seq))
 		if t, ok := op.storedTime[seq]; ok && !t.IsZero() {
-			logTimeMicro = t.UnixMicro()
+			w.Header().Set("X-Log-Time", t.UTC().Format(time.RFC3339Nano))
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
-			"sequence":             seq,
-			"canonical_hex":        hex.EncodeToString(bytes),
-			"log_time_unix_micro":  logTimeMicro,
-		})
+		_, _ = w.Write(bytes)
 	})
 
 	mux.HandleFunc("GET /v1/query/scan", func(w http.ResponseWriter, r *http.Request) {
