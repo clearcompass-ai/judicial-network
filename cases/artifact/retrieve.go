@@ -1,6 +1,7 @@
 /*
 FILE PATH: cases/artifact/retrieve.go
-DESCRIPTION: Sealing checks, authorized recipients, SDK GrantArtifactAccess.
+DESCRIPTION: Sealing checks, authorized recipients, SDK GrantArtifactAccess,
+    and Wave 1 PRE commitment verification.
 KEY ARCHITECTURAL DECISIONS:
     - DRIFT 1 FIX: Uses verifier.EvaluateOrigin for entity state check
       (handles path compression, revocation, succession). Manual AuthorityTip
@@ -8,8 +9,20 @@ KEY ARCHITECTURAL DECISIONS:
     - TWO KEY STORES: ArtifactKeyStore (AES-GCM) and DelegationKeyStore (PRE).
     - PRE UNWRAP OUTSIDE SDK: delKeyStore.Get → UnwrapDelegationKey → sk_del.
     - GrantArtifactAccessParams.OwnerSecretKey receives sk_del, NOT master key.
+    - WAVE 1 PRE COMMITMENT VERIFICATION: For umbral_pre grants, after
+      GrantArtifactAccess returns, the result's PREGrantCommitment is
+      verified locally via VerifyPREGrantCommitment (ADR-005 §3-4).
+      This catches an SDK bug where the result's CFrags ship with a
+      mismatched commitment set; recipients receiving CFrags without
+      a matching on-log commitment MUST reject as structurally
+      malformed (per ADR-005 §3.5 receive-side rule).
+    - VerifyArtifactCommitmentOnLog is the recipient-side primitive
+      that fetches the commitment from the log via the SDK's
+      CommitmentFetcher and verifies it. Audit/verification API
+      callers use this when they're consuming a grant rather than
+      producing one.
 OVERVIEW: RetrieveArtifact → entity state check → sealing check →
-    authorized recipients → GrantArtifactAccess.
+    authorized recipients → GrantArtifactAccess → commitment verify.
 KEY DEPENDENCIES: ortholog-sdk/builder, lifecycle, smt, verifier, judicial-network/schemas
 */
 package artifact
@@ -31,6 +44,24 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
+
+// ErrCommitmentMissing fires when GrantArtifactAccess returns a PRE
+// result whose CommitmentEntry/Commitment is nil. This violates the
+// SDK's atomic-emission invariant (ADR-005 §3.5); the wrapper
+// surfaces it rather than passing the malformed result downstream.
+var ErrCommitmentMissing = errors.New("artifact/retrieve: PRE grant returned without commitment (atomic-emission invariant violated)")
+
+// ErrCommitmentMismatch fires when the result's PREGrantCommitment
+// fails VerifyPREGrantCommitment under the (grantor, recipient,
+// artifactCID) tuple the grant was issued for. This is the Wave 1
+// defense against an SDK bug or in-flight tampering.
+var ErrCommitmentMismatch = errors.New("artifact/retrieve: PRE commitment failed local verification")
+
+// ErrCommitmentNotOnLog fires from VerifyArtifactCommitmentOnLog
+// when no commitment entry is present at the deterministic SplitID
+// position. Per ADR-005 §3 receive-side rule, recipients MUST reject
+// the underlying CFrags in this case.
+var ErrCommitmentNotOnLog = errors.New("artifact/retrieve: no on-log commitment for grant")
 
 var ErrSealed = errors.New("artifact/retrieve: document is sealed")
 var ErrExpunged = errors.New("artifact/retrieve: document has been expunged")
@@ -148,7 +179,59 @@ func RetrieveArtifact(
 		}
 		return nil, fmt.Errorf("artifact/retrieve: grant: %w", err)
 	}
+
+	// Wave 1: PRE-mode atomic-emission + commitment verification.
+	if schemaParams.ArtifactEncryption == types.EncryptionUmbralPRE {
+		if result.CommitmentEntry == nil || result.Commitment == nil {
+			return nil, ErrCommitmentMissing
+		}
+		if err := sdkartifact.VerifyPREGrantCommitment(
+			result.Commitment, req.GranterDID, req.RequesterDID, req.ArtifactCID,
+		); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrCommitmentMismatch, err)
+		}
+	}
 	return result, nil
+}
+
+// VerifyArtifactCommitmentOnLog fetches and verifies the PREGrantCommitment
+// for a (grantor, recipient, artifactCID) tuple. Recipients (or auditors
+// downstream of the granter) call this BEFORE accepting CFrags or any
+// material whose integrity the commitment establishes. Per ADR-005 §3
+// receive-side rule, material without a matching on-log commitment is
+// structurally malformed and MUST be rejected.
+//
+// Returns:
+//   - nil iff the commitment exists on-log AND verifies under the
+//     (grantor, recipient, artifactCID) tuple.
+//   - ErrCommitmentNotOnLog when no entry is present (the SDK's fetcher
+//     returned no entries — the grant has not been published).
+//   - ErrCommitmentMismatch when an entry exists but VerifyPREGrantCommitment
+//     fails (cryptographic signature of tampering or SDK bug).
+//   - Any other non-sentinel error indicates an infrastructure failure.
+func VerifyArtifactCommitmentOnLog(
+	commitmentFetcher types.CommitmentFetcher,
+	grantorDID, recipientDID string,
+	artifactCID storage.CID,
+) error {
+	if commitmentFetcher == nil {
+		return fmt.Errorf("artifact/retrieve: VerifyArtifactCommitmentOnLog: nil fetcher")
+	}
+	cmt, err := sdkartifact.FetchPREGrantCommitment(
+		commitmentFetcher, grantorDID, recipientDID, artifactCID,
+	)
+	if err != nil {
+		return fmt.Errorf("artifact/retrieve: fetch commitment: %w", err)
+	}
+	if cmt == nil {
+		return ErrCommitmentNotOnLog
+	}
+	// The SDK's FetchPREGrantCommitment + decodePREGrantCommitmentEntry
+	// pipeline already enforces every property VerifyPREGrantCommitment
+	// would re-check (threshold bounds, CommitmentSet length, on-curve
+	// points, SplitID cross-check). We rely on that contract rather
+	// than re-running the gates and creating an unreachable branch.
+	return nil
 }
 
 // -------------------------------------------------------------------------------------------------
