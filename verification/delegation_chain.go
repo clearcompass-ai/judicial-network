@@ -14,7 +14,6 @@ package verification
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
@@ -31,7 +30,7 @@ type DelegationVerification struct {
 // Uses VerifyDelegationProvenance (linear walk) not WalkDelegationTree (BFS).
 func VerifyFilingDelegation(
 	delegationPointers []types.LogPosition,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 ) (*DelegationVerification, error) {
 	if len(delegationPointers) == 0 {

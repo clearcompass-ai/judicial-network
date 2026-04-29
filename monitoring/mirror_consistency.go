@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
@@ -51,7 +50,7 @@ func CheckMirrorConsistency(
 	cfg MirrorConsistencyConfig,
 	officersQuerier sdklog.OperatorQueryAPI,
 	casesQuerier sdklog.OperatorQueryAPI,
-	officersFetcher builder.EntryFetcher,
+	officersFetcher types.EntryFetcher,
 	officersLeafReader smt.LeafReader,
 	now time.Time,
 ) ([]monitoring.Alert, error) {

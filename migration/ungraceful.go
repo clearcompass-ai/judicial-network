@@ -59,6 +59,7 @@ func InitiateUngracefulMigration(cfg UngracefulMigrationConfig) (*lifecycle.Init
 	}
 
 	return lifecycle.InitiateRecovery(lifecycle.InitiateRecoveryParams{
+		Destination:      cfg.Destination,
 		NewExchangeDID:   cfg.NewExchangeDID,
 		HolderDID:        cfg.FailedExchangeDID,
 		Reason:           fmt.Sprintf("Exchange %s unresponsive, initiating ungraceful migration", cfg.FailedExchangeDID),

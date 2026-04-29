@@ -21,7 +21,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
@@ -102,7 +101,7 @@ func MigrateLegacyRecords(
 	keyStore lifecycle.ArtifactKeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*MigrationResult, error) {
 	start := time.Now()

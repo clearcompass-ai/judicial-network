@@ -53,7 +53,7 @@ func ExpungeCase(
 	keyStore lifecycle.ArtifactKeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	contentStore storage.ContentStore,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	extractor schema.SchemaParameterExtractor,
 ) (*ExpungementResult, error) {

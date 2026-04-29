@@ -12,6 +12,7 @@ import (
 
 func TestCreateDivision_Criminal(t *testing.T) {
 	cfg := DivisionConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID:         "did:web:courts.nashville.gov",
 		DivisionName:      "criminal",
 		DivisionDID:       "did:web:courts.nashville.gov:criminal",
@@ -56,6 +57,7 @@ func TestCreateDivision_Criminal(t *testing.T) {
 
 func TestCreateDivision_JudgeOnly(t *testing.T) {
 	cfg := DivisionConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID:         "did:web:courts.nashville.gov",
 		DivisionName:      "civil",
 		DivisionDID:       "did:web:courts.nashville.gov:civil",
@@ -94,6 +96,7 @@ func TestCreateDivision_AllSixDivisions(t *testing.T) {
 
 	for _, div := range divisions {
 		cfg := DivisionConfig{
+		Destination: "did:web:exchange.test",
 			SignerDID:    "did:web:courts.nashville.gov",
 			DivisionName: div,
 			DivisionDID:  "did:web:courts.nashville.gov:" + div,
@@ -115,6 +118,7 @@ func TestCreateDivision_AllSixDivisions(t *testing.T) {
 
 func TestGenerateDailyDocket(t *testing.T) {
 	cfg := DailyDocketConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:ex:judge-mcclendon",
 		Date:      time.Date(2027, 3, 15, 0, 0, 0, 0, time.UTC),
 		Assignments: []DivisionAssignment{
@@ -156,6 +160,7 @@ func TestGenerateDailyDocket_EmptySigner_Rejected(t *testing.T) {
 
 func TestGenerateDailyDocket_DefaultDate(t *testing.T) {
 	cfg := DailyDocketConfig{
+		Destination: "did:web:exchange.test",
 		SignerDID: "did:web:ex:judge",
 	}
 
@@ -181,6 +186,7 @@ func TestPublishRecusal(t *testing.T) {
 		"did:web:ex:judge-mcclendon",
 		"2027-CR-8891",
 		"conflict of interest — concurrent ethics board service",
+		"did:web:exchange.test",
 	)
 	if err != nil {
 		t.Fatalf("PublishRecusal: %v", err)
@@ -210,6 +216,7 @@ func TestRevokeOfficer(t *testing.T) {
 		"did:web:courts.nashville.gov",
 		42,
 		"officer_departed",
+		"did:web:exchange.test",
 	)
 	if err != nil {
 		t.Fatalf("RevokeOfficer: %v", err)

@@ -120,6 +120,7 @@ func TestBuildHandler_RootEntity(t *testing.T) {
 	h := NewEntryBuildHandler(testDeps(t))
 	body, _ := json.Marshal(BuildRequest{
 		Builder:       "root_entity",
+		Destination:   "did:web:exchange.test",
 		SignerDID:     "did:web:test",
 		DomainPayload: json.RawMessage(`{"docket":"2027-CR-001"}`),
 	})
@@ -175,6 +176,7 @@ func TestFullHandler_RoundTrip(t *testing.T) {
 	h := NewEntryFullHandler(testDeps(t))
 	body, _ := json.Marshal(BuildRequest{
 		Builder:       "root_entity",
+		Destination:   "did:web:exchange.test",
 		SignerDID:     "did:web:test:judge",
 		DomainPayload: json.RawMessage(`{"docket":"2027-CR-002"}`),
 	})

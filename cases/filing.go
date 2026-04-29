@@ -60,7 +60,7 @@ func File(
 	keyStore lifecycle.ArtifactKeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*FilingResult, error) {
 	if cfg.SignerDID == "" {

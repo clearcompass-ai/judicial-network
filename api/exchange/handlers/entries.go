@@ -82,7 +82,11 @@ func (h *EntryBuildHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryBytes := envelope.Serialize(entry)
+	// SDK v7.75 forbids Serialize on unsigned entries. The build
+	// endpoint returns SigningPayload — the exact bytes the caller
+	// (or the exchange's key custody) must hash and sign before the
+	// envelope can be re-assembled and submitted.
+	entryBytes := envelope.SigningPayload(entry)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"entry_bytes": entryBytes,
@@ -218,16 +222,29 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryBytes := envelope.Serialize(entry)
-
-	// Sign.
-	sig, err := h.deps.KeyStore.Sign(req.SignerDID, entryBytes)
+	// v7.75 split: signers sign over SigningPayload (preamble +
+	// header + payload) — never over a Serialize that already
+	// includes a signatures section. After signing, re-build the
+	// entry with the signature attached and Serialize the result
+	// for transport to the operator.
+	signingPayload := envelope.SigningPayload(entry)
+	sig, err := h.deps.KeyStore.Sign(req.SignerDID, signingPayload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "signing failed")
 		return
 	}
-
-	signed := append(entryBytes, sig...)
+	signedEntry, err := envelope.NewEntry(entry.Header, entry.DomainPayload, []envelope.Signature{
+		{
+			SignerDID: entry.Header.SignerDID,
+			AlgoID:    envelope.SigAlgoECDSA,
+			Bytes:     sig,
+		},
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "assemble signed entry: "+err.Error())
+		return
+	}
+	signed := envelope.Serialize(signedEntry)
 
 	// Submit to operator.
 	resp, err := http.Post(

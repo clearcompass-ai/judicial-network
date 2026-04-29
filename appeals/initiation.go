@@ -41,7 +41,7 @@ type AppealInitiationResult struct {
 // Includes a cross-log proof demonstrating the lower court case exists.
 func FileAppeal(
 	cfg AppealInitiationConfig,
-	fetcher verifier.EntryFetcher,
+	fetcher types.EntryFetcher,
 	sourceProver verifier.MerkleProver,
 	localProver verifier.MerkleProver,
 	sourceHead types.CosignedTreeHead,

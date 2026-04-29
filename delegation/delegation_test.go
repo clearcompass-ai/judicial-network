@@ -7,6 +7,8 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -21,7 +23,8 @@ const (
 
 func mustDeserialize(t *testing.T, entry *envelope.Entry) *envelope.Entry {
 	t.Helper()
-	raw := envelope.Serialize(entry)
+	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+	raw := envelope.Serialize(signed)
 	parsed, err := envelope.Deserialize(raw)
 	if err != nil {
 		t.Fatalf("roundtrip deserialize failed: %v", err)
@@ -196,7 +199,8 @@ func TestDelegationEntry_SerializeRoundtrip(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	raw := envelope.Serialize(original)
+	signed := testutil.SignEntry(t, original, testutil.GenerateSigningKey(t))
+	raw := envelope.Serialize(signed)
 	if len(raw) == 0 {
 		t.Fatal("Serialize produced empty bytes")
 	}

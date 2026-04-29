@@ -51,7 +51,7 @@ type ReconcileRosterConfig struct {
 // and produces actions to bring the on-log state into alignment.
 func ReconcileRoster(
 	cfg ReconcileRosterConfig,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	querier verifier.DelegationQuerier,
 ) ([]RosterAction, error) {

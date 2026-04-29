@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
@@ -31,8 +32,12 @@ func (h *VerifyFraudProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Empty prior state replays the commitment from genesis. A future
+	// optimization can persist warm prior state per log to speed up
+	// large-batch verification.
+	priorState := smt.NewInMemoryLeafStore()
 	result, err := verifier.VerifyDerivationCommitment(
-		req.Commitment, fetcher, h.deps.SchemaResolver, req.LogDID,
+		req.Commitment, priorState, fetcher, h.deps.SchemaResolver, req.LogDID,
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "fraud proof verification failed")

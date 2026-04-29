@@ -8,6 +8,8 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 const (
@@ -25,6 +27,7 @@ const (
 
 func TestGracefulMigration_ProducesSuccessionEntries(t *testing.T) {
 	cfg := GracefulMigrationConfig{
+		Destination: "did:web:exchange.test",
 		CourtDID:          courtDID,
 		SourceExchangeDID: sourceExchange,
 		DestExchangeDID:   destExchange,
@@ -64,6 +67,7 @@ func TestGracefulMigration_ProducesSuccessionEntries(t *testing.T) {
 
 func TestGracefulMigration_KeyRotationEntries(t *testing.T) {
 	cfg := GracefulMigrationConfig{
+		Destination: "did:web:exchange.test",
 		CourtDID:          courtDID,
 		SourceExchangeDID: sourceExchange,
 		DestExchangeDID:   destExchange,
@@ -97,6 +101,7 @@ func TestGracefulMigration_KeyRotationEntries(t *testing.T) {
 
 func TestGracefulMigration_EmptyCourtDID_Rejected(t *testing.T) {
 	_, err := PlanGracefulMigration(GracefulMigrationConfig{
+		Destination: "did:web:exchange.test",
 		SourceExchangeDID: sourceExchange,
 		DestExchangeDID:   destExchange,
 	})
@@ -107,6 +112,7 @@ func TestGracefulMigration_EmptyCourtDID_Rejected(t *testing.T) {
 
 func TestGracefulMigration_MissingExchangeDIDs_Rejected(t *testing.T) {
 	_, err := PlanGracefulMigration(GracefulMigrationConfig{
+		Destination: "did:web:exchange.test",
 		CourtDID: courtDID,
 	})
 	if err == nil {
@@ -120,6 +126,7 @@ func TestGracefulMigration_MissingExchangeDIDs_Rejected(t *testing.T) {
 
 func TestUngracefulMigration_InitiateRecovery(t *testing.T) {
 	cfg := UngracefulMigrationConfig{
+		Destination: "did:web:exchange.test",
 		CourtDID:          courtDID,
 		FailedExchangeDID: sourceExchange,
 		NewExchangeDID:    destExchange,
@@ -156,6 +163,7 @@ func TestUngracefulMigration_EmptyDIDs_Rejected(t *testing.T) {
 
 func TestPublishMigrationRecord(t *testing.T) {
 	cfg := UngracefulMigrationConfig{
+		Destination: "did:web:exchange.test",
 		CourtDID:          courtDID,
 		FailedExchangeDID: sourceExchange,
 		NewExchangeDID:    destExchange,
@@ -206,7 +214,8 @@ func TestBulkImport_RootEntities(t *testing.T) {
 			t.Errorf("case %d: imported case should be new root entity", i)
 		}
 
-		raw := envelope.Serialize(entry)
+		signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+		raw := envelope.Serialize(signed)
 		if _, err := envelope.Deserialize(raw); err != nil {
 			t.Errorf("case %d: roundtrip failed: %v", i, err)
 		}
@@ -257,6 +266,7 @@ func TestApprovalCosignature_Migration(t *testing.T) {
 
 	entry, err := lifecycle.BuildApprovalCosignature(
 		courtDID,
+		"did:web:exchange.test",
 		proposalPos,
 		1234567890,
 	)

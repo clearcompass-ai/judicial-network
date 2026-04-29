@@ -40,7 +40,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	sdkschema "github.com/clearcompass-ai/ortholog-sdk/schema"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/topology"
@@ -54,6 +56,11 @@ import (
 type CourtProvisionConfig struct {
 	// Spoke names the three log DIDs + institutional DID.
 	Spoke *topology.SpokeConfig
+
+	// ExchangeDID is the destination DID written into every
+	// provisioning entry's envelope. Required by SDK v7.75
+	// destination-binding (every entry carries its target exchange).
+	ExchangeDID string
 
 	// AuthoritySet is the initial scope authority set. Must include
 	// the court DID. Typical: chief judge, clerk of court, presiding
@@ -114,6 +121,9 @@ func ProvisionCourt(cfg CourtProvisionConfig, registry *schemas.Registry) (*Cour
 	}
 	if _, ok := cfg.AuthoritySet[cfg.Spoke.CourtDID]; !ok {
 		return nil, fmt.Errorf("onboarding/provision: court DID must be in authority set")
+	}
+	if cfg.ExchangeDID == "" {
+		return nil, fmt.Errorf("onboarding/provision: empty exchange DID")
 	}
 
 	eventTime := cfg.EventTime
@@ -183,6 +193,7 @@ func provisionOne(
 	}
 
 	return lifecycle.ProvisionSingleLog(lifecycle.SingleLogConfig{
+		Destination:  cfg.ExchangeDID,
 		SignerDID:    cfg.Spoke.CourtDID,
 		LogDID:       logDID,
 		AuthoritySet: cfg.AuthoritySet,
@@ -218,8 +229,11 @@ func buildOfficerScopeLimit(officer InitialOfficer) []byte {
 }
 
 // buildSchemaSpecs resolves URIs from the registry and builds
-// lifecycle.SchemaSpec entries. No per-spec log target — the SDK's
-// SchemaSpec carries Payload and CommutativeOperations only.
+// lifecycle.SchemaSpec entries. The SDK's SchemaSpec carries a
+// structured Parameters value (types.SchemaParameters); we decode the
+// registry's canonical-JSON DefaultParams via the SDK's
+// JSONParameterExtractor so the JSON serialization is the single
+// source of truth and any registry change immediately propagates.
 func buildSchemaSpecs(uris []string, registry *schemas.Registry) ([]lifecycle.SchemaSpec, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("nil schema registry")
@@ -229,14 +243,23 @@ func buildSchemaSpecs(uris []string, registry *schemas.Registry) ([]lifecycle.Sc
 		uris = registry.URIs()
 	}
 
+	extractor := sdkschema.NewJSONParameterExtractor()
 	var specs []lifecycle.SchemaSpec
 	for _, uri := range uris {
 		reg, err := registry.Lookup(uri)
 		if err != nil {
 			return nil, fmt.Errorf("schema %s: %w", uri, err)
 		}
+		// Wrap the canonical-JSON default into a synthetic schema entry
+		// so we can reuse the SDK's JSONParameterExtractor — the same
+		// path every verifier uses to read a real on-log schema entry.
+		synth := &envelope.Entry{DomainPayload: reg.DefaultParams()}
+		params, err := extractor.Extract(synth)
+		if err != nil {
+			return nil, fmt.Errorf("schema %s: extract parameters: %w", uri, err)
+		}
 		specs = append(specs, lifecycle.SchemaSpec{
-			Payload: reg.DefaultParams(),
+			Parameters: *params,
 		})
 	}
 	return specs, nil

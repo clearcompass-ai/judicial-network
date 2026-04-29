@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -76,7 +75,7 @@ type ComplianceReport struct {
 // contest state (correction #7).
 func RunComplianceCheck(
 	cfg ComplianceConfig,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	extractor schema.SchemaParameterExtractor,
 ) (*ComplianceReport, error) {

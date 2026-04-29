@@ -7,6 +7,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
+	"github.com/clearcompass-ai/judicial-network/topology"
 )
 
 // FederatedResolver resolves DIDs across consortium member courts.
@@ -33,7 +34,7 @@ func (fr *FederatedResolver) Resolve(didStr string) (*did.DIDDocument, error) {
 func BuildCrossCourtProof(
 	sourceRef types.LogPosition,
 	anchorRef types.LogPosition,
-	fetcher verifier.EntryFetcher,
+	fetcher types.EntryFetcher,
 	sourceProver verifier.MerkleProver,
 	localProver verifier.MerkleProver,
 	sourceHead types.CosignedTreeHead,
@@ -53,5 +54,5 @@ func VerifyCrossCourtProof(
 	sourceQuorumK int,
 	blsVerifier signatures.BLSVerifier,
 ) error {
-	return verifier.VerifyCrossLogProof(proof, sourceWitnessKeys, sourceQuorumK, blsVerifier)
+	return verifier.VerifyCrossLogProof(proof, sourceWitnessKeys, sourceQuorumK, blsVerifier, topology.ExtractAnchorPayload)
 }

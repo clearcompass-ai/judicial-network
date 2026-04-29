@@ -57,7 +57,7 @@ func RecordJudicialAction(
 	keyStore lifecycle.ArtifactKeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	resolver did.DIDResolver,
 ) (*JudicialActionResult, error) {

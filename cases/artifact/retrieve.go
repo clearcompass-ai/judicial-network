@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
@@ -64,7 +63,7 @@ func RetrieveArtifact(
 	retrievalProvider storage.RetrievalProvider,
 	extractor schema.SchemaParameterExtractor,
 	leafReader smt.LeafReader,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*lifecycle.GrantArtifactAccessResult, error) {
 	if req.ArtifactCID.IsZero() {
@@ -163,7 +162,7 @@ func RetrieveArtifact(
 func checkEntityAccess(
 	caseRootPos types.LogPosition,
 	leafReader smt.LeafReader,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 ) (error, error) {
 	if caseRootPos.IsNull() {
 		return nil, nil
@@ -208,7 +207,7 @@ func checkEntityAccess(
 
 func resolveAuthorizedRecipients(
 	filingPos, caseRootPos types.LogPosition, artifactCID storage.CID,
-	fetcher builder.EntryFetcher, leafReader smt.LeafReader,
+	fetcher types.EntryFetcher, leafReader smt.LeafReader,
 ) ([]string, error) {
 	recipients := make(map[string]bool)
 	if !filingPos.IsNull() {
@@ -256,7 +255,7 @@ const maxAuthorityChainScan = 200
 
 func scanDisclosureOrders(
 	caseRootPos types.LogPosition, artifactCIDStr string,
-	fetcher builder.EntryFetcher, leafReader smt.LeafReader,
+	fetcher types.EntryFetcher, leafReader smt.LeafReader,
 ) []string {
 	key := smt.DeriveKey(caseRootPos)
 	leaf, err := leafReader.Get(key)

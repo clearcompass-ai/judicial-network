@@ -18,7 +18,6 @@ package enforcement
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
@@ -55,7 +54,7 @@ func GrantEvidenceAccess(
 	retrievalProvider storage.RetrievalProvider,
 	extractor schema.SchemaParameterExtractor,
 	leafReader smt.LeafReader,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*lifecycle.GrantArtifactAccessResult, error) {
 	if cfg.RequesterDID == "" {

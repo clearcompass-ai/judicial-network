@@ -34,7 +34,7 @@ func (d *Dependencies) resolveLog(logID string) (sdklog.OperatorQueryAPI, bool) 
 }
 
 // fetcherFor creates an EntryFetcher adapter for a specific log.
-func (d *Dependencies) fetcherFor(logID string) (verifier.EntryFetcher, error) {
+func (d *Dependencies) fetcherFor(logID string) (types.EntryFetcher, error) {
 	query, ok := d.resolveLog(logID)
 	if !ok {
 		return nil, fmt.Errorf("unknown log %s", logID)
@@ -42,7 +42,7 @@ func (d *Dependencies) fetcherFor(logID string) (verifier.EntryFetcher, error) {
 	return &operatorFetcher{query: query, logDID: logID}, nil
 }
 
-// operatorFetcher adapts OperatorQueryAPI to verifier.EntryFetcher.
+// operatorFetcher adapts OperatorQueryAPI to types.EntryFetcher.
 type operatorFetcher struct {
 	query  sdklog.OperatorQueryAPI
 	logDID string

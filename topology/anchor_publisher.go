@@ -14,6 +14,7 @@ package topology
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
@@ -21,6 +22,35 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/witness"
 )
+
+// ExtractAnchorPayload parses the JSON payload produced by
+// builder.BuildAnchorEntry and returns the 32-byte tree-head reference.
+// Verifier passes this as verifier.AnchorPayloadExtractor when calling
+// VerifyCrossLogProof. Errors map to verifier-rejected proofs.
+func ExtractAnchorPayload(payload []byte) ([32]byte, error) {
+	var parsed struct {
+		AnchorType   string `json:"anchor_type"`
+		SourceLogDID string `json:"source_log_did"`
+		TreeHeadRef  string `json:"tree_head_ref"`
+		TreeSize     uint64 `json:"tree_size"`
+	}
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		return [32]byte{}, fmt.Errorf("topology/anchor: unmarshal payload: %w", err)
+	}
+	if parsed.AnchorType != "tree_head_ref" {
+		return [32]byte{}, fmt.Errorf("topology/anchor: unexpected anchor_type %q", parsed.AnchorType)
+	}
+	raw, err := hex.DecodeString(parsed.TreeHeadRef)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("topology/anchor: decode tree_head_ref: %w", err)
+	}
+	if len(raw) != 32 {
+		return [32]byte{}, fmt.Errorf("topology/anchor: tree_head_ref length %d, want 32", len(raw))
+	}
+	var out [32]byte
+	copy(out[:], raw)
+	return out, nil
+}
 
 // AnchorConfig configures an anchor publishing operation.
 type AnchorConfig struct {

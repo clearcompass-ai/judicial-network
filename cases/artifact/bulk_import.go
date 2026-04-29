@@ -28,7 +28,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
@@ -87,7 +86,7 @@ func BulkImport(
 	keyStore lifecycle.ArtifactKeyStore,
 	delKeyStore DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
 ) (*BulkImportResult, error) {
 	if contentStore == nil {

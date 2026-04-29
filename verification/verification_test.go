@@ -7,6 +7,8 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 const (
@@ -94,9 +96,10 @@ func TestEvidenceChain_MultipleAmendments(t *testing.T) {
 		}
 	}
 
-	// Each serializes cleanly.
+	// Each serializes cleanly after the exchange signs them.
 	for i, entry := range []*envelope.Entry{a1, a2, a3} {
-		raw := envelope.Serialize(entry)
+		signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+		raw := envelope.Serialize(signed)
 		_, err := envelope.Deserialize(raw)
 		if err != nil {
 			t.Errorf("amendment %d: roundtrip failed: %v", i+1, err)
@@ -229,9 +232,10 @@ func TestBackgroundCheck_MultiLogEntries(t *testing.T) {
 		t.Error("entries should have different signers (different courts)")
 	}
 
-	// Both serialize cleanly.
+	// Both serialize cleanly after the exchange signs them.
 	for name, entry := range map[string]*envelope.Entry{"davidson": davidson, "shelby": shelby} {
-		raw := envelope.Serialize(entry)
+		signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+		raw := envelope.Serialize(signed)
 		if _, err := envelope.Deserialize(raw); err != nil {
 			t.Errorf("%s roundtrip: %v", name, err)
 		}

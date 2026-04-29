@@ -43,7 +43,7 @@ type DelegationHealthConfig struct {
 func CheckDelegationHealth(
 	cfg DelegationHealthConfig,
 	queryAPI sdklog.OperatorQueryAPI,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	now time.Time,
 ) ([]monitoring.Alert, error) {

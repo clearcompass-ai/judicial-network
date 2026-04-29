@@ -7,6 +7,8 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 const (
@@ -269,7 +271,8 @@ func TestEnforcement_SerializeRoundtrip(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	raw := envelope.Serialize(original)
+	signed := testutil.SignEntry(t, original, testutil.GenerateSigningKey(t))
+	raw := envelope.Serialize(signed)
 	restored, err := envelope.Deserialize(raw)
 	if err != nil {
 		t.Fatalf("deserialize: %v", err)

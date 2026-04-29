@@ -229,7 +229,8 @@ func (h *KeyEscrowHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid secp256k1 public key")
 			return
 		}
-		encrypted, err := escrow.EncryptForNode(shares[i].Value, pubKey)
+		shareValue := shares[i].Value
+		encrypted, err := escrow.EncryptForNode(shareValue[:], pubKey)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "ecies encrypt failed")
 			return

@@ -38,7 +38,7 @@ type CustodyScanner interface {
 func ReconstructCustodyChain(
 	artifactCIDStr string,
 	scanner CustodyScanner,
-	fetcher builder.EntryFetcher,
+	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	logDID string,
 	startSeq uint64,

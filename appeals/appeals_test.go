@@ -6,6 +6,8 @@ import (
 
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 // -------------------------------------------------------------------------
@@ -14,9 +16,10 @@ import (
 
 func TestIssueMandateAffirm_Success(t *testing.T) {
 	entry, err := IssueMandateAffirm(MandateConfig{
+		Destination:          "did:web:exchange.test",
 		SignerDID:            "did:web:courts.tn.gov:appellate",
-		LowerCourtCasePos:   types.LogPosition{LogDID: "did:web:courts.nashville.gov:cases", Sequence: 100},
-		LowerCourtScopePos:  types.LogPosition{LogDID: "did:web:courts.nashville.gov:cases", Sequence: 1},
+		LowerCourtCasePos:    types.LogPosition{LogDID: "did:web:courts.nashville.gov:cases", Sequence: 100},
+		LowerCourtScopePos:   types.LogPosition{LogDID: "did:web:courts.nashville.gov:cases", Sequence: 1},
 		AppellateDecisionPos: types.LogPosition{LogDID: "did:web:courts.tn.gov:appellate:cases", Sequence: 500},
 		Outcome:              "affirm",
 		EventTime:            1700000000,
@@ -28,7 +31,8 @@ func TestIssueMandateAffirm_Success(t *testing.T) {
 		t.Fatal("entry is nil")
 	}
 
-	raw := envelope.Serialize(entry)
+	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+	raw := envelope.Serialize(signed)
 	restored, err := envelope.Deserialize(raw)
 	if err != nil {
 		t.Fatalf("roundtrip: %v", err)
@@ -43,9 +47,10 @@ func TestIssueMandateAffirm_Success(t *testing.T) {
 
 func TestIssueMandateAffirm_WithRemandInstructions(t *testing.T) {
 	entry, err := IssueMandateAffirm(MandateConfig{
+		Destination:          "did:web:exchange.test",
 		SignerDID:            "did:web:appellate",
-		LowerCourtCasePos:   types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 50},
-		LowerCourtScopePos:  types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 1},
+		LowerCourtCasePos:    types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 50},
+		LowerCourtScopePos:   types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 1},
 		AppellateDecisionPos: types.LogPosition{LogDID: "did:web:appellate:cases", Sequence: 200},
 		Outcome:              "affirm",
 		RemandInstructions:   "none — judgment affirmed in full",
