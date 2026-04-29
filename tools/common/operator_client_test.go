@@ -217,3 +217,65 @@ func TestOperatorClient_TreeHead_Passthrough(t *testing.T) {
 		t.Errorf("TreeHead size = %v, want 42", head["size"])
 	}
 }
+
+// -------------------------------------------------------------------------
+// 6) BUG #3 mirror: oversize tree-head + scan responses error out
+// -------------------------------------------------------------------------
+
+// TestOperatorClient_TreeHead_OversizeErrors pins the cap+1 overflow
+// detection added in Phase 1C.2. A 64 KiB+1024 tree-head response
+// (operator misbehavior — legitimate tree heads are ~hundreds of
+// bytes) surfaces a typed error instead of being silently truncated
+// to a parse failure with no attribution.
+func TestOperatorClient_TreeHead_OversizeErrors(t *testing.T) {
+	huge := make([]byte, (64<<10)+1024)
+	for i := range huge {
+		huge[i] = '"'
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(huge)
+	}))
+	defer srv.Close()
+
+	c := NewOperatorClient(srv.URL, testLogDID)
+	_, err := c.TreeHead()
+	if err == nil {
+		t.Fatal("expected error for oversize tree-head response")
+	}
+	if !strings.Contains(err.Error(), "exceeds") {
+		t.Errorf("error should mention size cap: %v", err)
+	}
+}
+
+// TestOperatorClient_ScanFrom_OversizeErrors mirrors the same
+// contract for /v1/query/scan. The cap matches the SDK's
+// maxQueryResponseBytes (16 MiB). Build a small fake that returns
+// junk past the cap; ScanFrom must surface "exceeds" error rather
+// than truncate-and-parse-fail.
+func TestOperatorClient_ScanFrom_OversizeErrors(t *testing.T) {
+	huge := make([]byte, maxScanResponseBytes+1024)
+	for i := range huge {
+		huge[i] = '"'
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/query/scan" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(huge)
+	}))
+	defer srv.Close()
+
+	c := NewOperatorClient(srv.URL, testLogDID)
+	_, err := c.ScanFrom(0, 100)
+	if err == nil {
+		t.Fatal("expected error for oversize scan response")
+	}
+	if !strings.Contains(err.Error(), "exceeds") {
+		t.Errorf("error should mention size cap: %v", err)
+	}
+}

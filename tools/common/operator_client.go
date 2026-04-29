@@ -171,12 +171,20 @@ func (c *OperatorClient) TreeHead() (map[string]any, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	// BUG #3 mirror: read cap+1 to detect oversize responses
+	// instead of silently truncating. Tree heads are tiny
+	// (~hundreds of bytes); anything > 64 KiB is operator
+	// misbehavior worth surfacing.
+	const treeHeadBodyCap = 64 << 10
+	body, err := io.ReadAll(io.LimitReader(resp.Body, treeHeadBodyCap+1))
 	if err != nil {
 		return nil, fmt.Errorf("operator: read tree head: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("operator: tree head: HTTP %d: %s", resp.StatusCode, body)
+	}
+	if len(body) > treeHeadBodyCap {
+		return nil, fmt.Errorf("operator: tree head response exceeds %d bytes", treeHeadBodyCap)
 	}
 
 	var result map[string]any
@@ -227,12 +235,19 @@ func (c *OperatorClient) scanMetadata(startPos uint64, count int) ([]types.Entry
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxScanResponseBytes))
+	// BUG #3 mirror: read cap+1 to detect oversize responses
+	// instead of silently truncating. The operator caps scan
+	// payload at maxScanResponseBytes; anything past that is
+	// operator misbehavior the consumer must see.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxScanResponseBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("scan read: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("scan HTTP %d: %s", resp.StatusCode, body)
+	}
+	if len(body) > maxScanResponseBytes {
+		return nil, fmt.Errorf("scan response exceeds %d bytes", maxScanResponseBytes)
 	}
 
 	var list scanListResponse

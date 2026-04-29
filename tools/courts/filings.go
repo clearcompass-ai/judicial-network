@@ -41,10 +41,19 @@ func (s *Server) CreateFiling(w http.ResponseWriter, r *http.Request) {
 	filingType := r.FormValue("filing_type")
 	description := r.FormValue("description")
 
-	// Read document bytes.
-	docBytes, err := io.ReadAll(io.LimitReader(file, 50<<20))
+	// Read document bytes. BUG #3 mirror: cap+1 read so oversize
+	// uploads surface as 413 instead of being silently truncated to
+	// a smaller plaintext that downstream encryption / CID push
+	// processes happily.
+	const filingDocCap = 50 << 20 // 50 MiB
+	docBytes, err := io.ReadAll(io.LimitReader(file, filingDocCap+1))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "read document: "+err.Error())
+		return
+	}
+	if int64(len(docBytes)) > filingDocCap {
+		writeError(w, http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("document exceeds %d bytes", filingDocCap))
 		return
 	}
 
