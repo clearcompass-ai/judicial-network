@@ -1,10 +1,10 @@
 package providers
 
 import (
-	"fmt"
-	"io"
+	"errors"
 	"net/http"
-	"time"
+
+	"github.com/clearcompass-ai/ortholog-sdk/storage"
 )
 
 // ListDocuments handles GET /v1/records/{docket}/documents.
@@ -104,18 +104,25 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch from artifact store.
-	url := fmt.Sprintf("%s/v1/artifacts/%s", s.cfg.ArtifactStoreURL, cidStr)
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(url)
+	// Fetch from artifact store via SDK ContentStore. Per the
+	// architecture spec, judicial-network never imports
+	// ortholog-artifact-store/ directly — every wire call goes
+	// through the SDK's ContentStore interface.
+	cid, err := storage.ParseCID(cidStr)
 	if err != nil {
-		writeProviderError(w, http.StatusBadGateway, "artifact store: "+err.Error())
+		writeProviderError(w, http.StatusBadRequest, "invalid CID")
 		return
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		writeProviderError(w, http.StatusNotFound, "artifact not found")
+	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+		BaseURL: s.cfg.ArtifactStoreURL,
+	})
+	ct, err := cs.Fetch(cid)
+	if err != nil {
+		if errors.Is(err, storage.ErrContentNotFound) {
+			writeProviderError(w, http.StatusNotFound, "artifact not found")
+			return
+		}
+		writeProviderError(w, http.StatusBadGateway, "artifact store: "+err.Error())
 		return
 	}
 
@@ -125,5 +132,5 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Artifact-CID", cidStr)
 	w.Header().Set("X-Encrypted", "true")
 	w.WriteHeader(http.StatusOK)
-	io.Copy(w, resp.Body)
+	_, _ = w.Write(ct)
 }

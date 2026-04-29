@@ -84,26 +84,24 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// Compute content digest of plaintext.
 	digest := sha256.Sum256(plaintext)
 
-	// Push ciphertext to artifact store.
-	pushReq, err := http.NewRequest("POST",
-		h.deps.ArtifactStoreEndpoint+"/v1/artifacts",
-		bytes.NewReader(ciphertext))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "push request failed")
-		return
-	}
-	pushReq.Header.Set("X-Artifact-CID", cid.String())
-	pushReq.Header.Set("Content-Type", "application/octet-stream")
-
-	pushResp, err := http.DefaultClient.Do(pushReq)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "artifact store unreachable")
-		return
-	}
-	defer pushResp.Body.Close()
-
-	if pushResp.StatusCode != http.StatusOK && pushResp.StatusCode != http.StatusCreated {
-		writeError(w, pushResp.StatusCode, "artifact store push failed")
+	// Push ciphertext to artifact store via the SDK's
+	// storage.HTTPContentStore. Per the architecture spec, the
+	// judicial-network never imports ortholog-artifact-store/
+	// directly — every wire call to it goes through the SDK's
+	// ContentStore interface. The SDK owns:
+	//   - URL shape (POST /v1/artifacts)
+	//   - X-Artifact-CID header contract
+	//   - 200/201/204 acceptance set
+	//   - error mapping (storage.ErrContentNotFound on 404)
+	// Caller injection of the ContentStore would be more ideal; this
+	// site uses the SDK's default HTTP client today, with the
+	// interface in place so a future Dependency wire-up swap is
+	// trivial.
+	contentStore := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+		BaseURL: h.deps.ArtifactStoreEndpoint,
+	})
+	if err := contentStore.Push(cid, ciphertext); err != nil {
+		writeError(w, http.StatusBadGateway, "artifact store: "+err.Error())
 		return
 	}
 
