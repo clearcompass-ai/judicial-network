@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 )
 
 // VerifyClient calls the domain verification API (api/core/).
@@ -17,10 +19,16 @@ type VerifyClient struct {
 }
 
 // NewVerifyClient creates a client pointing at the verification API.
+//
+// HTTP transport: sdklog.DefaultClient — connection pool of 100
+// idle conns/host (vs stdlib 2) + RetryAfterRoundTripper that
+// honors verification-API 503 + Retry-After responses
+// transparently. Verification calls are read-only and benefit from
+// session warmup under sustained polling.
 func NewVerifyClient(baseURL string) *VerifyClient {
 	return &VerifyClient{
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 15 * time.Second},
+		client:  sdklog.DefaultClient(15 * time.Second),
 	}
 }
 

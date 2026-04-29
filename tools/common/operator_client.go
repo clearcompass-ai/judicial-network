@@ -93,15 +93,15 @@ func NewOperatorClient(baseURL string, optionalLogDID ...string) *OperatorClient
 		Timeout: defaultOperatorTimeout,
 	})
 
-	// Stdlib client for /scan and /tree/head. The SDK's DefaultClient
-	// (with the 503-Retry-After middleware) is preferred but post-dates
-	// the current SDK pin; once the pin is bumped, this becomes
-	// sdklog.DefaultClient(defaultOperatorTimeout).
+	// SDK-tuned client for /scan and /tree/head: connection pool
+	// of 100 idle conns/host + RetryAfterRoundTripper (BUG #2/#6
+	// contract). The SDK fetcher composed above already uses this
+	// client internally; the shim's own HTTP path matches.
 	return &OperatorClient{
 		baseURL: baseURL,
 		logDID:  logDID,
 		fetcher: fetcher,
-		httpc:   &http.Client{Timeout: defaultOperatorTimeout},
+		httpc:   sdklog.DefaultClient(defaultOperatorTimeout),
 	}
 }
 
