@@ -9,7 +9,10 @@ DESCRIPTION:
 
       1. envelope.Entry           — the on-log entry under review.
       2. policy.CosignatureMixPolicy — the (event_type → rule) table.
-      3. directory.Registry       — DID → ActorSigner role lookup.
+      3. RoleResolver             — DID → (role, exchange) lookup.
+                                    Replaces the deleted
+                                    directory.OfficerRegistry per
+                                    the v1.6 "no registries" design.
       4. exchangeDID              — the verifying exchange's DID
                                     (used for IntraExchangeOnly).
 
@@ -29,7 +32,7 @@ DESCRIPTION:
       d. If capacity is present, the cosigner DID
          capacity.did MUST appear in entry.Signatures
          (anti-impersonation).
-      e. Count cosigners whose role (looked up via the registry)
+      e. Count cosigners whose role (looked up via RoleResolver)
          is in rule.RequiredSignerRoles. Must reach
          rule.EffectiveMinCosigners().
       f. If rule.IntraExchangeOnly: every Tier 1 cosigner counted
@@ -46,7 +49,8 @@ OVERVIEW:
 KEY DEPENDENCIES:
     - schemas (FiledByCapacity, ExtractFiledByCapacity).
     - policy (CosignatureMixPolicy, CosignatureRule).
-    - directory (Registry — for cosigner-DID → ActorSigner role).
+    - verification.RoleResolver (DID → role + exchange; replaces
+      the deleted directory.OfficerRegistry).
     - ortholog-sdk envelope (Entry).
 */
 package verification
@@ -55,7 +59,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/judicial-network/directory"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
@@ -109,7 +112,7 @@ type SignerCosigner struct {
 func CheckCosignature(
 	entry *envelope.Entry,
 	pol policy.CosignatureMixPolicy,
-	registry directory.Registry,
+	resolver RoleResolver,
 	exchangeDID string,
 ) *CosignatureVerdict {
 	if entry == nil {
@@ -170,7 +173,7 @@ func CheckCosignature(
 	}
 
 	cosigners, rejection, reason := collectSignerCosigners(
-		entry.Signatures, cap, rule, registry, exchangeDID)
+		entry.Signatures, cap, rule, resolver, exchangeDID)
 	if rejection != CosigOK {
 		v := rejectVerdict(eventType, rejection, reason)
 		v.Rule = rule

@@ -36,7 +36,6 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/directory"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
@@ -123,13 +122,13 @@ type contractFixture struct {
 	exchangeDID      string
 	institutionalDID string
 
-	identity   *identity.StubProvider
-	operator   *operatorBackend
-	leafs      *leafBackend
-	catalog    schemas.RoleCatalog
-	registry   directory.Registry
-	resolver   *verification.AuthorityResolver
-	buildCtx   *delegation.BuildContext
+	identity     *identity.StubProvider
+	operator     *operatorBackend
+	leafs        *leafBackend
+	catalog      schemas.RoleCatalog
+	roleResolver *verification.MapRoleResolver
+	resolver     *verification.AuthorityResolver
+	buildCtx     *delegation.BuildContext
 
 	// keys maps a DID to the secp256k1 key bound on the stub.
 	// Tests can re-use these; the helper provisionKey makes more.
@@ -169,7 +168,7 @@ func newFixture(t *testing.T) *contractFixture {
 		operator:         op,
 		leafs:            lb,
 		catalog:          cat,
-		registry:         directory.NewInMemoryRegistry(),
+		roleResolver:     verification.NewMapRoleResolver(),
 		resolver:         res,
 		buildCtx:         bc,
 		keys:             make(map[string]*secp256k1.PrivateKey),
@@ -190,23 +189,16 @@ func (f *contractFixture) provisionKey(t *testing.T, did string) string {
 	return did
 }
 
-// issue is a thin wrapper that drives delegation.Issue and registers
-// the resulting officer in the registry. Returns the assigned
-// LogPositionRef.
+// issue is a thin wrapper that drives delegation.Issue and binds
+// the new grantee in the role resolver so cosignature checks can
+// look them up by DID. Returns the assigned LogPositionRef.
 func (f *contractFixture) issue(t *testing.T, req delegation.IssueRequest) schemas.LogPositionRef {
 	t.Helper()
 	res, err := delegation.Issue(context.Background(), f.buildCtx, req)
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
-	if err := f.registry.Add(directory.Officer{
-		DID:           req.GranteeDID,
-		Alias:         "alias-" + req.GranteeDID,
-		Role:          req.GranteeRole,
-		DelegationRef: res.Position,
-	}); err != nil {
-		t.Fatalf("registry.Add: %v", err)
-	}
+	f.roleResolver.Bind(req.GranteeDID, req.GranteeRole, f.institutionalDID)
 	return res.Position
 }
 

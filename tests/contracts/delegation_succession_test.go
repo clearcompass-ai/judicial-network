@@ -27,11 +27,9 @@ package contracts
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/directory"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
@@ -86,20 +84,9 @@ func TestDelegationSuccession_CJDeath_DownstreamChainsSurvive(t *testing.T) {
 		types.LogPosition{LogDID: res.Position.LogDID, Sequence: res.Position.Sequence},
 	)
 
-	// Mark the registry to mirror the on-log truth.
-	if err := f.registry.MarkSucceeded(cjOld, cjNew); err != nil {
-		t.Fatalf("registry.MarkSucceeded: %v", err)
-	}
-	got, err := f.registry.Lookup(cjOld)
-	if err != nil {
-		t.Fatalf("Lookup: %v", err)
-	}
-	if got.Status != directory.StatusSucceeded {
-		t.Errorf("registry status: got %q, want succeeded", got.Status)
-	}
-	if got.SuccessorDID != cjNew {
-		t.Errorf("registry successor: got %q, want %q", got.SuccessorDID, cjNew)
-	}
+	// Note: prior versions asserted a registry status transition
+	// here. v1.6 removed off-log registries; the resolver's
+	// downstream-chain-survives behavior IS the proof.
 
 	// Clerk's chain still resolves: succession at the CJ_old hop
 	// is authority-preserving (the institutional Authority_Set
@@ -224,20 +211,9 @@ func TestDelegationSuccession_OnLogPayloadCosignaturesPreserved(t *testing.T) {
 	}
 }
 
-func TestDelegationSuccession_RegistryPreventsRevocationAfterSucceed(t *testing.T) {
-	r := directory.NewInMemoryRegistry()
-	cjOld := "did:key:zQ3shCJ_OLD"
-	if err := r.Add(directory.Officer{
-		DID: cjOld, Alias: "Hon. Old Williams", Role: "chief_justice",
-		DelegationRef: schemas.LogPositionRef{LogDID: "did:web:da:davidson-tn", Sequence: 1},
-	}); err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if err := r.MarkSucceeded(cjOld, "did:key:zQ3shCJ_NEW"); err != nil {
-		t.Fatalf("MarkSucceeded: %v", err)
-	}
-	err := r.MarkRevoked(cjOld)
-	if err == nil || !strings.Contains(err.Error(), "succeeded") {
-		t.Errorf("expected illegal-transition rejection, got: %v", err)
-	}
-}
+// (Prior version of this test exercised the deleted registry's
+// terminal-status transition guard. v1.6 removed off-log
+// registries; the equivalent invariant — succeeded chains do not
+// regress — is enforced by the resolver's origin classification
+// and is exercised by TestDelegationSuccession_CJDeath_Downstream
+// ChainsSurvive.)

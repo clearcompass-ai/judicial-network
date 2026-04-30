@@ -27,9 +27,9 @@ DESCRIPTION:
 
 KEY DEPENDENCIES:
     - delegation.SignAndSubmitCosigned (write).
-    - verification.CheckCosignature   (read).
-    - policy.MustDavidsonPolicy       (rule fixture).
-    - directory.OfficerRegistry       (DID → role for cosigner lookup).
+    - verification.CheckCosignature    (read).
+    - verification.MapRoleResolver     (DID → role + exchange).
+    - policy.MustDavidsonPolicy        (rule fixture).
 */
 package contracts
 
@@ -40,7 +40,6 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/directory"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
@@ -88,25 +87,16 @@ func buildFilingFor(t *testing.T, clerkDID string, payload []byte) *envelope.Ent
 	return entry
 }
 
-// fixtureWithRegistry layers a directory.Registry on top of the
-// existing contractFixture, registering the Clerk + a sitting
-// Judge so CheckCosignature can resolve cosigner roles.
-func fixtureWithRegistry(t *testing.T, clerkDID, judgeDID string) (*contractFixture, directory.Registry) {
+// fixtureWithResolver layers a MapRoleResolver on top of the
+// existing contractFixture, binding the Clerk + a sitting Judge
+// so CheckCosignature can resolve cosigner roles. Replaces the
+// pre-v1.6 directory.Registry plumbing.
+func fixtureWithResolver(t *testing.T, clerkDID, judgeDID string) (*contractFixture, verification.RoleResolver) {
 	t.Helper()
 	f := newFixture(t)
-	r := directory.NewInMemoryRegistry()
-	if err := r.Add(directory.Officer{
-		DID: clerkDID, Alias: "Clerk", Role: "court_clerk",
-		DelegationRef: schemas.LogPositionRef{LogDID: f.institutionalDID, Sequence: 1},
-	}); err != nil {
-		t.Fatalf("registry Add clerk: %v", err)
-	}
-	if err := r.Add(directory.Officer{
-		DID: judgeDID, Alias: "Judge", Role: "judge",
-		DelegationRef: schemas.LogPositionRef{LogDID: f.institutionalDID, Sequence: 2},
-	}); err != nil {
-		t.Fatalf("registry Add judge: %v", err)
-	}
+	r := verification.NewMapRoleResolver().
+		Bind(clerkDID, "court_clerk", f.institutionalDID).
+		Bind(judgeDID, "judge", f.institutionalDID)
 	return f, r
 }
 
@@ -117,7 +107,7 @@ func TestCosigFiling_RoundTrip_Verified(t *testing.T) {
 	judgeDID := "did:key:zQ3shJUDGE_E2E"
 	atyDID := "did:key:zQ3shATTORNEY_E2E"
 
-	f, reg := fixtureWithRegistry(t, clerkDID, judgeDID)
+	f, res := fixtureWithResolver(t, clerkDID, judgeDID)
 	f.provisionKey(t, clerkDID)
 	f.provisionKey(t, judgeDID)
 	bindKey(t, f.identity, atyDID)
@@ -134,7 +124,7 @@ func TestCosigFiling_RoundTrip_Verified(t *testing.T) {
 
 	// Read it back and verify.
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), reg, f.institutionalDID)
+	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
 	if !v.OK {
 		t.Fatalf("verifier rejected round-tripped entry: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -153,7 +143,7 @@ func TestCosigFiling_RejectsUnknownEventType(t *testing.T) {
 	judgeDID := "did:key:zQ3shJUDGE_E2E"
 	atyDID := "did:key:zQ3shATTORNEY_E2E"
 
-	f, reg := fixtureWithRegistry(t, clerkDID, judgeDID)
+	f, res := fixtureWithResolver(t, clerkDID, judgeDID)
 	f.provisionKey(t, clerkDID)
 	f.provisionKey(t, judgeDID)
 	bindKey(t, f.identity, atyDID)
@@ -167,7 +157,7 @@ func TestCosigFiling_RejectsUnknownEventType(t *testing.T) {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), reg, f.institutionalDID)
+	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectUnknownEventType {
 		t.Errorf("expected UnknownEventType, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -182,7 +172,7 @@ func TestCosigFiling_RejectsCapacityDIDImpersonation(t *testing.T) {
 	judgeDID := "did:key:zQ3shJUDGE_E2E"
 	atyDID := "did:key:zQ3shATTORNEY_E2E"
 
-	f, reg := fixtureWithRegistry(t, clerkDID, judgeDID)
+	f, res := fixtureWithResolver(t, clerkDID, judgeDID)
 	f.provisionKey(t, clerkDID)
 	f.provisionKey(t, judgeDID)
 	// Note: atyDID NOT bound on the IdentityProvider — the writer
@@ -199,7 +189,7 @@ func TestCosigFiling_RejectsCapacityDIDImpersonation(t *testing.T) {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), reg, f.institutionalDID)
+	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectFilerSigMissing {
 		t.Errorf("expected FilerSigMissing, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -212,7 +202,7 @@ func TestCosigFiling_RejectsMissingCredential(t *testing.T) {
 	judgeDID := "did:key:zQ3shJUDGE_E2E"
 	atyDID := "did:key:zQ3shATTORNEY_E2E"
 
-	f, reg := fixtureWithRegistry(t, clerkDID, judgeDID)
+	f, res := fixtureWithResolver(t, clerkDID, judgeDID)
 	f.provisionKey(t, clerkDID)
 	f.provisionKey(t, judgeDID)
 	bindKey(t, f.identity, atyDID)
@@ -238,7 +228,7 @@ func TestCosigFiling_RejectsMissingCredential(t *testing.T) {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), reg, f.institutionalDID)
+	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectMissingCredential {
 		t.Errorf("expected MissingCredential, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -254,7 +244,7 @@ func TestCosigFiling_IntraExchangeOnly_RejectsCrossExchange(t *testing.T) {
 	judgeDID := "did:key:zQ3shJUDGE_E2E"
 	atyDID := "did:key:zQ3shATTORNEY_E2E"
 
-	f, reg := fixtureWithRegistry(t, clerkDID, judgeDID)
+	f, res := fixtureWithResolver(t, clerkDID, judgeDID)
 	f.provisionKey(t, clerkDID)
 	f.provisionKey(t, judgeDID)
 	bindKey(t, f.identity, atyDID)
@@ -270,7 +260,7 @@ func TestCosigFiling_IntraExchangeOnly_RejectsCrossExchange(t *testing.T) {
 	// Verify under a DIFFERENT exchange DID.
 	got := f.envelopeAt(t, pos)
 	otherExchange := "did:web:da:shelby-tn"
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), reg, otherExchange)
+	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, otherExchange)
 	if v.Rejection != verification.CosigRejectExchangeMismatch {
 		t.Errorf("expected ExchangeMismatch, got: %s (%s)", v.Rejection, v.Reason)
 	}

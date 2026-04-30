@@ -10,7 +10,6 @@ DESCRIPTION:
         passes through that hop.
       - The resolver also returns RejectRevoked when the chain tip
         IS the revocation entry (no LeafReader needed).
-      - The OfficerRegistry transitions to StatusRevoked.
       - Revoking does NOT retroactively invalidate other independent
         chains — only the descendants of the revoked node.
 */
@@ -21,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/directory"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -73,14 +71,12 @@ func TestDelegationRevocation_PropagatesViaOriginTip(t *testing.T) {
 		types.LogPosition{LogDID: res.Position.LogDID, Sequence: res.Position.Sequence},
 	)
 
-	// Mark the registry to mirror the on-log truth.
-	if err := f.registry.MarkRevoked(clerkDID); err != nil {
-		t.Fatalf("registry.MarkRevoked: %v", err)
-	}
-	got, _ := f.registry.Lookup(clerkDID)
-	if got.Status != directory.StatusRevoked {
-		t.Errorf("registry status: got %q, want revoked", got.Status)
-	}
+	// Note: prior versions of this test asserted a registry
+	// `StatusRevoked` transition. v1.6 removed off-log registries:
+	// the on-log truth (the resolver's RejectRevoked verdict
+	// proven by TestAuthorityResolver_RejectsRevocationTip and the
+	// origin-evaluator path) is the sole source. No registry to
+	// mark.
 }
 
 func TestDelegationRevocation_TipIsRevocationEntry(t *testing.T) {

@@ -4,9 +4,9 @@ FILE PATH: verification/cosignature_signers.go
 DESCRIPTION:
     Helper for cosignature_check.go: walks the entry's signatures,
     excludes the primary signer (Signatures[0]) and the filer's own
-    signature (capacity.DID), looks each up in the OfficerRegistry
-    to learn their ActorSigner role + exchange, and reports back
-    a SignerCosigner slice plus a verdict for the
+    signature (capacity.DID), looks each up via RoleResolver to
+    learn their Signer role + exchange, and reports back a
+    SignerCosigner slice plus a verdict for the
     rule.MinSignerCosigners + rule.IntraExchangeOnly checks.
 
     Why not inline in cosignature_check.go: that file already
@@ -19,24 +19,24 @@ OVERVIEW:
                              ([]SignerCosigner, CosignatureRejection, reason).
 
 KEY DEPENDENCIES:
-    - directory.Registry (DID → Officer record).
+    - verification.RoleResolver (DID → role + exchange).
     - policy.CosignatureRule (RequiredSignerRoles, MinSignerCosigners,
       IntraExchangeOnly).
 */
 package verification
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/judicial-network/directory"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // collectSignerCosigners walks entry.Signatures and accumulates
-// the ActorSigner cosigners (i.e., not the primary signer at [0]
-// and not the filer at capacity.DID — both are accounted for
+// the Signer cosigners (i.e., not the primary signer at [0] and
+// not the filer at capacity.DID — both are accounted for
 // separately). Returns the cosigner detail list plus a verdict.
 //
 // The verdict is CosigOK when:
@@ -48,7 +48,7 @@ func collectSignerCosigners(
 	sigs []envelope.Signature,
 	cap *schemas.FiledByCapacity,
 	rule *policy.CosignatureRule,
-	registry directory.Registry,
+	resolver RoleResolver,
 	exchangeDID string,
 ) ([]SignerCosigner, CosignatureRejection, string) {
 	if len(sigs) == 0 {
@@ -68,16 +68,23 @@ func collectSignerCosigners(
 			continue // primary handled by AuthorityResolver, not here
 		}
 		// The filer's own signature is the attestation, not a
-		// Tier 1 cosignature.
+		// Signer cosignature.
 		if s.SignerDID == filerDID {
 			continue
 		}
-		officer, err := registry.Lookup(s.SignerDID)
+		entry, err := resolver.LookupRole(s.SignerDID)
 		if err != nil {
-			// Unknown DID — could be a Tier 1 actor not yet in
-			// our registry, or something stranger. Surface it as
-			// a cosigner with empty role so the audit log shows
-			// it; do not count it toward the threshold.
+			// Unknown DID — could be a Signer not yet in this
+			// resolver's record (e.g., a payload's
+			// signed_by_capacities block didn't list them), or
+			// something stranger. Surface it with empty role so
+			// the audit log shows it; do not count it toward the
+			// threshold.
+			if !errors.Is(err, ErrSignerUnknown) {
+				// Genuine resolver error — surface it.
+				return cosigners, CosigRejectInsufficientSigners,
+					fmt.Sprintf("resolver error for %s: %v", s.SignerDID, err)
+			}
 			cosigners = append(cosigners, SignerCosigner{
 				DID:          s.SignerDID,
 				Role:         "",
@@ -86,18 +93,17 @@ func collectSignerCosigners(
 			})
 			continue
 		}
-		exchange := officer.DelegationRef.LogDID
-		inSet := rule.PermitsSignerRole(officer.Role)
+		inSet := rule.PermitsSignerRole(entry.Role)
 		cosigners = append(cosigners, SignerCosigner{
 			DID:          s.SignerDID,
-			Role:         officer.Role,
-			Exchange:     exchange,
+			Role:         entry.Role,
+			Exchange:     entry.Exchange,
 			InAllowedSet: inSet,
 		})
 		if !inSet {
 			continue
 		}
-		if rule.IntraExchangeOnly && exchange != exchangeDID {
+		if rule.IntraExchangeOnly && entry.Exchange != exchangeDID {
 			continue
 		}
 		matched++
@@ -117,7 +123,7 @@ func collectSignerCosigners(
 			}
 		}
 		return cosigners, CosigRejectInsufficientSigners,
-			fmt.Sprintf("found %d ActorSigner cosigner(s) in RequiredSignerRoles=%v; need %d",
+			fmt.Sprintf("found %d Signer cosigner(s) in RequiredSignerRoles=%v; need %d",
 				matched, rule.RequiredSignerRoles, rule.EffectiveMinCosigners())
 	}
 	return cosigners, CosigOK, ""
