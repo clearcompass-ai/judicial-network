@@ -1,11 +1,14 @@
 /*
-FILE PATH: prerequisites/policy_davidson.go
+FILE PATH: deployments/davidson_county/rules/prerequisites.go
 
 DESCRIPTION:
-    Davidson County reference fixture for prerequisites.Policy. The
-    16 event_types match cosignature_mix_davidson.go's vocabulary;
-    each carries the rules that the v1.6 Event Dictionary asserts
-    must hold before the event lands.
+    Davidson County's prerequisite policy. Lifted (3E.7) out of
+    prerequisites/policy_davidson.go so the core prerequisites
+    package is jurisdiction-agnostic.
+
+    The 18 event_types match the cosignature policy's vocabulary
+    plus two structural anchors (case_initiated, hearing) that
+    are not subject to Tier 2 cosignature.
 
     Categories:
       - case-lifecycle filings (motions, pleadings, accountings):
@@ -21,34 +24,32 @@ DESCRIPTION:
       - transcript_publication: ADVISORY ancestor (the dictionary
         recommends but does not require a hearing event).
 
-    The fixture is deliberately small and explicit. New event_types
-    require an explicit policy update — the closed-set vocabulary
-    is the v1.6 invariant.
-
 OVERVIEW:
-    DavidsonRules        — map[event_type][]Prereq.
-    NewDavidsonPolicy    — validated policy.
-    MustDavidsonPolicy   — panics on construction failure
-                           (test/CLI only).
+    PrerequisiteRules        — map[event_type][]Prereq.
+    MustPrerequisitePolicy   — convenience constructor (panics).
 
 KEY DEPENDENCIES:
-    None — pure data.
+    - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
 */
-package prerequisites
+package rules
 
-// ─── Reference rules ────────────────────────────────────────────────
+import (
+	"fmt"
 
-// DavidsonRules returns the closed-set Davidson prerequisite
+	"github.com/clearcompass-ai/judicial-network/prerequisites"
+)
+
+// PrerequisiteRules returns the closed-set Davidson prerequisite
 // vocabulary. Edit-with-care: changing this set changes the
-// network's accept/reject contract.
-func DavidsonRules() map[string][]Prereq {
-	caseInitAncestor := Prereq{
-		Mode:             PrereqModeHard,
+// network's accept/reject contract for the Davidson exchange.
+func PrerequisiteRules() map[string][]prerequisites.Prereq {
+	caseInitAncestor := prerequisites.Prereq{
+		Mode:             prerequisites.PrereqModeHard,
 		RequiredAncestor: []string{"case_initiated"},
 		Reason:           "every case-lifecycle event requires a case_initiated ancestor",
 	}
-	meritsPostureAncestor := Prereq{
-		Mode: PrereqModeHard,
+	meritsPostureAncestor := prerequisites.Prereq{
+		Mode: prerequisites.PrereqModeHard,
 		RequiredAncestor: []string{
 			"responsive_pleading",
 			"motion_state_dismissal",
@@ -56,13 +57,13 @@ func DavidsonRules() map[string][]Prereq {
 		},
 		Reason: "judgment requires a merits-posture event in the subtree",
 	}
-	hearingAdvisory := Prereq{
-		Mode:             PrereqModeAdvisory,
+	hearingAdvisory := prerequisites.Prereq{
+		Mode:             prerequisites.PrereqModeAdvisory,
 		RequiredAncestor: []string{"hearing"},
 		Reason:           "transcript_publication advisory: hearing should precede transcript",
 	}
 
-	return map[string][]Prereq{
+	return map[string][]prerequisites.Prereq{
 		// ── attorney-driven filings ──────────────────────────────
 		"motion_continuance":      {caseInitAncestor},
 		"motion_summary_judgment": {caseInitAncestor},
@@ -87,17 +88,17 @@ func DavidsonRules() map[string][]Prereq {
 
 		// ── personnel events: authority-scope rules ─────────────
 		"judicial_appointment": {{
-			Mode:              PrereqModeHard,
+			Mode:              prerequisites.PrereqModeHard,
 			RequiredAuthority: "judicial_appointment_authority",
 			Reason:            "judicial_appointment requires judicial_appointment_authority",
 		}},
 		"clerk_appointment": {{
-			Mode:              PrereqModeHard,
+			Mode:              prerequisites.PrereqModeHard,
 			RequiredAuthority: "clerk_appointment_authority",
 			Reason:            "clerk_appointment requires clerk_appointment_authority",
 		}},
 		"court_reporter_appointment": {{
-			Mode:              PrereqModeHard,
+			Mode:              prerequisites.PrereqModeHard,
 			RequiredAuthority: "court_reporter_appointment_authority",
 			Reason:            "court_reporter_appointment requires court_reporter_appointment_authority",
 		}},
@@ -110,24 +111,17 @@ func DavidsonRules() map[string][]Prereq {
 		// ── case bootstrap: anchor of the subtree, no prereq ────
 		"case_initiated": {},
 
-		// ── hearing: a posture event with no formal prereq ──────
+		// ── hearing: posture event, requires case_initiated ─────
 		"hearing": {caseInitAncestor},
 	}
 }
 
-// NewDavidsonPolicy returns a validated InMemoryPolicy populated
-// with DavidsonRules. Returns an error if the rules do not
-// validate (signaling a bug in this file).
-func NewDavidsonPolicy() (*InMemoryPolicy, error) {
-	return NewInMemoryPolicy(DavidsonRules())
-}
-
-// MustDavidsonPolicy is the convenience helper for tests and CLI
-// fixtures. Panics on validation failure.
-func MustDavidsonPolicy() *InMemoryPolicy {
-	p, err := NewDavidsonPolicy()
+// MustPrerequisitePolicy returns a policy populated with
+// PrerequisiteRules or panics.
+func MustPrerequisitePolicy() *prerequisites.InMemoryPolicy {
+	p, err := prerequisites.NewInMemoryPolicy(PrerequisiteRules())
 	if err != nil {
-		panic("prerequisites: Davidson fixture failed to validate: " + err.Error())
+		panic(fmt.Sprintf("davidson_county/rules: prereq policy invalid: %v", err))
 	}
 	return p
 }

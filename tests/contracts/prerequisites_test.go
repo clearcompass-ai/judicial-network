@@ -36,7 +36,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/policy"
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
 	"github.com/clearcompass-ai/judicial-network/prerequisites"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
@@ -98,14 +98,14 @@ func TestPrereqs_RoundTrip_GatesEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPayloadRoleResolver: %v", err)
 	}
-	cv := verification.CheckCosignature(got, policy.MustDavidsonPolicy(),
+	cv := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(),
 		res, f.institutionalDID)
 	if !cv.OK {
 		t.Fatalf("cosig rejected: %s (%s)", cv.Rejection, cv.Reason)
 	}
 
 	// Prereq gate.
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	pv := w.Check("motion_continuance", prerequisites.CaseContext{
 		CaseRef:        "2027-CV-1234",
 		ObservedEvents: []string{"case_initiated"},
@@ -118,7 +118,7 @@ func TestPrereqs_RoundTrip_GatesEntry(t *testing.T) {
 // ─── vocabulary gate: unknown event rejected ───────────────────────
 
 func TestPrereqs_VocabularyGate_RejectsUnknownEvent(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("wizard_motion", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated"}, // doesn't matter
 	})
@@ -133,7 +133,7 @@ func TestPrereqs_VocabularyGate_RejectsUnknownEvent(t *testing.T) {
 // ─── ancestor gate: motion without case_initiated rejected ─────────
 
 func TestPrereqs_AncestorGate_RejectsMissingCaseInit(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("motion_continuance", prerequisites.CaseContext{
 		CaseRef:        "2027-CV-9999",
 		ObservedEvents: []string{}, // case_initiated missing
@@ -152,7 +152,7 @@ func TestPrereqs_AncestorGate_RejectsMissingCaseInit(t *testing.T) {
 // ─── authority gate: judicial_appointment requires scope ───────────
 
 func TestPrereqs_AuthorityGate_RejectsWithoutScope(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("judicial_appointment", prerequisites.CaseContext{
 		PrimaryAuthorityScopes: []string{"unrelated_scope"},
 	})
@@ -165,7 +165,7 @@ func TestPrereqs_AuthorityGate_RejectsWithoutScope(t *testing.T) {
 }
 
 func TestPrereqs_AuthorityGate_AcceptsWithScope(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("judicial_appointment", prerequisites.CaseContext{
 		PrimaryAuthorityScopes: []string{"judicial_appointment_authority"},
 	})
@@ -177,7 +177,7 @@ func TestPrereqs_AuthorityGate_AcceptsWithScope(t *testing.T) {
 // ─── advisory: hearing missing surfaces note but does NOT block ────
 
 func TestPrereqs_AdvisoryRule_DoesNotBlock(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("transcript_publication", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated"}, // hearing absent
 	})
@@ -197,7 +197,7 @@ func TestPrereqs_AdvisoryRule_DoesNotBlock(t *testing.T) {
 // case_initiated alone is NOT enough for a verdict; the dictionary
 // requires a merits-posture event in the subtree.
 func TestPrereqs_Verdict_RejectsWithoutMeritsPosture(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("verdict", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated"},
 	})
@@ -210,7 +210,7 @@ func TestPrereqs_Verdict_RejectsWithoutMeritsPosture(t *testing.T) {
 }
 
 func TestPrereqs_Verdict_AcceptsWithMeritsPosture(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("verdict", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated", "responsive_pleading"},
 	})
@@ -225,7 +225,7 @@ func TestPrereqs_Verdict_AcceptsWithMeritsPosture(t *testing.T) {
 // are bootstrap-friendly per the v1.6 dictionary; the prereq policy
 // has zero rules for them.
 func TestPrereqs_CrossExchangeEvents_NoPrereqs(t *testing.T) {
-	w := &prerequisites.Walker{Policy: prerequisites.MustDavidsonPolicy()}
+	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	for _, evt := range []string{
 		"case_transfer_outbound",
 		"case_transfer_inbound",

@@ -36,6 +36,7 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/delegation"
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
@@ -146,7 +147,7 @@ func newFixture(t *testing.T) *contractFixture {
 	sp := identity.NewStubProvider()
 	op := newOperatorBackend(logDID)
 	lb := newLeafBackend()
-	cat := schemas.MustDavidsonCatalog()
+	cat := davidson.MustRoleCatalog()
 
 	bc := &delegation.BuildContext{
 		Identity:         sp,

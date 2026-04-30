@@ -40,7 +40,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/policy"
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
@@ -124,7 +124,7 @@ func TestCosigFiling_RoundTrip_Verified(t *testing.T) {
 
 	// Read it back and verify.
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, f.institutionalDID)
 	if !v.OK {
 		t.Fatalf("verifier rejected round-tripped entry: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -157,7 +157,7 @@ func TestCosigFiling_RejectsUnknownEventType(t *testing.T) {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectUnknownEventType {
 		t.Errorf("expected UnknownEventType, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -189,7 +189,7 @@ func TestCosigFiling_RejectsCapacityDIDImpersonation(t *testing.T) {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectFilerSigMissing {
 		t.Errorf("expected FilerSigMissing, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -228,7 +228,7 @@ func TestCosigFiling_RejectsMissingCredential(t *testing.T) {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
 	got := f.envelopeAt(t, pos)
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectMissingCredential {
 		t.Errorf("expected MissingCredential, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -260,7 +260,7 @@ func TestCosigFiling_IntraExchangeOnly_RejectsCrossExchange(t *testing.T) {
 	// Verify under a DIFFERENT exchange DID.
 	got := f.envelopeAt(t, pos)
 	otherExchange := "did:web:da:shelby-tn"
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, otherExchange)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, otherExchange)
 	if v.Rejection != verification.CosigRejectExchangeMismatch {
 		t.Errorf("expected ExchangeMismatch, got: %s (%s)", v.Rejection, v.Reason)
 	}

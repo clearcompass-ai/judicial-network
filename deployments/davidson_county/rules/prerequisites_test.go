@@ -1,46 +1,49 @@
 /*
-FILE PATH: prerequisites/policy_davidson_test.go
+FILE PATH: deployments/davidson_county/rules/prerequisites_test.go
 
 DESCRIPTION:
-    Tests the Davidson reference fixture: vocabulary completeness,
-    structural validation of every rule, and a representative
+    Tests the Davidson reference prereq fixture. Lifted (3E.7)
+    from prerequisites/policy_davidson_test.go: vocabulary
+    completeness, structural validation, and a representative
     walk for each major event category. Pinning the fixture keeps
     silent vocabulary drift from breaking the closed-set guarantee.
 */
-package prerequisites
+package rules
 
 import (
 	"testing"
+
+	"github.com/clearcompass-ai/judicial-network/prerequisites"
 )
 
 // ─── Construction & validation ─────────────────────────────────────
 
-func TestNewDavidsonPolicy_Validates(t *testing.T) {
-	p, err := NewDavidsonPolicy()
+func TestPrerequisitePolicy_Validates(t *testing.T) {
+	p, err := prerequisites.NewInMemoryPolicy(PrerequisiteRules())
 	if err != nil {
-		t.Fatalf("Davidson fixture failed validation: %v", err)
+		t.Fatalf("Davidson prereq fixture failed validation: %v", err)
 	}
 	if len(p.EventTypes()) == 0 {
-		t.Fatal("Davidson policy must have at least one event_type")
+		t.Fatal("Davidson prereq policy must have at least one event_type")
 	}
 }
 
-func TestMustDavidsonPolicy_DoesNotPanic(t *testing.T) {
+func TestMustPrerequisitePolicy_DoesNotPanic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("MustDavidsonPolicy panicked: %v", r)
+			t.Errorf("MustPrerequisitePolicy panicked: %v", r)
 		}
 	}()
-	_ = MustDavidsonPolicy()
+	_ = MustPrerequisitePolicy()
 }
 
 // ─── Vocabulary pin ────────────────────────────────────────────────
 
-// TestDavidsonPolicy_VocabularyPin pins the EXACT closed-set
+// TestPrerequisitePolicy_VocabularyPin pins the EXACT closed-set
 // vocabulary. New event_types should require an explicit policy
 // + test update — silent additions are a v1.6 invariant violation.
-func TestDavidsonPolicy_VocabularyPin(t *testing.T) {
-	p := MustDavidsonPolicy()
+func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
+	p := MustPrerequisitePolicy()
 	want := map[string]bool{
 		"motion_continuance":            true,
 		"motion_summary_judgment":       true,
@@ -79,38 +82,36 @@ func TestDavidsonPolicy_VocabularyPin(t *testing.T) {
 
 // ─── representative walks ──────────────────────────────────────────
 
-func TestDavidsonWalk_MotionContinuance_RequiresCaseInit(t *testing.T) {
-	w := &Walker{Policy: MustDavidsonPolicy()}
+func TestWalk_MotionContinuance_RequiresCaseInit(t *testing.T) {
+	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_continuance", CaseContext{
+	v := w.Check("motion_continuance", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated"},
 	})
 	if !v.OK {
 		t.Errorf("with case_initiated must be OK: %+v", v)
 	}
 
-	v = w.Check("motion_continuance", CaseContext{ObservedEvents: nil})
+	v = w.Check("motion_continuance", prerequisites.CaseContext{ObservedEvents: nil})
 	if v.OK {
 		t.Error("without case_initiated must be rejected")
 	}
-	if v.Rejection != WalkRejectMissingAncestor {
+	if v.Rejection != prerequisites.WalkRejectMissingAncestor {
 		t.Errorf("Rejection=%s", v.Rejection)
 	}
 }
 
-func TestDavidsonWalk_Verdict_RequiresMeritsPosture(t *testing.T) {
-	w := &Walker{Policy: MustDavidsonPolicy()}
+func TestWalk_Verdict_RequiresMeritsPosture(t *testing.T) {
+	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	// case_initiated alone is NOT enough: the merits-posture rule
-	// also fires.
-	v := w.Check("verdict", CaseContext{
+	v := w.Check("verdict", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated"},
 	})
 	if v.OK {
 		t.Error("verdict without merits posture must reject")
 	}
 
-	v = w.Check("verdict", CaseContext{
+	v = w.Check("verdict", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated", "responsive_pleading"},
 	})
 	if !v.OK {
@@ -118,56 +119,53 @@ func TestDavidsonWalk_Verdict_RequiresMeritsPosture(t *testing.T) {
 	}
 }
 
-func TestDavidsonWalk_JudicialAppointment_RequiresAuthority(t *testing.T) {
-	w := &Walker{Policy: MustDavidsonPolicy()}
+func TestWalk_JudicialAppointment_RequiresAuthority(t *testing.T) {
+	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("judicial_appointment", CaseContext{
+	v := w.Check("judicial_appointment", prerequisites.CaseContext{
 		PrimaryAuthorityScopes: []string{"judicial_appointment_authority"},
 	})
 	if !v.OK {
 		t.Errorf("with authority must be OK: %+v", v)
 	}
 
-	v = w.Check("judicial_appointment", CaseContext{
+	v = w.Check("judicial_appointment", prerequisites.CaseContext{
 		PrimaryAuthorityScopes: []string{"some_other_authority"},
 	})
 	if v.OK {
 		t.Error("missing authority must reject")
 	}
-	if v.Rejection != WalkRejectMissingAuthority {
+	if v.Rejection != prerequisites.WalkRejectMissingAuthority {
 		t.Errorf("Rejection=%s", v.Rejection)
 	}
 }
 
-func TestDavidsonWalk_CrossExchange_NoPrereqs(t *testing.T) {
-	w := &Walker{Policy: MustDavidsonPolicy()}
+func TestWalk_CrossExchange_NoPrereqs(t *testing.T) {
+	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	for _, evt := range []string{
 		"case_transfer_outbound",
 		"case_transfer_inbound",
 		"relay_attestation",
 	} {
-		v := w.Check(evt, CaseContext{})
+		v := w.Check(evt, prerequisites.CaseContext{})
 		if !v.OK {
 			t.Errorf("%s must be OK with no prereqs: %+v", evt, v)
 		}
 	}
 }
 
-func TestDavidsonWalk_CaseInitiated_NoPrereqs(t *testing.T) {
-	w := &Walker{Policy: MustDavidsonPolicy()}
-	v := w.Check("case_initiated", CaseContext{})
+func TestWalk_CaseInitiated_NoPrereqs(t *testing.T) {
+	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
+	v := w.Check("case_initiated", prerequisites.CaseContext{})
 	if !v.OK {
 		t.Errorf("case_initiated must be OK at the bootstrap: %+v", v)
 	}
 }
 
-func TestDavidsonWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
-	w := &Walker{Policy: MustDavidsonPolicy()}
+func TestWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
+	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	// case_initiated present + hearing absent: Hard rule satisfied,
-	// Advisory rule violated. Walker should report OK with one
-	// Advisory violation surfaced.
-	v := w.Check("transcript_publication", CaseContext{
+	v := w.Check("transcript_publication", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated"},
 	})
 	if !v.OK {
@@ -177,8 +175,7 @@ func TestDavidsonWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
 		t.Errorf("expected 1 Advisory violation, got %d", len(v.Advisory))
 	}
 
-	// Both present: OK with no violations.
-	v = w.Check("transcript_publication", CaseContext{
+	v = w.Check("transcript_publication", prerequisites.CaseContext{
 		ObservedEvents: []string{"case_initiated", "hearing"},
 	})
 	if !v.OK {
@@ -189,10 +186,10 @@ func TestDavidsonWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
 	}
 }
 
-func TestDavidsonWalk_UnknownEvent_Rejected(t *testing.T) {
-	w := &Walker{Policy: MustDavidsonPolicy()}
-	v := w.Check("wizard_motion", CaseContext{})
-	if v.Rejection != WalkRejectUnknownEvent {
+func TestWalk_UnknownEvent_Rejected(t *testing.T) {
+	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
+	v := w.Check("wizard_motion", prerequisites.CaseContext{})
+	if v.Rejection != prerequisites.WalkRejectUnknownEvent {
 		t.Errorf("unknown event_type Rejection=%s", v.Rejection)
 	}
 }

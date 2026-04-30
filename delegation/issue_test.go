@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -62,7 +63,7 @@ func newBuildContext(t *testing.T, sp *identity.StubProvider, op *fakeOperator) 
 	return &BuildContext{
 		Identity:         sp,
 		Submitter:        op,
-		Catalog:          schemas.MustDavidsonCatalog(),
+		Catalog:          davidson.MustRoleCatalog(),
 		ExchangeDID:      "did:web:test.exchange",
 		InstitutionalDID: "did:web:da:davidson-tn",
 	}
