@@ -151,22 +151,26 @@ func CosignatureRules() []policy.CosignatureRule {
 		},
 
 		// ── intra-exchange personnel events ──────────────────────
-		// Multiple Adjudicator cosignatures.
+		// Per v1.8 §12A: every appointment requires intra-
+		// exchange cosignature from sitting Adjudicators within
+		// the same exchange. The simplified role catalog has
+		// one Adjudicator role (judge); MinSignerCosigners=2
+		// means at least two sitting judges must cosign.
 		{
 			EventType:           "judicial_appointment",
-			RequiredSignerRoles: []string{"judge", "chief_justice"},
+			RequiredSignerRoles: []string{"judge"},
 			MinSignerCosigners:  2,
 			IntraExchangeOnly:   true,
 		},
 		{
 			EventType:           "clerk_appointment",
-			RequiredSignerRoles: []string{"judge", "chief_justice"},
+			RequiredSignerRoles: []string{"judge"},
 			MinSignerCosigners:  2,
 			IntraExchangeOnly:   true,
 		},
 		{
 			EventType:           "court_reporter_appointment",
-			RequiredSignerRoles: []string{"judge", "chief_justice"},
+			RequiredSignerRoles: []string{"judge"},
 			MinSignerCosigners:  2,
 			IntraExchangeOnly:   true,
 		},
