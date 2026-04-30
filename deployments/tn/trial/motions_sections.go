@@ -15,7 +15,7 @@ package trial
 // §3C: motions_3c.go.
 // §3D: motions_3d.go.
 // §3E: motions_3e.go.
-func motions3F() []motionSpec { return nil }
+// §3F: motions_3f.go.
 func motions3G() []motionSpec { return nil }
 func motions3H() []motionSpec { return nil }
 func motions3I() []motionSpec { return nil }
