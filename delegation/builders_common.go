@@ -144,7 +144,10 @@ var (
 
 // ─── signAndSubmit ──────────────────────────────────────────────────
 
-// signAndSubmit drives the build → sign → submit pipeline.
+// signAndSubmit drives the build → sign → submit pipeline for a
+// single-signer entry. Cosigned entries (Tier 2 attorney filings,
+// Authority_Set succession with explicit cosigner list) use
+// signAndSubmitCosigned in cosigned.go.
 //
 // Inputs:
 //   - ctx: caller-provided context for cancellation / deadlines.
@@ -154,9 +157,7 @@ var (
 //     Required (court actions cannot be signed as opaque hashes).
 //   - reason: short human-readable reason for the wallet UI.
 //
-// Output: the LogPositionRef the operator assigned the entry. The
-// caller persists this so callers' downstream chains can reference
-// it via granter_delegation_ref.
+// Output: the LogPositionRef the operator assigned the entry.
 func signAndSubmit(
 	ctx context.Context,
 	bc *BuildContext,
@@ -171,45 +172,72 @@ func signAndSubmit(
 		return schemas.LogPositionRef{}, fmt.Errorf("%w: nil entry", ErrInvalidRequest)
 	}
 
-	// Compute the SDK signing digest the wallet will sign.
 	digest := sha256.Sum256(envelope.SigningPayload(entry))
+	primary, err := signOne(ctx, bc, entry.Header.SignerDID, digest, display, reason)
+	if err != nil {
+		return schemas.LogPositionRef{}, err
+	}
+	entry.Signatures = []envelope.Signature{primary}
+	return validateSerializeSubmit(ctx, bc, entry)
+}
 
+// signOne runs one IdentityProvider.SignDigest call against the
+// pre-computed 32-byte digest and produces an envelope.Signature
+// ready for attachment. Shared by signAndSubmit (primary signer)
+// and signAndSubmitCosigned (every signer in turn).
+//
+// Errors are wrapped with errors.Join(ErrSignFailed, providerErr)
+// so callers can errors.Is against either ErrSignFailed (the
+// category) or identity.ErrSignRejected / identity.ErrSignTimeout
+// (the specific cause).
+func signOne(
+	ctx context.Context,
+	bc *BuildContext,
+	signerDID string,
+	digest [32]byte,
+	display *identity.TypedDataDisplay,
+	reason string,
+) (envelope.Signature, error) {
 	resp, err := bc.Identity.SignDigest(ctx, identity.SignRequest{
-		SignerDID: entry.Header.SignerDID,
+		SignerDID: signerDID,
 		Digest:    digest,
 		Display:   display,
 		Reason:    reason,
 	})
 	if err != nil {
-		// errors.Join so callers can errors.Is against both
-		// ErrSignFailed (the category) and identity.ErrSignRejected
-		// / identity.ErrSignTimeout (the specific cause).
-		return schemas.LogPositionRef{}, errors.Join(ErrSignFailed, err)
+		return envelope.Signature{}, errors.Join(ErrSignFailed, err)
 	}
 	if resp == nil || len(resp.Signature) == 0 {
-		return schemas.LogPositionRef{}, fmt.Errorf("%w: provider returned empty signature", ErrSignFailed)
+		return envelope.Signature{}, fmt.Errorf("%w: provider returned empty signature for %s",
+			ErrSignFailed, signerDID)
 	}
 
-	// Attach the signature. The SDK expects 64 bytes for
-	// SigAlgoECDSA (R||S); SignCompact returns 65 bytes
-	// (recoveryByte || R || S). Strip the leading recovery byte
-	// when present so the wire format matches.
+	// SDK expects 64 bytes for SigAlgoECDSA (R||S); SignCompact
+	// returns 65 bytes (recoveryByte||R||S). Strip the recovery
+	// byte for wire-format compatibility.
 	sigBytes := resp.Signature
 	if len(sigBytes) == 65 {
 		sigBytes = sigBytes[1:]
 	}
-
-	entry.Signatures = []envelope.Signature{{
-		SignerDID: entry.Header.SignerDID,
+	return envelope.Signature{
+		SignerDID: signerDID,
 		AlgoID:    envelope.SigAlgoECDSA,
 		Bytes:     sigBytes,
-	}}
+	}, nil
+}
 
+// validateSerializeSubmit closes the pipeline: validates the entry
+// (signatures attached), serializes to canonical bytes, posts to
+// the operator, returns the assigned LogPositionRef.
+func validateSerializeSubmit(
+	ctx context.Context,
+	bc *BuildContext,
+	entry *envelope.Entry,
+) (schemas.LogPositionRef, error) {
 	if err := entry.Validate(); err != nil {
 		return schemas.LogPositionRef{}, fmt.Errorf("%w: post-sign validate: %v", ErrBuildFailed, err)
 	}
 	canonical := envelope.Serialize(entry)
-
 	pos, err := bc.Submitter.SubmitCanonical(ctx, canonical)
 	if err != nil {
 		return schemas.LogPositionRef{}, fmt.Errorf("%w: %v", ErrSubmitFailed, err)
