@@ -49,12 +49,11 @@ import (
 // vocabulary. Shared by every TN county exchange. Edit with
 // care: changing this set changes the network's accept/reject
 // contract for every TN trial court.
+//
+// caseInitAncestor (the shared Hard prereq used by every motion)
+// lives in motions.go so the §3A–§3I motion files can reuse it
+// without import gymnastics.
 func PrerequisiteRules() map[string][]prerequisites.Prereq {
-	caseInitAncestor := prerequisites.Prereq{
-		Mode:             prerequisites.PrereqModeHard,
-		RequiredAncestor: []string{"case_initiated"},
-		Reason:           "every case-lifecycle event requires a case_initiated ancestor",
-	}
 	meritsPostureAncestor := prerequisites.Prereq{
 		Mode: prerequisites.PrereqModeHard,
 		RequiredAncestor: []string{
@@ -70,7 +69,7 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		Reason:           "transcript_publication advisory: hearing should precede transcript",
 	}
 
-	return map[string][]prerequisites.Prereq{
+	rules := map[string][]prerequisites.Prereq{
 		// ── §1 Genesis: counsel_appearance ──────────────────────
 		// Hard: case_initiated. The Advisory binding_id-per-
 		// represents check is enforced by the verifier-level
@@ -129,6 +128,13 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		// ── hearing: posture event, requires case_initiated ─────
 		"hearing": {caseInitAncestor},
 	}
+
+	// Merge every §3A–§3I motion's prereqs (Hard case_initiated
+	// ancestor + the section file's AdditionalPrereqs).
+	for evt, prereqs := range motionPrerequisiteRules() {
+		rules[evt] = prereqs
+	}
+	return rules
 }
 
 // MustPrerequisitePolicy returns a policy populated with

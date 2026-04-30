@@ -50,7 +50,7 @@ import (
 // CosignatureRules is the TN trial-court reference cosig fixture
 // shared across every county exchange.
 func CosignatureRules() []policy.CosignatureRule {
-	return []policy.CosignatureRule{
+	rules := []policy.CosignatureRule{
 		// ── §1 Genesis: counsel_appearance ──────────────────────
 		// Per v1.8: defense_counsel / civil_attorney / prosecutor
 		// file the appearance; court_clerk cosigns. bpr_number
@@ -213,6 +213,11 @@ func CosignatureRules() []policy.CosignatureRule {
 			IntraExchangeOnly:   false,
 		},
 	}
+	// Append every §3A–§3I motion rule. Each motions_3X.go file
+	// returns motionSpecs; motions.go converts them to the
+	// canonical "filer + court_clerk cosign + bpr_number" shape.
+	rules = append(rules, motionCosignatureRules()...)
+	return rules
 }
 
 // MustCosignaturePolicy returns a policy populated with
