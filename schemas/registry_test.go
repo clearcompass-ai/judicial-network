@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// ─── Unit: Registry contains all 16 schemas ─────────────────────────
+// ─── Unit: Registry contains all 18 schemas ─────────────────────────
 
-func TestRegistry_ContainsAll16Schemas(t *testing.T) {
+func TestRegistry_ContainsAll18Schemas(t *testing.T) {
 	r := NewRegistry()
 
 	expected := []string{
@@ -21,6 +21,8 @@ func TestRegistry_ContainsAll16Schemas(t *testing.T) {
 		SchemaPartyBindingSealedV1,
 		SchemaCounselAppearanceV1,
 		SchemaAppellateOpinionPublicationV1,
+		SchemaAppellateOpinionParticipationV1,
+		SchemaAppellateDispositionV1,
 		SchemaSealingOrderV1,
 		SchemaShardGenesisV1,
 		SchemaKeyAttestationV1,
