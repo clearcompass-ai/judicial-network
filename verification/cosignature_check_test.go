@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
@@ -59,7 +59,7 @@ func attorneyCapacity(role schemas.FilerRole, did string) map[string]any {
 // ─── happy paths ────────────────────────────────────────────────────
 
 func TestCheck_HappyPath_AttorneyMotion(t *testing.T) {
-	pol := policy.MustDavidsonPolicy()
+	pol := davidson.MustCosignaturePolicy()
 	res := buildResolver(t)
 	entry := buildEntry(clerkDID, map[string]any{
 		"event_type":        "motion_continuance",
@@ -76,7 +76,7 @@ func TestCheck_HappyPath_AttorneyMotion(t *testing.T) {
 }
 
 func TestCheck_HappyPath_PureSignerVerdict(t *testing.T) {
-	pol := policy.MustDavidsonPolicy()
+	pol := davidson.MustCosignaturePolicy()
 	res := buildResolver(t)
 	entry := buildEntry(cosigJudge, map[string]any{"event_type": "verdict"})
 
@@ -92,7 +92,7 @@ func TestCheck_HappyPath_PureSignerVerdict(t *testing.T) {
 // ─── structural rejections ──────────────────────────────────────────
 
 func TestCheck_NilEntry(t *testing.T) {
-	v := CheckCosignature(nil, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(nil, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectMalformedPayload {
 		t.Errorf("expected MalformedPayload, got: %s", v.Rejection)
 	}
@@ -100,7 +100,7 @@ func TestCheck_NilEntry(t *testing.T) {
 
 func TestCheck_MissingEventType(t *testing.T) {
 	entry := buildEntry(cosigJudge, map[string]any{"x": 1})
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectMissingEventType {
 		t.Errorf("expected MissingEventType, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -108,7 +108,7 @@ func TestCheck_MissingEventType(t *testing.T) {
 
 func TestCheck_UnknownEventType(t *testing.T) {
 	entry := buildEntry(cosigJudge, map[string]any{"event_type": "wizard_event"})
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectUnknownEventType {
 		t.Errorf("expected UnknownEventType, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -120,7 +120,7 @@ func TestCheck_MalformedPayload(t *testing.T) {
 		DomainPayload: []byte("not json"),
 		Signatures:    []envelope.Signature{{SignerDID: cosigJudge}},
 	}
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectMalformedPayload {
 		t.Errorf("expected MalformedPayload, got: %s", v.Rejection)
 	}
@@ -132,7 +132,7 @@ func TestCheck_CapacityMissingForFilerEvent(t *testing.T) {
 	entry := buildEntry(clerkDID, map[string]any{
 		"event_type": "motion_continuance",
 	}, cosigJudge)
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectCapacityMissing {
 		t.Errorf("expected CapacityMissing, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -143,7 +143,7 @@ func TestCheck_CapacityForbiddenForPureSignerEvent(t *testing.T) {
 		"event_type":        "verdict",
 		"filed_by_capacity": attorneyCapacity(schemas.FilerRoleDefenseCounsel, atyDID),
 	}, atyDID)
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectCapacityForbidden {
 		t.Errorf("expected CapacityForbidden, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -156,7 +156,7 @@ func TestCheck_CapacityInvalidStructurally(t *testing.T) {
 		"event_type":        "motion_continuance",
 		"filed_by_capacity": bad,
 	}, atyDID, cosigJudge)
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectCapacityInvalid {
 		t.Errorf("expected CapacityInvalid, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -171,7 +171,7 @@ func TestCheck_FilerRoleNotAllowed(t *testing.T) {
 		"event_type":        "motion_state_dismissal",
 		"filed_by_capacity": cap,
 	}, atyDID, cosigJudge)
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectFilerRoleNotAllowed {
 		t.Errorf("expected FilerRoleNotAllowed, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -183,7 +183,7 @@ func TestCheck_FilerSignatureMissing(t *testing.T) {
 		"event_type":        "motion_continuance",
 		"filed_by_capacity": attorneyCapacity(schemas.FilerRoleDefenseCounsel, atyDID),
 	}, cosigJudge) // judge cosigns but attorney does NOT
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectFilerSigMissing {
 		t.Errorf("expected FilerSigMissing, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -202,7 +202,7 @@ func TestCheck_InsufficientSigners(t *testing.T) {
 	// motion_continuance rule wants ≥1 cosigner from
 	// {court_clerk, judge}; only the attorney cosigned (and the
 	// attorney is filtered out as the filer).
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectInsufficientSigners {
 		t.Errorf("expected InsufficientSigners, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -211,7 +211,7 @@ func TestCheck_InsufficientSigners(t *testing.T) {
 func TestCheck_PersonnelEventRequiresMultipleCosigners(t *testing.T) {
 	// judicial_appointment requires ≥2 cosigners. Only one cosigner
 	// is present here.
-	pol := policy.MustDavidsonPolicy()
+	pol := davidson.MustCosignaturePolicy()
 	res := buildResolver(t)
 	entry := buildEntry(cosigJudge, map[string]any{
 		"event_type": "judicial_appointment",
@@ -235,7 +235,7 @@ func TestCheck_ExchangeMismatch_IntraExchangeRule(t *testing.T) {
 		"event_type":        "motion_continuance",
 		"filed_by_capacity": attorneyCapacity(schemas.FilerRoleDefenseCounsel, atyDID),
 	}, atyDID, cosigJudge)
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), res, exchangeB)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), res, exchangeB)
 	if v.Rejection != CosigRejectExchangeMismatch {
 		t.Errorf("expected ExchangeMismatch, got: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -250,7 +250,7 @@ func TestCheck_CrossExchangeRule_AcceptsCrossExchangeCosigner(t *testing.T) {
 	entry := buildEntry(cosigJudge, map[string]any{
 		"event_type": "case_transfer_outbound",
 	}, clerkDID)
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), res, exchangeB)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), res, exchangeB)
 	if !v.OK {
 		t.Errorf("expected OK (cross-exchange permitted), got: %s (%s)",
 			v.Rejection, v.Reason)
@@ -274,7 +274,7 @@ func TestCheck_MissingRequiredCredential(t *testing.T) {
 		"event_type":        "motion_continuance",
 		"filed_by_capacity": cap,
 	}, atyDID, cosigJudge)
-	v := CheckCosignature(entry, policy.MustDavidsonPolicy(), buildResolver(t), exchangeA)
+	v := CheckCosignature(entry, davidson.MustCosignaturePolicy(), buildResolver(t), exchangeA)
 	if v.Rejection != CosigRejectMissingCredential {
 		t.Errorf("expected MissingCredential, got: %s (%s)", v.Rejection, v.Reason)
 	}

@@ -1,62 +1,62 @@
 /*
-FILE PATH: policy/cosignature_mix_davidson_test.go
+FILE PATH: deployments/davidson_county/rules/cosignature_mix_test.go
 
 DESCRIPTION:
     Tests for the Davidson reference cosignature-mix fixture.
+    Lifted (3E.7) from policy/cosignature_mix_davidson_test.go.
     Pins:
-      - Every rule validates structurally.
-      - Every FilerRole from the v1.4 dictionary appears at least
+      - Every rule validates structurally (via NewInMemoryPolicy).
+      - Every FilerRole from the v1.6 dictionary appears at least
         once (the fixture covers the full Tier 2 surface).
-      - Pure ActorSigner events (verdict, final_judgment,
-        transcript_publication) have no AllowedFilerRoles.
-      - Personnel events (judicial_appointment, clerk_appointment,
-        court_reporter_appointment) require ≥2 cosigners.
-      - Cross-exchange events (case_transfer_*, relay_attestation)
-        have IntraExchangeOnly=false (Flag #2).
-      - All other events default to IntraExchangeOnly=true.
+      - Pure ActorSigner events have no AllowedFilerRoles.
+      - Personnel events require ≥2 cosigners.
+      - Cross-exchange events have IntraExchangeOnly=false.
       - Specific event lookups return expected shapes.
 */
-package policy
+package rules
 
 import (
 	"testing"
 
+	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // ─── basic invariants ──────────────────────────────────────────────
 
-func TestDavidsonRules_AllValid(t *testing.T) {
-	for _, r := range DavidsonRules() {
-		if err := validateRule(r); err != nil {
-			t.Errorf("davidson rule %q invalid: %v", r.EventType, err)
-		}
+// TestCosignatureRules_AllValid runs every rule through
+// NewInMemoryPolicy, which validates each one. A construction
+// failure surfaces as a panic in MustCosignaturePolicy; here we
+// surface it as a test failure for clearer error messages.
+func TestCosignatureRules_AllValid(t *testing.T) {
+	if _, err := policy.NewInMemoryPolicy(CosignatureRules()); err != nil {
+		t.Errorf("davidson cosig rules failed to construct: %v", err)
 	}
 }
 
-func TestMustDavidsonPolicy_DoesNotPanic(t *testing.T) {
+func TestMustCosignaturePolicy_DoesNotPanic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("MustDavidsonPolicy panicked: %v", r)
+			t.Errorf("MustCosignaturePolicy panicked: %v", r)
 		}
 	}()
-	p := MustDavidsonPolicy()
+	p := MustCosignaturePolicy()
 	if got := len(p.List()); got == 0 {
-		t.Error("Davidson policy should have rules")
+		t.Error("Davidson cosig policy should have rules")
 	}
 }
 
 // ─── coverage of every FilerRole ───────────────────────────────────
 
-func TestDavidsonRules_CoversEveryFilerRole(t *testing.T) {
+func TestCosignatureRules_CoversEveryFilerRole(t *testing.T) {
 	want := map[schemas.FilerRole]bool{
-		schemas.FilerRoleProsecutor:       false,
-		schemas.FilerRoleDefenseCounsel:   false,
-		schemas.FilerRoleCivilAttorney:    false,
-		schemas.FilerRoleFiduciary:        false,
-		schemas.FilerRoleGuardianAdLitem:  false,
+		schemas.FilerRoleProsecutor:      false,
+		schemas.FilerRoleDefenseCounsel:  false,
+		schemas.FilerRoleCivilAttorney:   false,
+		schemas.FilerRoleFiduciary:       false,
+		schemas.FilerRoleGuardianAdLitem: false,
 	}
-	for _, r := range DavidsonRules() {
+	for _, r := range CosignatureRules() {
 		for _, fr := range r.AllowedFilerRoles {
 			want[fr] = true
 		}
@@ -70,9 +70,9 @@ func TestDavidsonRules_CoversEveryFilerRole(t *testing.T) {
 
 // ─── pure ActorSigner events ───────────────────────────────────────
 
-func TestDavidsonRules_PureSignerEventsHaveNoFilers(t *testing.T) {
+func TestCosignatureRules_PureSignerEventsHaveNoFilers(t *testing.T) {
 	pureSigner := []string{"verdict", "final_judgment", "transcript_publication"}
-	p := MustDavidsonPolicy()
+	p := MustCosignaturePolicy()
 	for _, ev := range pureSigner {
 		r, err := p.Lookup(ev)
 		if err != nil {
@@ -88,13 +88,13 @@ func TestDavidsonRules_PureSignerEventsHaveNoFilers(t *testing.T) {
 
 // ─── personnel events: ≥2 cosigners, intra-exchange ────────────────
 
-func TestDavidsonRules_PersonnelEventsRequireMultipleCosigners(t *testing.T) {
+func TestCosignatureRules_PersonnelEventsRequireMultipleCosigners(t *testing.T) {
 	personnel := []string{
 		"judicial_appointment",
 		"clerk_appointment",
 		"court_reporter_appointment",
 	}
-	p := MustDavidsonPolicy()
+	p := MustCosignaturePolicy()
 	for _, ev := range personnel {
 		r, err := p.Lookup(ev)
 		if err != nil {
@@ -113,13 +113,13 @@ func TestDavidsonRules_PersonnelEventsRequireMultipleCosigners(t *testing.T) {
 
 // ─── cross-exchange events: Flag #2 false ──────────────────────────
 
-func TestDavidsonRules_CrossExchangeEventsFlagSetCorrectly(t *testing.T) {
+func TestCosignatureRules_CrossExchangeEventsFlagSetCorrectly(t *testing.T) {
 	crossExchange := []string{
 		"case_transfer_outbound",
 		"case_transfer_inbound",
 		"relay_attestation",
 	}
-	p := MustDavidsonPolicy()
+	p := MustCosignaturePolicy()
 	for _, ev := range crossExchange {
 		r, err := p.Lookup(ev)
 		if err != nil {
@@ -134,14 +134,14 @@ func TestDavidsonRules_CrossExchangeEventsFlagSetCorrectly(t *testing.T) {
 
 // ─── attorney filings: bpr_number required ─────────────────────────
 
-func TestDavidsonRules_AttorneyFilingsRequireBPR(t *testing.T) {
+func TestCosignatureRules_AttorneyFilingsRequireBPR(t *testing.T) {
 	attorneyFilings := []string{
 		"motion_continuance",
 		"motion_summary_judgment",
 		"responsive_pleading",
 		"motion_state_dismissal",
 	}
-	p := MustDavidsonPolicy()
+	p := MustCosignaturePolicy()
 	for _, ev := range attorneyFilings {
 		r, err := p.Lookup(ev)
 		if err != nil {
@@ -164,12 +164,12 @@ func TestDavidsonRules_AttorneyFilingsRequireBPR(t *testing.T) {
 
 // ─── fiduciary filings: letters_of_administration_ref required ─────
 
-func TestDavidsonRules_FiduciaryFilingsRequireLetters(t *testing.T) {
+func TestCosignatureRules_FiduciaryFilingsRequireLetters(t *testing.T) {
 	fiduciaryFilings := []string{
 		"fiduciary_accounting",
 		"asset_disposition_order",
 	}
-	p := MustDavidsonPolicy()
+	p := MustCosignaturePolicy()
 	for _, ev := range fiduciaryFilings {
 		r, err := p.Lookup(ev)
 		if err != nil {
@@ -195,8 +195,8 @@ func TestDavidsonRules_FiduciaryFilingsRequireLetters(t *testing.T) {
 
 // ─── guardian ad litem: appointment_order_ref required ─────────────
 
-func TestDavidsonRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
-	r, err := MustDavidsonPolicy().Lookup("appointment_guardian_ad_litem")
+func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
+	r, err := MustCosignaturePolicy().Lookup("appointment_guardian_ad_litem")
 	if err != nil {
 		t.Fatalf("appointment_guardian_ad_litem missing: %v", err)
 	}
@@ -217,8 +217,8 @@ func TestDavidsonRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 
 // ─── motion_continuance permits multiple filer roles ───────────────
 
-func TestDavidsonRules_MotionContinuanceMultipleFilers(t *testing.T) {
-	r, err := MustDavidsonPolicy().Lookup("motion_continuance")
+func TestCosignatureRules_MotionContinuanceMultipleFilers(t *testing.T) {
+	r, err := MustCosignaturePolicy().Lookup("motion_continuance")
 	if err != nil {
 		t.Fatalf("Lookup: %v", err)
 	}
@@ -231,7 +231,6 @@ func TestDavidsonRules_MotionContinuanceMultipleFilers(t *testing.T) {
 			t.Errorf("motion_continuance must permit %q", want)
 		}
 	}
-	// Fiduciary cannot file a motion_continuance per the fixture.
 	if r.PermitsFilerRole(schemas.FilerRoleFiduciary) {
 		t.Error("motion_continuance must NOT permit fiduciary filer role")
 	}

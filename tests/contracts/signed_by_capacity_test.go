@@ -42,7 +42,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/policy"
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
@@ -120,7 +120,7 @@ func TestSignedByCapacity_RoundTrip(t *testing.T) {
 		t.Fatalf("NewPayloadRoleResolver: %v", err)
 	}
 
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, f.institutionalDID)
 	if !v.OK {
 		t.Fatalf("verifier rejected payload-resolver entry: %s (%s)", v.Rejection, v.Reason)
 	}
@@ -193,7 +193,7 @@ func TestSignedByCapacity_RejectsUndeclaredCosigner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPayloadRoleResolver: %v", err)
 	}
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectInsufficientSigners {
 		t.Errorf("expected InsufficientSigners (judge undeclared), got: %s (%s)",
 			v.Rejection, v.Reason)
@@ -234,7 +234,7 @@ func TestSignedByCapacity_RejectsWrongExchangeDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPayloadRoleResolver: %v", err)
 	}
-	v := verification.CheckCosignature(got, policy.MustDavidsonPolicy(), res, f.institutionalDID)
+	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, f.institutionalDID)
 	if v.Rejection != verification.CosigRejectExchangeMismatch {
 		t.Errorf("expected ExchangeMismatch, got: %s (%s)", v.Rejection, v.Reason)
 	}

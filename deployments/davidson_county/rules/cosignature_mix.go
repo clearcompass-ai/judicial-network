@@ -1,51 +1,49 @@
 /*
-FILE PATH: policy/cosignature_mix_davidson.go
+FILE PATH: deployments/davidson_county/rules/cosignature_mix.go
 
 DESCRIPTION:
-    Reference cosignature-mix policy for the Davidson County
-    deployment. Production deployments load their own JSON file but
-    typically start from this template.
+    Davidson County's cosignature-mix policy. Lifted (3E.7) out of
+    policy/cosignature_mix_davidson.go so the core policy package
+    is jurisdiction-agnostic.
 
-    The fixture covers a representative slice of the v1.4 dictionary's
-    event_type space — enough to exercise every shape of rule:
+    The fixture covers a representative slice of the v1.6 dictionary
+    event_type space — every shape of rule:
 
-      - Filer-driven motions (defense_counsel/civil_attorney/prosecutor →
-        court_clerk cosignature, intra-exchange-only,
+      - Filer-driven motions (defense_counsel/civil_attorney/
+        prosecutor → court_clerk cosignature, intra-exchange-only,
         bpr_number required).
       - Pure ActorSigner events (verdict, final_judgment) with NO
         AllowedFilerRoles — no filer permitted.
       - Intra-exchange-only personnel events (judicial_appointment,
-        clerk_appointment) requiring multiple Adjudicator
-        cosignatures.
+        clerk_appointment, court_reporter_appointment) requiring
+        2 Adjudicator cosignatures.
       - Cross-exchange-permitted events (case_transfer_outbound,
-        relay_attestation) with IntraExchangeOnly=false.
-      - Fiduciary filings (fiduciary_accounting,
-        asset_disposition_order) with letters_of_administration_ref
+        case_transfer_inbound, relay_attestation) with
+        IntraExchangeOnly=false.
+      - Fiduciary filings with letters_of_administration_ref
         required credential.
-      - Guardian ad litem appointment-driven submissions with
-        appointment_order_ref required.
-
-    Every Tier 2 role from the v1.4 dictionary appears at least once.
+      - Guardian ad litem with appointment_order_ref required.
 
 OVERVIEW:
-    DavidsonRules         — slice of CosignatureRule.
-    MustDavidsonPolicy    — convenience constructor (panics on error).
+    CosignatureRules         — slice of CosignatureRule.
+    MustCosignaturePolicy    — convenience constructor (panics).
 
 KEY DEPENDENCIES:
-    - policy/cosignature_mix.go (CosignatureRule, NewInMemoryPolicy).
-    - schemas/capacity.go (FilerRole consts).
+    - policy.CosignatureRule / policy.NewInMemoryPolicy.
+    - schemas.FilerRole consts.
 */
-package policy
+package rules
 
 import (
 	"fmt"
 
+	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// DavidsonRules is the reference policy fixture.
-func DavidsonRules() []CosignatureRule {
-	return []CosignatureRule{
+// CosignatureRules is the Davidson County reference cosig fixture.
+func CosignatureRules() []policy.CosignatureRule {
+	return []policy.CosignatureRule{
 		// ── attorney-driven filings ──────────────────────────────
 		{
 			EventType: "motion_continuance",
@@ -146,8 +144,7 @@ func DavidsonRules() []CosignatureRule {
 		},
 
 		// ── intra-exchange personnel events ──────────────────────
-		// Multiple Adjudicator cosignatures (Flag #3 will refine
-		// the threshold per-event; default is 2 here).
+		// Multiple Adjudicator cosignatures.
 		{
 			EventType:           "judicial_appointment",
 			RequiredSignerRoles: []string{"judge", "chief_justice"},
@@ -167,9 +164,7 @@ func DavidsonRules() []CosignatureRule {
 			IntraExchangeOnly:   true,
 		},
 
-		// ── cross-exchange events (Flag #2 — false) ──────────────
-		// Case transfers and relay attestations span exchanges.
-		// The cosigner roles are drawn from EITHER exchange.
+		// ── cross-exchange events (Flag #2 = false) ──────────────
 		{
 			EventType:           "case_transfer_outbound",
 			RequiredSignerRoles: []string{"court_clerk", "judge"},
@@ -191,12 +186,12 @@ func DavidsonRules() []CosignatureRule {
 	}
 }
 
-// MustDavidsonPolicy returns a policy populated with DavidsonRules
-// or panics. Convenience for tests and the default boot path.
-func MustDavidsonPolicy() *InMemoryPolicy {
-	p, err := NewInMemoryPolicy(DavidsonRules())
+// MustCosignaturePolicy returns a policy populated with
+// CosignatureRules or panics.
+func MustCosignaturePolicy() *policy.InMemoryPolicy {
+	p, err := policy.NewInMemoryPolicy(CosignatureRules())
 	if err != nil {
-		panic(fmt.Sprintf("policy/cosignature_mix: Davidson fixture invalid: %v", err))
+		panic(fmt.Sprintf("davidson_county/rules: cosignature policy invalid: %v", err))
 	}
 	return p
 }

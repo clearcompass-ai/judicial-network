@@ -3,7 +3,10 @@ FILE PATH: schemas/role_catalog_test.go
 
 DESCRIPTION:
     Tests pinning the RoleCatalog contract: Lookup, List,
-    ValidateGrant, hot reload, and the Davidson reference fixture.
+    ValidateGrant, hot reload. Jurisdiction-specific assertions
+    (Davidson, etc.) live under deployments/<county>/rules/; this
+    file uses a small inline fixture so the schemas package stays
+    jurisdiction-agnostic.
 */
 package schemas
 
@@ -12,6 +15,40 @@ import (
 	"testing"
 	"time"
 )
+
+// testCatalog returns a small catalog with two roles in a parent →
+// child relationship. Used in place of any jurisdiction-specific
+// fixture so the schemas package depends on no deployment.
+func testCatalog(t *testing.T) *InMemoryCatalog {
+	t.Helper()
+	roles := []Role{
+		{
+			Name:            "parent",
+			Actor:           ActorSigner,
+			MaxDuration:     time.Hour,
+			DefaultDuration: time.Hour,
+			AllowedScope:    []string{"a", "b"},
+			DefaultScope:    []string{"a"},
+			DelegableBy:     nil,
+			DelegableScope:  []string{"a", "b"},
+		},
+		{
+			Name:            "child",
+			Actor:           ActorSigner,
+			MaxDuration:     time.Hour,
+			DefaultDuration: time.Hour,
+			AllowedScope:    []string{"a"},
+			DefaultScope:    []string{"a"},
+			DelegableBy:     []string{"parent"},
+			DelegableScope:  nil,
+		},
+	}
+	c, err := NewInMemoryCatalog(roles)
+	if err != nil {
+		t.Fatalf("testCatalog: %v", err)
+	}
+	return c
+}
 
 func TestNewInMemoryCatalog_RejectsInvalid(t *testing.T) {
 	cases := []struct {
@@ -91,13 +128,13 @@ func TestNewInMemoryCatalog_RejectsDuplicates(t *testing.T) {
 }
 
 func TestInMemoryCatalog_Lookup(t *testing.T) {
-	c := MustDavidsonCatalog()
+	c := testCatalog(t)
 
-	r, err := c.Lookup("judge")
+	r, err := c.Lookup("parent")
 	if err != nil {
-		t.Fatalf("lookup judge: %v", err)
+		t.Fatalf("lookup parent: %v", err)
 	}
-	if r.Name != "judge" {
+	if r.Name != "parent" {
 		t.Errorf("name drift: %s", r.Name)
 	}
 
@@ -107,14 +144,9 @@ func TestInMemoryCatalog_Lookup(t *testing.T) {
 }
 
 func TestInMemoryCatalog_List_DeterministicOrder(t *testing.T) {
-	c := MustDavidsonCatalog()
+	c := testCatalog(t)
 	got := c.List()
-	// Davidson fixture: chief_justice, judge, deputy_judge,
-	// court_clerk, court_staff, court_reporter (alphabetic).
-	want := []string{
-		"chief_justice", "court_clerk", "court_reporter",
-		"court_staff", "deputy_judge", "judge",
-	}
+	want := []string{"child", "parent"}
 	if len(got) != len(want) {
 		t.Fatalf("list len: got %d want %d (%v)", len(got), len(want), got)
 	}
@@ -126,11 +158,9 @@ func TestInMemoryCatalog_List_DeterministicOrder(t *testing.T) {
 }
 
 // ─── Replace / hot-reload ───────────────────────────────────────────
-// (ValidateGrant + Davidson hierarchy/fixture tests live in
-//  role_catalog_grant_test.go in the same package.)
 
 func TestInMemoryCatalog_Replace(t *testing.T) {
-	c := MustDavidsonCatalog()
+	c := testCatalog(t)
 
 	newRoles := []Role{
 		{
@@ -149,13 +179,13 @@ func TestInMemoryCatalog_Replace(t *testing.T) {
 	if _, err := c.Lookup("magistrate"); err != nil {
 		t.Errorf("magistrate after Replace: %v", err)
 	}
-	if _, err := c.Lookup("judge"); err == nil {
-		t.Errorf("judge should be gone after Replace")
+	if _, err := c.Lookup("parent"); err == nil {
+		t.Errorf("parent should be gone after Replace")
 	}
 }
 
 func TestInMemoryCatalog_Replace_AtomicOnError(t *testing.T) {
-	c := MustDavidsonCatalog()
+	c := testCatalog(t)
 	pre := c.List()
 
 	bad := []Role{{Name: "incomplete"}} // missing required fields
@@ -163,7 +193,6 @@ func TestInMemoryCatalog_Replace_AtomicOnError(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 
-	// Catalog must be unchanged after failed Replace.
 	post := c.List()
 	if len(post) != len(pre) {
 		t.Errorf("catalog mutated despite Replace failure: pre=%d post=%d", len(pre), len(post))

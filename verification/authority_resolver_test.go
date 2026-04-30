@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
@@ -47,7 +48,7 @@ func TestAuthorityResolver_HappyPath_3Hop(t *testing.T) {
 
 	r := &AuthorityResolver{
 		Fetcher: f,
-		Catalog: schemas.MustDavidsonCatalog(),
+		Catalog: davidson.MustRoleCatalog(),
 	}
 	auth := r.Resolve(clerkDID, clerkRef, "case_filing")
 	if !auth.OK {
@@ -84,7 +85,7 @@ func TestAuthorityResolver_ScopeIntersectionAcrossChain(t *testing.T) {
 		&cjRef, time.Hour)
 	f.put(judgePos, judgeEntry)
 
-	r := &AuthorityResolver{Fetcher: f, Catalog: schemas.MustDavidsonCatalog()}
+	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
 	auth := r.Resolve(judgeDID, judgeRef, "case_filing")
 	if !auth.OK {
 		t.Fatalf("case_filing should pass (in both): %+v", auth)

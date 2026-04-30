@@ -1,13 +1,13 @@
 /*
-FILE PATH: schemas/role_catalog_davidson.go
+FILE PATH: deployments/davidson_county/rules/role_catalog.go
 
 DESCRIPTION:
-    Reference role catalog for the Davidson County deployment.
-    Production deployments load their own catalog file but typically
-    start from this template. Every role here is ActorSigner per the
-    v1.4 Event Dictionary — the catalog only lists key-holding roles.
+    Davidson County's RoleCatalog. Lifted (3E.7) out of
+    schemas/role_catalog_davidson.go so the core schemas package is
+    jurisdiction-agnostic. Other counties live alongside this one,
+    each with their own deployments/<county>/rules/ tree.
 
-    Hierarchy:
+    Hierarchy (unchanged from the lifted source):
 
       institutional_did ── grants ──> chief_justice (depth 0→1)
       chief_justice     ── grants ──> judge (depth 1→2)
@@ -21,25 +21,29 @@ DESCRIPTION:
     "transcript_publication".
 
 OVERVIEW:
-    DavidsonRoles      — slice of Role definitions.
-    MustDavidsonCatalog — convenience constructor (panics on error).
+    Roles            — slice of Role definitions.
+    MustRoleCatalog  — convenience constructor (panics on error).
+
+KEY DEPENDENCIES:
+    - schemas.Role / schemas.NewInMemoryCatalog (core types).
 */
-package schemas
+package rules
 
 import (
 	"fmt"
 	"time"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// DavidsonRoles is the reference role catalog for the Davidson County
-// deployment.
-func DavidsonRoles() []Role {
+// Roles is the Davidson County reference role catalog.
+func Roles() []schemas.Role {
 	day := 24 * time.Hour
 	year := 365 * day
-	return []Role{
+	return []schemas.Role{
 		{
 			Name:            "chief_justice",
-			Actor:           ActorSigner, // Adjudicator
+			Actor:           schemas.ActorSigner,
 			Description:     "Top-of-chain authority for the court. Granted only by the institutional DID's Authority_Set.",
 			MaxDuration:     8 * year,
 			DefaultDuration: 4 * year,
@@ -53,7 +57,7 @@ func DavidsonRoles() []Role {
 				"invite:court_reporter",
 				"revoke:any",
 				"administrative",
-				"transcript_publication", // catalog universe; CJ delegates to reporter
+				"transcript_publication",
 			},
 			DefaultScope: []string{
 				"case_filing",
@@ -66,7 +70,7 @@ func DavidsonRoles() []Role {
 				"revoke:any",
 				"administrative",
 			},
-			DelegableBy: nil, // institutional DID only
+			DelegableBy: nil,
 			DelegableScope: []string{
 				"case_filing",
 				"case_decision",
@@ -77,12 +81,12 @@ func DavidsonRoles() []Role {
 				"invite:court_reporter",
 				"revoke:any",
 				"administrative",
-				"transcript_publication", // for grants to court_reporter
+				"transcript_publication",
 			},
 		},
 		{
 			Name:            "judge",
-			Actor:           ActorSigner, // Adjudicator
+			Actor:           schemas.ActorSigner,
 			Description:     "Sitting judge. Issues case decisions and may delegate to a clerk or deputy.",
 			MaxDuration:     8 * year,
 			DefaultDuration: 4 * year,
@@ -110,7 +114,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "deputy_judge",
-			Actor:           ActorSigner, // Adjudicator
+			Actor:           schemas.ActorSigner,
 			Description:     "Deputy judge sitting for the granter. Decisions are valid for the granter's term.",
 			MaxDuration:     2 * year,
 			DefaultDuration: year,
@@ -125,11 +129,11 @@ func DavidsonRoles() []Role {
 				"docket_management",
 			},
 			DelegableBy:    []string{"judge"},
-			DelegableScope: nil, // deputies cannot re-delegate
+			DelegableScope: nil,
 		},
 		{
 			Name:            "court_clerk",
-			Actor:           ActorSigner, // Clerk
+			Actor:           schemas.ActorSigner,
 			Description:     "Court clerk. Files cases and manages the docket but does not issue decisions.",
 			MaxDuration:     4 * year,
 			DefaultDuration: 2 * year,
@@ -151,7 +155,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "court_staff",
-			Actor:           ActorSigner, // Deputy Clerk
+			Actor:           schemas.ActorSigner,
 			Description:     "Court staff. Limited filing access. Cannot delegate.",
 			MaxDuration:     2 * year,
 			DefaultDuration: year,
@@ -166,7 +170,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "court_reporter",
-			Actor:           ActorSigner, // Court Reporter
+			Actor:           schemas.ActorSigner,
 			Description:     "Court reporter. Specialized cryptographic key used strictly to publish, encrypt, and sign certified hearing and trial transcripts.",
 			MaxDuration:     4 * year,
 			DefaultDuration: 2 * year,
@@ -177,17 +181,17 @@ func DavidsonRoles() []Role {
 				"transcript_publication",
 			},
 			DelegableBy:    []string{"chief_justice"},
-			DelegableScope: nil, // reporters do not re-delegate
+			DelegableScope: nil,
 		},
 	}
 }
 
-// MustDavidsonCatalog returns a catalog populated with DavidsonRoles
-// or panics. Convenience for tests and the default boot path.
-func MustDavidsonCatalog() *InMemoryCatalog {
-	c, err := NewInMemoryCatalog(DavidsonRoles())
+// MustRoleCatalog returns a catalog populated with Roles or panics.
+// Convenience for tests and the default boot path.
+func MustRoleCatalog() *schemas.InMemoryCatalog {
+	c, err := schemas.NewInMemoryCatalog(Roles())
 	if err != nil {
-		panic(fmt.Sprintf("schemas/role_catalog: Davidson fixture invalid: %v", err))
+		panic(fmt.Sprintf("davidson_county/rules: role catalog invalid: %v", err))
 	}
 	return c
 }
