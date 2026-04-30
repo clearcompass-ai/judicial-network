@@ -54,6 +54,7 @@ func TestMustPrerequisitePolicy_IndependentCalls(t *testing.T) {
 func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
 	want := map[string]bool{
+		"counsel_appearance":            true, // 3E.1
 		"motion_continuance":            true,
 		"motion_summary_judgment":       true,
 		"responsive_pleading":           true,

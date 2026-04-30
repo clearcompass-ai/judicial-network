@@ -71,6 +71,14 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 	}
 
 	return map[string][]prerequisites.Prereq{
+		// ── §1 Genesis: counsel_appearance ──────────────────────
+		// Hard: case_initiated. The Advisory binding_id-per-
+		// represents check is enforced by the verifier-level
+		// payload walk (the prereq Walker does not have a
+		// per-payload "for each X in Y" primitive in v0.5.0;
+		// the appearance entry's Hard prereq is the case root).
+		"counsel_appearance": {caseInitAncestor},
+
 		// ── attorney-driven filings ──────────────────────────────
 		"motion_continuance":      {caseInitAncestor},
 		"motion_summary_judgment": {caseInitAncestor},
