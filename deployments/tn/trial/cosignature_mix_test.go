@@ -248,3 +248,53 @@ func TestCosignatureRules_ExpectedCount(t *testing.T) {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)
 	}
 }
+
+// ─── v1.8 actor simplification: no chief_justice ──────────────────
+
+// TestCosignatureRules_NoNonV18Roles guarantees no non-v1.8 role
+// names slip into the cosig fixture. The simplified TN trial role
+// catalog has 3 names: judge, court_clerk, court_reporter. Any
+// other RequiredSignerRoles entry indicates drift.
+func TestCosignatureRules_NoNonV18Roles(t *testing.T) {
+	allowed := map[string]bool{
+		"judge":          true,
+		"court_clerk":    true,
+		"court_reporter": true,
+	}
+	for _, r := range CosignatureRules() {
+		for _, role := range r.RequiredSignerRoles {
+			if !allowed[role] {
+				t.Errorf("rule %q references non-v1.8 role %q",
+					r.EventType, role)
+			}
+		}
+	}
+}
+
+// TestCosignatureRules_PersonnelEventsJudgeOnly pins that the
+// personnel events (judicial_appointment, clerk_appointment,
+// court_reporter_appointment) require ONLY judge cosignatures —
+// chief_justice has been retired per the v1.8 simplification.
+func TestCosignatureRules_PersonnelEventsJudgeOnly(t *testing.T) {
+	personnel := []string{
+		"judicial_appointment",
+		"clerk_appointment",
+		"court_reporter_appointment",
+	}
+	p := MustCosignaturePolicy()
+	for _, ev := range personnel {
+		r, err := p.Lookup(ev)
+		if err != nil {
+			t.Errorf("%s missing: %v", ev, err)
+			continue
+		}
+		if len(r.RequiredSignerRoles) != 1 || r.RequiredSignerRoles[0] != "judge" {
+			t.Errorf("%s RequiredSignerRoles drift: want [judge], got %v",
+				ev, r.RequiredSignerRoles)
+		}
+		if r.MinSignerCosigners < 2 {
+			t.Errorf("%s must require ≥2 cosigners (intra-exchange judges); got %d",
+				ev, r.MinSignerCosigners)
+		}
+	}
+}
