@@ -69,30 +69,11 @@ func CosignatureRules() []policy.CosignatureRule {
 			RequiredCredentials: []string{"bpr_number"},
 		},
 
-		// ── attorney-driven filings ──────────────────────────────
-		{
-			EventType: "motion_continuance",
-			AllowedFilerRoles: []schemas.FilerRole{
-				schemas.FilerRoleDefenseCounsel,
-				schemas.FilerRoleCivilAttorney,
-				schemas.FilerRoleProsecutor,
-			},
-			RequiredSignerRoles: []string{"court_clerk", "judge"},
-			MinSignerCosigners:  1,
-			IntraExchangeOnly:   true,
-			RequiredCredentials: []string{"bpr_number"},
-		},
-		{
-			EventType: "motion_summary_judgment",
-			AllowedFilerRoles: []schemas.FilerRole{
-				schemas.FilerRoleDefenseCounsel,
-				schemas.FilerRoleCivilAttorney,
-			},
-			RequiredSignerRoles: []string{"court_clerk", "judge"},
-			MinSignerCosigners:  1,
-			IntraExchangeOnly:   true,
-			RequiredCredentials: []string{"bpr_number"},
-		},
+		// motion_continuance      (§3G; defined in motions_3g.go)
+		// motion_summary_judgment (§3B; defined in motions_3b.go)
+		// motion_state_dismissal  (§3B; defined in motions_3b.go)
+
+		// ── pleadings (non-motion) ──────────────────────────────
 		{
 			EventType: "responsive_pleading",
 			AllowedFilerRoles: []schemas.FilerRole{
@@ -100,18 +81,6 @@ func CosignatureRules() []policy.CosignatureRule {
 				schemas.FilerRoleCivilAttorney,
 			},
 			RequiredSignerRoles: []string{"court_clerk"},
-			MinSignerCosigners:  1,
-			IntraExchangeOnly:   true,
-			RequiredCredentials: []string{"bpr_number"},
-		},
-
-		// ── prosecutor-driven ────────────────────────────────────
-		{
-			EventType: "motion_state_dismissal",
-			AllowedFilerRoles: []schemas.FilerRole{
-				schemas.FilerRoleProsecutor,
-			},
-			RequiredSignerRoles: []string{"court_clerk", "judge"},
 			MinSignerCosigners:  1,
 			IntraExchangeOnly:   true,
 			RequiredCredentials: []string{"bpr_number"},

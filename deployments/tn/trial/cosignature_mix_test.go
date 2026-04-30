@@ -139,11 +139,14 @@ func TestCosignatureRules_CrossExchangeEventsFlagSetCorrectly(t *testing.T) {
 // ─── attorney filings: bpr_number required ─────────────────────────
 
 func TestCosignatureRules_AttorneyFilingsRequireBPR(t *testing.T) {
+	// motion_continuance / motion_summary_judgment /
+	// motion_state_dismissal flow through the §3 helpers
+	// (motions_3X.go); their bpr_number is the helper default.
+	// This test pins the BASE attorney-filed events (responsive
+	// pleading) plus a representative §3-helper event.
 	attorneyFilings := []string{
-		"motion_continuance",
-		"motion_summary_judgment",
 		"responsive_pleading",
-		"motion_state_dismissal",
+		"motion_summary_judgment", // via §3B helper
 	}
 	p := MustCosignaturePolicy()
 	for _, ev := range attorneyFilings {
@@ -219,32 +222,16 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 	}
 }
 
-// ─── motion_continuance permits multiple filer roles ───────────────
-
-func TestCosignatureRules_MotionContinuanceMultipleFilers(t *testing.T) {
-	r, err := MustCosignaturePolicy().Lookup("motion_continuance")
-	if err != nil {
-		t.Fatalf("Lookup: %v", err)
-	}
-	for _, want := range []schemas.FilerRole{
-		schemas.FilerRoleDefenseCounsel,
-		schemas.FilerRoleCivilAttorney,
-		schemas.FilerRoleProsecutor,
-	} {
-		if !r.PermitsFilerRole(want) {
-			t.Errorf("motion_continuance must permit %q", want)
-		}
-	}
-	if r.PermitsFilerRole(schemas.FilerRoleFiduciary) {
-		t.Error("motion_continuance must NOT permit fiduciary filer role")
-	}
-}
+// motion_continuance lives in §3G now; multi-filer pin moved
+// to motions_3g_test.go when that section lands.
 
 // TestCosignatureRules_ExpectedCount pins the rule count so an
-// accidental addition / deletion shows up in CI. Total = 17 base
-// (16 + counsel_appearance) + every §3 motion currently declared.
+// accidental addition / deletion shows up in CI. Total = 14 base
+// + every §3 motion declared. Base count dropped from 17 → 14
+// when motion_continuance / motion_summary_judgment /
+// motion_state_dismissal moved into the §3 helpers.
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 17
+	const baseRules = 14
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)

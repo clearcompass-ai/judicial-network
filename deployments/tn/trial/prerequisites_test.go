@@ -60,10 +60,7 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
 	baseWant := map[string]bool{
 		"counsel_appearance":            true,
-		"motion_continuance":            true,
-		"motion_summary_judgment":       true,
 		"responsive_pleading":           true,
-		"motion_state_dismissal":        true,
 		"fiduciary_accounting":          true,
 		"asset_disposition_order":       true,
 		"appointment_guardian_ad_litem": true,
@@ -109,24 +106,9 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 
 // ─── representative walks ──────────────────────────────────────────
 
-func TestWalk_MotionContinuance_RequiresCaseInit(t *testing.T) {
-	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-
-	v := w.Check("motion_continuance", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
-	})
-	if !v.OK {
-		t.Errorf("with case_initiated must be OK: %+v", v)
-	}
-
-	v = w.Check("motion_continuance", prerequisites.CaseContext{ObservedEvents: nil})
-	if v.OK {
-		t.Error("without case_initiated must be rejected")
-	}
-	if v.Rejection != prerequisites.WalkRejectMissingAncestor {
-		t.Errorf("Rejection=%s", v.Rejection)
-	}
-}
+// motion_continuance walk is pinned in motions_3g_test.go after
+// §3G lands; the helper-supplied event_type isn't in the
+// vocabulary until §3G's commit.
 
 func TestWalk_Verdict_RequiresMeritsPosture(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}

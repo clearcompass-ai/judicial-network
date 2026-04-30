@@ -78,13 +78,11 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		// the appearance entry's Hard prereq is the case root).
 		"counsel_appearance": {caseInitAncestor},
 
-		// ── attorney-driven filings ──────────────────────────────
-		"motion_continuance":      {caseInitAncestor},
-		"motion_summary_judgment": {caseInitAncestor},
-		"responsive_pleading":     {caseInitAncestor},
+		// motion_* prereqs live in motions_3X.go files via the
+		// motionPrerequisiteRules() helper (merged below).
 
-		// ── prosecutor-driven ────────────────────────────────────
-		"motion_state_dismissal": {caseInitAncestor},
+		// ── §2 Pleadings (non-motion) ───────────────────────────
+		"responsive_pleading": {caseInitAncestor},
 
 		// ── fiduciary filings ────────────────────────────────────
 		"fiduciary_accounting":    {caseInitAncestor},
