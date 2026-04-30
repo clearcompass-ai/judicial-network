@@ -36,10 +36,9 @@ KEY ARCHITECTURAL DECISIONS:
 
 OVERVIEW:
     JudicialDelegationPayload — the Domain Payload shape.
-    JudicialRevocationPayload — the early-termination amendment.
-    JudicialSuccessionPayload — chief-justice (or other top-of-chain)
-                                 succession when the granter is
-                                 incapacitated.
+    Amendments (revocation, succession) are in judicial_amendments.go.
+    Marshal helpers + registry registrations are in
+    judicial_delegation_registry.go.
 
 KEY DEPENDENCIES:
     - schemas/registry.go (registers the schema URI)
@@ -47,7 +46,6 @@ KEY DEPENDENCIES:
 package schemas
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -141,44 +139,6 @@ type LogPositionRef struct {
 	Sequence uint64 `json:"sequence"`
 }
 
-// JudicialRevocationPayload is the Domain Payload of a revocation
-// amendment. Path A (same_signer): only the granter who issued the
-// original delegation can revoke it. Reasons are domain-defined.
-type JudicialRevocationPayload struct {
-	SchemaID         string `json:"schema_id"`
-	TargetDelegation LogPositionRef `json:"target_delegation"`
-	Reason           string `json:"reason"`            // "expired" | "officer_transfer"
-	                                                    // | "performance" | "conflict"
-	                                                    // | "death_in_office" | other
-	RevokedAt        string `json:"revoked_at"`
-}
-
-// JudicialSuccessionPayload is the Domain Payload of a succession
-// entry. Used when a top-of-chain signer (typically chief justice)
-// dies/resigns/is removed and the institutional DID's Authority_Set
-// must redirect downstream authority to a successor.
-//
-// The succession entry is signed by the institutional DID with
-// Authority_Set cosignatures (per the institution's
-// cosignature_threshold, typically 2-of-3). Origin_Tip of the
-// target delegation advances to this succession entry. The
-// SDK's verifier.EvaluateOrigin returns OriginSucceeded; the
-// AuthorityResolver follows the SuccessorDID transparently.
-type JudicialSuccessionPayload struct {
-	SchemaID            string         `json:"schema_id"`
-	TargetDelegation    LogPositionRef `json:"target_delegation"`
-	SuccessorDID        string         `json:"successor_did"`     // new did:key
-	Reason              string         `json:"reason"`            // "death_in_office" |
-	                                                              // "resignation" |
-	                                                              // "removal"
-	Inheritance         string         `json:"inheritance"`       // "full" | "narrowed" |
-	                                                              // "clean_slate"
-	NarrowedScope       []string       `json:"narrowed_scope,omitempty"` // when
-	                                                                     // Inheritance="narrowed"
-	EffectiveAt         string         `json:"effective_at"`
-	AuthoritySetCosigs  []string       `json:"authority_set_cosigs,omitempty"`
-}
-
 // MaxRationaleBytes is the on-log Rationale field cap. Anything
 // larger goes via RationaleArtifact.
 const MaxRationaleBytes = 2 << 10 // 2 KiB
@@ -229,28 +189,6 @@ func (p *JudicialDelegationPayload) Validate() error {
 	return nil
 }
 
-// MarshalJudicialDelegationPayload is a convenience helper for the
-// IssueDelegation builder.
-func MarshalJudicialDelegationPayload(p *JudicialDelegationPayload) ([]byte, error) {
-	if err := p.Validate(); err != nil {
-		return nil, err
-	}
-	return json.Marshal(p)
-}
-
-// UnmarshalJudicialDelegationPayload parses a Domain Payload bytes
-// blob into the typed payload. Validates on parse.
-func UnmarshalJudicialDelegationPayload(data []byte) (*JudicialDelegationPayload, error) {
-	var p JudicialDelegationPayload
-	if err := json.Unmarshal(data, &p); err != nil {
-		return nil, fmt.Errorf("schemas/judicial_delegation: parse: %w", err)
-	}
-	if err := p.Validate(); err != nil {
-		return nil, err
-	}
-	return &p, nil
-}
-
 // ParsedExpiresAt returns the typed expiration time. Zero value if
 // ExpiresAt is empty or malformed.
 func (p *JudicialDelegationPayload) ParsedExpiresAt() time.Time {
@@ -262,206 +200,4 @@ func (p *JudicialDelegationPayload) ParsedExpiresAt() time.Time {
 func (p *JudicialDelegationPayload) ParsedIssuedAt() time.Time {
 	t, _ := time.Parse(time.RFC3339Nano, p.IssuedAt)
 	return t.UTC()
-}
-
-// ─── Revocation validate / marshal ──────────────────────────────────
-
-// Validate runs structural validation on a JudicialRevocationPayload.
-func (p *JudicialRevocationPayload) Validate() error {
-	if p.SchemaID != SchemaJudicialRevocationV1 {
-		return fmt.Errorf("schemas/judicial_delegation: revocation schema_id mismatch: got %q want %q",
-			p.SchemaID, SchemaJudicialRevocationV1)
-	}
-	if p.TargetDelegation.LogDID == "" {
-		return fmt.Errorf("schemas/judicial_delegation: revocation target_delegation.log_did required")
-	}
-	if p.Reason == "" {
-		return fmt.Errorf("schemas/judicial_delegation: revocation reason required")
-	}
-	if p.RevokedAt == "" {
-		return fmt.Errorf("schemas/judicial_delegation: revocation revoked_at required")
-	}
-	if _, err := time.Parse(time.RFC3339Nano, p.RevokedAt); err != nil {
-		return fmt.Errorf("schemas/judicial_delegation: malformed revoked_at: %w", err)
-	}
-	return nil
-}
-
-// MarshalJudicialRevocationPayload serializes after validating.
-func MarshalJudicialRevocationPayload(p *JudicialRevocationPayload) ([]byte, error) {
-	if err := p.Validate(); err != nil {
-		return nil, err
-	}
-	return json.Marshal(p)
-}
-
-// UnmarshalJudicialRevocationPayload parses and validates.
-func UnmarshalJudicialRevocationPayload(data []byte) (*JudicialRevocationPayload, error) {
-	var p JudicialRevocationPayload
-	if err := json.Unmarshal(data, &p); err != nil {
-		return nil, fmt.Errorf("schemas/judicial_delegation: parse revocation: %w", err)
-	}
-	if err := p.Validate(); err != nil {
-		return nil, err
-	}
-	return &p, nil
-}
-
-// ─── Succession validate / marshal ──────────────────────────────────
-
-// SuccessionInheritance enumerates the closed-set inheritance modes.
-const (
-	InheritanceFull        = "full"
-	InheritanceNarrowed    = "narrowed"
-	InheritanceCleanSlate  = "clean_slate"
-)
-
-// Validate runs structural validation on a JudicialSuccessionPayload.
-func (p *JudicialSuccessionPayload) Validate() error {
-	if p.SchemaID != SchemaJudicialSuccessionV1 {
-		return fmt.Errorf("schemas/judicial_delegation: succession schema_id mismatch: got %q want %q",
-			p.SchemaID, SchemaJudicialSuccessionV1)
-	}
-	if p.TargetDelegation.LogDID == "" {
-		return fmt.Errorf("schemas/judicial_delegation: succession target_delegation.log_did required")
-	}
-	if p.SuccessorDID == "" {
-		return fmt.Errorf("schemas/judicial_delegation: successor_did required")
-	}
-	if p.Reason == "" {
-		return fmt.Errorf("schemas/judicial_delegation: succession reason required")
-	}
-	switch p.Inheritance {
-	case InheritanceFull, InheritanceNarrowed, InheritanceCleanSlate:
-	default:
-		return fmt.Errorf("schemas/judicial_delegation: succession inheritance must be one of {full, narrowed, clean_slate}, got %q", p.Inheritance)
-	}
-	if p.Inheritance == InheritanceNarrowed && len(p.NarrowedScope) == 0 {
-		return fmt.Errorf("schemas/judicial_delegation: narrowed inheritance requires non-empty narrowed_scope")
-	}
-	if p.EffectiveAt == "" {
-		return fmt.Errorf("schemas/judicial_delegation: effective_at required")
-	}
-	if _, err := time.Parse(time.RFC3339Nano, p.EffectiveAt); err != nil {
-		return fmt.Errorf("schemas/judicial_delegation: malformed effective_at: %w", err)
-	}
-	return nil
-}
-
-// MarshalJudicialSuccessionPayload serializes after validating.
-func MarshalJudicialSuccessionPayload(p *JudicialSuccessionPayload) ([]byte, error) {
-	if err := p.Validate(); err != nil {
-		return nil, err
-	}
-	return json.Marshal(p)
-}
-
-// UnmarshalJudicialSuccessionPayload parses and validates.
-func UnmarshalJudicialSuccessionPayload(data []byte) (*JudicialSuccessionPayload, error) {
-	var p JudicialSuccessionPayload
-	if err := json.Unmarshal(data, &p); err != nil {
-		return nil, fmt.Errorf("schemas/judicial_delegation: parse succession: %w", err)
-	}
-	if err := p.Validate(); err != nil {
-		return nil, err
-	}
-	return &p, nil
-}
-
-// ─── Schema parameters (for registry registration) ──────────────────
-
-// DefaultJudicialDelegationParams returns canonical-JSON parameters
-// bytes for judicial-delegation-v1: real_did identifier scope,
-// no witness override (the granter signs as themselves), amendment
-// migration (revocation amends; succession amends).
-func DefaultJudicialDelegationParams() []byte {
-	params := map[string]interface{}{
-		"identifier_scope":          "real_did",
-		"override_requires_witness": false,
-		"migration_policy":          "amendment",
-	}
-	b, _ := json.Marshal(params)
-	return b
-}
-
-// DefaultJudicialRevocationParams returns canonical-JSON parameters
-// bytes for judicial-revocation-v1.
-func DefaultJudicialRevocationParams() []byte {
-	params := map[string]interface{}{
-		"identifier_scope":          "real_did",
-		"override_requires_witness": false,
-		"migration_policy":          "amendment",
-	}
-	b, _ := json.Marshal(params)
-	return b
-}
-
-// DefaultJudicialSuccessionParams returns canonical-JSON parameters
-// bytes for judicial-succession-v1. override_requires_witness=true
-// because the institutional DID's Authority_Set cosignatures are
-// the witnesses confirming top-of-chain transition.
-func DefaultJudicialSuccessionParams() []byte {
-	params := map[string]interface{}{
-		"identifier_scope":          "real_did",
-		"override_requires_witness": true,
-		"migration_policy":          "amendment",
-	}
-	b, _ := json.Marshal(params)
-	return b
-}
-
-// ─── Registry entries ───────────────────────────────────────────────
-
-func judicialDelegationRegistration() *SchemaRegistration {
-	return &SchemaRegistration{
-		URI: SchemaJudicialDelegationV1,
-		Serialize: func(payload interface{}) ([]byte, error) {
-			p, ok := payload.(*JudicialDelegationPayload)
-			if !ok {
-				return nil, ErrDeserialize
-			}
-			return MarshalJudicialDelegationPayload(p)
-		},
-		Deserialize: func(data []byte) (interface{}, error) {
-			return UnmarshalJudicialDelegationPayload(data)
-		},
-		DefaultParams:   DefaultJudicialDelegationParams,
-		IdentifierScope: IdentifierScopeRealDID,
-	}
-}
-
-func judicialRevocationRegistration() *SchemaRegistration {
-	return &SchemaRegistration{
-		URI: SchemaJudicialRevocationV1,
-		Serialize: func(payload interface{}) ([]byte, error) {
-			p, ok := payload.(*JudicialRevocationPayload)
-			if !ok {
-				return nil, ErrDeserialize
-			}
-			return MarshalJudicialRevocationPayload(p)
-		},
-		Deserialize: func(data []byte) (interface{}, error) {
-			return UnmarshalJudicialRevocationPayload(data)
-		},
-		DefaultParams:   DefaultJudicialRevocationParams,
-		IdentifierScope: IdentifierScopeRealDID,
-	}
-}
-
-func judicialSuccessionRegistration() *SchemaRegistration {
-	return &SchemaRegistration{
-		URI: SchemaJudicialSuccessionV1,
-		Serialize: func(payload interface{}) ([]byte, error) {
-			p, ok := payload.(*JudicialSuccessionPayload)
-			if !ok {
-				return nil, ErrDeserialize
-			}
-			return MarshalJudicialSuccessionPayload(p)
-		},
-		Deserialize: func(data []byte) (interface{}, error) {
-			return UnmarshalJudicialSuccessionPayload(data)
-		},
-		DefaultParams:   DefaultJudicialSuccessionParams,
-		IdentifierScope: IdentifierScopeRealDID,
-	}
 }
