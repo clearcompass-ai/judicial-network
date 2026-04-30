@@ -43,6 +43,49 @@ func TestMustBundle_HasNonNilSurfaces(t *testing.T) {
 	if b.PrerequisitePolicy() == nil {
 		t.Error("PrerequisitePolicy must not be nil")
 	}
+	if b.AuthorityChainResolver() == nil {
+		t.Error("AuthorityChainResolver must not be nil")
+	}
+	if b.AppellateVocabulary() == nil {
+		t.Error("AppellateVocabulary must not be nil")
+	}
+}
+
+func TestMustBundle_AppellateVocabIsEmpty(t *testing.T) {
+	// Davidson is trial-only; appellate sets MUST be empty.
+	v := MustBundle().AppellateVocabulary()
+	if len(v.OpinionTypes()) != 0 {
+		t.Errorf("trial Bundle: OpinionTypes should be empty, got %v",
+			v.OpinionTypes())
+	}
+	if len(v.ParticipationRoles()) != 0 {
+		t.Errorf("trial Bundle: ParticipationRoles should be empty, got %v",
+			v.ParticipationRoles())
+	}
+	if len(v.DispositionOutcomes()) != 0 {
+		t.Errorf("trial Bundle: DispositionOutcomes should be empty, got %v",
+			v.DispositionOutcomes())
+	}
+	if len(v.ReviewTypes()) != 0 {
+		t.Errorf("trial Bundle: ReviewTypes should be empty, got %v",
+			v.ReviewTypes())
+	}
+}
+
+func TestMustBundle_ChainResolverFailsClosed(t *testing.T) {
+	// v0.5.0 placeholder: NoAuthorityChainResolver is wired
+	// until the production verifier-backed resolver lands.
+	r := MustBundle().AuthorityChainResolver()
+	v := r.Resolve(t.Context(), jurisdiction.AuthorityRequest{
+		SignerDID: "did:key:zsigner",
+	})
+	if v.OK {
+		t.Error("Davidson placeholder resolver must fail closed (OK=false)")
+	}
+	if v.Rejection != "no_resolver_configured" {
+		t.Errorf("rejection token: want no_resolver_configured, got %q",
+			v.Rejection)
+	}
 }
 
 func TestMustBundle_ValidatesAgainstJurisdiction(t *testing.T) {
