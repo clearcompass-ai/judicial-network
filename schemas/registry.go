@@ -99,6 +99,7 @@ func (r *Registry) registerAll() {
 	r.Register(shardGenesisRegistration())
 	r.Register(partyBindingRegistration())
 	r.Register(partyBindingSealedRegistration())
+	r.Register(counselAppearanceRegistration())
 	r.Register(sealingOrderRegistration())
 	r.Register(keyAttestationRegistration())
 	r.Register(judicialDelegationRegistration())
