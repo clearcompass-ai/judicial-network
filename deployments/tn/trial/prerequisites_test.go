@@ -51,10 +51,15 @@ func TestMustPrerequisitePolicy_IndependentCalls(t *testing.T) {
 // TestPrerequisitePolicy_VocabularyPin pins the EXACT closed-set
 // vocabulary. New event_types should require an explicit policy
 // + test update — silent additions are a v1.8 invariant violation.
+// TestPrerequisitePolicy_VocabularyPin pins the BASE vocabulary
+// (the events declared directly in PrerequisiteRules() — 19
+// entries: counsel_appearance + the §1–§13 lifecycle subset).
+// §3A–§3I motion event_types are merged in via motion_*; pinned
+// separately below.
 func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
-	want := map[string]bool{
-		"counsel_appearance":            true, // 3E.1
+	baseWant := map[string]bool{
+		"counsel_appearance":            true,
 		"motion_continuance":            true,
 		"motion_summary_judgment":       true,
 		"responsive_pleading":           true,
@@ -74,19 +79,31 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 		"case_initiated":                true,
 		"hearing":                       true,
 	}
-	got := p.EventTypes()
-	if len(got) != len(want) {
-		t.Errorf("vocabulary size = %d, want %d (%v)", len(got), len(want), got)
-	}
-	for _, evt := range got {
-		if !want[evt] {
-			t.Errorf("unexpected event_type in vocabulary: %q", evt)
-		}
-	}
-	for evt := range want {
+	// Every base event must be present.
+	for evt := range baseWant {
 		if !p.KnowsEventType(evt) {
-			t.Errorf("missing event_type in vocabulary: %q", evt)
+			t.Errorf("missing base event_type in vocabulary: %q", evt)
 		}
+	}
+	// Every motion-helper event must also be present.
+	for _, m := range allMotions() {
+		if !p.KnowsEventType(m.EventType) {
+			t.Errorf("missing motion event_type in vocabulary: %q",
+				m.EventType)
+		}
+	}
+	// Total size = base + motions, no extras.
+	wantSize := len(baseWant) + len(allMotions())
+	// motion_continuance / motion_summary_judgment / responsive_pleading
+	// / motion_state_dismissal currently appear in BOTH lists (legacy
+	// base + §3 helper). De-dup before comparing.
+	for _, m := range allMotions() {
+		if baseWant[m.EventType] {
+			wantSize--
+		}
+	}
+	if got := len(p.EventTypes()); got != wantSize {
+		t.Errorf("vocabulary size = %d, want %d", got, wantSize)
 	}
 }
 

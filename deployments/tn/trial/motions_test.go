@@ -26,24 +26,32 @@ import (
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// ─── empty-stub baseline ──────────────────────────────────────────
+// ─── allMotions == sum of every section ──────────────────────────
 
-func TestAllMotions_EmptyAtBaseline(t *testing.T) {
-	if got := len(allMotions()); got != 0 {
-		t.Errorf("allMotions baseline (no sections filled): want 0, got %d",
-			got)
+// TestAllMotions_EqualsSectionSum pins that allMotions() returns
+// exactly the union of motions3A()..motions3I(). Adding a new
+// section must extend allMotions; this guards against missing
+// the call.
+func TestAllMotions_EqualsSectionSum(t *testing.T) {
+	want := len(motions3A()) + len(motions3B()) + len(motions3C()) +
+		len(motions3D()) + len(motions3E()) + len(motions3F()) +
+		len(motions3G()) + len(motions3H()) + len(motions3I())
+	if got := len(allMotions()); got != want {
+		t.Errorf("allMotions() = %d; sum of sections = %d", got, want)
 	}
 }
 
-func TestMotionCosignatureRules_EmptyAtBaseline(t *testing.T) {
-	if got := len(motionCosignatureRules()); got != 0 {
-		t.Errorf("motionCosignatureRules baseline: want 0, got %d", got)
+func TestMotionCosignatureRules_OnePerMotion(t *testing.T) {
+	want := len(allMotions())
+	if got := len(motionCosignatureRules()); got != want {
+		t.Errorf("motionCosignatureRules = %d; allMotions = %d", got, want)
 	}
 }
 
-func TestMotionPrerequisiteRules_EmptyAtBaseline(t *testing.T) {
-	if got := len(motionPrerequisiteRules()); got != 0 {
-		t.Errorf("motionPrerequisiteRules baseline: want 0, got %d", got)
+func TestMotionPrerequisiteRules_OnePerMotion(t *testing.T) {
+	want := len(allMotions())
+	if got := len(motionPrerequisiteRules()); got != want {
+		t.Errorf("motionPrerequisiteRules = %d; allMotions = %d", got, want)
 	}
 }
 
