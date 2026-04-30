@@ -149,6 +149,14 @@ type Dependencies struct {
 	// InMemoryScopeChecker (or backend-of-choice) populated from the
 	// roster_sync output.
 	ScopeChecker ScopeChecker
+
+	// SubmitGate runs the per-jurisdiction validation gates on
+	// /v1/entries/submit before forwarding to the operator. nil →
+	// no gate (the handler is a pure proxy, matching pre-3E.4
+	// behavior; tests / pre-bundle deployments). Production wires
+	// a real *SubmitGate that resolves the Bundle from
+	// entry.Header.Destination and runs cosig + walker checks.
+	SubmitGate SubmitGater
 }
 
 // scopeOrAllowAll returns the configured checker or the AllowAll
@@ -301,6 +309,21 @@ func (h *EntrySubmitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "read body failed")
 		return
+	}
+
+	// Per-jurisdiction admission gate (3E.4). When nil, the
+	// handler is a pure proxy — pre-3E.4 behavior preserved for
+	// tests and deployments without a Bundle Registry wired.
+	if h.deps.SubmitGate != nil {
+		if rej := h.deps.SubmitGate.Admit(body); rej != nil {
+			status := http.StatusForbidden
+			if rej.Code == "deserialize_failed" {
+				status = http.StatusBadRequest
+			}
+			writeError(w, status,
+				"submit gate: "+rej.Code+": "+rej.Reason)
+			return
+		}
 	}
 
 	// Forward to operator via the SDK-tuned shared client
