@@ -55,7 +55,7 @@ func cosignedDisplay() *identity.TypedDataDisplay {
 		Domain: identity.EIP712Domain{
 			Name:    "Judicial Network",
 			Version: "v1",
-			Salt:    "did:web:da:davidson-tn",
+			Salt:    "did:web:state:tn:davidson",
 		},
 		PrimaryType: "AttorneyFiling",
 		Fields: []identity.EIP712Field{
@@ -117,7 +117,7 @@ func TestSignAndSubmitCosigned_HappyPath_OneCosigner(t *testing.T) {
 }
 
 func TestSignAndSubmitCosigned_AuthoritySet_TwoCosigners(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	cosigA := "did:key:zQ3shCOSIG_A"
 	cosigB := "did:key:zQ3shCOSIG_B"
 

@@ -16,8 +16,8 @@ import (
 // ─── helpers ────────────────────────────────────────────────────────
 
 const (
-	exchangeA  = "did:web:da:davidson-tn"
-	exchangeB  = "did:web:da:shelby-tn"
+	exchangeA  = "did:web:state:tn:davidson"
+	exchangeB  = "did:web:state:tn:shelby"
 	clerkDID   = "did:key:zQ3shCLERK"
 	cosigJudge = "did:key:zQ3shJUDGE_COSIG"
 	atyDID     = "did:key:zQ3shATTORNEY"

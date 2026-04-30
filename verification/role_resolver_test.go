@@ -26,8 +26,8 @@ func TestMapRoleResolver_SatisfiesInterface(t *testing.T) {
 
 func TestMapRoleResolver_BindAndLookup(t *testing.T) {
 	r := NewMapRoleResolver().
-		Bind("did:key:zQ3shCLERK", "court_clerk", "did:web:da:davidson-tn").
-		Bind("did:key:zQ3shJUDGE", "judge", "did:web:da:davidson-tn")
+		Bind("did:key:zQ3shCLERK", "court_clerk", "did:web:state:tn:davidson").
+		Bind("did:key:zQ3shJUDGE", "judge", "did:web:state:tn:davidson")
 
 	clerk, err := r.LookupRole("did:key:zQ3shCLERK")
 	if err != nil {
@@ -36,7 +36,7 @@ func TestMapRoleResolver_BindAndLookup(t *testing.T) {
 	if clerk.Role != "court_clerk" {
 		t.Errorf("role drift: %q", clerk.Role)
 	}
-	if clerk.Exchange != "did:web:da:davidson-tn" {
+	if clerk.Exchange != "did:web:state:tn:davidson" {
 		t.Errorf("exchange drift: %q", clerk.Exchange)
 	}
 
@@ -87,8 +87,8 @@ func TestMapRoleResolver_MultipleExchanges(t *testing.T) {
 		davidsonJudge = "did:key:zQ3shJUDGE_DA"
 		shelbyClerk   = "did:key:zQ3shCLERK_SH"
 		shelbyJudge   = "did:key:zQ3shJUDGE_SH"
-		davidsonExch  = "did:web:da:davidson-tn"
-		shelbyExch    = "did:web:da:shelby-tn"
+		davidsonExch  = "did:web:state:tn:davidson"
+		shelbyExch    = "did:web:state:tn:shelby"
 	)
 	r := NewMapRoleResolver().
 		Bind(davidsonClerk, "court_clerk", davidsonExch).

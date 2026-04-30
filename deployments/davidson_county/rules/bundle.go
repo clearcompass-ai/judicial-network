@@ -38,7 +38,7 @@ import (
 // ExchangeDID is the institutional DID for the Davidson County
 // court system. Used as the registry key and the IntraExchangeOnly
 // reference value.
-const ExchangeDID = "did:web:da:davidson-tn"
+const ExchangeDID = "did:web:state:tn:davidson"
 
 // davidsonBundle implements jurisdiction.Bundle. Constructed once
 // at boot; immutable thereafter.
@@ -52,6 +52,23 @@ func (b *davidsonBundle) ExchangeDID() string                          { return 
 func (b *davidsonBundle) RoleCatalog() schemas.RoleCatalog             { return b.catalog }
 func (b *davidsonBundle) CosignaturePolicy() policy.CosignatureMixPolicy { return b.cosig }
 func (b *davidsonBundle) PrerequisitePolicy() prerequisites.Policy     { return b.preqs }
+
+// AuthorityChainResolver returns Davidson's per-jurisdiction
+// delegation chain walker. v0.5.0 wires NoAuthorityChainResolver
+// as a closed-by-default placeholder; the production verifier-
+// backed resolver lands in a follow-on commit. Until then,
+// every authority check on Davidson entries fails closed.
+func (b *davidsonBundle) AuthorityChainResolver() jurisdiction.AuthorityChainResolver {
+	return jurisdiction.NoAuthorityChainResolver()
+}
+
+// AppellateVocabulary returns the empty closed sets — Davidson
+// is a trial-court exchange and never accepts appellate_* event
+// payloads. The TN Court of Appeals Bundle (deployments/tn/coa/)
+// owns the v1.8 §7B vocabulary.
+func (b *davidsonBundle) AppellateVocabulary() jurisdiction.AppellateVocab {
+	return jurisdiction.EmptyAppellateVocab()
+}
 
 // Static check.
 var _ jurisdiction.Bundle = (*davidsonBundle)(nil)

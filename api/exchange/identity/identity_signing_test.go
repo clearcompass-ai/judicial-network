@@ -24,7 +24,7 @@ func makeValidDisplay() *TypedDataDisplay {
 		Domain: EIP712Domain{
 			Name:    "Judicial Network",
 			Version: "v1",
-			Salt:    "did:web:da:davidson-tn",
+			Salt:    "did:web:state:tn:davidson",
 		},
 		PrimaryType: "Delegation",
 		Fields: []EIP712Field{
@@ -161,7 +161,7 @@ func TestTypedDataDisplay_Validate_FieldsMissingNameOrType(t *testing.T) {
 func TestTypedDataDisplay_DistinctSaltsAreDistinctDomains(t *testing.T) {
 	a := makeValidDisplay()
 	b := makeValidDisplay()
-	b.Domain.Salt = "did:web:da:shelby-tn"
+	b.Domain.Salt = "did:web:state:tn:shelby"
 
 	if a.Domain.Salt == b.Domain.Salt {
 		t.Fatal("test setup error: salts equal")

@@ -22,6 +22,21 @@ type fakeBundle struct {
 	roles    schemas.RoleCatalog
 	cosig    policy.CosignatureMixPolicy
 	preqs    prerequisites.Policy
+
+	// chain and vocab override the lazy defaults below. Tests
+	// that need to inject a specific resolver/vocab populate
+	// these fields; tests that don't fall through to safe
+	// non-nil defaults so existing literal-based fixtures keep
+	// satisfying Validate without modification.
+	chain AuthorityChainResolver
+	vocab AppellateVocab
+
+	// forceNilChain / forceNilVocab let tests assert the
+	// Validate-rejects-nil paths. Cannot be expressed via
+	// chain/vocab fields alone because the lazy default kicks
+	// in when those are nil.
+	forceNilChain bool
+	forceNilVocab bool
 }
 
 func (f *fakeBundle) ExchangeDID() string                      { return f.exchange }
@@ -30,6 +45,26 @@ func (f *fakeBundle) CosignaturePolicy() policy.CosignatureMixPolicy {
 	return f.cosig
 }
 func (f *fakeBundle) PrerequisitePolicy() prerequisites.Policy { return f.preqs }
+
+func (f *fakeBundle) AuthorityChainResolver() AuthorityChainResolver {
+	if f.forceNilChain {
+		return nil
+	}
+	if f.chain != nil {
+		return f.chain
+	}
+	return NoAuthorityChainResolver()
+}
+
+func (f *fakeBundle) AppellateVocabulary() AppellateVocab {
+	if f.forceNilVocab {
+		return nil
+	}
+	if f.vocab != nil {
+		return f.vocab
+	}
+	return EmptyAppellateVocab()
+}
 
 // minimalCatalog returns a 1-role catalog so Validate's len-check
 // passes.
@@ -194,5 +229,44 @@ func TestValidate_PrereqMaySupersetCosig(t *testing.T) {
 	}
 	if err := Validate(b); err != nil {
 		t.Errorf("prereq superset must be allowed: %v", err)
+	}
+}
+
+func TestValidate_NilAuthorityChainResolver(t *testing.T) {
+	b := &fakeBundle{
+		exchange:      "did:web:x",
+		roles:         minimalCatalog(t),
+		cosig:         minimalCosigPolicy(t, "evt_a"),
+		preqs:         minimalPrereqPolicy(t, "evt_a"),
+		forceNilChain: true,
+	}
+	if err := Validate(b); !errors.Is(err, ErrInvalidBundle) {
+		t.Errorf("nil AuthorityChainResolver: want ErrInvalidBundle, got %v", err)
+	}
+}
+
+func TestValidate_NilAppellateVocabulary(t *testing.T) {
+	b := &fakeBundle{
+		exchange:      "did:web:x",
+		roles:         minimalCatalog(t),
+		cosig:         minimalCosigPolicy(t, "evt_a"),
+		preqs:         minimalPrereqPolicy(t, "evt_a"),
+		forceNilVocab: true,
+	}
+	if err := Validate(b); !errors.Is(err, ErrInvalidBundle) {
+		t.Errorf("nil AppellateVocabulary: want ErrInvalidBundle, got %v", err)
+	}
+}
+
+func TestBundle_DefaultsAreNonNil(t *testing.T) {
+	// Trial-only bundle that omits chain/vocab fields gets
+	// safe non-nil defaults — the v0.5.0 contract for
+	// closed-by-default authority + empty appellate vocab.
+	b := goodBundle(t)
+	if b.AuthorityChainResolver() == nil {
+		t.Error("default AuthorityChainResolver should be non-nil")
+	}
+	if b.AppellateVocabulary() == nil {
+		t.Error("default AppellateVocabulary should be non-nil")
 	}
 }

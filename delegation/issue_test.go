@@ -65,14 +65,14 @@ func newBuildContext(t *testing.T, sp *identity.StubProvider, op *fakeOperator) 
 		Submitter:        op,
 		Catalog:          davidson.MustRoleCatalog(),
 		ExchangeDID:      "did:web:test.exchange",
-		InstitutionalDID: "did:web:da:davidson-tn",
+		InstitutionalDID: "did:web:state:tn:davidson",
 	}
 }
 
 // ─── happy path ────────────────────────────────────────────────────
 
 func TestIssue_HappyPath_InstitutionalGrantsCJ(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	cjDID := "did:key:zQ3shCJ"
 
 	sp := stubBoundProvider(t, institutional)
@@ -118,7 +118,7 @@ func TestIssue_HappyPath_InstitutionalGrantsCJ(t *testing.T) {
 func TestIssue_HappyPath_CJ_GrantsJudge(t *testing.T) {
 	cjDID := "did:key:zQ3shCJ"
 	judgeDID := "did:key:zQ3shJUDGE"
-	parentRef := schemas.LogPositionRef{LogDID: "did:web:da:davidson-tn", Sequence: 1}
+	parentRef := schemas.LogPositionRef{LogDID: "did:web:state:tn:davidson", Sequence: 1}
 
 	sp := stubBoundProvider(t, cjDID)
 	op := &fakeOperator{}

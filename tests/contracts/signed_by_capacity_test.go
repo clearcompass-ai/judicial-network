@@ -218,7 +218,7 @@ func TestSignedByCapacity_RejectsWrongExchangeDeclaration(t *testing.T) {
 
 	// Capacity declares the judge as belonging to a different
 	// exchange than the entry's destination.
-	wrongExchange := "did:web:da:shelby-tn"
+	wrongExchange := "did:web:state:tn:shelby"
 	payload := signedByCapacityFiling(atyDID, judgeDID, wrongExchange, "TN-12345")
 	entry := buildFilingFor(t, clerkDID, payload)
 

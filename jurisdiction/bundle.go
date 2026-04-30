@@ -2,45 +2,64 @@
 FILE PATH: jurisdiction/bundle.go
 
 DESCRIPTION:
-    Bundle — the per-jurisdiction policy contract. Every county /
+    Bundle — the per-jurisdiction policy contract. Every court /
     consortium / sub-network ships ONE Bundle implementation that
-    exposes the three closed-set surfaces the verifier depends on:
+    exposes five closed-set surfaces the verifier depends on:
 
-      RoleCatalog        — Tier 1 Signer roles + delegation rules
-                           (chief_justice, judge, court_clerk, etc.)
-      CosignaturePolicy  — closed-set cosignature mix per event_type
-                           (Tier 2 cosig, IntraExchangeOnly, etc.)
-      PrerequisitePolicy — closed-set vocabulary + prereq rules per
-                           event_type (RequiredAncestor /
-                           RequiredAuthority).
+      RoleCatalog            — Signer role definitions and
+                               delegation rules (judge, magistrate,
+                               court_clerk, court_reporter, …).
+      CosignaturePolicy      — closed-set cosignature mix per
+                               event_type (AllowedFilerRoles,
+                               RequiredSignerRoles, IntraExchangeOnly).
+      PrerequisitePolicy     — closed-set vocabulary + per-event
+                               prereq rules (RequiredAncestor /
+                               RequiredAuthority).
+      AuthorityChainResolver — per-jurisdiction delegation chain
+                               walker. Davidson chains validate
+                               against Davidson's catalog only;
+                               Shelby's against Shelby's. Trial
+                               counties wire NoAuthorityChainResolver
+                               at boot until the production resolver
+                               is plugged in.
+      AppellateVocabulary    — per-jurisdiction closed sets for
+                               appellate event payload enums (opinion
+                               type, participation role, disposition
+                               outcome, review type). Trial-only
+                               exchanges return EmptyAppellateVocab.
 
     Plus the institutional anchor:
 
-      ExchangeDID        — the institutional DID the Bundle's rules
-                           are scoped to (e.g.,
-                           "did:web:da:davidson-tn"). The cosig
-                           verifier uses this for IntraExchangeOnly;
-                           the registry uses it as the lookup key.
+      ExchangeDID            — the institutional DID this Bundle's
+                               rules are scoped to. Convention:
+                                 State:   did:web:state:tn:<court-id>
+                                 Federal: did:web:fed:<level>:<court-id>
+                               The cosig verifier uses this for
+                               IntraExchangeOnly; the registry uses
+                               it as the lookup key.
 
     Why an interface, not a struct: enables future loading via Go
     plugins (v3 roadmap), allows test doubles, and keeps the core
-    packages free of any Davidson-specific types. Concrete impls
-    live under deployments/<county>/rules/.
+    packages free of any jurisdiction-specific types. Concrete impls
+    live under deployments/<framework>/<court>/rules/.
 
-    Composition rule: a Bundle's three policies SHOULD share their
-    closed-set vocabulary. Validate() exists to surface mismatches
-    at boot rather than at first verification.
+    Composition rule: a Bundle's three vocabulary policies (cosig,
+    prereq, appellate) SHOULD share their closed-set event_type
+    namespace. Validate() exists to surface mismatches at boot
+    rather than at first verification.
 
 OVERVIEW:
-    Bundle      — interface (4 methods).
+    Bundle      — interface (6 methods).
     Validate    — boot-time consistency check.
     Provider    — factory function type for v3 plugin loading.
     Sentinels.
 
 KEY DEPENDENCIES:
-    - schemas/role_catalog.go         (RoleCatalog).
-    - policy/cosignature_mix.go       (CosignatureMixPolicy).
-    - prerequisites/policy.go         (Policy).
+    - jurisdiction/appellate_vocab.go         (AppellateVocab).
+    - jurisdiction/authority_chain_resolver.go (AuthorityChainResolver).
+    - schemas/role_catalog.go                 (RoleCatalog).
+    - policy/cosignature_mix.go               (CosignatureMixPolicy).
+    - prerequisites/policy.go                 (Policy).
 */
 package jurisdiction
 
@@ -75,6 +94,20 @@ type Bundle interface {
 	// per-event prerequisite rules (RequiredAncestor /
 	// RequiredAuthority).
 	PrerequisitePolicy() prerequisites.Policy
+
+	// AuthorityChainResolver returns the per-jurisdiction
+	// delegation chain walker. Each Bundle returns ITS resolver;
+	// chains are validated against THIS jurisdiction's RoleCatalog
+	// only. Required, non-nil. Trial bundles may return
+	// NoAuthorityChainResolver() until the production wiring lands.
+	AuthorityChainResolver() AuthorityChainResolver
+
+	// AppellateVocabulary returns the closed-set enums this
+	// jurisdiction accepts on appellate event payloads (opinion
+	// type, participation role, disposition outcome, review type).
+	// Trial-only exchanges return EmptyAppellateVocab(). Required,
+	// non-nil.
+	AppellateVocabulary() AppellateVocab
 }
 
 // Provider is a Bundle factory. Used by the v3 plugin path:
@@ -138,6 +171,12 @@ func Validate(b Bundle) error {
 			return fmt.Errorf("%w: cosig event %q not in prereq vocabulary",
 				ErrVocabularyMismatch, evt.EventType)
 		}
+	}
+	if b.AuthorityChainResolver() == nil {
+		return fmt.Errorf("%w: nil AuthorityChainResolver", ErrInvalidBundle)
+	}
+	if b.AppellateVocabulary() == nil {
+		return fmt.Errorf("%w: nil AppellateVocabulary", ErrInvalidBundle)
 	}
 	return nil
 }

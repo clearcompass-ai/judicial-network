@@ -19,7 +19,7 @@ import (
 
 func TestRevoke_HappyPath(t *testing.T) {
 	cjDID := "did:key:zQ3shCJ"
-	target := schemas.LogPositionRef{LogDID: "did:web:da:davidson-tn", Sequence: 7}
+	target := schemas.LogPositionRef{LogDID: "did:web:state:tn:davidson", Sequence: 7}
 
 	sp := stubBoundProvider(t, cjDID)
 	op := &fakeOperator{}
