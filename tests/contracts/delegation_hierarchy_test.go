@@ -208,7 +208,7 @@ func TestDelegation_DavidsonHierarchy_SignerKnowsTypedDataDisplay(t *testing.T) 
 	// stub does not surface the display, but we proved structural
 	// fidelity in the unit tests; here we content ourselves with
 	// the pin that BuildContext.InstitutionalDID equals the salt.
-	if !strings.Contains(f.buildCtx.InstitutionalDID, "davidson-tn") {
+	if !strings.Contains(f.buildCtx.InstitutionalDID, "davidson") {
 		t.Errorf("BuildContext.InstitutionalDID drift: %q", f.buildCtx.InstitutionalDID)
 	}
 }

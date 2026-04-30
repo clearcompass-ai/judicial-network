@@ -142,7 +142,7 @@ type TypedDataDisplay struct {
 // EIP712Domain type. We intentionally OMIT chainId and
 // verifyingContract because JN is not on a public chain; instead we
 // use Name + Version + Salt as the domain identity, where Salt is
-// the institutional did:key (e.g. did:web:da:davidson-tn) so each
+// the institutional did:key (e.g. did:web:state:tn:davidson) so each
 // court is its own domain.
 type EIP712Domain struct {
 	// Name is the application identity ("Judicial Network").

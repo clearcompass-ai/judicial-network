@@ -76,7 +76,7 @@ func buildFilingFor(t *testing.T, clerkDID string, payload []byte) *envelope.Ent
 	t.Helper()
 	auth := envelope.AuthoritySameSigner
 	header := envelope.ControlHeader{
-		Destination:   "did:web:da:davidson-tn",
+		Destination:   "did:web:state:tn:davidson",
 		SignerDID:     clerkDID,
 		AuthorityPath: &auth,
 	}
@@ -259,7 +259,7 @@ func TestCosigFiling_IntraExchangeOnly_RejectsCrossExchange(t *testing.T) {
 
 	// Verify under a DIFFERENT exchange DID.
 	got := f.envelopeAt(t, pos)
-	otherExchange := "did:web:da:shelby-tn"
+	otherExchange := "did:web:state:tn:shelby"
 	v := verification.CheckCosignature(got, davidson.MustCosignaturePolicy(), res, otherExchange)
 	if v.Rejection != verification.CosigRejectExchangeMismatch {
 		t.Errorf("expected ExchangeMismatch, got: %s (%s)", v.Rejection, v.Reason)

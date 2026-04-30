@@ -27,7 +27,7 @@ func TestMustBundle_ExchangeDID(t *testing.T) {
 	if b.ExchangeDID() != ExchangeDID {
 		t.Errorf("ExchangeDID drift: %q want %q", b.ExchangeDID(), ExchangeDID)
 	}
-	if ExchangeDID != "did:web:da:davidson-tn" {
+	if ExchangeDID != "did:web:state:tn:davidson" {
 		t.Errorf("Davidson ExchangeDID constant changed: %q", ExchangeDID)
 	}
 }

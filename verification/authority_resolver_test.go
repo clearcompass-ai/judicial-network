@@ -23,7 +23,7 @@ import (
 func TestAuthorityResolver_HappyPath_3Hop(t *testing.T) {
 	f := newFakeFetcher()
 
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	cjDID := "did:key:zQ3shCJ"
 	judgeDID := "did:key:zQ3shJUDGE"
 	clerkDID := "did:key:zQ3shCLERK"
@@ -66,7 +66,7 @@ func TestAuthorityResolver_HappyPath_3Hop(t *testing.T) {
 
 func TestAuthorityResolver_ScopeIntersectionAcrossChain(t *testing.T) {
 	f := newFakeFetcher()
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	cjDID := "did:key:zQ3shCJ"
 	judgeDID := "did:key:zQ3shJ"
 

@@ -38,7 +38,7 @@ import (
 // ExchangeDID is the institutional DID for the Davidson County
 // court system. Used as the registry key and the IntraExchangeOnly
 // reference value.
-const ExchangeDID = "did:web:da:davidson-tn"
+const ExchangeDID = "did:web:state:tn:davidson"
 
 // davidsonBundle implements jurisdiction.Bundle. Constructed once
 // at boot; immutable thereafter.

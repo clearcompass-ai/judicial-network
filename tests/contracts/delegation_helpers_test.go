@@ -139,9 +139,9 @@ type contractFixture struct {
 func newFixture(t *testing.T) *contractFixture {
 	t.Helper()
 	const (
-		logDID           = "did:web:da:davidson-tn"
-		exchangeDID      = "did:web:da:davidson-tn"
-		institutionalDID = "did:web:da:davidson-tn"
+		logDID           = "did:web:state:tn:davidson"
+		exchangeDID      = "did:web:state:tn:davidson"
+		institutionalDID = "did:web:state:tn:davidson"
 	)
 
 	sp := identity.NewStubProvider()

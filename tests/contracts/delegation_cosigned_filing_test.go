@@ -53,7 +53,7 @@ func filingDisplay(filerDID, bprNumber string) *identity.TypedDataDisplay {
 		Domain: identity.EIP712Domain{
 			Name:    "Judicial Network",
 			Version: "v1",
-			Salt:    "did:web:da:davidson-tn",
+			Salt:    "did:web:state:tn:davidson",
 		},
 		PrimaryType: "AttorneyFiling",
 		Fields: []identity.EIP712Field{
@@ -71,7 +71,7 @@ func buildFilingEntry(t *testing.T, clerkDID, attorneyDID, bprNumber string) *en
 	t.Helper()
 	auth := envelope.AuthoritySameSigner
 	header := envelope.ControlHeader{
-		Destination:   "did:web:da:davidson-tn",
+		Destination:   "did:web:state:tn:davidson",
 		SignerDID:     clerkDID,
 		AuthorityPath: &auth,
 	}

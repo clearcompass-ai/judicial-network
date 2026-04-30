@@ -21,7 +21,7 @@ import (
 // ─── request validation ────────────────────────────────────────────
 
 func TestIssue_RejectsMissingFields(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{}
 	bc := newBuildContext(t, sp, op)
@@ -73,7 +73,7 @@ func TestIssue_RejectsMissingFields(t *testing.T) {
 // ─── catalog rejection ─────────────────────────────────────────────
 
 func TestIssue_CatalogRejectsUnknownRole(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{}
 	bc := newBuildContext(t, sp, op)
@@ -89,7 +89,7 @@ func TestIssue_CatalogRejectsUnknownRole(t *testing.T) {
 }
 
 func TestIssue_CatalogRejectsExcessiveDuration(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{}
 	bc := newBuildContext(t, sp, op)
@@ -106,7 +106,7 @@ func TestIssue_CatalogRejectsExcessiveDuration(t *testing.T) {
 }
 
 func TestIssue_CatalogRejectsScopeOutsideAllowed(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{}
 	bc := newBuildContext(t, sp, op)
@@ -125,7 +125,7 @@ func TestIssue_CatalogRejectsScopeOutsideAllowed(t *testing.T) {
 // ─── identity / submit failures ────────────────────────────────────
 
 func TestIssue_HonorsSignRejected(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	sp.RejectSigning(institutional, true)
 	op := &fakeOperator{}
@@ -151,7 +151,7 @@ func TestIssue_HonorsSignRejected(t *testing.T) {
 }
 
 func TestIssue_HonorsSubmitFailed(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{err: errors.New("synthetic operator error")}
 	bc := newBuildContext(t, sp, op)

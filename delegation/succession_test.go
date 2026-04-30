@@ -19,7 +19,7 @@ import (
 )
 
 func TestSucceed_HappyPath_FullInheritance(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	successor := "did:key:zQ3shCJ_NEW"
 	target := schemas.LogPositionRef{LogDID: institutional, Sequence: 7}
 
@@ -68,7 +68,7 @@ func TestSucceed_HappyPath_FullInheritance(t *testing.T) {
 }
 
 func TestSucceed_NarrowedInheritance(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{}
 	bc := newBuildContext(t, sp, op)
@@ -90,7 +90,7 @@ func TestSucceed_NarrowedInheritance(t *testing.T) {
 }
 
 func TestSucceed_RejectsMissingFields(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{}
 	bc := newBuildContext(t, sp, op)
@@ -170,7 +170,7 @@ func TestSucceed_RejectsMissingFields(t *testing.T) {
 // back wrapped in ErrInvalidRequest because the marshal happens after
 // the request-validate gate.
 func TestSucceed_NarrowedRequiresScope(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{}
 	bc := newBuildContext(t, sp, op)
@@ -192,7 +192,7 @@ func TestSucceed_NarrowedRequiresScope(t *testing.T) {
 }
 
 func TestSucceed_HonorsSubmitFailed(t *testing.T) {
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	op := &fakeOperator{err: errors.New("synthetic")}
 	bc := newBuildContext(t, sp, op)

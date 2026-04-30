@@ -49,7 +49,7 @@ func TestAuthorityResolver_RejectsRevocationTip(t *testing.T) {
 
 func TestAuthorityResolver_RejectsScopeOutsideChain(t *testing.T) {
 	f := newFakeFetcher()
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	cjDID := "did:key:zQ3shCJ"
 
 	cjPos := types.LogPosition{LogDID: institutional, Sequence: 1}
@@ -66,7 +66,7 @@ func TestAuthorityResolver_RejectsScopeOutsideChain(t *testing.T) {
 
 func TestAuthorityResolver_RejectsCatalogViolation(t *testing.T) {
 	f := newFakeFetcher()
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	clerkDID := "did:key:zQ3shCLERK"
 
 	clerkPos := types.LogPosition{LogDID: institutional, Sequence: 1}
@@ -98,7 +98,7 @@ func TestAuthorityResolver_RejectsGranteeMismatch(t *testing.T) {
 
 func TestAuthorityResolver_RejectsDepthExceeded(t *testing.T) {
 	f := newFakeFetcher()
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 
 	// Build a 4-hop chain: institutional → A → B → C → D. Should
 	// reject because MaxDelegationDepth=3.
@@ -180,7 +180,7 @@ func (f *fakeLeafReader) Get(key [32]byte) (*types.SMTLeaf, error) {
 // folds that into RejectRevoked.
 func TestAuthorityResolver_OriginRevoked_LeafReaderTip(t *testing.T) {
 	f := newFakeFetcher()
-	institutional := "did:web:da:davidson-tn"
+	institutional := "did:web:state:tn:davidson"
 	signer := "did:key:zQ3shS"
 
 	// The delegation entry at pos.

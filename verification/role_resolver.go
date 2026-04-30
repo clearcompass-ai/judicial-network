@@ -85,8 +85,8 @@ var ErrSignerUnknown = errors.New("verification/role_resolver: signer DID unknow
 // timestamps — i.e., NOT a registry. Tests construct one inline:
 //
 //   r := NewMapRoleResolver().
-//        Bind("did:key:zQ3shCLERK", "court_clerk", "did:web:da:davidson-tn").
-//        Bind("did:key:zQ3shJUDGE", "judge",       "did:web:da:davidson-tn")
+//        Bind("did:key:zQ3shCLERK", "court_clerk", "did:web:state:tn:davidson").
+//        Bind("did:key:zQ3shJUDGE", "judge",       "did:web:state:tn:davidson")
 type MapRoleResolver struct {
 	mu sync.RWMutex
 	m  map[string]ResolverEntry
