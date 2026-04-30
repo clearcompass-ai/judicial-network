@@ -5,9 +5,11 @@ import (
 	"testing"
 )
 
-// ─── Unit: Registry contains all 12 schemas ─────────────────────────
+// ─── Unit: Registry contains all 14 schemas ─────────────────────────
+// (court_officer removed in Phase 3D.cleanup-2 — the unified
+// judicial-delegation-v1 supersedes it.)
 
-func TestRegistry_ContainsAll12Schemas(t *testing.T) {
+func TestRegistry_ContainsAll14Schemas(t *testing.T) {
 	r := NewRegistry()
 
 	expected := []string{
@@ -17,12 +19,14 @@ func TestRegistry_ContainsAll12Schemas(t *testing.T) {
 		SchemaJuvenileCaseV1,
 		SchemaEvidenceArtifactV1,
 		SchemaDisclosureOrderV1,
-		SchemaCourtOfficerV1,
 		SchemaPartyBindingV1,
 		SchemaPartyBindingSealedV1,
 		SchemaSealingOrderV1,
 		SchemaShardGenesisV1,
-		SchemaKeyAttestationV1, // Wave 1 file 9/11
+		SchemaKeyAttestationV1,        // Wave 1
+		SchemaJudicialDelegationV1,    // Phase 2C.1: unified delegation
+		SchemaJudicialRevocationV1,    // Phase 2C.1
+		SchemaJudicialSuccessionV1,    // Phase 2C.1
 	}
 
 	for _, uri := range expected {

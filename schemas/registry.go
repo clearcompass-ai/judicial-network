@@ -1,8 +1,10 @@
 /*
 FILE PATH: schemas/registry.go
-DESCRIPTION: Central schema registry — 11 schemas.
+DESCRIPTION: Central schema registry — 15 schemas (12 case/officer + 3 delegation).
 KEY ARCHITECTURAL DECISIONS: Thread-safe. SDK JSONParameterExtractor.
-OVERVIEW: NewRegistry() → 11 schemas. Appellate decisions use existing case schemas.
+OVERVIEW: NewRegistry() → 15 schemas. Appellate decisions use existing case
+          schemas. judicial-delegation-v1, judicial-revocation-v1, and
+          judicial-succession-v1 are the canonical authority-grant entries.
 KEY DEPENDENCIES: ortholog-sdk/schema, ortholog-sdk/core/envelope, ortholog-sdk/types
 */
 package schemas
@@ -50,7 +52,6 @@ const (
 	SchemaJuvenileCaseV1       = "tn-juvenile-case-v1"
 	SchemaEvidenceArtifactV1   = "tn-evidence-artifact-v1"
 	SchemaDisclosureOrderV1    = "tn-disclosure-order-v1"
-	SchemaCourtOfficerV1       = "tn-court-officer-v1"
 	SchemaPartyBindingV1       = "tn-party-binding-v1"
 	SchemaPartyBindingSealedV1 = "tn-party-binding-sealed-v1"
 	SchemaSealingOrderV1       = "tn-sealing-order-v1"
@@ -95,12 +96,14 @@ func (r *Registry) registerAll() {
 	r.Register(juvenileCaseRegistration())
 	r.Register(evidenceArtifactRegistration())
 	r.Register(disclosureOrderRegistration())
-	r.Register(courtOfficerRegistration())
 	r.Register(shardGenesisRegistration())
 	r.Register(partyBindingRegistration())
 	r.Register(partyBindingSealedRegistration())
 	r.Register(sealingOrderRegistration())
 	r.Register(keyAttestationRegistration())
+	r.Register(judicialDelegationRegistration())
+	r.Register(judicialRevocationRegistration())
+	r.Register(judicialSuccessionRegistration())
 }
 
 func (r *Registry) Register(reg *SchemaRegistration) {

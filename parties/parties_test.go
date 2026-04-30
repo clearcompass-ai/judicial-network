@@ -1,36 +1,44 @@
+/*
+FILE PATH: parties/parties_test.go
+
+DESCRIPTION:
+    Tests for party-binding writers + roster queries under the
+    v1.6 schema (BindingID, PartyClass, PartyName) plus the
+    legacy VendorDIDStore tests for vendor-DID rotation (a
+    separate concern from party_binding alignment).
+*/
 package parties
 
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
+	"github.com/clearcompass-ai/judicial-network/schemas"
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
-// -------------------------------------------------------------------------
-// 1) CreateBinding
-// -------------------------------------------------------------------------
+// ─── 1) CreateBinding ─────────────────────────────────────────────
 
 func TestCreateBinding_Success(t *testing.T) {
 	result, err := CreateBinding(BindingConfig{
 		Destination: "did:web:exchange.test",
 		SignerDID:   "did:web:courts.nashville.gov",
-		PartyDID:    "did:web:exchange:party:jones",
+		BindingID:   "d-001",
+		PartyClass:  schemas.PartyClassDefendant,
+		PartyName:   "John Q. Public",
 		CaseRef:     "2027-CR-4471",
 		CaseDID:     "did:web:courts.nashville.gov:cases",
 		CaseSeq:     100,
-		Role:        "defendant",
 		EventTime:   1700000000,
 	})
 	if err != nil {
 		t.Fatalf("CreateBinding: %v", err)
 	}
-	if result == nil {
-		t.Fatal("result is nil")
+	if result == nil || result.Entry == nil {
+		t.Fatal("result/Entry is nil")
 	}
-	if result.Entry == nil {
-		t.Fatal("result.Entry is nil")
+	if result.Payload == nil || result.Payload.BindingID != "d-001" {
+		t.Errorf("payload drift: %+v", result.Payload)
 	}
 
 	signed := testutil.SignEntry(t, result.Entry, testutil.GenerateSigningKey(t))
@@ -40,39 +48,106 @@ func TestCreateBinding_Success(t *testing.T) {
 	}
 }
 
-func TestCreateBinding_EmptyConfig(t *testing.T) {
+func TestCreateBinding_RejectsEmptyConfig(t *testing.T) {
 	_, err := CreateBinding(BindingConfig{})
 	if err == nil {
 		t.Fatal("expected error for empty config")
 	}
 }
 
-func TestCreateBinding_AllRoles(t *testing.T) {
-	for _, role := range []string{"plaintiff", "defendant", "witness", "victim", "guardian_ad_litem"} {
-		t.Run(role, func(t *testing.T) {
+func TestCreateBinding_RejectsEmptyBindingID(t *testing.T) {
+	_, err := CreateBinding(BindingConfig{
+		Destination: "did:web:test",
+		SignerDID:   "did:web:test",
+		PartyClass:  schemas.PartyClassPlaintiff,
+		CaseRef:     "2027-CV-1",
+	})
+	if err == nil {
+		t.Fatal("expected error for empty binding_id")
+	}
+}
+
+func TestCreateBinding_RejectsUnknownPartyClass(t *testing.T) {
+	_, err := CreateBinding(BindingConfig{
+		Destination: "did:web:test",
+		SignerDID:   "did:web:test",
+		BindingID:   "x-1",
+		PartyClass:  schemas.PartyClass("wizard"),
+		CaseRef:     "2027-CV-1",
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown party_class")
+	}
+}
+
+func TestCreateBinding_AllPartyClasses(t *testing.T) {
+	for _, class := range []schemas.PartyClass{
+		schemas.PartyClassPlaintiff,
+		schemas.PartyClassDefendant,
+		schemas.PartyClassRespondent,
+		schemas.PartyClassPetitioner,
+		schemas.PartyClassState,
+	} {
+		t.Run(string(class), func(t *testing.T) {
 			result, err := CreateBinding(BindingConfig{
 				Destination: "did:web:exchange.test",
 				SignerDID:   "did:web:test",
-				PartyDID:    "did:web:party:" + role,
+				BindingID:   "id-" + string(class),
+				PartyClass:  class,
+				PartyName:   "Test " + string(class),
 				CaseRef:     "2027-CR-001",
 				CaseDID:     "did:web:test:cases",
 				CaseSeq:     1,
-				Role:        role,
 				EventTime:   1700000000,
 			})
 			if err != nil {
-				t.Fatalf("%s: %v", role, err)
+				t.Fatalf("%s: %v", class, err)
 			}
-			if result.Entry == nil {
-				t.Errorf("%s: entry nil", role)
+			if result.Payload.PartyClass != class {
+				t.Errorf("class drift: got %q want %q", result.Payload.PartyClass, class)
 			}
 		})
 	}
 }
 
-// -------------------------------------------------------------------------
-// 2) VendorDIDStore
-// -------------------------------------------------------------------------
+// TestCreateBinding_SealedHasNoPartyName pins the v1.6 invariant:
+// when a binding is sealed, PartyName is empty. The case-local
+// BindingID is still the public reference.
+func TestCreateBinding_SealedHasNoPartyName(t *testing.T) {
+	result, err := CreateBinding(BindingConfig{
+		Destination: "did:web:test",
+		SignerDID:   "did:web:test",
+		BindingID:   "sealed-1",
+		PartyClass:  schemas.PartyClassDefendant,
+		// PartyName intentionally empty (sealed binding).
+		CaseRef:   "2027-CR-1",
+		EventTime: 1700000000,
+	})
+	if err != nil {
+		t.Fatalf("CreateBinding (sealed-shaped): %v", err)
+	}
+	if result.Payload.PartyName != "" {
+		t.Errorf("sealed binding should have empty PartyName; got %q",
+			result.Payload.PartyName)
+	}
+	if result.Payload.BindingID != "sealed-1" {
+		t.Errorf("BindingID drift: %q", result.Payload.BindingID)
+	}
+}
+
+// ─── 2) UpdateBinding ─────────────────────────────────────────────
+
+func TestUpdateBindingConfig_RejectsBadStatus(t *testing.T) {
+	_, err := UpdateBinding(UpdateBindingConfig{
+		SignerDID: "did:web:test",
+		NewStatus: "wat",
+	})
+	if err == nil {
+		t.Fatal("expected error for bad status")
+	}
+}
+
+// ─── 3) VendorDIDStore (vendor-DID rotation; separate concern) ────
 
 func TestNewVendorDIDStore(t *testing.T) {
 	store := NewVendorDIDStore()
@@ -145,7 +220,6 @@ func TestVendorDIDStore_MultipleMappings(t *testing.T) {
 	GenerateVendorDID("ex.test", "did:web:judge-a", store)
 	GenerateVendorDID("ex.test", "did:web:clerk-b", store)
 	GenerateVendorDID("ex.test", "did:web:deputy-c", store)
-
 	if store.MappingCount() != 3 {
 		t.Errorf("count = %d, want 3", store.MappingCount())
 	}
@@ -154,12 +228,10 @@ func TestVendorDIDStore_MultipleMappings(t *testing.T) {
 func TestVendorDID_FullRoundtrip(t *testing.T) {
 	store := NewVendorDIDStore()
 	realDID := "did:web:courts.nashville.gov:role:judge-mcclendon-2026"
-
 	vendorDID, err := GenerateVendorDID("exchange-a.courts.tn.gov", realDID, store)
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-
 	resolved, err := ResolveVendorDID(vendorDID, store)
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -167,7 +239,6 @@ func TestVendorDID_FullRoundtrip(t *testing.T) {
 	if resolved != realDID {
 		t.Errorf("resolved = %q, want %q", resolved, realDID)
 	}
-
 	found, err := LookupVendorDID(realDID, store)
 	if err != nil {
 		t.Fatalf("lookup: %v", err)
@@ -177,39 +248,19 @@ func TestVendorDID_FullRoundtrip(t *testing.T) {
 	}
 }
 
-// -------------------------------------------------------------------------
-// 3) UpdateBindingConfig fields
-// -------------------------------------------------------------------------
-
-func TestUpdateBindingConfig_Fields(t *testing.T) {
-	cfg := UpdateBindingConfig{
-		SignerDID: "did:web:test",
-		NewRole:   "witness",
-		NewStatus: "active",
-	}
-	if cfg.SignerDID == "" {
-		t.Error("SignerDID required")
-	}
-	if cfg.NewRole != "witness" {
-		t.Errorf("NewRole = %q", cfg.NewRole)
-	}
-}
-
-// -------------------------------------------------------------------------
-// 4) LinkPartyCaseConfig fields
-// -------------------------------------------------------------------------
+// ─── 4) LinkPartyCaseConfig fields ─────────────────────────────────
 
 func TestLinkPartyCaseConfig_Fields(t *testing.T) {
 	cfg := LinkPartyCaseConfig{
 		SignerDID:     "did:web:test",
-		PartyDID:      "did:web:party",
+		BindingID:     "p-001",
 		PartiesLogDID: "did:web:test:parties",
-		Role:          "defendant",
+		PartyClass:    schemas.PartyClassDefendant,
 	}
-	if cfg.SignerDID == "" {
-		t.Error("SignerDID required")
+	if cfg.BindingID != "p-001" {
+		t.Errorf("BindingID = %q", cfg.BindingID)
 	}
-	if cfg.Role != "defendant" {
-		t.Errorf("Role = %q", cfg.Role)
+	if cfg.PartyClass != schemas.PartyClassDefendant {
+		t.Errorf("PartyClass = %q", cfg.PartyClass)
 	}
 }

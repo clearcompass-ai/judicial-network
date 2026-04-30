@@ -27,7 +27,7 @@ func newMockKS() *mockKS {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 	return &mockKS{
 		keys: map[string]*keystore.KeyInfo{
-			"did:web:test:judge": {DID: "did:web:test:judge", KeyID: "k1", PublicKey: pub, Purpose: "signing"},
+			"did:web:test:judge": {DID: "did:web:test:judge", KeyID: "k1", Curve: keystore.CurveEd25519, PublicKey: pub, Purpose: "signing"},
 		},
 		priv: map[string]ed25519.PrivateKey{
 			"did:web:test:judge": priv,
@@ -45,7 +45,7 @@ func (m *mockKS) Sign(did string, data []byte) ([]byte, error) {
 
 func (m *mockKS) Generate(did, purpose string) (*keystore.KeyInfo, error) {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
-	info := &keystore.KeyInfo{DID: did, KeyID: "gen", PublicKey: pub, Purpose: purpose}
+	info := &keystore.KeyInfo{DID: did, KeyID: "gen", Curve: keystore.CurveEd25519, PublicKey: pub, Purpose: purpose}
 	m.keys[did] = info
 	m.priv[did] = priv
 	return info, nil
@@ -60,7 +60,19 @@ func (m *mockKS) PublicKey(did string) (ed25519.PublicKey, error) {
 	if info == nil {
 		return nil, http.ErrNotSupported
 	}
-	return info.PublicKey, nil
+	return ed25519.PublicKey(info.PublicKey), nil
+}
+
+func (m *mockKS) GenerateSecp256k1(did, purpose string) (*keystore.KeyInfo, error) {
+	return nil, http.ErrNotSupported
+}
+
+func (m *mockKS) SignSecp256k1(did string, digest [32]byte) ([]byte, error) {
+	return nil, http.ErrNotSupported
+}
+
+func (m *mockKS) PublicKeySecp256k1(did string) ([]byte, error) {
+	return nil, http.ErrNotSupported
 }
 
 func (m *mockKS) List() []*keystore.KeyInfo {
