@@ -243,7 +243,7 @@ func TestCosignatureRules_MotionContinuanceMultipleFilers(t *testing.T) {
 // TestCosignatureRules_ExpectedCount pins the rule count so an
 // accidental addition / deletion shows up in CI.
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const want = 16 // see CosignatureRules() literal sections.
+	const want = 17 // 16 base + counsel_appearance (3E.1)
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)
 	}

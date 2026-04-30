@@ -51,6 +51,24 @@ import (
 // shared across every county exchange.
 func CosignatureRules() []policy.CosignatureRule {
 	return []policy.CosignatureRule{
+		// ── §1 Genesis: counsel_appearance ──────────────────────
+		// Per v1.8: defense_counsel / civil_attorney / prosecutor
+		// file the appearance; court_clerk cosigns. bpr_number
+		// (TN Board of Professional Responsibility) is the
+		// attorney-licensing credential.
+		{
+			EventType: "counsel_appearance",
+			AllowedFilerRoles: []schemas.FilerRole{
+				schemas.FilerRoleDefenseCounsel,
+				schemas.FilerRoleCivilAttorney,
+				schemas.FilerRoleProsecutor,
+			},
+			RequiredSignerRoles: []string{"court_clerk"},
+			MinSignerCosigners:  1,
+			IntraExchangeOnly:   true,
+			RequiredCredentials: []string{"bpr_number"},
+		},
+
 		// ── attorney-driven filings ──────────────────────────────
 		{
 			EventType: "motion_continuance",
