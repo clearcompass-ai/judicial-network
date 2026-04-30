@@ -4,8 +4,8 @@ FILE PATH: schemas/role_catalog_davidson.go
 DESCRIPTION:
     Reference role catalog for the Davidson County deployment.
     Production deployments load their own catalog file but typically
-    start from this template. Every role here is Tier 1 per the
-    v1.3 Event Dictionary — the catalog only lists key-holding roles.
+    start from this template. Every role here is ActorSigner per the
+    v1.4 Event Dictionary — the catalog only lists key-holding roles.
 
     Hierarchy:
 
@@ -39,7 +39,7 @@ func DavidsonRoles() []Role {
 	return []Role{
 		{
 			Name:            "chief_justice",
-			Tier:            Tier1Signer, // Adjudicator
+			Actor:           ActorSigner, // Adjudicator
 			Description:     "Top-of-chain authority for the court. Granted only by the institutional DID's Authority_Set.",
 			MaxDuration:     8 * year,
 			DefaultDuration: 4 * year,
@@ -82,7 +82,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "judge",
-			Tier:            Tier1Signer, // Adjudicator
+			Actor:           ActorSigner, // Adjudicator
 			Description:     "Sitting judge. Issues case decisions and may delegate to a clerk or deputy.",
 			MaxDuration:     8 * year,
 			DefaultDuration: 4 * year,
@@ -110,7 +110,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "deputy_judge",
-			Tier:            Tier1Signer, // Adjudicator
+			Actor:           ActorSigner, // Adjudicator
 			Description:     "Deputy judge sitting for the granter. Decisions are valid for the granter's term.",
 			MaxDuration:     2 * year,
 			DefaultDuration: year,
@@ -129,7 +129,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "court_clerk",
-			Tier:            Tier1Signer, // Clerk
+			Actor:           ActorSigner, // Clerk
 			Description:     "Court clerk. Files cases and manages the docket but does not issue decisions.",
 			MaxDuration:     4 * year,
 			DefaultDuration: 2 * year,
@@ -151,7 +151,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "court_staff",
-			Tier:            Tier1Signer, // Deputy Clerk
+			Actor:           ActorSigner, // Deputy Clerk
 			Description:     "Court staff. Limited filing access. Cannot delegate.",
 			MaxDuration:     2 * year,
 			DefaultDuration: year,
@@ -166,7 +166,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "court_reporter",
-			Tier:            Tier1Signer, // Court Reporter
+			Actor:           ActorSigner, // Court Reporter
 			Description:     "Court reporter. Specialized cryptographic key used strictly to publish, encrypt, and sign certified hearing and trial transcripts.",
 			MaxDuration:     4 * year,
 			DefaultDuration: 2 * year,

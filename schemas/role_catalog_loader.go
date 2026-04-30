@@ -53,11 +53,11 @@ type catalogFile struct {
 
 // roleJSON mirrors Role but uses durationJSON for the time fields so
 // operators can write "4y" / "8760h" without computing nanoseconds.
-// Tier is loaded as a plain integer; the catalog's own validateRole
+// Actor is loaded as a plain integer; the catalog's own validateRole
 // rejects out-of-set values.
 type roleJSON struct {
 	Name            string       `json:"name"`
-	Tier            int          `json:"tier"`
+	Actor           int          `json:"actor"`
 	Description     string       `json:"description,omitempty"`
 	MaxDuration     durationJSON `json:"max_duration"`
 	DefaultDuration durationJSON `json:"default_duration"`
@@ -120,7 +120,7 @@ func parseExtendedDuration(s string) (time.Duration, error) {
 func (rj roleJSON) toRole() Role {
 	return Role{
 		Name:            rj.Name,
-		Tier:            Tier(rj.Tier),
+		Actor:           Actor(rj.Actor),
 		Description:     rj.Description,
 		MaxDuration:     time.Duration(rj.MaxDuration),
 		DefaultDuration: time.Duration(rj.DefaultDuration),

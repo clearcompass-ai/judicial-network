@@ -21,47 +21,47 @@ func TestNewInMemoryCatalog_RejectsInvalid(t *testing.T) {
 	}{
 		{
 			name:    "empty name",
-			role:    Role{Name: "", Tier: Tier1Signer, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"x"}, DefaultScope: []string{"x"}},
+			role:    Role{Name: "", Actor: ActorSigner, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"x"}, DefaultScope: []string{"x"}},
 			wantSub: "name required",
 		},
 		{
 			name:    "missing tier (zero value)",
 			role:    Role{Name: "x", MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
-			wantSub: "tier must be one of",
+			wantSub: "actor must be one of",
 		},
 		{
 			name:    "non-tier-1 role rejected (catalog only lists key-holders)",
-			role:    Role{Name: "attorney", Tier: Tier2Advocate, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
-			wantSub: "tier_2_advocate",
+			role:    Role{Name: "attorney", Actor: ActorFiler, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
+			wantSub: "actor_filer",
 		},
 		{
-			name:    "tier_3_party also rejected",
-			role:    Role{Name: "plaintiff", Tier: Tier3Party, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
-			wantSub: "tier_3_party",
+			name:    "actor_party also rejected",
+			role:    Role{Name: "plaintiff", Actor: ActorParty, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
+			wantSub: "actor_party",
 		},
 		{
 			name:    "tier out-of-range",
-			role:    Role{Name: "x", Tier: Tier(99), MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
-			wantSub: "tier must be one of",
+			role:    Role{Name: "x", Actor: Actor(99), MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
+			wantSub: "actor must be one of",
 		},
 		{
 			name:    "zero max_duration",
-			role:    Role{Name: "x", Tier: Tier1Signer, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
+			role:    Role{Name: "x", Actor: ActorSigner, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
 			wantSub: "max_duration",
 		},
 		{
 			name:    "default exceeds max",
-			role:    Role{Name: "x", Tier: Tier1Signer, MaxDuration: time.Hour, DefaultDuration: 2 * time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
+			role:    Role{Name: "x", Actor: ActorSigner, MaxDuration: time.Hour, DefaultDuration: 2 * time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}},
 			wantSub: "exceeds max_duration",
 		},
 		{
 			name:    "default scope not subset of allowed",
-			role:    Role{Name: "x", Tier: Tier1Signer, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"b"}},
+			role:    Role{Name: "x", Actor: ActorSigner, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"b"}},
 			wantSub: "default_scope",
 		},
 		{
 			name:    "delegable scope not subset of allowed",
-			role:    Role{Name: "x", Tier: Tier1Signer, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}, DelegableScope: []string{"b"}},
+			role:    Role{Name: "x", Actor: ActorSigner, MaxDuration: time.Hour, DefaultDuration: time.Hour, AllowedScope: []string{"a"}, DefaultScope: []string{"a"}, DelegableScope: []string{"b"}},
 			wantSub: "delegable_scope",
 		},
 	}
@@ -78,7 +78,7 @@ func TestNewInMemoryCatalog_RejectsInvalid(t *testing.T) {
 func TestNewInMemoryCatalog_RejectsDuplicates(t *testing.T) {
 	r := Role{
 		Name:            "judge",
-		Tier:            Tier1Signer,
+		Actor:           ActorSigner,
 		MaxDuration:     time.Hour,
 		DefaultDuration: time.Hour,
 		AllowedScope:    []string{"a"},
@@ -135,7 +135,7 @@ func TestInMemoryCatalog_Replace(t *testing.T) {
 	newRoles := []Role{
 		{
 			Name:            "magistrate",
-			Tier:            Tier1Signer,
+			Actor:           ActorSigner,
 			MaxDuration:     time.Hour,
 			DefaultDuration: time.Hour,
 			AllowedScope:    []string{"x"},

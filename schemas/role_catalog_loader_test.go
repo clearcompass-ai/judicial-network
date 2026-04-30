@@ -22,7 +22,7 @@ const sampleCatalog = `{
   "roles": [
     {
       "name": "chief_justice",
-      "tier": 1,
+      "actor": 1,
       "description": "top of chain",
       "max_duration": "8y",
       "default_duration": "4y",
@@ -32,7 +32,7 @@ const sampleCatalog = `{
     },
     {
       "name": "judge",
-      "tier": 1,
+      "actor": 1,
       "max_duration": "8760h",
       "default_duration": "30d",
       "allowed_scope": ["case_filing"],
@@ -72,7 +72,7 @@ func TestParseCatalogJSON_HappyPath(t *testing.T) {
 func TestParseCatalogJSON_NumericDuration(t *testing.T) {
 	const numeric = `{"roles":[{
 		"name":"x",
-		"tier": 1,
+		"actor": 1,
 		"max_duration": 3600000000000,
 		"default_duration": 3600000000000,
 		"allowed_scope":["a"],
@@ -98,7 +98,7 @@ func TestParseCatalogJSON_MalformedJSON(t *testing.T) {
 func TestParseCatalogJSON_MalformedDuration(t *testing.T) {
 	const bad = `{"roles":[{
 		"name":"x",
-		"tier": 1,
+		"actor": 1,
 		"max_duration": "blarg",
 		"default_duration": "1h",
 		"allowed_scope":["a"],
@@ -113,7 +113,7 @@ func TestParseCatalogJSON_MalformedDuration(t *testing.T) {
 func TestParseCatalogJSON_RejectsInvalidRole(t *testing.T) {
 	const bad = `{"roles":[{
 		"name":"x",
-		"tier": 1,
+		"actor": 1,
 		"max_duration":"1h",
 		"default_duration":"2h",
 		"allowed_scope":["a"],
@@ -164,7 +164,7 @@ func TestReloadFromFile(t *testing.T) {
 	// Replace with a single-role catalog.
 	const single = `{"roles":[{
 		"name":"only",
-		"tier": 1,
+		"actor": 1,
 		"max_duration":"1h",
 		"default_duration":"1h",
 		"allowed_scope":["a"],
@@ -210,22 +210,22 @@ func TestReloadFromFile_FailureKeepsPrevious(t *testing.T) {
 	}
 }
 
-// ─── Tier loader pins ───────────────────────────────────────────────
+// ─── Actor loader pins ───────────────────────────────────────────────
 
-// TestParseCatalogJSON_TierRoundTrip pins that the JSON loader sets
-// the Tier field correctly; missing tier defaults to 0 (rejected).
-func TestParseCatalogJSON_TierRoundTrip(t *testing.T) {
+// TestParseCatalogJSON_ActorRoundTrip pins that the JSON loader sets
+// the Actor field correctly; missing actor defaults to 0 (rejected).
+func TestParseCatalogJSON_ActorRoundTrip(t *testing.T) {
 	c, err := ParseCatalogJSON([]byte(sampleCatalog))
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 	cj, _ := c.Lookup("chief_justice")
-	if cj.Tier != Tier1Signer {
-		t.Errorf("tier drift: got %s want %s", cj.Tier, Tier1Signer)
+	if cj.Actor != ActorSigner {
+		t.Errorf("actor drift: got %s want %s", cj.Actor, ActorSigner)
 	}
 }
 
-func TestParseCatalogJSON_RejectsMissingTier(t *testing.T) {
+func TestParseCatalogJSON_RejectsMissingActor(t *testing.T) {
 	const noTier = `{"roles":[{
 		"name":"x",
 		"max_duration":"1h",
@@ -234,23 +234,23 @@ func TestParseCatalogJSON_RejectsMissingTier(t *testing.T) {
 		"default_scope":["a"]
 	}]}`
 	_, err := ParseCatalogJSON([]byte(noTier))
-	if err == nil || !strings.Contains(err.Error(), "tier must be one of") {
-		t.Errorf("expected tier-required err, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "actor must be one of") {
+		t.Errorf("expected actor-required err, got: %v", err)
 	}
 }
 
-func TestParseCatalogJSON_RejectsNonTier1(t *testing.T) {
+func TestParseCatalogJSON_RejectsNonSigner(t *testing.T) {
 	const tier2 = `{"roles":[{
 		"name":"attorney",
-		"tier": 2,
+		"actor": 2,
 		"max_duration":"1h",
 		"default_duration":"1h",
 		"allowed_scope":["a"],
 		"default_scope":["a"]
 	}]}`
 	_, err := ParseCatalogJSON([]byte(tier2))
-	if err == nil || !strings.Contains(err.Error(), "tier_2_advocate") {
-		t.Errorf("expected non-tier-1 rejection, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "actor_filer") {
+		t.Errorf("expected non-signer rejection, got: %v", err)
 	}
 }
 

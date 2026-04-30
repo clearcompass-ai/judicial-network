@@ -123,7 +123,7 @@ func TestValidateGrant_WildcardDelegableBy(t *testing.T) {
 	roles := []Role{
 		{
 			Name:            "anyone_can_grant_me",
-			Tier:            Tier1Signer,
+			Actor:           ActorSigner,
 			MaxDuration:     time.Hour,
 			DefaultDuration: time.Hour,
 			AllowedScope:    []string{"a"},
@@ -132,7 +132,7 @@ func TestValidateGrant_WildcardDelegableBy(t *testing.T) {
 		},
 		{
 			Name:            "any_role",
-			Tier:            Tier1Signer,
+			Actor:           ActorSigner,
 			MaxDuration:     time.Hour,
 			DefaultDuration: time.Hour,
 			AllowedScope:    []string{"a"},
@@ -160,18 +160,19 @@ func TestDavidsonRoles_AllValid(t *testing.T) {
 	}
 }
 
-// TestDavidsonRoles_AllTier1 pins that every role in the Davidson
-// fixture is a key-holding Tier 1 role per the v1.3 dictionary.
-// If a future maintainer adds a Tier 2 entry to the catalog, this
-// test fails and the validateRole gate also fires — defense in depth.
-func TestDavidsonRoles_AllTier1(t *testing.T) {
+// TestDavidsonRoles_AllSigners pins that every role in the Davidson
+// fixture is a key-holding ActorSigner per the v1.4 dictionary.
+// If a future maintainer adds an ActorFiler entry to the catalog,
+// this test fails and the validateRole gate also fires — defense
+// in depth.
+func TestDavidsonRoles_AllSigners(t *testing.T) {
 	for _, r := range DavidsonRoles() {
-		if r.Tier != Tier1Signer {
-			t.Errorf("davidson role %q has tier %s; catalog must contain only Tier 1 roles",
-				r.Name, r.Tier)
+		if r.Actor != ActorSigner {
+			t.Errorf("davidson role %q has actor %s; catalog must contain only ActorSigner roles",
+				r.Name, r.Actor)
 		}
-		if !r.Tier.HoldsKeys() {
-			t.Errorf("davidson role %q tier %s claims HoldsKeys=false", r.Name, r.Tier)
+		if !r.Actor.HoldsKeys() {
+			t.Errorf("davidson role %q actor %s claims HoldsKeys=false", r.Name, r.Actor)
 		}
 	}
 }

@@ -22,12 +22,12 @@ func validateRole(r Role) error {
 	if r.Name == "" {
 		return fmt.Errorf("schemas/role_catalog: role name required")
 	}
-	if err := validateTier(r.Tier); err != nil {
+	if err := validateActor(r.Actor); err != nil {
 		return fmt.Errorf("schemas/role_catalog: role %q: %w", r.Name, err)
 	}
-	if r.Tier != Tier1Signer {
-		return fmt.Errorf("schemas/role_catalog: role %q tier=%s; the catalog only lists Tier 1 (key-holding) roles — Tier 2 actors belong in directory.AttorneyRegistry",
-			r.Name, r.Tier.String())
+	if r.Actor != ActorSigner {
+		return fmt.Errorf("schemas/role_catalog: role %q actor=%s; the catalog only lists ActorSigner (key-holding) roles — ActorFiler attestations live in the payload's filed_by_capacity block",
+			r.Name, r.Actor.String())
 	}
 	if r.MaxDuration <= 0 {
 		return fmt.Errorf("schemas/role_catalog: role %q max_duration must be > 0", r.Name)
