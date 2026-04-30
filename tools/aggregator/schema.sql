@@ -98,3 +98,62 @@ CREATE TABLE IF NOT EXISTS scan_watermarks (
     last_position   BIGINT NOT NULL DEFAULT 0,
     last_scan_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 3E.5 — Capacity-aware filings index. One row per (entry, capacity).
+-- The aggregator walks the log, deserializes filed_by_capacity and
+-- signed_by_capacities (defined in schemas/capacity.go), and writes
+-- one row per role appearance so read-side queries can answer:
+--
+--   "Which entries did Filer X file?"  (filed_by_capacity rows)
+--   "Which entries did Signer Y cosign?" (signed_by_capacities rows)
+--
+-- This is a CACHE built from the log; truth lives on-log. Rebuilds
+-- are idempotent: PRIMARY KEY (case_id, log_position, capacity_did,
+-- capacity_kind) prevents duplicates on rescan.
+CREATE TABLE IF NOT EXISTS parties_filings (
+    id              SERIAL PRIMARY KEY,
+    case_id         INTEGER REFERENCES cases(id),
+    log_position    BIGINT NOT NULL,
+    log_did         TEXT NOT NULL,
+
+    -- "filed_by" or "signed_by" — distinguishes the Filer-side
+    -- single capacity block from the Signer-side cosigners list.
+    capacity_kind   TEXT NOT NULL CHECK (capacity_kind IN ('filed_by','signed_by')),
+
+    -- The actor's network DID (attorney_did for Filers; signer DID
+    -- for Signers). For Parties (no DID), the binding_id is stored
+    -- in capacity_binding_id and capacity_did is the empty string.
+    capacity_did    TEXT NOT NULL DEFAULT '',
+
+    -- Closed-set role string from schemas.FilerRole / role_catalog.
+    capacity_role   TEXT NOT NULL,
+
+    -- Optional binding_id reference (Pro Se filings, Party-side
+    -- references). Empty when capacity_did is populated.
+    capacity_binding_id TEXT,
+
+    -- Free-form credentials map (bpr_number, jurisdiction, firm,
+    -- letters_of_administration_ref, appointment_order_ref, etc.).
+    -- Stored as JSONB so the aggregator can index on credential
+    -- values without a separate table.
+    credentials     JSONB,
+
+    -- Event type + case_ref for query convenience. Both copied from
+    -- the parent entry's payload at scan time.
+    event_type      TEXT NOT NULL,
+    case_ref        TEXT,
+
+    sworn_at        TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+
+    UNIQUE (log_did, log_position, capacity_did, capacity_binding_id, capacity_kind)
+);
+
+CREATE INDEX IF NOT EXISTS idx_parties_filings_case ON parties_filings(case_id);
+CREATE INDEX IF NOT EXISTS idx_parties_filings_did ON parties_filings(capacity_did)
+    WHERE capacity_did <> '';
+CREATE INDEX IF NOT EXISTS idx_parties_filings_role ON parties_filings(capacity_role);
+CREATE INDEX IF NOT EXISTS idx_parties_filings_event ON parties_filings(event_type);
+CREATE INDEX IF NOT EXISTS idx_parties_filings_binding
+    ON parties_filings(capacity_binding_id)
+    WHERE capacity_binding_id IS NOT NULL;
