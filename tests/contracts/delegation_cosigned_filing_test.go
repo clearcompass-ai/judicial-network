@@ -3,25 +3,31 @@ FILE PATH: tests/contracts/delegation_cosigned_filing_test.go
 
 DESCRIPTION:
     End-to-end contract tests for the inline two-actor signing
-    pipeline (Phase 3B). Exercises the attorney-filing scenario the
-    v1.3 Event Dictionary describes:
+    pipeline (Phase 3B), reworked per the v1.4 design decision:
+    NO attorney registry. The on-log payload IS the credentials
+    claim. The cosigner DID IS the attestation.
 
-      - A Tier 2 attorney (registered in directory.AttorneyRegistry)
-        cannot sign on their own.
-      - A Clerk (Tier 1) builds the envelope with payload.filed_by =
-        attorney.ID; the Clerk's DID goes in Header.SignerDID and
-        Signatures[0].
-      - A Tier 1 cosigner (typically an Adjudicator) cosigns; their
-        DID lands at Signatures[1].
-      - The operator receives a single envelope with two signatures
-        over the same SigningPayload digest.
+    Filing model the dictionary describes:
+      - The Clerk (ActorSigner) is Header.SignerDID and Signatures[0].
+        In the v1.4 dictionary's words: "every motion or brief is
+        manually hashed and signed to the ledger by a Clerk."
+      - The attorney (ActorFiler) holds their OWN DID (e.g., a
+        Privy embedded wallet). They cosign — Signatures[1].
+      - The payload carries a `filed_by_capacity` block that
+        declares the attorney's role and credentials (BPR number,
+        jurisdiction, firm). The cosigner DID matches
+        filed_by_capacity.did, so the attestation is bound to the
+        identity making the credential claim.
+      - No off-log registry is consulted. The aggregator (Phase 3E)
+        surfaces the capacity claim verbatim from the log.
 
     Pins:
       - 2-signature envelope round-trips through envelope.Deserialize.
-      - Signatures[0].SignerDID == Header.SignerDID == Clerk.
-      - Signatures[1].SignerDID == cosigner DID.
-      - payload.filed_by survives serialization.
+      - Signatures[0] = Clerk (== Header.SignerDID).
+      - Signatures[1] = Attorney (== payload.filed_by_capacity.did).
+      - payload.filed_by_capacity preserves role + credentials.
       - 1-of-N cosigner rejection blocks submission entirely.
+      - SigningPayload digest stable across sign-and-serialize.
 */
 package contracts
 
@@ -30,18 +36,19 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/judicial-network/directory"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
 // ─── helpers ────────────────────────────────────────────────────────
 
-func filingDisplay(filedBy string) *identity.TypedDataDisplay {
+// filingDisplay renders the EIP-712 typed-data the wallet shows to
+// every signer (Clerk + Attorney). Both see the same fields and
+// sign the same digest.
+func filingDisplay(filerDID, bprNumber string) *identity.TypedDataDisplay {
 	return &identity.TypedDataDisplay{
 		Domain: identity.EIP712Domain{
 			Name:    "Judicial Network",
@@ -50,28 +57,39 @@ func filingDisplay(filedBy string) *identity.TypedDataDisplay {
 		},
 		PrimaryType: "AttorneyFiling",
 		Fields: []identity.EIP712Field{
-			{Name: "filed_by", Type: "string", Value: filedBy},
 			{Name: "event_type", Type: "string", Value: "motion_continuance"},
+			{Name: "filed_by_did", Type: "string", Value: filerDID},
+			{Name: "bpr_number", Type: "string", Value: bprNumber},
 		},
 	}
 }
 
-// buildFilingEntry constructs an unsigned envelope with payload
-// carrying filed_by + event_type (the dictionary's discriminator).
-// SignerDID = the Clerk acting on the attorney's behalf.
-func buildFilingEntry(t *testing.T, signerDID, filedBy string) *envelope.Entry {
+// buildFilingEntry constructs the unsigned envelope. SignerDID is
+// the Clerk; the payload carries the filed_by_capacity block that
+// self-describes the attorney filing on their own behalf.
+func buildFilingEntry(t *testing.T, clerkDID, attorneyDID, bprNumber string) *envelope.Entry {
 	t.Helper()
 	auth := envelope.AuthoritySameSigner
 	header := envelope.ControlHeader{
 		Destination:   "did:web:da:davidson-tn",
-		SignerDID:     signerDID,
+		SignerDID:     clerkDID,
 		AuthorityPath: &auth,
 	}
 	payload, _ := json.Marshal(map[string]any{
-		"event_type":  "motion_continuance",
-		"filed_by":    filedBy,
-		"case_ref":    "2027-CV-1234",
+		"event_type":   "motion_continuance",
+		"case_ref":     "2027-CV-1234",
 		"custom_title": "Motion to Reschedule Hearing",
+		"filed_by_capacity": map[string]any{
+			"actor": 2, // ActorFiler
+			"role":  "defense_counsel",
+			"did":   attorneyDID,
+			"credentials": map[string]any{
+				"bpr_number":   bprNumber,
+				"jurisdiction": "TN",
+				"firm":         "Smith & Jones LLP",
+			},
+			"sworn_at": "2027-04-01T10:30:00Z",
+		},
 	})
 	entry, err := envelope.NewUnsignedEntry(header, payload)
 	if err != nil {
@@ -81,7 +99,9 @@ func buildFilingEntry(t *testing.T, signerDID, filedBy string) *envelope.Entry {
 }
 
 // bindKey provisions a fresh secp256k1 key on the StubProvider for
-// the given DID. Returns the public key (used for verification).
+// the given DID. Used for both Tier 1 and Tier 2 actors — Privy
+// gives both classes wallets; what makes a key a "network key" is
+// the on-log delegation chain, not the existence of the keypair.
 func bindKey(t *testing.T, sp *identity.StubProvider, did string) *secp256k1.PublicKey {
 	t.Helper()
 	priv, err := secp256k1.GeneratePrivateKey()
@@ -97,32 +117,23 @@ func bindKey(t *testing.T, sp *identity.StubProvider, did string) *secp256k1.Pub
 func TestCosignedFiling_AttorneyMotion_TwoSignatures(t *testing.T) {
 	f := newFixture(t)
 
-	// Tier 1 actors with bound keys.
+	// Tier 1 Clerk: bound to the contract fixture's IdentityProvider
+	// because they're a network keyholder with a delegation entry.
 	clerkDID := f.provisionKey(t, "did:key:zQ3shCLERK")
-	judgeDID := f.provisionKey(t, "did:key:zQ3shJUDGE")
 
-	// Tier 2 attorney registered in the directory.
-	attorneys := directory.NewInMemoryAttorneys()
-	if err := attorneys.Register(directory.Attorney{
-		ID:        "bar:TN:12345",
-		Alias:     "Jane Smith, Esq.",
-		Type:      directory.AttorneyTypeDefenseCounsel,
-		BarNumber: "TN-12345",
-	}); err != nil {
-		t.Fatalf("attorney Register: %v", err)
-	}
+	// Tier 2 Attorney: also bound to the StubProvider because every
+	// signer needs SignDigest. The attorney has NO delegation entry
+	// and is NOT in the role catalog — only a wallet.
+	attorneyDID := "did:key:zQ3shATTORNEY"
+	bindKey(t, f.identity, attorneyDID)
 
-	att, _ := attorneys.Lookup("bar:TN:12345")
-	if att.Status != directory.AttorneyActive {
-		t.Fatalf("attorney must be active: %s", att.Status)
-	}
-
-	// Clerk builds the entry with attorney.ID in payload.filed_by.
-	entry := buildFilingEntry(t, clerkDID, att.ID)
+	const bprNumber = "TN-12345"
+	entry := buildFilingEntry(t, clerkDID, attorneyDID, bprNumber)
 
 	pos, err := delegation.SignAndSubmitCosigned(context.Background(), f.buildCtx, entry,
-		filingDisplay(att.ID), "Filing motion_continuance for Jane Smith, Esq.",
-		[]string{judgeDID})
+		filingDisplay(attorneyDID, bprNumber),
+		"Filing motion_continuance for "+attorneyDID,
+		[]string{attorneyDID})
 	if err != nil {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
@@ -130,19 +141,19 @@ func TestCosignedFiling_AttorneyMotion_TwoSignatures(t *testing.T) {
 		t.Errorf("position seq drift: %d", pos.Sequence)
 	}
 
-	// Operator received exactly one envelope; deserialize.
+	// Round-trip through envelope.Deserialize.
 	got := f.envelopeAt(t, pos)
 	if got.Header.SignerDID != clerkDID {
 		t.Errorf("primary: got %q want %q", got.Header.SignerDID, clerkDID)
 	}
 	if len(got.Signatures) != 2 {
-		t.Fatalf("Signatures: got %d, want 2", len(got.Signatures))
+		t.Fatalf("Signatures: got %d, want 2 (Clerk + Attorney)", len(got.Signatures))
 	}
 	if got.Signatures[0].SignerDID != clerkDID {
-		t.Errorf("Signatures[0]: %q != clerk %q", got.Signatures[0].SignerDID, clerkDID)
+		t.Errorf("Signatures[0]: %q != Clerk %q", got.Signatures[0].SignerDID, clerkDID)
 	}
-	if got.Signatures[1].SignerDID != judgeDID {
-		t.Errorf("Signatures[1]: %q != judge %q", got.Signatures[1].SignerDID, judgeDID)
+	if got.Signatures[1].SignerDID != attorneyDID {
+		t.Errorf("Signatures[1]: %q != Attorney %q", got.Signatures[1].SignerDID, attorneyDID)
 	}
 	for i, s := range got.Signatures {
 		if s.AlgoID != envelope.SigAlgoECDSA {
@@ -153,34 +164,88 @@ func TestCosignedFiling_AttorneyMotion_TwoSignatures(t *testing.T) {
 		}
 	}
 
-	// Payload preserves filed_by — the aggregator's index column
-	// (Phase 3E) reads this verbatim.
+	// Payload preserves filed_by_capacity exactly; Phase 3E
+	// aggregator reads the whole block verbatim.
 	var payload map[string]any
 	if err := json.Unmarshal(got.DomainPayload, &payload); err != nil {
 		t.Fatalf("payload parse: %v", err)
 	}
-	if payload["filed_by"] != "bar:TN:12345" {
-		t.Errorf("filed_by drift: %v", payload["filed_by"])
+	cap, ok := payload["filed_by_capacity"].(map[string]any)
+	if !ok {
+		t.Fatalf("filed_by_capacity missing or wrong type: %T", payload["filed_by_capacity"])
 	}
-	if payload["event_type"] != "motion_continuance" {
-		t.Errorf("event_type drift: %v", payload["event_type"])
+	// The capacity claim must point at the Attorney's signing DID.
+	// This is the integrity check that ties the credentials claim
+	// to the cryptographic attestation.
+	if cap["did"] != attorneyDID {
+		t.Errorf("capacity.did drift: got %v, want %s", cap["did"], attorneyDID)
+	}
+	if cap["actor"] != float64(2) {
+		t.Errorf("capacity.actor: got %v, want 2 (ActorFiler)", cap["actor"])
+	}
+	if cap["role"] != "defense_counsel" {
+		t.Errorf("capacity.role drift: %v", cap["role"])
+	}
+	creds, _ := cap["credentials"].(map[string]any)
+	if creds["bpr_number"] != bprNumber {
+		t.Errorf("capacity.credentials.bpr_number drift: %v", creds["bpr_number"])
+	}
+}
+
+// TestCosignedFiling_CapacityDIDMatchesCosigner pins the design
+// invariant the Phase 3D verifier will enforce: the DID claimed in
+// payload.filed_by_capacity.did MUST appear in entry.Signatures.
+// Without this, an attorney could be impersonated — anyone could
+// claim "this filing is by Jane Smith Esq." in the payload.
+func TestCosignedFiling_CapacityDIDMatchesCosigner(t *testing.T) {
+	f := newFixture(t)
+	clerkDID := f.provisionKey(t, "did:key:zQ3shCLERK")
+	attorneyDID := "did:key:zQ3shATTORNEY"
+	bindKey(t, f.identity, attorneyDID)
+
+	entry := buildFilingEntry(t, clerkDID, attorneyDID, "TN-12345")
+	pos, err := delegation.SignAndSubmitCosigned(context.Background(), f.buildCtx, entry,
+		filingDisplay(attorneyDID, "TN-12345"), "filing", []string{attorneyDID})
+	if err != nil {
+		t.Fatalf("SignAndSubmitCosigned: %v", err)
+	}
+
+	got := f.envelopeAt(t, pos)
+	var payload map[string]any
+	json.Unmarshal(got.DomainPayload, &payload)
+	cap, _ := payload["filed_by_capacity"].(map[string]any)
+	claimedDID, _ := cap["did"].(string)
+
+	// Walk Signatures looking for the claimed DID. (This is the
+	// shape the Phase 3D verifier will codify.)
+	found := false
+	for _, s := range got.Signatures {
+		if s.SignerDID == claimedDID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("filed_by_capacity.did=%q not present in any Signatures.SignerDID; capacity claim is unsigned",
+			claimedDID)
 	}
 }
 
 // TestCosignedFiling_RejectionBlocksSubmission pins that if any
-// signer (primary OR cosigner) declines, the operator never sees
-// the entry — the wallet's reject is end-to-end.
+// signer (Clerk OR Attorney) declines, the operator never sees the
+// entry — the wallet's reject is end-to-end.
 func TestCosignedFiling_RejectionBlocksSubmission(t *testing.T) {
 	f := newFixture(t)
 	clerkDID := f.provisionKey(t, "did:key:zQ3shCLERK")
-	judgeDID := f.provisionKey(t, "did:key:zQ3shJUDGE")
+	attorneyDID := "did:key:zQ3shATTORNEY"
+	bindKey(t, f.identity, attorneyDID)
 
-	// Judge declines to cosign.
-	f.identity.RejectSigning(judgeDID, true)
+	// The attorney declines to cosign their own filing.
+	f.identity.RejectSigning(attorneyDID, true)
 
-	entry := buildFilingEntry(t, clerkDID, "bar:TN:12345")
+	entry := buildFilingEntry(t, clerkDID, attorneyDID, "TN-12345")
 	_, err := delegation.SignAndSubmitCosigned(context.Background(), f.buildCtx, entry,
-		filingDisplay("bar:TN:12345"), "Filing", []string{judgeDID})
+		filingDisplay(attorneyDID, "TN-12345"), "Filing", []string{attorneyDID})
 	if err == nil {
 		t.Fatal("expected error on cosigner rejection")
 	}
@@ -190,36 +255,8 @@ func TestCosignedFiling_RejectionBlocksSubmission(t *testing.T) {
 	if !errors.Is(err, identity.ErrSignRejected) {
 		t.Errorf("error must wrap identity.ErrSignRejected: %v", err)
 	}
-
-	// Operator captured nothing.
 	if got := len(f.operator.bySeq); got != 0 {
 		t.Errorf("operator must not have any entries; got %d", got)
-	}
-}
-
-// TestCosignedFiling_AttorneyDirectorySuspend pins that a suspended
-// attorney's filings are still cryptographically valid (no sig
-// math changes), but the directory's status is consultable so a
-// future cosignature-mix policy (Phase 3C) can refuse to cosign
-// for a suspended attorney. This test exercises the directory side
-// of the boundary; the policy enforcement lives in 3C.
-func TestCosignedFiling_AttorneySuspendedStatusVisible(t *testing.T) {
-	attorneys := directory.NewInMemoryAttorneys()
-	attorneys.Register(directory.Attorney{
-		ID:        "bar:TN:99999",
-		Alias:     "Suspended Counsel",
-		Type:      directory.AttorneyTypeProsecutor,
-		BarNumber: "TN-99999",
-	})
-	if err := attorneys.Suspend("bar:TN:99999", "ethics_inquiry"); err != nil {
-		t.Fatalf("Suspend: %v", err)
-	}
-	got, _ := attorneys.Lookup("bar:TN:99999")
-	if got.Status != directory.AttorneySuspended {
-		t.Errorf("status: got %q, want suspended", got.Status)
-	}
-	if got.SuspensionReason != "ethics_inquiry" {
-		t.Errorf("reason drift: %q", got.SuspensionReason)
 	}
 }
 
@@ -231,15 +268,14 @@ func TestCosignedFiling_AttorneySuspendedStatusVisible(t *testing.T) {
 func TestCosignedFiling_DigestStableAcrossSigners(t *testing.T) {
 	f := newFixture(t)
 	clerkDID := f.provisionKey(t, "did:key:zQ3shCLERK")
-	judgeDID := f.provisionKey(t, "did:key:zQ3shJUDGE")
+	attorneyDID := "did:key:zQ3shATTORNEY"
+	bindKey(t, f.identity, attorneyDID)
 
-	// Construct the same payload twice; both must produce the
-	// same SigningPayload bytes pre-sign.
-	preEntry := buildFilingEntry(t, clerkDID, "bar:TN:1")
+	preEntry := buildFilingEntry(t, clerkDID, attorneyDID, "TN-1")
 	preDigest := envelope.SigningPayload(preEntry)
 
 	pos, err := delegation.SignAndSubmitCosigned(context.Background(), f.buildCtx, preEntry,
-		filingDisplay("bar:TN:1"), "test", []string{judgeDID})
+		filingDisplay(attorneyDID, "TN-1"), "test", []string{attorneyDID})
 	if err != nil {
 		t.Fatalf("SignAndSubmitCosigned: %v", err)
 	}
@@ -251,34 +287,9 @@ func TestCosignedFiling_DigestStableAcrossSigners(t *testing.T) {
 	}
 }
 
-// TestCosignedFiling_AttorneyTimestamps pins that an Attorney
-// record's CreatedAt is preserved across Suspend/Restore cycles —
-// audit trails see the original onboarding date even as status
-// fluctuates.
-func TestCosignedFiling_AttorneyTimestamps(t *testing.T) {
-	attorneys := directory.NewInMemoryAttorneys()
-	attorneys.Register(directory.Attorney{
-		ID:    "bar:TN:1",
-		Alias: "X",
-		Type:  directory.AttorneyTypeProsecutor,
-	})
-	original, _ := attorneys.Lookup("bar:TN:1")
-	time.Sleep(time.Millisecond)
-	attorneys.Suspend("bar:TN:1", "review")
-	time.Sleep(time.Millisecond)
-	attorneys.Restore("bar:TN:1")
-
-	got, _ := attorneys.Lookup("bar:TN:1")
-	if !got.CreatedAt.Equal(original.CreatedAt) {
-		t.Errorf("CreatedAt mutated: was %v, now %v", original.CreatedAt, got.CreatedAt)
-	}
-	if !got.UpdatedAt.After(original.UpdatedAt) {
-		t.Errorf("UpdatedAt did not advance through Suspend+Restore")
-	}
-}
-
-// Sanity check that bindKey returns a usable pubkey object — keeps
-// the helper from being unused.
+// TestCosignedFiling_BindKeyHelper is a sanity check that bindKey
+// returns a usable pubkey object — keeps the helper from being
+// flagged as dead code.
 func TestCosignedFiling_BindKeyHelper(t *testing.T) {
 	sp := identity.NewStubProvider()
 	pub := bindKey(t, sp, "did:key:zQ3shA")
