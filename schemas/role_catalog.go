@@ -68,6 +68,17 @@ type Role struct {
 	// Name is the catalog key. Required, must equal map key.
 	Name string `json:"name"`
 
+	// Tier classifies the role per the v1.3 Event Dictionary. The
+	// catalog only lists Tier 1 (key-holding) roles by design —
+	// Tier 2 actors live in directory.AttorneyRegistry, Tier 3
+	// actors in payload party_binding entries. validateRole
+	// rejects Roles whose Tier is not Tier1Signer.
+	//
+	// Stored as an int via the schemas.Tier alias so the JSON
+	// loader accepts plain numbers ({"tier": 1}) without a custom
+	// unmarshaller.
+	Tier Tier `json:"tier"`
+
 	// Description is human-readable; recorded only in the catalog,
 	// not on-log.
 	Description string `json:"description,omitempty"`

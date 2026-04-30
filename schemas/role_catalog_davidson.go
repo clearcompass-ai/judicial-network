@@ -4,16 +4,21 @@ FILE PATH: schemas/role_catalog_davidson.go
 DESCRIPTION:
     Reference role catalog for the Davidson County deployment.
     Production deployments load their own catalog file but typically
-    start from this template. Tests exercise the four-hop hierarchy:
+    start from this template. Every role here is Tier 1 per the
+    v1.3 Event Dictionary — the catalog only lists key-holding roles.
+
+    Hierarchy:
 
       institutional_did ── grants ──> chief_justice (depth 0→1)
       chief_justice     ── grants ──> judge (depth 1→2)
+      chief_justice     ── grants ──> court_reporter (depth 1→2)
       judge             ── grants ──> court_clerk (depth 2→3)
       judge             ── grants ──> deputy_judge (depth 2→3)
       court_clerk       ── grants ──> court_staff (depth 3→4)
 
     Scope tokens follow the convention "verb:object", e.g.
-    "case_filing", "invite:judge", "revoke:any".
+    "case_filing", "invite:judge", "revoke:any",
+    "transcript_publication".
 
 OVERVIEW:
     DavidsonRoles      — slice of Role definitions.
@@ -34,6 +39,7 @@ func DavidsonRoles() []Role {
 	return []Role{
 		{
 			Name:            "chief_justice",
+			Tier:            Tier1Signer, // Adjudicator
 			Description:     "Top-of-chain authority for the court. Granted only by the institutional DID's Authority_Set.",
 			MaxDuration:     8 * year,
 			DefaultDuration: 4 * year,
@@ -44,8 +50,10 @@ func DavidsonRoles() []Role {
 				"invite:judge",
 				"invite:court_clerk",
 				"invite:deputy_judge",
+				"invite:court_reporter",
 				"revoke:any",
 				"administrative",
+				"transcript_publication", // catalog universe; CJ delegates to reporter
 			},
 			DefaultScope: []string{
 				"case_filing",
@@ -54,6 +62,7 @@ func DavidsonRoles() []Role {
 				"invite:judge",
 				"invite:court_clerk",
 				"invite:deputy_judge",
+				"invite:court_reporter",
 				"revoke:any",
 				"administrative",
 			},
@@ -65,12 +74,15 @@ func DavidsonRoles() []Role {
 				"invite:judge",
 				"invite:court_clerk",
 				"invite:deputy_judge",
+				"invite:court_reporter",
 				"revoke:any",
 				"administrative",
+				"transcript_publication", // for grants to court_reporter
 			},
 		},
 		{
 			Name:            "judge",
+			Tier:            Tier1Signer, // Adjudicator
 			Description:     "Sitting judge. Issues case decisions and may delegate to a clerk or deputy.",
 			MaxDuration:     8 * year,
 			DefaultDuration: 4 * year,
@@ -98,6 +110,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "deputy_judge",
+			Tier:            Tier1Signer, // Adjudicator
 			Description:     "Deputy judge sitting for the granter. Decisions are valid for the granter's term.",
 			MaxDuration:     2 * year,
 			DefaultDuration: year,
@@ -116,6 +129,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "court_clerk",
+			Tier:            Tier1Signer, // Clerk
 			Description:     "Court clerk. Files cases and manages the docket but does not issue decisions.",
 			MaxDuration:     4 * year,
 			DefaultDuration: 2 * year,
@@ -137,6 +151,7 @@ func DavidsonRoles() []Role {
 		},
 		{
 			Name:            "court_staff",
+			Tier:            Tier1Signer, // Deputy Clerk
 			Description:     "Court staff. Limited filing access. Cannot delegate.",
 			MaxDuration:     2 * year,
 			DefaultDuration: year,
@@ -148,6 +163,21 @@ func DavidsonRoles() []Role {
 			},
 			DelegableBy:    []string{"court_clerk"},
 			DelegableScope: nil,
+		},
+		{
+			Name:            "court_reporter",
+			Tier:            Tier1Signer, // Court Reporter
+			Description:     "Court reporter. Specialized cryptographic key used strictly to publish, encrypt, and sign certified hearing and trial transcripts.",
+			MaxDuration:     4 * year,
+			DefaultDuration: 2 * year,
+			AllowedScope: []string{
+				"transcript_publication",
+			},
+			DefaultScope: []string{
+				"transcript_publication",
+			},
+			DelegableBy:    []string{"chief_justice"},
+			DelegableScope: nil, // reporters do not re-delegate
 		},
 	}
 }

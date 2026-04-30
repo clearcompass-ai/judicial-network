@@ -123,6 +123,7 @@ func TestValidateGrant_WildcardDelegableBy(t *testing.T) {
 	roles := []Role{
 		{
 			Name:            "anyone_can_grant_me",
+			Tier:            Tier1Signer,
 			MaxDuration:     time.Hour,
 			DefaultDuration: time.Hour,
 			AllowedScope:    []string{"a"},
@@ -131,6 +132,7 @@ func TestValidateGrant_WildcardDelegableBy(t *testing.T) {
 		},
 		{
 			Name:            "any_role",
+			Tier:            Tier1Signer,
 			MaxDuration:     time.Hour,
 			DefaultDuration: time.Hour,
 			AllowedScope:    []string{"a"},
@@ -155,6 +157,54 @@ func TestDavidsonRoles_AllValid(t *testing.T) {
 		if err := validateRole(r); err != nil {
 			t.Errorf("davidson role %q invalid: %v", r.Name, err)
 		}
+	}
+}
+
+// TestDavidsonRoles_AllTier1 pins that every role in the Davidson
+// fixture is a key-holding Tier 1 role per the v1.3 dictionary.
+// If a future maintainer adds a Tier 2 entry to the catalog, this
+// test fails and the validateRole gate also fires — defense in depth.
+func TestDavidsonRoles_AllTier1(t *testing.T) {
+	for _, r := range DavidsonRoles() {
+		if r.Tier != Tier1Signer {
+			t.Errorf("davidson role %q has tier %s; catalog must contain only Tier 1 roles",
+				r.Name, r.Tier)
+		}
+		if !r.Tier.HoldsKeys() {
+			t.Errorf("davidson role %q tier %s claims HoldsKeys=false", r.Name, r.Tier)
+		}
+	}
+}
+
+// TestDavidsonRoles_CourtReporterPresent pins that the Davidson
+// fixture covers the dictionary's Tier 1 categories — Adjudicators,
+// Clerks, Court Reporters. Adding court_reporter as part of Phase 3A.
+func TestDavidsonRoles_CourtReporterPresent(t *testing.T) {
+	c := MustDavidsonCatalog()
+	r, err := c.Lookup("court_reporter")
+	if err != nil {
+		t.Fatalf("court_reporter missing from Davidson fixture: %v", err)
+	}
+	want := []string{"transcript_publication"}
+	if len(r.AllowedScope) != 1 || r.AllowedScope[0] != want[0] {
+		t.Errorf("court_reporter AllowedScope drift: got %v want %v",
+			r.AllowedScope, want)
+	}
+	if len(r.DelegableBy) != 1 || r.DelegableBy[0] != "chief_justice" {
+		t.Errorf("court_reporter must be granted only by chief_justice, got DelegableBy=%v",
+			r.DelegableBy)
+	}
+}
+
+// TestDavidsonRoles_CJCanGrantCourtReporter pins the CJ → court_reporter
+// path through the catalog: CJ.DelegableScope must contain
+// transcript_publication so ValidateGrant accepts the issuance.
+func TestDavidsonRoles_CJCanGrantCourtReporter(t *testing.T) {
+	c := MustDavidsonCatalog()
+	err := c.ValidateGrant("chief_justice", "court_reporter",
+		[]string{"transcript_publication"}, 2*365*24*time.Hour)
+	if err != nil {
+		t.Errorf("CJ → court_reporter should be permitted: %v", err)
 	}
 }
 
