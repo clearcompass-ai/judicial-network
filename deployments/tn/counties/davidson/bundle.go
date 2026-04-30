@@ -57,13 +57,33 @@ func (b *bundle) RoleCatalog() schemas.RoleCatalog                 { return b.ca
 func (b *bundle) CosignaturePolicy() policy.CosignatureMixPolicy   { return b.cosig }
 func (b *bundle) PrerequisitePolicy() prerequisites.Policy         { return b.preqs }
 
+// authorityChainResolver is the package-level wiring point for
+// the production verifier-backed resolver. Defaults to
+// NoAuthorityChainResolver() so tests and the in-tree
+// MustBundle() factory work out-of-the-box without a fetcher
+// dependency. Production deployments call
+// SetAuthorityChainResolver(resolver) at boot — typically with
+// a verification.NewBundleChainResolver(catalog, fetcher,
+// leafReader) — before registering the Bundle.
+var authorityChainResolver jurisdiction.AuthorityChainResolver = jurisdiction.NoAuthorityChainResolver()
+
+// SetAuthorityChainResolver injects a production resolver. Pass
+// nil to revert to the closed-by-default placeholder.
+// Production callers wire this once at boot, before
+// registry.Register(MustBundle()).
+func SetAuthorityChainResolver(r jurisdiction.AuthorityChainResolver) {
+	if r == nil {
+		authorityChainResolver = jurisdiction.NoAuthorityChainResolver()
+		return
+	}
+	authorityChainResolver = r
+}
+
 // AuthorityChainResolver returns Davidson's per-jurisdiction
-// delegation chain walker. v0.5.0 wires NoAuthorityChainResolver
-// as a closed-by-default placeholder; the production verifier-
-// backed resolver lands when the CheckCosignature/Walker
-// refactor (3E.3) wires the registry through.
+// delegation chain walker. Defaults to closed-by-default; the
+// production resolver is wired via SetAuthorityChainResolver.
 func (b *bundle) AuthorityChainResolver() jurisdiction.AuthorityChainResolver {
-	return jurisdiction.NoAuthorityChainResolver()
+	return authorityChainResolver
 }
 
 // AppellateVocabulary returns the empty TN-trial appellate vocab.

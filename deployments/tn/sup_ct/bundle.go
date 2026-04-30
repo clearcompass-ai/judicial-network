@@ -38,8 +38,22 @@ func (b *bundle) RoleCatalog() schemas.RoleCatalog               { return b.cata
 func (b *bundle) CosignaturePolicy() policy.CosignatureMixPolicy { return b.cosig }
 func (b *bundle) PrerequisitePolicy() prerequisites.Policy       { return b.preqs }
 
+// authorityChainResolver is the package-level wiring point for
+// the production verifier-backed resolver. Defaults to closed-
+// by-default; production calls SetAuthorityChainResolver at boot.
+var authorityChainResolver jurisdiction.AuthorityChainResolver = jurisdiction.NoAuthorityChainResolver()
+
+// SetAuthorityChainResolver injects a production resolver.
+func SetAuthorityChainResolver(r jurisdiction.AuthorityChainResolver) {
+	if r == nil {
+		authorityChainResolver = jurisdiction.NoAuthorityChainResolver()
+		return
+	}
+	authorityChainResolver = r
+}
+
 func (b *bundle) AuthorityChainResolver() jurisdiction.AuthorityChainResolver {
-	return jurisdiction.NoAuthorityChainResolver()
+	return authorityChainResolver
 }
 
 func (b *bundle) AppellateVocabulary() jurisdiction.AppellateVocab {
