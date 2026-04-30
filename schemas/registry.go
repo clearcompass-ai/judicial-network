@@ -100,6 +100,7 @@ func (r *Registry) registerAll() {
 	r.Register(partyBindingRegistration())
 	r.Register(partyBindingSealedRegistration())
 	r.Register(counselAppearanceRegistration())
+	r.Register(opinionPublicationRegistration())
 	r.Register(sealingOrderRegistration())
 	r.Register(keyAttestationRegistration())
 	r.Register(judicialDelegationRegistration())
