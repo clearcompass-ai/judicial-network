@@ -43,10 +43,9 @@ func TestRoles_AllSigners(t *testing.T) {
 
 func TestRoles_v18ActorAlignment(t *testing.T) {
 	want := map[string]bool{
-		"chief_judge":  true,
-		"judge":        true,
-		"court_clerk":  true,
-		"deputy_clerk": true,
+		"chief_judge": true,
+		"judge":       true,
+		"court_clerk": true,
 	}
 	got := map[string]bool{}
 	for _, r := range Roles() {
@@ -64,17 +63,18 @@ func TestRoles_v18ActorAlignment(t *testing.T) {
 	}
 }
 
-// TestRoles_NoTrialOnlyActors pins the absence of trial-court
-// roles (chancellor, magistrate, court_staff, court_reporter).
-// COA is appellate; those have no place here.
-func TestRoles_NoTrialOnlyActors(t *testing.T) {
+// TestRoles_NoNonV18Actors pins the absence of every actor name
+// that does not belong in COA: trial-only (chancellor,
+// magistrate, court_staff, court_reporter, chief_justice,
+// deputy_judge) and the dropped deputy_clerk distinction.
+func TestRoles_NoNonV18Actors(t *testing.T) {
 	c := MustRoleCatalog()
 	for _, name := range []string{
 		"chancellor", "magistrate", "court_staff", "court_reporter",
-		"chief_justice", "deputy_judge",
+		"chief_justice", "deputy_judge", "deputy_clerk",
 	} {
 		if _, err := c.Lookup(name); err == nil {
-			t.Errorf("trial-only role %q must not appear in COA catalog", name)
+			t.Errorf("non-v1.8 role %q must not appear in COA catalog", name)
 		}
 	}
 }
@@ -100,9 +100,6 @@ func TestRoles_HierarchyChainable(t *testing.T) {
 		{"chief_judge", "court_clerk",
 			[]string{"case_filing", "docket_management"},
 			2 * year},
-		{"court_clerk", "deputy_clerk",
-			[]string{"case_filing", "docket_management"},
-			year},
 	}
 	for _, s := range steps {
 		if err := c.ValidateGrant(s.granter, s.grantee, s.scope, s.duration); err != nil {
@@ -171,7 +168,7 @@ func TestMustRoleCatalog_IndependentCalls(t *testing.T) {
 }
 
 func TestRoles_ExpectedCount(t *testing.T) {
-	const want = 4 // chief_judge, judge, court_clerk, deputy_clerk
+	const want = 3 // chief_judge, judge, court_clerk (deputy_clerk merged)
 	if got := len(Roles()); got != want {
 		t.Errorf("TN COA role count: want %d, got %d", want, got)
 	}

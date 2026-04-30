@@ -8,12 +8,11 @@ DESCRIPTION:
     are issued by three-judge panels; the catalog enumerates
     the Signer roles that hold keys at the COA exchange.
 
-    Role hierarchy:
+    Role hierarchy (3 roles after Clerk/Deputy-Clerk merge):
 
       institutional_did ── grants ──> chief_judge (depth 0→1)
       chief_judge       ── grants ──> judge (depth 1→2)
       chief_judge       ── grants ──> court_clerk (depth 1→2)
-      court_clerk       ── grants ──> deputy_clerk (depth 2→3)
 
     Scope tokens at the COA differ from trial:
       - opinion_publication   — author opinions, mint opinion_id
@@ -24,7 +23,7 @@ DESCRIPTION:
       - docket_management     — clerk routine
 
 OVERVIEW:
-    Roles            — slice of Role definitions (4 roles).
+    Roles            — slice of Role definitions (3 roles).
     MustRoleCatalog  — convenience constructor (panics on error).
 
 KEY DEPENDENCIES:
@@ -40,8 +39,10 @@ import (
 )
 
 // Roles is the TN Court of Appeals reference role catalog.
-// Different from trial: no chancellor / magistrate / court_staff;
-// adds deputy_clerk per v1.8 Authority Summary.
+// Three Signer roles: chief_judge (presiding), judge, court_clerk.
+// Deputy-Clerk merges into court_clerk per the simplification
+// directive — the cryptographic surface is identical and the
+// HR distinction does not need to live on the log.
 func Roles() []schemas.Role {
 	day := 24 * time.Hour
 	year := 365 * day
@@ -108,13 +109,12 @@ func Roles() []schemas.Role {
 		{
 			Name:            "court_clerk",
 			Actor:           schemas.ActorSigner,
-			Description:     "Court of Appeals clerk. Files appellate cases (appellate_case_initiation), records remand_affirmance, and may delegate to a deputy clerk.",
+			Description:     "Court of Appeals clerk. Files appellate cases (appellate_case_initiation), records remand_affirmance, manages the appellate docket. Subsumes deputy-clerk distinction.",
 			MaxDuration:     4 * year,
 			DefaultDuration: 2 * year,
 			AllowedScope: []string{
 				"case_filing",
 				"docket_management",
-				"invite:deputy_clerk",
 			},
 			DefaultScope: []string{
 				"case_filing",
@@ -124,25 +124,7 @@ func Roles() []schemas.Role {
 			DelegableScope: []string{
 				"case_filing",
 				"docket_management",
-				"invite:deputy_clerk",
 			},
-		},
-		{
-			Name:            "deputy_clerk",
-			Actor:           schemas.ActorSigner,
-			Description:     "Deputy Court of Appeals clerk. Limited filing access. Cannot delegate.",
-			MaxDuration:     2 * year,
-			DefaultDuration: year,
-			AllowedScope: []string{
-				"case_filing",
-				"docket_management",
-			},
-			DefaultScope: []string{
-				"case_filing",
-				"docket_management",
-			},
-			DelegableBy:    []string{"court_clerk"},
-			DelegableScope: nil,
 		},
 	}
 }
