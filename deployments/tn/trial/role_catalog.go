@@ -5,33 +5,28 @@ DESCRIPTION:
     TN trial-court framework — Signer role catalog shared by
     every Tennessee county exchange (Davidson, Shelby, Knox,
     Hamilton, …). Each county composes its Bundle from this
-    framework plus its own ExchangeDID; the role definitions are
-    identical across counties.
+    framework plus its own ExchangeDID; the role definitions
+    are identical across counties.
 
-    Hierarchy (current — actor cleanup tracked separately,
-    aligns with v1.8 in a follow-on commit):
+    Three Signer roles per the v1.8 Authority Summary:
 
-      institutional_did ── grants ──> chief_justice (depth 0→1)
-      chief_justice     ── grants ──> judge (depth 1→2)
-      chief_justice     ── grants ──> court_reporter (depth 1→2)
-      judge             ── grants ──> court_clerk (depth 2→3)
-      judge             ── grants ──> deputy_judge (depth 2→3)
-      court_clerk       ── grants ──> court_staff (depth 3→4)
+      institutional_did ── grants ──> judge          (depth 0→1)
+      judge             ── grants ──> court_clerk    (depth 1→2)
+      judge             ── grants ──> court_reporter (depth 1→2)
+
+    Adjudicator subtypes (Magistrate, Chancellor, Justice) are
+    modeled as scope+division concerns inside the `judge` role,
+    not as separate role names. Clerk and Deputy Clerk collapse
+    to a single `court_clerk` — the cryptographic surface is
+    identical, deputy is an HR distinction the log does not need
+    to record.
 
     Scope tokens follow the convention "verb:object", e.g.
-    "case_filing", "invite:judge", "revoke:any",
+    "case_filing", "invite:court_clerk", "revoke:downstream",
     "transcript_publication".
 
-    NOTE: This file was lifted (from
-    deployments/davidson_county/rules/role_catalog.go) into the
-    shared TN trial framework so multi-county deployments can
-    reuse it. v1.8 actor alignment (drop court_staff, rename
-    deputy_judge → magistrate, drop chief_justice from trial,
-    add deputy_clerk) lands in a follow-on commit so the move
-    is reviewable as a pure relocation.
-
 OVERVIEW:
-    Roles            — slice of Role definitions.
+    Roles            — slice of Role definitions (3 roles).
     MustRoleCatalog  — convenience constructor (panics on error).
 
 KEY DEPENDENCIES:
@@ -46,27 +41,25 @@ import (
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// Roles is the TN trial-court reference role catalog. Shared by
-// every TN county exchange.
+// Roles is the TN trial-court reference role catalog. Three
+// Signer roles cover every event the trial framework records.
 func Roles() []schemas.Role {
 	day := 24 * time.Hour
 	year := 365 * day
 	return []schemas.Role{
 		{
-			Name:            "chief_justice",
+			Name:            "judge",
 			Actor:           schemas.ActorSigner,
-			Description:     "Top-of-chain authority for the court. Granted only by the institutional DID's Authority_Set.",
+			Description:     "Sitting trial-court judge. Top-of-chain authority within the exchange. Granted only by the institutional DID's Authority_Set. Scope covers case decisions and delegation to clerks and court reporters.",
 			MaxDuration:     8 * year,
 			DefaultDuration: 4 * year,
 			AllowedScope: []string{
 				"case_filing",
 				"case_decision",
 				"docket_management",
-				"invite:judge",
 				"invite:court_clerk",
-				"invite:deputy_judge",
 				"invite:court_reporter",
-				"revoke:any",
+				"revoke:downstream",
 				"administrative",
 				"transcript_publication",
 			},
@@ -74,11 +67,9 @@ func Roles() []schemas.Role {
 				"case_filing",
 				"case_decision",
 				"docket_management",
-				"invite:judge",
 				"invite:court_clerk",
-				"invite:deputy_judge",
 				"invite:court_reporter",
-				"revoke:any",
+				"revoke:downstream",
 				"administrative",
 			},
 			DelegableBy: nil,
@@ -86,98 +77,32 @@ func Roles() []schemas.Role {
 				"case_filing",
 				"case_decision",
 				"docket_management",
-				"invite:judge",
 				"invite:court_clerk",
-				"invite:deputy_judge",
 				"invite:court_reporter",
-				"revoke:any",
+				"revoke:downstream",
 				"administrative",
 				"transcript_publication",
 			},
 		},
 		{
-			Name:            "judge",
-			Actor:           schemas.ActorSigner,
-			Description:     "Sitting judge. Issues case decisions and may delegate to a clerk or deputy.",
-			MaxDuration:     8 * year,
-			DefaultDuration: 4 * year,
-			AllowedScope: []string{
-				"case_filing",
-				"case_decision",
-				"docket_management",
-				"invite:court_clerk",
-				"invite:deputy_judge",
-				"revoke:downstream",
-			},
-			DefaultScope: []string{
-				"case_filing",
-				"case_decision",
-				"docket_management",
-			},
-			DelegableBy: []string{"chief_justice"},
-			DelegableScope: []string{
-				"case_filing",
-				"docket_management",
-				"invite:court_clerk",
-				"invite:deputy_judge",
-				"revoke:downstream",
-			},
-		},
-		{
-			Name:            "deputy_judge",
-			Actor:           schemas.ActorSigner,
-			Description:     "Deputy judge sitting for the granter. Decisions are valid for the granter's term.",
-			MaxDuration:     2 * year,
-			DefaultDuration: year,
-			AllowedScope: []string{
-				"case_filing",
-				"case_decision",
-				"docket_management",
-			},
-			DefaultScope: []string{
-				"case_filing",
-				"case_decision",
-				"docket_management",
-			},
-			DelegableBy:    []string{"judge"},
-			DelegableScope: nil,
-		},
-		{
 			Name:            "court_clerk",
 			Actor:           schemas.ActorSigner,
-			Description:     "Court clerk. Files cases and manages the docket but does not issue decisions.",
+			Description:     "Court clerk. Files cases and manages the docket; cosigner for filer-driven motions; does not issue case decisions. Subsumes the deputy-clerk distinction (no separate deputy_clerk role).",
 			MaxDuration:     4 * year,
 			DefaultDuration: 2 * year,
 			AllowedScope: []string{
 				"case_filing",
 				"docket_management",
-				"invite:court_staff",
 			},
 			DefaultScope: []string{
 				"case_filing",
 				"docket_management",
 			},
-			DelegableBy: []string{"chief_justice", "judge"},
+			DelegableBy: []string{"judge"},
 			DelegableScope: []string{
 				"case_filing",
 				"docket_management",
-				"invite:court_staff",
 			},
-		},
-		{
-			Name:            "court_staff",
-			Actor:           schemas.ActorSigner,
-			Description:     "Court staff. Limited filing access. Cannot delegate.",
-			MaxDuration:     2 * year,
-			DefaultDuration: year,
-			AllowedScope: []string{
-				"case_filing",
-			},
-			DefaultScope: []string{
-				"case_filing",
-			},
-			DelegableBy:    []string{"court_clerk"},
-			DelegableScope: nil,
 		},
 		{
 			Name:            "court_reporter",
@@ -191,7 +116,7 @@ func Roles() []schemas.Role {
 			DefaultScope: []string{
 				"transcript_publication",
 			},
-			DelegableBy:    []string{"chief_justice"},
+			DelegableBy:    []string{"judge"},
 			DelegableScope: nil,
 		},
 	}
