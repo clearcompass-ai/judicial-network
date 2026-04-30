@@ -52,7 +52,6 @@ const (
 	SchemaJuvenileCaseV1       = "tn-juvenile-case-v1"
 	SchemaEvidenceArtifactV1   = "tn-evidence-artifact-v1"
 	SchemaDisclosureOrderV1    = "tn-disclosure-order-v1"
-	SchemaCourtOfficerV1       = "tn-court-officer-v1"
 	SchemaPartyBindingV1       = "tn-party-binding-v1"
 	SchemaPartyBindingSealedV1 = "tn-party-binding-sealed-v1"
 	SchemaSealingOrderV1       = "tn-sealing-order-v1"
@@ -97,7 +96,6 @@ func (r *Registry) registerAll() {
 	r.Register(juvenileCaseRegistration())
 	r.Register(evidenceArtifactRegistration())
 	r.Register(disclosureOrderRegistration())
-	r.Register(courtOfficerRegistration())
 	r.Register(shardGenesisRegistration())
 	r.Register(partyBindingRegistration())
 	r.Register(partyBindingSealedRegistration())

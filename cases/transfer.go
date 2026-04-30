@@ -23,7 +23,6 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 
-	"github.com/clearcompass-ai/judicial-network/delegation"
 )
 
 // DivisionTransferConfig configures an intra-county division transfer.
@@ -142,24 +141,18 @@ func TransferCounty(
 		SourceAmendment: amendment,
 	}
 
-	// DRIFT 2 FIX: Build delegation mirrors for the target county log.
-	// The target county needs to know which officers from the source county
-	// have authority over the transferred case.
-	if !cfg.OfficersRootPos.IsNull() && cfg.MirrorSignerDID != "" && cfg.SourceLogDID != "" {
-		mirrors, mErr := delegation.BulkMirrorSync(
-			cfg.OfficersRootPos,
-			cfg.MirrorSignerDID,
-			cfg.SourceLogDID,
-			builderFetcher,
-			leafReader,
-			querier,
-			cfg.EventTime,
-		)
-		if mErr == nil {
-			result.DelegationMirrors = mirrors
-		}
-		// Non-fatal: mirrors are informational. Transfer proceeds without them.
-	}
+	// Cross-log delegation mirroring lived in delegation.BulkMirrorSync,
+	// which was removed in Phase 3D.cleanup-2 along with the legacy
+	// delegation/mirror.go + roster_sync.go. The unified
+	// delegation.Issue + judicial-delegation-v1 schema now drive
+	// every delegation entry; cross-exchange mirroring will be
+	// reimplemented atop them as part of the v1.6 §16
+	// `mirror_creation` event work. Until then, transfer proceeds
+	// without delegation mirrors — which the original implementation
+	// already treated as best-effort.
+	_ = builderFetcher
+	_ = leafReader
+	_ = querier
 
 	return result, nil
 }

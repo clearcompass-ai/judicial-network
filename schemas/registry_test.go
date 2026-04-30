@@ -5,9 +5,11 @@ import (
 	"testing"
 )
 
-// ─── Unit: Registry contains all 15 schemas ─────────────────────────
+// ─── Unit: Registry contains all 14 schemas ─────────────────────────
+// (court_officer removed in Phase 3D.cleanup-2 — the unified
+// judicial-delegation-v1 supersedes it.)
 
-func TestRegistry_ContainsAll15Schemas(t *testing.T) {
+func TestRegistry_ContainsAll14Schemas(t *testing.T) {
 	r := NewRegistry()
 
 	expected := []string{
@@ -17,7 +19,6 @@ func TestRegistry_ContainsAll15Schemas(t *testing.T) {
 		SchemaJuvenileCaseV1,
 		SchemaEvidenceArtifactV1,
 		SchemaDisclosureOrderV1,
-		SchemaCourtOfficerV1,
 		SchemaPartyBindingV1,
 		SchemaPartyBindingSealedV1,
 		SchemaSealingOrderV1,

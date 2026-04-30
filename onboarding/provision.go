@@ -218,12 +218,15 @@ func officerTargetsLog(officer InitialOfficer, logDID string) bool {
 	return false
 }
 
-// buildOfficerScopeLimit produces the scope_limit JSON payload for a
-// delegation entry following the tn-court-officer-v1 schema conventions.
+// buildOfficerScopeLimit produces the scope_limit JSON payload for
+// a delegation entry. Inlines the role+division shape directly;
+// the legacy tn-court-officer-v1 payload type was removed in
+// Phase 3D.cleanup-2 — the unified judicial-delegation-v1 schema
+// is now the only delegation payload format.
 func buildOfficerScopeLimit(officer InitialOfficer) []byte {
-	payload, _ := json.Marshal(schemas.CourtOfficerPayload{
-		Role:     officer.Role,
-		Division: officer.Division,
+	payload, _ := json.Marshal(map[string]any{
+		"role":     officer.Role,
+		"division": officer.Division,
 	})
 	return payload
 }

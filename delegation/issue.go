@@ -4,8 +4,8 @@ FILE PATH: delegation/issue.go
 DESCRIPTION:
     IssueDelegation — the canonical write path for the unified
     judicial-delegation-v1 entry type. Replaces the role-specific
-    DelegateJudge / DelegateClerk / DelegateDeputy builders with one
-    function whose role is data, not code.
+    legacy role-specific builders with one function whose role is
+    data, not code.
 
     The flow:
 
