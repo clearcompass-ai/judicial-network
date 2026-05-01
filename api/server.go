@@ -54,6 +54,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
+	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 )
 
@@ -92,6 +93,20 @@ type Config struct {
 	// composer feeds into BuildHandler on each constituent package.
 	Exchange     exchange.ServerConfig
 	Verification verification.ServerConfig
+
+	// Auth is the optional composer-level authenticator. When set,
+	// every request to /v1/* is wrapped — the authenticator must
+	// either authenticate the caller (success → callerDID injected
+	// into request context via middleware.WithCallerDID; downstream
+	// handler sees it via middleware.CallerDIDFromContext) or write
+	// a 401 response. /healthz is NEVER wrapped: liveness probes do
+	// not authenticate.
+	//
+	// Concrete impls in api/middleware: MTLSAuth, *JWTAuth.
+	//
+	// nil → no composer-level auth (constituent handlers may still
+	// have their own per-handler auth, e.g., api/exchange/auth.SignerAuth).
+	Auth middleware.Authenticator
 
 	// ReadTimeout / WriteTimeout / IdleTimeout cap each request's
 	// lifecycle. Empty/zero values default to safe production values.
@@ -140,6 +155,15 @@ func NewServer(cfg Config) (*Server, error) {
 	// internal route registration; the parent mux delegates by prefix.
 	exchHandler := exchange.BuildHandler(cfg.Exchange)
 	verifyHandler := verification.BuildHandler(cfg.Verification)
+
+	// Composer-level auth wraps every /v1/* delegated handler. When
+	// cfg.Auth is nil (e.g., dev / test) the handlers run unwrapped.
+	// /healthz is registered separately below and is NEVER wrapped —
+	// liveness probes don't authenticate.
+	if cfg.Auth != nil {
+		exchHandler = cfg.Auth.Wrap(exchHandler)
+		verifyHandler = cfg.Auth.Wrap(verifyHandler)
+	}
 
 	// Order of registration is irrelevant for net/http.ServeMux —
 	// longest-matching-prefix wins. /v1/verify/ is more specific than
