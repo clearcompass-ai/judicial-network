@@ -2,14 +2,20 @@
 FILE PATH: api/exchange/auth/nonce_factory_test.go
 
 DESCRIPTION:
-    Coverage for the NonceStore factory and the new strict-forever
-    semantics. Tests three things:
+    Coverage for the NonceStore factory and the strict-forever
+    semantics. Tests four things:
 
     1. The factory selects the right SDK backend per cfg.Backend.
-    2. The freshness window is independent of replay tracking — stale
+    2. The factory's per-destination namespace works — two destinations
+       sharing the same backend connection do NOT collide on identical
+       nonce values.
+    3. The freshness window is independent of replay tracking — stale
        timestamps fail before reservation.
-    3. The strict-forever contract holds: a once-reserved nonce stays
+    4. The strict-forever contract holds: a once-reserved nonce stays
        reserved forever (no TTL pruning behind our back).
+
+    Redis-backed paths exercise an in-process miniredis so the tests
+    are hermetic — no Docker, no external Redis required.
 */
 package auth
 
@@ -17,8 +23,13 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 
 	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
 )
@@ -224,5 +235,274 @@ func TestNonceStoreWithBackend_AcceptsArbitraryStore(t *testing.T) {
 	err := ns.Reserve(ctx, "x")
 	if !errors.Is(err, sdkauth.ErrNonceStoreUnavailable) {
 		t.Errorf("custom backend error: got %v, want ErrNonceStoreUnavailable", err)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Redis backend — exercised via miniredis (hermetic, no Docker)
+// ─────────────────────────────────────────────────────────────────────
+
+// newMiniRedis stands up an in-process Redis and registers cleanup.
+func newMiniRedis(t *testing.T) *miniredis.Miniredis {
+	t.Helper()
+	mr := miniredis.RunT(t)
+	t.Cleanup(mr.Close)
+	return mr
+}
+
+// TestFactory_RedisBackend_HappyPath_Reserve verifies the Redis-backed
+// path end-to-end: factory builds a *NonceStore against miniredis, the
+// first Reserve succeeds, the second errors as ErrNonceReserved. This
+// is the smoke-test that proves connection-vs-namespace split actually
+// produces a working Redis store.
+func TestFactory_RedisBackend_HappyPath_Reserve(t *testing.T) {
+	mr := newMiniRedis(t)
+	cfg := NonceStoreConfig{
+		Backend:   BackendRedis,
+		RedisAddr: mr.Addr(),
+	}
+	ns, err := cfg.BuildForExchange("did:web:exchange.test")
+	if err != nil {
+		t.Fatalf("BuildForExchange: %v", err)
+	}
+	ctx := context.Background()
+	if err := ns.Reserve(ctx, "n1"); err != nil {
+		t.Fatalf("first Reserve: %v", err)
+	}
+	if err := ns.Reserve(ctx, "n1"); !errors.Is(err, sdkauth.ErrNonceReserved) {
+		t.Errorf("replay Reserve: got %v, want ErrNonceReserved", err)
+	}
+}
+
+// TestFactory_RedisBackend_PerDestinationNamespacing pins the load-bearing
+// multi-tenant invariant: the SAME nonce value reserved against destination A
+// MUST NOT cause a replay rejection for destination B sharing the same Redis
+// instance. Cross-tenant collision protection comes from the SDK's
+// "{prefix}{destination}:{nonce}" key shape — this test proves we are
+// passing the destination through the JN-side factory correctly.
+func TestFactory_RedisBackend_PerDestinationNamespacing(t *testing.T) {
+	mr := newMiniRedis(t)
+	cfg := NonceStoreConfig{Backend: BackendRedis, RedisAddr: mr.Addr()}
+
+	storeA, err := cfg.BuildForExchange("did:web:tenant-a")
+	if err != nil {
+		t.Fatalf("tenant A build: %v", err)
+	}
+	storeB, err := cfg.BuildForExchange("did:web:tenant-b")
+	if err != nil {
+		t.Fatalf("tenant B build: %v", err)
+	}
+
+	ctx := context.Background()
+	const sharedNonce = "collision-candidate"
+
+	if err := storeA.Reserve(ctx, sharedNonce); err != nil {
+		t.Fatalf("tenant A first Reserve: %v", err)
+	}
+	if err := storeB.Reserve(ctx, sharedNonce); err != nil {
+		t.Errorf("tenant B should accept the same nonce (different namespace), got %v", err)
+	}
+	// Replays in each tenant's own namespace still fire as expected.
+	if err := storeA.Reserve(ctx, sharedNonce); !errors.Is(err, sdkauth.ErrNonceReserved) {
+		t.Errorf("tenant A replay: got %v, want ErrNonceReserved", err)
+	}
+	if err := storeB.Reserve(ctx, sharedNonce); !errors.Is(err, sdkauth.ErrNonceReserved) {
+		t.Errorf("tenant B replay: got %v, want ErrNonceReserved", err)
+	}
+}
+
+// TestFactory_RedisBackend_KeyPrefixHonored confirms the JN-side factory
+// passes RedisKeyPrefix through to the SDK. Probes miniredis directly for
+// a key with the configured prefix after a successful reserve.
+func TestFactory_RedisBackend_KeyPrefixHonored(t *testing.T) {
+	mr := newMiniRedis(t)
+	const customPrefix = "jn:phase4:nonce:"
+	cfg := NonceStoreConfig{
+		Backend:        BackendRedis,
+		RedisAddr:      mr.Addr(),
+		RedisKeyPrefix: customPrefix,
+	}
+	ns, err := cfg.BuildForExchange("did:web:exchange.test")
+	if err != nil {
+		t.Fatalf("BuildForExchange: %v", err)
+	}
+	if err := ns.Reserve(context.Background(), "abc"); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+	// Key shape should be {customPrefix}{destination}:{nonce}.
+	wantKey := customPrefix + "did:web:exchange.test:abc"
+	if !mr.Exists(wantKey) {
+		t.Errorf("expected key %q in miniredis; keys present = %v",
+			wantKey, mr.Keys())
+	}
+}
+
+// TestFactory_RedisBackend_RedisDBHonored confirms the JN-side factory
+// passes RedisDB through to the SDK. Defaults to DB 0; setting it to 1
+// makes the reservation invisible from DB 0.
+func TestFactory_RedisBackend_RedisDBHonored(t *testing.T) {
+	mr := newMiniRedis(t)
+	cfg := NonceStoreConfig{
+		Backend:   BackendRedis,
+		RedisAddr: mr.Addr(),
+		RedisDB:   1,
+	}
+	ns, err := cfg.BuildForExchange("did:web:exchange.test")
+	if err != nil {
+		t.Fatalf("BuildForExchange: %v", err)
+	}
+	if err := ns.Reserve(context.Background(), "x"); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	// Probe DB 0 directly: should be empty.
+	probeDB0 := redis.NewClient(&redis.Options{Addr: mr.Addr(), DB: 0})
+	defer probeDB0.Close()
+	keys, err := probeDB0.Keys(context.Background(), "*").Result()
+	if err != nil {
+		t.Fatalf("probe DB 0: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Errorf("DB 0 should be empty; got keys %v", keys)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Concurrency: per-tenant Reserve under -race
+// ─────────────────────────────────────────────────────────────────────
+
+// TestNonceStore_ConcurrentReserve_StrictForever fires N goroutines at
+// the same memory-backed store racing to reserve the SAME nonce.
+// EXACTLY ONE may succeed; the rest must surface ErrNonceReserved.
+// Run with -race to catch any unsynchronized state.
+func TestNonceStore_ConcurrentReserve_StrictForever(t *testing.T) {
+	const goroutines = 32
+	ns, err := NonceStoreConfig{}.BuildForExchange("did:web:exchange.test")
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	ctx := context.Background()
+
+	var wg sync.WaitGroup
+	var winners atomic.Int32
+	var collisions atomic.Int32
+	wg.Add(goroutines)
+	start := make(chan struct{})
+
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			<-start
+			err := ns.Reserve(ctx, "race")
+			switch {
+			case err == nil:
+				winners.Add(1)
+			case errors.Is(err, sdkauth.ErrNonceReserved):
+				collisions.Add(1)
+			default:
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if winners.Load() != 1 {
+		t.Errorf("winners = %d, want exactly 1", winners.Load())
+	}
+	if collisions.Load() != goroutines-1 {
+		t.Errorf("collisions = %d, want %d", collisions.Load(), goroutines-1)
+	}
+}
+
+// TestNonceStore_ConcurrentReserve_DifferentTenants — N goroutines hit
+// N tenant stores with the SAME nonce; every goroutine must succeed
+// (no cross-tenant interference).
+func TestNonceStore_ConcurrentReserve_DifferentTenants(t *testing.T) {
+	const tenants = 16
+	stores := make([]*NonceStore, tenants)
+	for i := 0; i < tenants; i++ {
+		s, err := NonceStoreConfig{}.BuildForExchange(
+			"did:web:tenant-" + string(rune('a'+i)))
+		if err != nil {
+			t.Fatalf("tenant %d build: %v", i, err)
+		}
+		stores[i] = s
+	}
+
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	var failures atomic.Int32
+	wg.Add(tenants)
+	start := make(chan struct{})
+
+	for i := 0; i < tenants; i++ {
+		s := stores[i]
+		go func() {
+			defer wg.Done()
+			<-start
+			if err := s.Reserve(ctx, "shared-nonce"); err != nil {
+				failures.Add(1)
+				t.Errorf("tenant Reserve: %v (cross-tenant interference)", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if failures.Load() != 0 {
+		t.Errorf("expected zero cross-tenant collisions, got %d", failures.Load())
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Custom freshness window on factory-built store
+// ─────────────────────────────────────────────────────────────────────
+
+// TestFactory_FreshnessWindow_Honored verifies the FreshnessWindow on
+// the config flows into the wrapping NonceStore.
+func TestFactory_FreshnessWindow_Honored(t *testing.T) {
+	const customWindow = 17 * time.Second
+	ns, err := NonceStoreConfig{
+		FreshnessWindow: customWindow,
+	}.BuildForExchange("did:web:exchange.test")
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	// A timestamp 10s in the past is fresh under 17s window…
+	near := time.Now().Add(-10 * time.Second)
+	if err := ns.CheckFreshness(near); err != nil {
+		t.Errorf("near-fresh timestamp should pass 17s window, got %v", err)
+	}
+	// …and a timestamp 30s in the past is stale.
+	old := time.Now().Add(-30 * time.Second)
+	if err := ns.CheckFreshness(old); err == nil {
+		t.Errorf("30s-old timestamp should fail 17s window")
+	}
+}
+
+// TestFactory_FreshnessWindow_DefaultApplied verifies the default kicks
+// in when FreshnessWindow is left zero.
+func TestFactory_FreshnessWindow_DefaultApplied(t *testing.T) {
+	ns, err := NonceStoreConfig{}.BuildForExchange("did:web:exchange.test")
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	// DefaultFreshnessWindow is 5 minutes; a 4-minute-old stamp passes,
+	// a 6-minute-old stamp fails.
+	if err := ns.CheckFreshness(time.Now().Add(-4 * time.Minute)); err != nil {
+		t.Errorf("4-minute-old should pass 5-minute default window: %v", err)
+	}
+	if err := ns.CheckFreshness(time.Now().Add(-6 * time.Minute)); err == nil {
+		t.Error("6-minute-old should fail 5-minute default window")
+	}
+}
+
+// TestDefaultFreshnessWindow_StableValue pins the constant so an
+// accidental edit to seconds-vs-minutes doesn't slip through review.
+func TestDefaultFreshnessWindow_StableValue(t *testing.T) {
+	if DefaultFreshnessWindow != 5*time.Minute {
+		t.Errorf("DefaultFreshnessWindow = %v, want 5m (changing this changes "+
+			"freshness behavior across every deployment)", DefaultFreshnessWindow)
 	}
 }
