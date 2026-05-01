@@ -1,4 +1,16 @@
-package core
+// Package verification serves the JN's verification HTTP API:
+// /v1/verify/origin, /v1/verify/authority, /v1/verify/batch,
+// /v1/verify/delegation, /v1/verify/cross-log, /v1/verify/fraud-proof.
+//
+// It is the read-side complement of api/exchange. Callers reach it
+// directly to validate entries against the SDK verifier without
+// having to construct an envelope themselves.
+//
+// The package was renamed from api/core in Phase 2 to match the URL
+// prefix it serves and to avoid the misleading "core" naming —
+// nothing about this service is more "core" than the other api/
+// packages; it just verifies.
+package verification
 
 import (
 	"context"
@@ -13,7 +25,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 
-	"github.com/clearcompass-ai/judicial-network/api/core/handlers"
+	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
 )
 
 // ServerConfig configures the verification service.
