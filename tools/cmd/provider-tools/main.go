@@ -1,31 +1,38 @@
 /*
 FILE PATH:
-    tools/cmd/court-tools/main.go
+    tools/cmd/provider-tools/main.go
 
 DESCRIPTION:
-    Entry point for the court-tools binary. Wires upstream services (operator,
-    exchange, verification API, artifact store) to the courts HTTP server and
-    the log aggregator. Single process, two goroutines.
+    Entry point for the provider-tools binary. Wires upstream
+    services (operator, verification API) and Postgres to the
+    public-records HTTP server. Read-only — never touches the
+    exchange (writes flow exclusively through the courts side).
 
 KEY ARCHITECTURAL DECISIONS:
-    - Aggregator in-process: avoids separate deployment for small courts.
-      --aggregator-only flag supports dedicated aggregator deployments.
-    - DB optional: if Postgres unreachable, HTTP server starts but read
-      endpoints return 503. Writes always work (routed through exchange).
+    - Aggregator NOT in-process: provider-tools serves only the
+      cached state populated by court-tools' aggregator. Running
+      a second aggregator here would double-poll the operator;
+      worse, write conflicts on the same Postgres tables would
+      surface as duplicate-key errors. Provider-tools assumes
+      court-tools is responsible for keeping Postgres up to date.
+    - DB optional: if Postgres unreachable, HTTP server starts
+      but read endpoints return 503. There is no degraded mode
+      that bypasses the DB cache (would be too slow against the
+      operator for public-records traffic).
+    - No exchange client: provider-tools is read-only. Background
+      checks query Postgres + verification API only.
     - Fail-fast on config: missing or malformed config is fatal.
 
 OVERVIEW:
     1. Parse flags → load config (JSON + env overrides).
-    2. Construct HTTP clients for exchange, operator, verification API.
+    2. Construct HTTP client for verification API.
     3. Attempt Postgres connection. Log warning if unavailable.
-    4. Start aggregator goroutine (polls operator → writes Postgres).
-    5. Start courts HTTP server on configured address.
-    6. Block on SIGINT/SIGTERM → cancel context → clean shutdown.
+    4. Start providers HTTP server on configured address.
+    5. Block on SIGINT/SIGTERM → cancel context → clean shutdown.
 
 KEY DEPENDENCIES:
-    - tools/common: Config, ExchangeClient, OperatorClient, VerifyClient, DB
-    - tools/courts: Server (HTTP handler tree)
-    - tools/aggregator: Scanner (polling loop)
+    - tools/common: Config, VerifyClient, DB
+    - tools/providers: Server (read-only HTTP handler tree)
 */
 package main
 
@@ -37,14 +44,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 	"github.com/clearcompass-ai/judicial-network/tools/common"
-	"github.com/clearcompass-ai/judicial-network/tools/courts"
+	"github.com/clearcompass-ai/judicial-network/tools/providers"
 )
 
 func main() {
 	configPath := flag.String("config", "", "path to config JSON file")
-	aggregatorOnly := flag.Bool("aggregator-only", false, "run aggregator without HTTP server")
 	flag.Parse()
 
 	// -------------------------------------------------------------------------
@@ -56,8 +61,6 @@ func main() {
 		log.Fatalf("FATAL: config: %v", err)
 	}
 
-	exchange := common.NewExchangeClient(cfg.ExchangeURL)
-	operator := common.NewOperatorClient(cfg.OperatorURL, cfg.CasesLogDID)
 	verify := common.NewVerifyClient(cfg.VerificationURL)
 
 	// -------------------------------------------------------------------------
@@ -74,38 +77,17 @@ func main() {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// -------------------------------------------------------------------------
-	// 3) Aggregator
+	// 3) HTTP server
 	// -------------------------------------------------------------------------
 
-	if db != nil {
-		scanner := aggregator.NewScanner(cfg, operator, db)
-		go func() {
-			if e := scanner.Run(ctx); e != nil {
-				log.Printf("ERROR: aggregator: %v", e)
-			}
-		}()
-		log.Printf("aggregator: started (poll=%s, batch=%d)",
-			cfg.AggregatorPollInterval, cfg.AggregatorBatchSize)
-	}
-
-	if *aggregatorOnly {
-		log.Println("court-tools: aggregator-only mode")
-		awaitSignal(cancel)
-		return
-	}
-
-	// -------------------------------------------------------------------------
-	// 4) HTTP server
-	// -------------------------------------------------------------------------
-
-	srv := courts.NewServer(cfg, exchange, verify, db)
+	srv := providers.NewServer(cfg, verify, db)
 	go func() {
 		if e := srv.ListenAndServe(); e != nil {
-			log.Fatalf("FATAL: court-tools: %v", e)
+			log.Fatalf("FATAL: provider-tools: %v", e)
 		}
 	}()
 

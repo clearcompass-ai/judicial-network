@@ -51,7 +51,17 @@ DID dispatcher.
                     │   └─────────┬──────────┘  └────────┬───────────┘│
                     │             │                      │            │
                     │   ┌──────────┴────────────────┴──┐                │
-                    │   │  Postgres (2 DBs)             │                │
+                    │   │  Postgres (3 DBs)             │                │
+                    │   │  davidson, coa, court_tools   │                │
+                    │   └───────────────┬───────────────┘                │
+                    │                   │                                │
+                    │   ┌───────────────┴───────────────┐                │
+                    │   │  court-tools     :8090        │                │
+                    │   │  provider-tools  :8091        │                │
+                    │   │  (HTTP services that read     │                │
+                    │   │   the operator and surface    │                │
+                    │   │   case-workflow + public-     │                │
+                    │   │   records APIs)               │                │
                     │   └───────────────────────────────┘                │
                     └────────────────┬─────────────────────────────────┘
                                      │
@@ -78,8 +88,11 @@ what a `civil_case` is**, and that's the point.
 ```
 docs/walkthrough/
 ├── README.md                          ← you are here
-├── 01-environment.md                  ← `make dev-up`; verify both operators
-├── 02-real-dids.md                    ← mint 5 secp256k1 DIDs with judicial-cli
+├── 01-environment.md                  ← `make dev-up`: operators + Postgres + GCS
+├── 02-real-dids.md                    ← mint 5 did:key + 2 did:pkh DIDs
+├── 03-tools.md                        ← boot court-tools + provider-tools
+├── config/
+│   └── tools.dev.json                 ← config used by §03's two binaries
 ├── cases/
 │   ├── 01-acme-v-beta.md              ← Civil + cross-exchange to COA
 │   └── 02-in-re-anderson.md           ← Family → Juvenile succession + revocation
@@ -88,23 +101,30 @@ docs/walkthrough/
 
 ## Read in order
 
-The first three files (README + 01 + 02) are setup. After that, both
-case files are independently runnable — start with whichever
-interests you.
+The first four sections (README + 01 + 02 + 03) bring the **whole
+judicial-network app** up: two operators, Postgres, real GCS,
+court-tools and provider-tools. After that, both case files are
+independently runnable — start with whichever interests you.
+
+(Two pieces are deliberately out of scope: the **artifact-store**
+binary and the standalone **exchange service**. court-tools' write
+endpoints and document-fetch endpoints will return 502 without
+them; reads + `judicial-cli submit` work fully.)
 
 ## Time
 
 | Stage | Time |
 |---|---|
-| `make dev-up` (cold, builds the image) | 3–5 min |
+| `make dev-up` (cold, builds the operator image) | 3–5 min |
 | §01 environment verification | 1 min |
-| §02 mint 5 DIDs | 30 sec |
+| §02 mint 5 + 2 DIDs | 1 min |
+| §03 boot court-tools + provider-tools | 2 min |
 | Case 1 walkthrough end-to-end | 15 min |
 | Case 2 walkthrough end-to-end | 10 min |
-| **Total first run** | **~30 min** |
+| **Total first run** | **~35 min** |
 
-Subsequent runs (after `make dev-down && make dev-up`) skip the image
-build and finish in well under 10 minutes.
+Subsequent runs (after `make dev-down && make dev-up`) skip the
+image build and finish in well under 15 minutes.
 
 ## What world-class means here
 

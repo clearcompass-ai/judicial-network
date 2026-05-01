@@ -179,11 +179,21 @@ After §01 you have:
 
 - Two operators (Davidson `:8080`, COA `:8081`), each writing
   bytes to **your real GCS bucket**.
-- One Postgres (`:5432`), two databases.
+- One Postgres (`:5432`), three databases (`ortholog_davidson`,
+  `ortholog_coa`, `court_tools`). The first two back the
+  operators; the third backs the JN tools you'll boot in §03.
 - Two GCS buckets you own, currently empty.
 - One `judicial-cli` binary on your `$PATH`.
 
-No DIDs yet — **§02 mints them**.
+What's still missing for "the whole app":
+
+- DIDs — mint them in **[§02](02-real-dids.md)**.
+- The JN tools (court-tools + provider-tools) — boot them in
+  **[§03](03-tools.md)**.
+
+After §03 you'll have a complete dev-laptop deployment: protocol
+layer (operators + Postgres + GCS) plus application layer (JN
+tools), with the cases in `cases/` driving traffic through both.
 
 ## Trouble?
 

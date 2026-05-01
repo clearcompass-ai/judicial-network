@@ -169,10 +169,26 @@ If those three pass, every web3 step in the walkthrough will work.
 
 ## Next
 
+The remaining setup section boots the JN application-layer tools
+(court-tools + provider-tools) so that everything you submit in
+the cases shows up in the workflow API and the public-records API
+within seconds:
+
+- **[§03 — Boot the JN tools](03-tools.md)** (last setup step)
+
+After that, both case files are independently runnable in any
+order:
+
 - **Case 1: ACME v. Beta** —
-  [cases/01-acme-v-beta.md](cases/01-acme-v-beta.md). The trial-act
-  walkthrough now includes a wallet-signed CEO affidavit step
-  ([trial.md](cases/01-acme-v-beta-trial.md) §3.5) demonstrating
+  [cases/01-acme-v-beta.md](cases/01-acme-v-beta.md). The trial
+  includes a wallet-signed CEO affidavit step
+  ([trial.md](cases/01-acme-v-beta-trial.md) Step 4) demonstrating
   did:pkh end-to-end.
 - **Case 2: In re Anderson** —
   [cases/02-in-re-anderson.md](cases/02-in-re-anderson.md).
+
+If you only want the protocol-level walkthrough and not the JN
+tools, you can skip §03 — `judicial-cli` talks directly to the
+operator and doesn't need court-tools or provider-tools to
+function. Skipping §03 just means cases don't visibly populate
+the workflow API; they still land on the operator's log.
