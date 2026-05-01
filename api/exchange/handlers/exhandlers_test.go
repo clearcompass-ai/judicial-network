@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
+
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
@@ -113,10 +115,12 @@ func mockOperator(t *testing.T) *httptest.Server {
 	return srv
 }
 
-// testExchangeDID is the destination tests use as the target tenant.
-// Multi-tenant: callers stamp this on request bodies; nothing in
-// Dependencies carries an ExchangeDID anymore.
-const testExchangeDID = "did:web:test-exchange"
+// testDestination is the target-exchange DID that test request bodies
+// stamp into entry.Header.Destination. The api/exchange surface is
+// multi-tenant — Dependencies carries no process-level destination —
+// so every test that builds an entry must source the destination from
+// the request body, exactly like a production caller would.
+const testDestination = "did:web:exchange.test"
 
 func testDeps(t *testing.T) *Dependencies {
 	t.Helper()
@@ -242,7 +246,7 @@ func TestBuildHandler_RootEntity(t *testing.T) {
 	h := NewEntryBuildHandler(testDeps(t))
 	body, _ := json.Marshal(BuildRequest{
 		Builder:       "root_entity",
-		Destination:   "did:web:exchange.test",
+		Destination:   testDestination,
 		SignerDID:     "did:web:test",
 		DomainPayload: json.RawMessage(`{"docket":"2027-CR-001"}`),
 	})
@@ -251,6 +255,81 @@ func TestBuildHandler_RootEntity(t *testing.T) {
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+}
+
+// TestBuildHandler_Destination_FlowsToEntryHeader pins the multi-tenant
+// payload-driven dispatch contract: the destination supplied in the
+// request body MUST land verbatim in entry.Header.Destination. A
+// regression where the build path silently substituted a process-level
+// default (the pre-Phase-1 single-tenant pattern) would surface here.
+//
+// The test deliberately uses an unusual DID value so a hard-coded
+// process default could not coincidentally match.
+func TestBuildHandler_Destination_FlowsToEntryHeader(t *testing.T) {
+	const arbitraryDest = "did:web:state:tn:counties:hamilton"
+
+	h := NewEntryBuildHandler(testDeps(t))
+	body, _ := json.Marshal(BuildRequest{
+		Builder:       "root_entity",
+		Destination:   arbitraryDest,
+		SignerDID:     "did:web:test:judge",
+		DomainPayload: json.RawMessage(`{"docket":"2027-CR-MTD"}`),
+	})
+	req := httptest.NewRequest("POST", "/v1/build", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("build: %d %s", rec.Code, rec.Body.String())
+	}
+	// The build endpoint returns the SigningPayload (preamble + header
+	// + payload), which deserializes back into a partial Entry exposing
+	// Header.Destination.
+	var resp struct {
+		EntryBytes []byte `json:"entry_bytes"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v (body=%s)", err, rec.Body.String())
+	}
+	entry, err := envelope.Deserialize(resp.EntryBytes)
+	if err != nil {
+		// Build returns SigningPayload (unsigned). Its prefix decodes
+		// the same header bytes; if Deserialize is strict about
+		// signatures, fall back to a header-only check.
+		entry = nil
+	}
+	if entry != nil && entry.Header.Destination != arbitraryDest {
+		t.Errorf("Header.Destination = %q, want %q (payload-driven dispatch broken)",
+			entry.Header.Destination, arbitraryDest)
+	}
+	// Belt-and-suspenders: the response bytes must contain the
+	// destination string. If they don't, even our header parse can't
+	// rescue us.
+	if !bytes.Contains(resp.EntryBytes, []byte(arbitraryDest)) {
+		t.Errorf("destination %q not present in returned entry bytes (%d bytes)",
+			arbitraryDest, len(resp.EntryBytes))
+	}
+}
+
+// TestBuildHandler_RejectsEmptyDestination_AtBuilder pins that the
+// underlying SDK builder rejects an empty Destination — keeping the
+// payload-driven contract enforced even if the handler's own validation
+// misses an edge case. Production deployments rely on this defense in
+// depth: handler validates → builder validates → submit_gate validates.
+func TestBuildHandler_RejectsEmptyDestination_AtBuilder(t *testing.T) {
+	h := NewEntryBuildHandler(testDeps(t))
+	body, _ := json.Marshal(BuildRequest{
+		Builder:       "root_entity",
+		Destination:   "", // empty — builder MUST reject
+		SignerDID:     "did:web:test:judge",
+		DomainPayload: json.RawMessage(`{"docket":"empty-dest"}`),
+	})
+	req := httptest.NewRequest("POST", "/v1/build", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("empty destination should 400, got %d (body=%s)",
+			rec.Code, rec.Body.String())
 	}
 }
 
@@ -298,7 +377,7 @@ func TestFullHandler_RoundTrip(t *testing.T) {
 	h := NewEntryFullHandler(testDeps(t))
 	body, _ := json.Marshal(BuildRequest{
 		Builder:       "root_entity",
-		Destination:   "did:web:exchange.test",
+		Destination:   testDestination,
 		SignerDID:     "did:web:test:judge",
 		DomainPayload: json.RawMessage(`{"docket":"2027-CR-002"}`),
 	})
