@@ -46,12 +46,14 @@ type Server struct {
 	cfg        ServerConfig
 }
 
-// NewServer creates the verification service with all routes.
-func NewServer(cfg ServerConfig) (*Server, error) {
-	if cfg.Addr == "" {
-		cfg.Addr = ":8080"
-	}
-
+// BuildHandler constructs the verification service's HTTP handler
+// tree from cfg without instantiating an http.Server. The api/
+// composer (api/server.go) uses this to mount /v1/verify/* alongside
+// the exchange surface under one shared listener.
+//
+// Stand-alone callers wanting an isolated verification listener
+// should use NewServer instead.
+func BuildHandler(cfg ServerConfig) http.Handler {
 	deps := &handlers.Dependencies{
 		LogQueries:     cfg.LogQueries,
 		LeafReader:     cfg.LeafReader,
@@ -71,15 +73,27 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	mux.Handle("POST /v1/verify/cross-log", handlers.NewVerifyCrossLogHandler(deps))
 	mux.Handle("POST /v1/verify/fraud-proof", handlers.NewVerifyFraudProofHandler(deps))
 
+	// Health (no auth). Stand-alone deployments use this directly;
+	// composed deployments are routed by the parent mux at api/server.go.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
 
+	return mux
+}
+
+// NewServer creates the verification service as a stand-alone listener.
+// Composed deployments use BuildHandler instead.
+func NewServer(cfg ServerConfig) (*Server, error) {
+	if cfg.Addr == "" {
+		cfg.Addr = ":8080"
+	}
+
 	return &Server{
 		httpServer: &http.Server{
 			Addr:         cfg.Addr,
-			Handler:      mux,
+			Handler:      BuildHandler(cfg),
 			ReadTimeout:  30 * time.Second,
 			WriteTimeout: 60 * time.Second,
 			IdleTimeout:  120 * time.Second,

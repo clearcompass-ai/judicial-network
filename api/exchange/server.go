@@ -73,12 +73,15 @@ type Server struct {
 	cfg        ServerConfig
 }
 
-// NewServer creates the exchange service.
-func NewServer(cfg ServerConfig) (*Server, error) {
-	if cfg.Addr == "" {
-		cfg.Addr = ":8443"
-	}
-
+// BuildHandler constructs the exchange's HTTP handler tree from cfg
+// without instantiating an http.Server or loading TLS material. The
+// api/ composer (api/server.go) uses this to mount exchange routes
+// alongside the verification surface under one shared listener.
+//
+// Stand-alone callers wanting an isolated exchange-only listener
+// should use NewServer instead — it wraps BuildHandler with a TLS-
+// enabled http.Server. BuildHandler is the testable, composable seam.
+func BuildHandler(cfg ServerConfig) http.Handler {
 	deps := &handlers.Dependencies{
 		OperatorEndpoint:      cfg.OperatorEndpoint,
 		ArtifactStoreEndpoint: cfg.ArtifactStoreEndpoint,
@@ -122,13 +125,27 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	mux.Handle("POST /v1/scope/approve/{pos}", signerAuth.Wrap(handlers.NewScopeApproveHandler(deps)))
 	mux.Handle("POST /v1/scope/execute/{pos}", signerAuth.Wrap(handlers.NewScopeExecuteHandler(deps)))
 
-	// Health (no auth).
+	// Health (no auth). When the exchange runs stand-alone, this is its
+	// readiness probe target. Under the composer (api/server.go), the
+	// composer's parent mux owns /healthz directly and this entry is
+	// shadowed by prefix-routing — see api/server.go for the contract.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
 
-	// Build TLS config with client cert verification.
+	return mux
+}
+
+// NewServer creates the exchange service as a stand-alone listener.
+// Composed deployments use BuildHandler instead.
+func NewServer(cfg ServerConfig) (*Server, error) {
+	if cfg.Addr == "" {
+		cfg.Addr = ":8443"
+	}
+
+	handler := BuildHandler(cfg)
+
 	tlsConfig, err := buildTLSConfig(cfg.SignerCA)
 	if err != nil {
 		return nil, err
@@ -137,7 +154,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	return &Server{
 		httpServer: &http.Server{
 			Addr:         cfg.Addr,
-			Handler:      mux,
+			Handler:      handler,
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  30 * time.Second,
 			WriteTimeout: 60 * time.Second,
