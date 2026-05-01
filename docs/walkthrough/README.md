@@ -1,97 +1,130 @@
 # Judicial Network — Developer Walkthrough
 
-This walkthrough takes a developer from a clean clone of `judicial-network`
-to running three end-to-end Tennessee judicial cases against the in-memory
-test fixture. **No external services required** (no Postgres, no GCS, no
-Privy account). Every step uses real APIs cited from the codebase.
+A curl-and-CLI walkthrough of two real Tennessee judicial cases that
+exercises the system end-to-end: two running operators, real
+secp256k1 DIDs, and a cross-exchange appeal that physically moves a
+signed entry from one operator to another.
 
-## What you'll build
+This is not a tour of API surface. It's a story about what happens
+when the gears actually turn — what the entries *mean* legally, why
+each signature is required, what the log permits and forbids — paired
+with the exact commands that produce each step on your laptop.
 
-Three realistic Tennessee judicial cases that, together, exercise **every
-event payload type** the system supports:
+## What you'll do
 
-| # | Case | Court | Actors | Events touched |
+| | Case | Court(s) | Actors | Why this case is in the walkthrough |
 |---|---|---|---|---|
-| 1 | *Smith v. Johnson* | Davidson Trial → COA | 7 | `CivilCasePayload`, `PartyBindingPayload` ×2, `CounselAppearancePayload` ×2, `JudicialDelegationPayload`, `EvidenceArtifactPayload`, `AppellateDispositionPayload`, `AppellateOpinionPublicationPayload`, `AppellateOpinionParticipationPayload` |
-| 2 | *State v. Wilson* | Davidson Trial | 6 | `CriminalCasePayload`, `PartyBindingSealedPayload`, `CounselAppearancePayload` ×2, `DisclosureOrderPayload`, `EvidenceArtifactPayload`, `KeyAttestationPayload`, `SealingOrderPayload` |
-| 3 | *In re Anderson Custody* | Davidson Family → Juvenile | 7 | `FamilyCasePayload`, `PartyBindingSealedPayload`, `CounselAppearancePayload` ×2, `JuvenileCasePayload`, `JudicialSuccessionPayload`, `JudicialRevocationPayload` |
+| 1 | ***ACME Industries v. Beta Corp*** | Davidson Trial → TN COA | 5 | A civil contract dispute that gets appealed. **The appeal physically crosses operators.** The COA's appellate-disposition entry carries an `EvidencePointers` reference back to the trial-court entry, demonstrating cross-exchange composition end-to-end. |
+| 2 | ***In re Anderson*** | Davidson Family → Davidson Juvenile (judicial succession) | 4 | A custody case where a sealed minor binding, a cross-division judicial succession, and a delegation revocation all land on the same log. Single exchange, but exercises the most complex authority-graph operations. |
 
-The full coverage matrix is in [99-event-coverage.md](99-event-coverage.md).
+5 unique actors total (the clerk appears in both cases). Every DID is
+a real secp256k1 keypair you generate yourself in §02.
+
+## What's running
+
+```
+                    ┌────────────────────────────────────────────────┐
+                    │  Your laptop                                    │
+                    │                                                 │
+                    │   ┌────────────────────┐  ┌────────────────────┐│
+                    │   │  operator-davidson │  │   operator-coa     ││
+       judicial-cli ────►   :8080            │  │   :8081            ││
+                    │   │  did:web:state:tn: │  │  did:web:state:tn: ││
+                    │   │  davidson          │  │  coa               ││
+                    │   └─────────┬──────────┘  └────────┬───────────┘│
+                    │             │                      │            │
+                    │   ┌─────────┴──────────────────────┴───────────┐│
+                    │   │  Postgres (two DBs) + MinIO (S3 buckets)   ││
+                    │   └─────────────────────────────────────────────┘│
+                    └────────────────────────────────────────────────┘
+```
+
+Both operators are stock Ortholog operators — domain-agnostic
+"dumb writes" that admit signed canonical bytes, sequence them, and
+serve them over HTTP. All judicial vocabulary lives in
+`judicial-cli` and the JN schemas. **The operators don't know
+what a `civil_case` is**, and that's the point.
 
 ## Folder layout
 
 ```
 docs/walkthrough/
 ├── README.md                          ← you are here
-├── 01-setup.md                        ← clone + go test (5 min)
-├── 02-fixture-and-actors.md           ← the contractFixture pattern
+├── 01-environment.md                  ← `make dev-up`; verify both operators
+├── 02-real-dids.md                    ← mint 5 secp256k1 DIDs with judicial-cli
 ├── cases/
-│   ├── 01-smith-v-johnson.md          ← Civil contract → appeal
-│   ├── 02-state-v-wilson.md           ← Criminal felony, sealed victim
-│   └── 03-anderson-custody.md         ← Family → Juvenile referral
-└── 99-event-coverage.md               ← coverage matrix
+│   ├── 01-acme-v-beta.md              ← Civil + cross-exchange to COA
+│   └── 02-in-re-anderson.md           ← Family → Juvenile succession + revocation
+└── 99-coverage.md                     ← schema-event matrix
 ```
 
 ## Read in order
 
-1. **[01-setup.md](01-setup.md)** — Get the existing test suite green.
-   Confirms your environment can build and run the fixture.
-2. **[02-fixture-and-actors.md](02-fixture-and-actors.md)** — Learn the
-   `contractFixture` pattern. Every case in this walkthrough composes
-   the same fixture; understanding this once is enough for all three.
-3. **[cases/](cases/)** — Pick any case in any order. Each is
-   self-contained narrative + code + expected log output, working
-   through the events progressively.
-4. **[99-event-coverage.md](99-event-coverage.md)** — Confirm coverage
-   when you're done.
+The first three files (README + 01 + 02) are setup. After that, both
+case files are independently runnable — start with whichever
+interests you.
 
-## Why these three cases
+## Time
 
-The codebase has **17 distinct event payload types** across schemas/.
-A single linear scenario can't naturally exercise all of them — civil
-trial cases don't carry juvenile sealing semantics, criminal cases don't
-have appellate participation entries, family cases don't typically use
-DisclosureOrders the way criminal discovery does. Three cases let each
-case stay realistic while collectively touching every payload.
+| Stage | Time |
+|---|---|
+| `make dev-up` (cold, builds the image) | 3–5 min |
+| §01 environment verification | 1 min |
+| §02 mint 5 DIDs | 30 sec |
+| Case 1 walkthrough end-to-end | 15 min |
+| Case 2 walkthrough end-to-end | 10 min |
+| **Total first run** | **~30 min** |
 
-## Code conventions used in this walkthrough
+Subsequent runs (after `make dev-down && make dev-up`) skip the image
+build and finish in well under 10 minutes.
 
-- Every code snippet is **copy-paste runnable** in a `*_test.go` file
-  inside `tests/scenarios/` (or wherever you build your scenarios).
-- File:line citations point at the actual API definitions — when
-  payloads or builders evolve, drift will fail compilation in your
-  scenario rather than in the documentation.
-- Snippets prefer **real schema names** (`CivilCasePayload`,
-  `JudicialSuccessionPayload`) over invented helpers. If a helper
-  doesn't exist in the repo, the walkthrough composes the
-  primitives that do.
-- DIDs are deliberately **human-readable** in this walkthrough
-  (`did:key:zQ3sh-cooper-attorney`) — not realistic encoded keys.
-  The fixture binds these strings to generated secp256k1 keys via
-  `provisionKey`, so the readable strings work end-to-end while the
-  cryptography stays real.
+## What world-class means here
 
-## What's NOT covered
+This walkthrough is not a wall of `curl` commands. Every step has:
 
-- **Privy embedded wallets**: this walkthrough uses
-  `identity.StubProvider` (in-memory secp256k1). Real Privy integration
-  needs an API key and is out of scope for laptop dev. The `StubProvider`
-  is the same interface the production `PrivyProvider` satisfies, so
-  scenario code drops in unchanged.
-- **EIP-1271 smart-contract wallets** (v0.8.0): covered separately by
-  `tests/contracts/smart_contract_wallet_test.go`. Walkthrough scenarios
-  use EOA keys for clarity.
-- **Operator deployment** (Postgres + GCS + Tessera). The walkthrough
-  uses the in-memory `operatorBackend` test double which provides the
-  same `OperatorSubmitter` + `EntryFetcher` interfaces.
+- **A short narrative paragraph** explaining what's actually happening
+  legally — who's signing, what authority they're acting under, why
+  this entry needs to be on the log.
+- **The exact command** to produce it (one line, copy-paste).
+- **The expected response** so you know whether it worked.
+- **A "what just happened" pointer** at the file:line of the schema
+  or the operator code that defines the contract you just exercised.
 
-## Status (as of writing)
+If at any point the technical noise overwhelms the narrative, you've
+hit a documentation bug — open an issue and it gets fixed.
 
-- SDK: `v0.8.0` (includes EIP-1271 support)
-- Branch: `claude/notice-of-appearance-event-rsEGt`
-- All `tests/contracts/` tests green (82 tests)
-- Walkthrough scenarios are markdown-only at this checkpoint;
-  runnable `tests/scenarios/*_test.go` is a logical next step you
-  can request.
+## Prerequisites
 
-Ready? Open [01-setup.md](01-setup.md).
+- Docker + Docker Compose v2 (`docker compose`, not `docker-compose`)
+- Go 1.25+ (to build `judicial-cli` from source)
+- About 2 GiB of free disk for Postgres + MinIO + the operator image
+- Ports 5432, 8080, 8081, 9000, 9001 free on your laptop
+
+We won't ask you to install Privy SDKs, Cellebrite tools, or anything
+exotic. Every primitive in this walkthrough is open-source and runs
+locally.
+
+## What this walkthrough does **not** cover
+
+- **Privy embedded wallets.** The walkthrough uses local secp256k1
+  keys you mint via `judicial-cli keygen`. The Privy code path is
+  identical at the SDK seam (`identity.IdentityProvider`); swapping
+  is a config change, not a rewrite.
+- **Witness cosignatures on the tree head.** Each operator
+  self-signs checkpoints unwitnessed in dev mode.
+- **Production sealing of artifacts.** The walkthrough surfaces
+  `PartyBindingSealedPayload` shapes but uses placeholder
+  `encrypted_mapping_cid` values.
+
+These are deliberate omissions — they have their own walkthroughs
+when those paths are ready to be exercised.
+
+## Status
+
+- SDK: `v0.8.0` (EIP-1271 supported but not exercised here)
+- Operator topology: `deployment/local/docker-compose.dev.yml` in
+  the operator repo
+- CLI: `judicial-network/cmd/judicial-cli/`
+- Branch: `claude/notice-of-appearance-event-rsEGt` (all three repos)
+
+Ready? Open **[01-environment.md](01-environment.md)**.
