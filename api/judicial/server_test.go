@@ -102,30 +102,21 @@ func TestServer_Shutdown_DrainsCleanly(t *testing.T) {
 // Caller DID resolver
 // ─────────────────────────────────────────────────────────────────────
 
-func TestSetCallerDIDResolver_HookFiresThenUnwires(t *testing.T) {
-	defer SetCallerDIDResolver(nil) // restore default after test
+// TestSetCallerDIDResolver_HookAndUnwire pins the wire/unwire
+// contract: function pointer is called when set, defaults to
+// empty-string when nil is passed (or no resolver was ever set).
+func TestSetCallerDIDResolver_HookAndUnwire(t *testing.T) {
+	defer SetCallerDIDResolver(nil)
 
 	const want = "did:web:test:judge"
 	SetCallerDIDResolver(func(*http.Request) string { return want })
-
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	if got := callerDID(req); got != want {
 		t.Errorf("with resolver wired: callerDID = %q, want %q", got, want)
 	}
-
 	SetCallerDIDResolver(nil)
 	if got := callerDID(req); got != "" {
 		t.Errorf("after un-wiring: callerDID = %q, want \"\"", got)
-	}
-}
-
-func TestSetCallerDIDResolver_NilIsNoOp(t *testing.T) {
-	// Calling with nil after a previous wire reverts to default.
-	SetCallerDIDResolver(func(*http.Request) string { return "did:web:test" })
-	SetCallerDIDResolver(nil)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	if got := callerDID(req); got != "" {
-		t.Errorf("nil resolver should default to empty: %q", got)
 	}
 }
 

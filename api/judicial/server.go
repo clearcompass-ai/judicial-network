@@ -101,20 +101,22 @@ type Server struct {
 func BuildHandler(cfg ServerConfig) http.Handler {
 	mux := http.NewServeMux()
 
-	// ── Cases (file/amend/file/action/lookup/transfer) ────────────
+	// ── Cases ────────────────────────────────────────────────────
 	registerCaseRoutes(mux, &cfg.Deps)
+	// ── Appeals ──────────────────────────────────────────────────
+	registerAppealsRoutes(mux, &cfg.Deps)
+	// ── Enforcement ──────────────────────────────────────────────
+	registerEnforcementRoutes(mux, &cfg.Deps)
 
 	// Future commits in this phase will register additional groups:
-	//   registerAppealsRoutes(mux, &cfg.Deps)
-	//   registerEnforcementRoutes(mux, &cfg.Deps)
-	//   registerPartiesRoutes(mux, &cfg.Deps)
-	//   registerArtifactRoutes(mux, &cfg.Deps)
-	//   registerMonitoringRoutes(mux, &cfg.Deps)
-	//   registerVerificationRoutes(mux, &cfg.Deps)
-	//   registerOnboardingRoutes(mux, &cfg.Deps)
-	//   registerConsortiumRoutes(mux, &cfg.Deps)
-	//   registerDelegationRoutes(mux, &cfg.Deps)
-	//   registerTopologyRoutes(mux, &cfg.Deps)
+	//   registerPartiesRoutes(mux, &cfg.Deps)        (C3)
+	//   registerOnboardingRoutes(mux, &cfg.Deps)     (C3)
+	//   registerArtifactRoutes(mux, &cfg.Deps)       (C4)
+	//   registerMonitoringRoutes(mux, &cfg.Deps)     (C5)
+	//   registerVerificationRoutes(mux, &cfg.Deps)   (C5)
+	//   registerConsortiumRoutes(mux, &cfg.Deps)     (C6)
+	//   registerDelegationRoutes(mux, &cfg.Deps)     (C6)
+	//   registerTopologyRoutes(mux, &cfg.Deps)       (C6)
 
 	// Health (stand-alone deployments). Composed mode shadows this
 	// with the composer's parent /healthz.
