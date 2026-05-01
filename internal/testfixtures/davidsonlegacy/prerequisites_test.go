@@ -1,14 +1,14 @@
 /*
-FILE PATH: deployments/davidson_county/rules/prerequisites_test.go
+FILE PATH: internal/testfixtures/davidsonlegacy/prerequisites_test.go
 
 DESCRIPTION:
-    Tests the Davidson reference prereq fixture. Lifted (3E.7)
-    from prerequisites/policy_davidson_test.go: vocabulary
-    completeness, structural validation, and a representative
-    walk for each major event category. Pinning the fixture keeps
-    silent vocabulary drift from breaking the closed-set guarantee.
+    Tests for the legacy v1.6 Davidson prereq fixture. Mirrors
+    the original deployments/davidson_county/rules/
+    prerequisites_test.go invariants — vocabulary completeness,
+    structural validation, and a representative walk per event
+    category.
 */
-package rules
+package davidsonlegacy
 
 import (
 	"testing"
@@ -21,10 +21,10 @@ import (
 func TestPrerequisitePolicy_Validates(t *testing.T) {
 	p, err := prerequisites.NewInMemoryPolicy(PrerequisiteRules())
 	if err != nil {
-		t.Fatalf("Davidson prereq fixture failed validation: %v", err)
+		t.Fatalf("legacy davidson prereq fixture failed: %v", err)
 	}
 	if len(p.EventTypes()) == 0 {
-		t.Fatal("Davidson prereq policy must have at least one event_type")
+		t.Fatal("must have at least one event_type")
 	}
 }
 
@@ -39,9 +39,6 @@ func TestMustPrerequisitePolicy_DoesNotPanic(t *testing.T) {
 
 // ─── Vocabulary pin ────────────────────────────────────────────────
 
-// TestPrerequisitePolicy_VocabularyPin pins the EXACT closed-set
-// vocabulary. New event_types should require an explicit policy
-// + test update — silent additions are a v1.6 invariant violation.
 func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
 	want := map[string]bool{
@@ -66,16 +63,16 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	}
 	got := p.EventTypes()
 	if len(got) != len(want) {
-		t.Errorf("vocabulary size = %d, want %d (%v)", len(got), len(want), got)
-	}
-	for _, evt := range got {
-		if !want[evt] {
-			t.Errorf("unexpected event_type in vocabulary: %q", evt)
-		}
+		t.Errorf("vocabulary size = %d, want %d", len(got), len(want))
 	}
 	for evt := range want {
 		if !p.KnowsEventType(evt) {
-			t.Errorf("missing event_type in vocabulary: %q", evt)
+			t.Errorf("missing %q", evt)
+		}
+	}
+	for _, evt := range got {
+		if !want[evt] {
+			t.Errorf("unexpected event_type: %q", evt)
 		}
 	}
 }
@@ -94,10 +91,10 @@ func TestWalk_MotionContinuance_RequiresCaseInit(t *testing.T) {
 
 	v = w.Check("motion_continuance", prerequisites.CaseContext{ObservedEvents: nil})
 	if v.OK {
-		t.Error("without case_initiated must be rejected")
+		t.Error("without case_initiated must reject")
 	}
 	if v.Rejection != prerequisites.WalkRejectMissingAncestor {
-		t.Errorf("Rejection=%s", v.Rejection)
+		t.Errorf("rejection drift: %s", v.Rejection)
 	}
 }
 
@@ -136,7 +133,7 @@ func TestWalk_JudicialAppointment_RequiresAuthority(t *testing.T) {
 		t.Error("missing authority must reject")
 	}
 	if v.Rejection != prerequisites.WalkRejectMissingAuthority {
-		t.Errorf("Rejection=%s", v.Rejection)
+		t.Errorf("rejection drift: %s", v.Rejection)
 	}
 }
 
@@ -158,7 +155,7 @@ func TestWalk_CaseInitiated_NoPrereqs(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	v := w.Check("case_initiated", prerequisites.CaseContext{})
 	if !v.OK {
-		t.Errorf("case_initiated must be OK at the bootstrap: %+v", v)
+		t.Errorf("case_initiated must be OK at bootstrap: %+v", v)
 	}
 }
 
@@ -172,7 +169,7 @@ func TestWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
 		t.Errorf("Advisory must NOT block: %+v", v)
 	}
 	if len(v.Advisory) != 1 {
-		t.Errorf("expected 1 Advisory violation, got %d", len(v.Advisory))
+		t.Errorf("expected 1 Advisory, got %d", len(v.Advisory))
 	}
 
 	v = w.Check("transcript_publication", prerequisites.CaseContext{
@@ -182,7 +179,7 @@ func TestWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
 		t.Errorf("with hearing must be OK: %+v", v)
 	}
 	if len(v.Advisory) != 0 {
-		t.Errorf("expected 0 Advisory violations, got %d", len(v.Advisory))
+		t.Errorf("expected 0 Advisory, got %d", len(v.Advisory))
 	}
 }
 
@@ -190,6 +187,6 @@ func TestWalk_UnknownEvent_Rejected(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	v := w.Check("wizard_motion", prerequisites.CaseContext{})
 	if v.Rejection != prerequisites.WalkRejectUnknownEvent {
-		t.Errorf("unknown event_type Rejection=%s", v.Rejection)
+		t.Errorf("rejection drift: %s", v.Rejection)
 	}
 }

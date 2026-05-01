@@ -1,13 +1,20 @@
 /*
-FILE PATH: deployments/davidson_county/rules/role_catalog.go
+FILE PATH: internal/testfixtures/davidsonlegacy/role_catalog.go
 
 DESCRIPTION:
-    Davidson County's RoleCatalog. Lifted (3E.7) out of
-    schemas/role_catalog_davidson.go so the core schemas package is
-    jurisdiction-agnostic. Other counties live alongside this one,
-    each with their own deployments/<county>/rules/ tree.
+    Test-only fixture preserving the legacy 6-role Davidson
+    hierarchy. NOT a production deployment — production TN
+    counties use deployments/tn/counties/<county>/, which
+    composes from the simplified 3-role tn/trial framework
+    (judge / court_clerk / court_reporter).
 
-    Hierarchy (unchanged from the lifted source):
+    This fixture exists solely to back the multi-hop delegation-
+    chain contract tests (depth=3 happy path, depth>3 rejection,
+    ValidateGrant rejection-path coverage) that the simplified
+    catalog cannot model. The 6-role hierarchy here is the
+    original v1.6 Davidson catalog verbatim.
+
+    Hierarchy:
 
       institutional_did ── grants ──> chief_justice (depth 0→1)
       chief_justice     ── grants ──> judge (depth 1→2)
@@ -27,7 +34,7 @@ OVERVIEW:
 KEY DEPENDENCIES:
     - schemas.Role / schemas.NewInMemoryCatalog (core types).
 */
-package rules
+package davidsonlegacy
 
 import (
 	"fmt"
@@ -36,7 +43,10 @@ import (
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// Roles is the Davidson County reference role catalog.
+// Roles is the legacy 6-role Davidson catalog, preserved as a
+// test fixture for multi-hop delegation-chain contract tests.
+// Production code uses deployments/tn/counties/davidson, which
+// composes from the simplified 3-role tn/trial framework.
 func Roles() []schemas.Role {
 	day := 24 * time.Hour
 	year := 365 * day
@@ -191,7 +201,7 @@ func Roles() []schemas.Role {
 func MustRoleCatalog() *schemas.InMemoryCatalog {
 	c, err := schemas.NewInMemoryCatalog(Roles())
 	if err != nil {
-		panic(fmt.Sprintf("davidson_county/rules: role catalog invalid: %v", err))
+		panic(fmt.Sprintf("internal/testfixtures/davidsonlegacy: role catalog invalid: %v", err))
 	}
 	return c
 }

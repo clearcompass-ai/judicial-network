@@ -4,7 +4,7 @@ FILE PATH: deployments/tn/trial/cosignature_mix.go
 DESCRIPTION:
     TN trial-court framework — cosignature-mix policy shared by
     every Tennessee county exchange. Lifted from
-    deployments/davidson_county/rules/cosignature_mix.go so
+    internal/testfixtures/davidsonlegacy/cosignature_mix.go so
     multi-county deployments reuse one fixture.
 
     The fixture covers a representative slice of the v1.8

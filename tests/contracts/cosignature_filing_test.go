@@ -40,7 +40,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
+	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"

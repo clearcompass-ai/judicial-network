@@ -3,7 +3,7 @@ FILE PATH: deployments/tn/trial/cosignature_mix_test.go
 
 DESCRIPTION:
     Tests for the TN trial cosignature-mix fixture. Lifted from
-    deployments/davidson_county/rules/cosignature_mix_test.go and
+    internal/testfixtures/davidsonlegacy/cosignature_mix_test.go and
     re-scoped to the shared TN trial framework. Pins:
       - Every rule validates structurally (via NewInMemoryPolicy).
       - Every FilerRole from the v1.8 dictionary appears at least

@@ -3,7 +3,7 @@ FILE PATH: deployments/tn/trial/prerequisites_test.go
 
 DESCRIPTION:
     Tests the TN trial prereq fixture. Lifted from
-    deployments/davidson_county/rules/prerequisites_test.go and
+    internal/testfixtures/davidsonlegacy/prerequisites_test.go and
     re-scoped to the shared TN trial framework. Pins:
       - vocabulary completeness (closed-set size + names),
       - structural validation,

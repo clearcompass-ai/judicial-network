@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
-	davidson "github.com/clearcompass-ai/judicial-network/deployments/davidson_county/rules"
+	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"

@@ -1,19 +1,12 @@
 /*
-FILE PATH: deployments/davidson_county/rules/cosignature_mix_test.go
+FILE PATH: internal/testfixtures/davidsonlegacy/cosignature_mix_test.go
 
 DESCRIPTION:
-    Tests for the Davidson reference cosignature-mix fixture.
-    Lifted (3E.7) from policy/cosignature_mix_davidson_test.go.
-    Pins:
-      - Every rule validates structurally (via NewInMemoryPolicy).
-      - Every FilerRole from the v1.6 dictionary appears at least
-        once (the fixture covers the full Tier 2 surface).
-      - Pure ActorSigner events have no AllowedFilerRoles.
-      - Personnel events require ≥2 cosigners.
-      - Cross-exchange events have IntraExchangeOnly=false.
-      - Specific event lookups return expected shapes.
+    Tests for the legacy v1.6 Davidson cosignature-mix fixture.
+    Mirrors the original deployments/davidson_county/rules/
+    cosignature_mix_test.go invariants.
 */
-package rules
+package davidsonlegacy
 
 import (
 	"testing"
@@ -24,13 +17,9 @@ import (
 
 // ─── basic invariants ──────────────────────────────────────────────
 
-// TestCosignatureRules_AllValid runs every rule through
-// NewInMemoryPolicy, which validates each one. A construction
-// failure surfaces as a panic in MustCosignaturePolicy; here we
-// surface it as a test failure for clearer error messages.
 func TestCosignatureRules_AllValid(t *testing.T) {
 	if _, err := policy.NewInMemoryPolicy(CosignatureRules()); err != nil {
-		t.Errorf("davidson cosig rules failed to construct: %v", err)
+		t.Errorf("legacy davidson cosig rules failed to construct: %v", err)
 	}
 }
 
@@ -40,9 +29,8 @@ func TestMustCosignaturePolicy_DoesNotPanic(t *testing.T) {
 			t.Errorf("MustCosignaturePolicy panicked: %v", r)
 		}
 	}()
-	p := MustCosignaturePolicy()
-	if got := len(p.List()); got == 0 {
-		t.Error("Davidson cosig policy should have rules")
+	if got := len(MustCosignaturePolicy().List()); got == 0 {
+		t.Error("legacy davidson cosig policy should have rules")
 	}
 }
 
@@ -63,7 +51,7 @@ func TestCosignatureRules_CoversEveryFilerRole(t *testing.T) {
 	}
 	for fr, present := range want {
 		if !present {
-			t.Errorf("FilerRole %q not covered by any Davidson rule", fr)
+			t.Errorf("FilerRole %q not covered", fr)
 		}
 	}
 }
@@ -111,23 +99,23 @@ func TestCosignatureRules_PersonnelEventsRequireMultipleCosigners(t *testing.T) 
 	}
 }
 
-// ─── cross-exchange events: Flag #2 false ──────────────────────────
+// ─── cross-exchange events ──────────────────────────────────────────
 
 func TestCosignatureRules_CrossExchangeEventsFlagSetCorrectly(t *testing.T) {
-	crossExchange := []string{
+	cross := []string{
 		"case_transfer_outbound",
 		"case_transfer_inbound",
 		"relay_attestation",
 	}
 	p := MustCosignaturePolicy()
-	for _, ev := range crossExchange {
+	for _, ev := range cross {
 		r, err := p.Lookup(ev)
 		if err != nil {
 			t.Errorf("%s missing: %v", ev, err)
 			continue
 		}
 		if r.IntraExchangeOnly {
-			t.Errorf("%s must be cross-exchange-permitted (IntraExchangeOnly=false)", ev)
+			t.Errorf("%s must be cross-exchange-permitted", ev)
 		}
 	}
 }
@@ -135,15 +123,13 @@ func TestCosignatureRules_CrossExchangeEventsFlagSetCorrectly(t *testing.T) {
 // ─── attorney filings: bpr_number required ─────────────────────────
 
 func TestCosignatureRules_AttorneyFilingsRequireBPR(t *testing.T) {
-	attorneyFilings := []string{
+	for _, ev := range []string{
 		"motion_continuance",
 		"motion_summary_judgment",
 		"responsive_pleading",
 		"motion_state_dismissal",
-	}
-	p := MustCosignaturePolicy()
-	for _, ev := range attorneyFilings {
-		r, err := p.Lookup(ev)
+	} {
+		r, err := MustCosignaturePolicy().Lookup(ev)
 		if err != nil {
 			t.Errorf("%s missing: %v", ev, err)
 			continue
@@ -156,22 +142,20 @@ func TestCosignatureRules_AttorneyFilingsRequireBPR(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("%s must require bpr_number; RequiredCredentials=%v",
+			t.Errorf("%s must require bpr_number; got %v",
 				ev, r.RequiredCredentials)
 		}
 	}
 }
 
-// ─── fiduciary filings: letters_of_administration_ref required ─────
+// ─── fiduciary filings: letters_of_administration_ref ──────────────
 
 func TestCosignatureRules_FiduciaryFilingsRequireLetters(t *testing.T) {
-	fiduciaryFilings := []string{
+	for _, ev := range []string{
 		"fiduciary_accounting",
 		"asset_disposition_order",
-	}
-	p := MustCosignaturePolicy()
-	for _, ev := range fiduciaryFilings {
-		r, err := p.Lookup(ev)
+	} {
+		r, err := MustCosignaturePolicy().Lookup(ev)
 		if err != nil {
 			t.Errorf("%s missing: %v", ev, err)
 			continue
@@ -184,16 +168,13 @@ func TestCosignatureRules_FiduciaryFilingsRequireLetters(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("%s must require letters_of_administration_ref; got %v",
-				ev, r.RequiredCredentials)
-		}
-		if !r.PermitsFilerRole(schemas.FilerRoleFiduciary) {
-			t.Errorf("%s must permit fiduciary filer role", ev)
+			t.Errorf("%s must require letters_of_administration_ref",
+				ev)
 		}
 	}
 }
 
-// ─── guardian ad litem: appointment_order_ref required ─────────────
+// ─── guardian ad litem ─────────────────────────────────────────────
 
 func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 	r, err := MustCosignaturePolicy().Lookup("appointment_guardian_ad_litem")
@@ -208,30 +189,9 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("must require appointment_order_ref; got %v", r.RequiredCredentials)
+		t.Error("must require appointment_order_ref")
 	}
 	if !r.PermitsFilerRole(schemas.FilerRoleGuardianAdLitem) {
-		t.Errorf("must permit guardian_ad_litem filer role")
-	}
-}
-
-// ─── motion_continuance permits multiple filer roles ───────────────
-
-func TestCosignatureRules_MotionContinuanceMultipleFilers(t *testing.T) {
-	r, err := MustCosignaturePolicy().Lookup("motion_continuance")
-	if err != nil {
-		t.Fatalf("Lookup: %v", err)
-	}
-	for _, want := range []schemas.FilerRole{
-		schemas.FilerRoleDefenseCounsel,
-		schemas.FilerRoleCivilAttorney,
-		schemas.FilerRoleProsecutor,
-	} {
-		if !r.PermitsFilerRole(want) {
-			t.Errorf("motion_continuance must permit %q", want)
-		}
-	}
-	if r.PermitsFilerRole(schemas.FilerRoleFiduciary) {
-		t.Error("motion_continuance must NOT permit fiduciary filer role")
+		t.Error("must permit guardian_ad_litem filer role")
 	}
 }

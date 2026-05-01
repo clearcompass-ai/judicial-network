@@ -1,10 +1,16 @@
 /*
-FILE PATH: deployments/davidson_county/rules/cosignature_mix.go
+FILE PATH: internal/testfixtures/davidsonlegacy/cosignature_mix.go
 
 DESCRIPTION:
-    Davidson County's cosignature-mix policy. Lifted (3E.7) out of
-    policy/cosignature_mix_davidson.go so the core policy package
-    is jurisdiction-agnostic.
+    Test-only fixture: the legacy v1.6 Davidson cosignature-mix
+    policy that pairs with the legacy 6-role catalog in
+    role_catalog.go. NOT a production deployment.
+
+    Production TN counties use the simplified TN trial cosig
+    fixture in deployments/tn/trial/cosignature_mix.go (with the
+    full §3 motion vocabulary lifted in via motions_3X.go); this
+    fixture exists for contract tests that need pre-
+    simplification rule shapes.
 
     The fixture covers a representative slice of the v1.6 dictionary
     event_type space — every shape of rule:
@@ -32,7 +38,7 @@ KEY DEPENDENCIES:
     - policy.CosignatureRule / policy.NewInMemoryPolicy.
     - schemas.FilerRole consts.
 */
-package rules
+package davidsonlegacy
 
 import (
 	"fmt"
@@ -41,7 +47,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// CosignatureRules is the Davidson County reference cosig fixture.
+// CosignatureRules is the legacy v1.6 Davidson cosig fixture
+// preserved as a test fixture. Production callers use
+// deployments/tn/trial.CosignatureRules().
 func CosignatureRules() []policy.CosignatureRule {
 	return []policy.CosignatureRule{
 		// ── attorney-driven filings ──────────────────────────────
@@ -191,7 +199,7 @@ func CosignatureRules() []policy.CosignatureRule {
 func MustCosignaturePolicy() *policy.InMemoryPolicy {
 	p, err := policy.NewInMemoryPolicy(CosignatureRules())
 	if err != nil {
-		panic(fmt.Sprintf("davidson_county/rules: cosignature policy invalid: %v", err))
+		panic(fmt.Sprintf("internal/testfixtures/davidsonlegacy: cosignature policy invalid: %v", err))
 	}
 	return p
 }

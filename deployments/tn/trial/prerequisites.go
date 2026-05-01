@@ -4,7 +4,7 @@ FILE PATH: deployments/tn/trial/prerequisites.go
 DESCRIPTION:
     TN trial-court framework — prerequisite policy shared by
     every Tennessee county exchange. Lifted from
-    deployments/davidson_county/rules/prerequisites.go.
+    internal/testfixtures/davidsonlegacy/prerequisites.go.
 
     The 18 event_types match the cosignature policy's vocabulary
     plus two structural anchors (case_initiated, hearing) that

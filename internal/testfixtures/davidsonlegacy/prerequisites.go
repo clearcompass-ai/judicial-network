@@ -1,14 +1,20 @@
 /*
-FILE PATH: deployments/davidson_county/rules/prerequisites.go
+FILE PATH: internal/testfixtures/davidsonlegacy/prerequisites.go
 
 DESCRIPTION:
-    Davidson County's prerequisite policy. Lifted (3E.7) out of
-    prerequisites/policy_davidson.go so the core prerequisites
-    package is jurisdiction-agnostic.
+    Test-only fixture: the legacy v1.6 Davidson prerequisite
+    policy that pairs with the legacy 6-role catalog in
+    role_catalog.go. NOT a production deployment.
+
+    Production TN counties use the simplified TN trial prereq
+    policy in deployments/tn/trial/prerequisites.go (with the
+    full §3 motion vocabulary merged in via motions_3X.go);
+    this fixture preserves the original 18-event vocabulary for
+    contract tests.
 
     The 18 event_types match the cosignature policy's vocabulary
     plus two structural anchors (case_initiated, hearing) that
-    are not subject to Tier 2 cosignature.
+    are not subject to Filer cosignature.
 
     Categories:
       - case-lifecycle filings (motions, pleadings, accountings):
@@ -31,7 +37,7 @@ OVERVIEW:
 KEY DEPENDENCIES:
     - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
 */
-package rules
+package davidsonlegacy
 
 import (
 	"fmt"
@@ -39,9 +45,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/prerequisites"
 )
 
-// PrerequisiteRules returns the closed-set Davidson prerequisite
-// vocabulary. Edit-with-care: changing this set changes the
-// network's accept/reject contract for the Davidson exchange.
+// PrerequisiteRules returns the legacy v1.6 Davidson prereq
+// vocabulary preserved as a test fixture. Production callers
+// use deployments/tn/trial.PrerequisiteRules().
 func PrerequisiteRules() map[string][]prerequisites.Prereq {
 	caseInitAncestor := prerequisites.Prereq{
 		Mode:             prerequisites.PrereqModeHard,
@@ -121,7 +127,7 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 func MustPrerequisitePolicy() *prerequisites.InMemoryPolicy {
 	p, err := prerequisites.NewInMemoryPolicy(PrerequisiteRules())
 	if err != nil {
-		panic(fmt.Sprintf("davidson_county/rules: prereq policy invalid: %v", err))
+		panic(fmt.Sprintf("internal/testfixtures/davidsonlegacy: prereq policy invalid: %v", err))
 	}
 	return p
 }
