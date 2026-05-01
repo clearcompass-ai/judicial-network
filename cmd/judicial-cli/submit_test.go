@@ -48,7 +48,7 @@ func writeSpec(t *testing.T, dir, name string, s SubmitSpec) string {
 func TestBuildAndSign_HappyPath_SingleSigner(t *testing.T) {
 	dir := t.TempDir()
 	clerk := issueKey(t, dir, "clerk")
-	clerkDID, _, err := LoadKey(clerk)
+	clerkDID, _, _, err := LoadKey(clerk)
 	if err != nil {
 		t.Fatalf("LoadKey: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestBuildAndSign_HappyPath_SingleSigner(t *testing.T) {
 	// Cryptographic sanity: VerifyEntry must accept the signature
 	// against the public key we stored in the key file.
 	digest := sha256.Sum256(sdkenv.SigningPayload(got))
-	_, priv, err := LoadKey(clerk)
+	_, _, priv, err := LoadKey(clerk)
 	if err != nil {
 		t.Fatalf("LoadKey for verify: %v", err)
 	}
@@ -119,8 +119,8 @@ func TestBuildAndSign_WithCosignerAndEvidence(t *testing.T) {
 	dir := t.TempDir()
 	primary := issueKey(t, dir, "clerk")
 	cosigner := issueKey(t, dir, "cooper")
-	primaryDID, _, _ := LoadKey(primary)
-	cosignerDID, _, _ := LoadKey(cosigner)
+	primaryDID, _, _, _ := LoadKey(primary)
+	cosignerDID, _, _, _ := LoadKey(cosigner)
 
 	spec := SubmitSpec{
 		Destination:      "did:web:state:tn:davidson",

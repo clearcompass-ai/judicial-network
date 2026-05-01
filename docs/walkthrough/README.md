@@ -20,6 +20,23 @@ with the exact commands that produce each step on your laptop.
 5 unique actors total (the clerk appears in both cases). Every DID is
 a real secp256k1 keypair you generate yourself in §02.
 
+## DID methods you'll use
+
+The walkthrough exercises **two** real DID methods:
+
+- **`did:key`** (W3C-spec multibase form). Used by court personnel
+  whose identity isn't tied to an Ethereum wallet — clerks, judges,
+  attorneys with bar-issued keys.
+- **`did:pkh:eip155:<chainId>:0x<addr>`** (CAIP-10 form). Used by
+  parties whose primary identity lives in an Ethereum-compatible
+  wallet — corporate plaintiffs/defendants, outside witnesses,
+  any actor who already has a wallet identity. Signs via EIP-191
+  (the standard `personal_sign` flow every wallet implements).
+
+Both are minted by `judicial-cli keygen` (just pass `--method
+pkh-eip155` for the wallet path); both verify through the SDK's
+DID dispatcher.
+
 ## What's running
 
 ```
@@ -34,10 +51,13 @@ a real secp256k1 keypair you generate yourself in §02.
                     │   └─────────┬──────────┘  └────────┬───────────┘│
                     │             │                      │            │
                     │   ┌─────────┴──────────────────────┴───────────┐│
-                    │   │  Postgres (two DBs) + MinIO (S3 buckets)   ││
+                    │   │  Postgres (2 DBs) + fake-gcs-server (2 buckets) ││
                     │   └─────────────────────────────────────────────┘│
                     └────────────────────────────────────────────────┘
 ```
+
+(The dev compose uses `fsouza/fake-gcs-server` — the operator's
+production GCS code path runs unchanged. No dev-vs-prod drift.)
 
 Both operators are stock Ortholog operators — domain-agnostic
 "dumb writes" that admit signed canonical bytes, sequence them, and
@@ -97,8 +117,8 @@ hit a documentation bug — open an issue and it gets fixed.
 
 - Docker + Docker Compose v2 (`docker compose`, not `docker-compose`)
 - Go 1.25+ (to build `judicial-cli` from source)
-- About 2 GiB of free disk for Postgres + MinIO + the operator image
-- Ports 5432, 8080, 8081, 9000, 9001 free on your laptop
+- About 2 GiB of free disk for Postgres + fake-gcs-server + the operator image
+- Ports 5432, 8080, 8081, 4443 free on your laptop
 
 We won't ask you to install Privy SDKs, Cellebrite tools, or anything
 exotic. Every primitive in this walkthrough is open-source and runs

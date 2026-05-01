@@ -3,7 +3,7 @@ module github.com/clearcompass-ai/judicial-network
 go 1.25.7
 
 require (
-	github.com/clearcompass-ai/ortholog-sdk v0.8.0
+	github.com/clearcompass-ai/ortholog-sdk v0.0.0-20260501132057-23591a64b34c
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/redis/go-redis/v9 v9.7.0

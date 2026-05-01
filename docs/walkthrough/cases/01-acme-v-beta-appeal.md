@@ -86,7 +86,7 @@ state=sequenced sequence=1
 ## Step 5b — Verify the cross-pointer survived
 
 This is the moment of truth. The disposition was admitted by COA's
-operator, sequenced into COA's Merkle log, and stored in COA's MinIO
+operator, sequenced into COA's Merkle log, and stored in COA's GCS
 bucket. But the `EvidencePointers` field inside the entry header —
 naming a sequence on a *different operator's* log — should be
 exactly what we sent.
@@ -174,24 +174,27 @@ COA sequence 1 (the disposition this opinion explains).
 
 ```bash
 $ curl -fsS $DAVIDSON/v1/tree/head | jq '.size'
-5
+6
 $ curl -fsS $COA/v1/tree/head | jq '.size'
 2
 ```
 
 | Log | # | Schema | Primary signer | Cosigner | Cross-ref |
 |---|---|---|---|---|---|
-| Davidson | 1 | `civil_case` | clerk | cooper | — |
+| Davidson | 1 | `civil_case` | clerk (did:key) | cooper (did:key) | — |
 | Davidson | 2 | `party_binding` | clerk | cooper | — |
 | Davidson | 3 | `party_binding` | clerk | davis | — |
 | Davidson | 4 | `counsel_appearance` | cooper | clerk | — |
 | Davidson | 5 | `counsel_appearance` | davis | clerk | — |
+| Davidson | 6 | `evidence_artifact` (web3) | clerk | **acme-ceo (did:pkh)** | — |
 | COA | 1 | `appellate_disposition` | edwards | clerk | **→ Davidson:1** |
 | COA | 2 | `appellate_opinion_publication` | edwards | clerk | → COA:1 |
 
-**5 actors. 2 exchanges. 1 cross-exchange reference. Every signature
-real. Every entry on a real running operator. Every step
-reproducible from this file alone.**
+**7 real DIDs (5 did:key court + 2 did:pkh web3 wallets). 2
+exchanges. 1 cross-exchange reference. 2 different signing
+primitives (64-byte SDK-native + 65-byte EIP-191 wallet) coexisting
+on the same log. Every signature real. Every entry on a real
+running operator. Every step reproducible from this file alone.**
 
 ## Why this matters
 

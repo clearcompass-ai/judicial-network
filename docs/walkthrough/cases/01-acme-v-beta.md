@@ -33,15 +33,17 @@ relationship between the two operators. Every federated deployment
 will hit this pattern; the civil-appeal flow is the cleanest
 realization.
 
-## Cast (5 actors)
+## Cast (5 court actors + 2 web3 wallets)
 
-| Alias | Role | Court | Used in act |
-|---|---|---|---|
-| `clerk-brown` | Court Clerk | Davidson | Both |
-| `cooper` | Plaintiff's attorney (ACME) | Davidson | Trial |
-| `davis` | Defendant's attorney (Beta) | Davidson | Trial |
-| `judge-adams` | Trial Judge | Davidson | Trial (assigned by CJ; we collapse this step in narration) |
-| `justice-edwards` | Appellate Justice | TN COA | Appeal |
+| Alias | DID method | Role | Court | Used in act |
+|---|---|---|---|---|
+| `clerk-brown` | did:key | Court Clerk | Davidson | Both |
+| `cooper` | did:key | Plaintiff's attorney (ACME) | Davidson | Trial |
+| `davis` | did:key | Defendant's attorney (Beta) | Davidson | Trial |
+| `judge-adams` | did:key | Trial Judge | Davidson | Trial |
+| `justice-edwards` | did:key | Appellate Justice | TN COA | Appeal |
+| `acme-ceo` | **did:pkh** (web3) | ACME CEO, signs from corporate wallet | — | Trial step 4 (affidavit) |
+| `beta-cfo` | **did:pkh** (web3) | Beta CFO, signs from corporate wallet | — | (extension; spec given in §99) |
 
 DIDs and key files were minted in [§02](../02-real-dids.md). All
 five shell variables (`$CLERK`, `$COOPER`, `$DAVIS`, `$ADAMS`,
@@ -53,11 +55,12 @@ After both acts, the logs hold:
 
 | Log | # | Schema | Primary signer | Cosigner | Cross-ref |
 |---|---|---|---|---|---|
-| Davidson | 1 | `civil_case` | clerk | cooper | — |
+| Davidson | 1 | `civil_case` | clerk (did:key) | cooper (did:key) | — |
 | Davidson | 2 | `party_binding` (plaintiff) | clerk | cooper | — |
 | Davidson | 3 | `party_binding` (defendant) | clerk | davis | — |
 | Davidson | 4 | `counsel_appearance` (cooper) | cooper | clerk | — |
 | Davidson | 5 | `counsel_appearance` (davis) | davis | clerk | — |
+| Davidson | 6 | `evidence_artifact` (CEO affidavit) | clerk | **acme-ceo (did:pkh)** | — |
 | COA | 1 | `appellate_disposition` | edwards | clerk | **→ Davidson:1** |
 | COA | 2 | `appellate_opinion_publication` | edwards | clerk | → COA:1 |
 

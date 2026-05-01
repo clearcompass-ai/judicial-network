@@ -72,9 +72,15 @@ $ judicial-cli get --endpoint $DAVIDSON --seq 1 | jq '.signatures | length'
 ```
 
 Two signatures (clerk + cooper). The civil case is officially open.
-If you have the MinIO console open, the `davidson-entries` bucket
-now has one object — its key is the sequence number; its value is
-the canonical wire bytes.
+A quick GCS-bucket inspection confirms the entry landed:
+
+```bash
+$ curl -fsS 'http://localhost:4443/storage/v1/b/davidson-entries/o' | jq '.items | length'
+1
+```
+
+That one object **is** the entry; its content is the canonical
+wire bytes.
 
 ## Step 2 — Bind the parties (`PartyBindingPayload` ×2)
 
@@ -171,6 +177,89 @@ Repeat for Davis (swap `cooper.key.json` ↔ `davis.key.json`,
 `bind-acme-001` → `bind-beta-001`, `ap-cooper-001` →
 `ap-davis-001`, `attorney_did` accordingly). Sequences 4 and 5.
 
+## Step 4 — Witness affidavit signed from a wallet (`EvidenceArtifactPayload`, web3 DID)
+
+**Legally.** Mid-trial, ACME's CEO submits a sworn affidavit
+attesting to the contract-formation facts. ACME's corporate signing
+authority is a multi-sig wallet on Ethereum (the company's
+`acme-ceo` DID is the EOA that controls the wallet for routine
+attestations). The clerk records receipt; the CEO signs the
+affidavit entry with their **wallet** — the same key that holds
+the company's on-chain assets — using EIP-191 personal-sign.
+
+This is the walkthrough's web3 moment: a real Ethereum-form
+signature on the same log as the court personnel's `did:key`
+signatures, both verifying through the same SDK dispatcher with
+no special-case handling.
+
+**Schema:** `jn/schemas/evidence_artifact.go:71` / `:135`.
+
+```bash
+cat > affidavit-acme-ceo.spec.json <<EOF
+{
+  "schema":      "evidence_artifact",
+  "destination": "did:web:state:tn:davidson",
+  "primary_signer_key": "clerk-brown.key.json",
+  "cosigner_keys":      ["acme-ceo.key.json"],
+  "payload": {
+    "evidence_id":               "ex-acme-affidavit-001",
+    "evidence_type":             "affidavit",
+    "classification":            "ordinary",
+    "filed_by":                  "$ACME_CEO",
+    "case_ref":                  "2024-CV-001",
+    "description":               "CEO affidavit re: contract formation, dated 2024-01-22",
+    "content_digest":            "sha256:9b1c4e7d...",
+    "artifact_encryption":       "umbral_pre",
+    "grant_authorization_mode":  "open",
+    "grant_entry_required":      true,
+    "grant_requires_audit_entry": true,
+    "chain_of_custody_required": true
+  }
+}
+EOF
+
+judicial-cli submit --endpoint $DAVIDSON --spec affidavit-acme-ceo.spec.json
+```
+
+**What just happened technically.** The CLI saw `did_method:
+"pkh-eip155"` in the cosigner key file, dispatched to the
+EIP-191 path: wrapped the canonical-hash digest in EIP-191 prefix
+(`\x19Ethereum Signed Message:\n32` + 32 hash bytes → keccak256),
+signed with `SignEthereumRecoverable` (65 bytes r||s||v), and
+attached `AlgoID: SigAlgoEIP191` (0x0003). The operator admitted
+the entry without ever inspecting the DID method — just bytes.
+
+**Verify the signature shape on the log:**
+
+```bash
+$ judicial-cli get --endpoint $DAVIDSON --seq 6 \
+    | jq '.signatures[] | {signer: .signer_did, algo: .algo_id, sig_len: (.bytes | length / 2)}'
+{
+  "signer": "did:key:zQ3sh...CLERK",
+  "algo": 1,
+  "sig_len": 64
+}
+{
+  "signer": "did:pkh:eip155:1:0x7ad817...",
+  "algo": 3,
+  "sig_len": 65
+}
+```
+
+Two signatures on a single entry, two different signing primitives,
+two different DID methods — all verifying through the operator's
+single per-method DID dispatcher when an SDK-level audit reads the
+log later.
+
+The "evidence" object now exists in the `davidson-entries` GCS
+bucket:
+
+```bash
+$ curl -fsS 'http://localhost:4443/storage/v1/b/davidson-entries/o' \
+    | jq '.items | length'
+6
+```
+
 ## Trial concludes
 
 We skip the in-trial entries (motions, orders, exhibits) for
@@ -185,11 +274,11 @@ on `:8081`. Same CLI; different `--endpoint`.
 
 ```bash
 $ curl -fsS $DAVIDSON/v1/tree/head | jq '.size, .root_hash'
-5
-"e2c4..." # the Merkle root over the 5 trial-court entries
+6
+"e2c4..." # the Merkle root over the 6 trial-court entries
 ```
 
-`davidson-entries` MinIO bucket: 5 objects.
+`davidson-entries` GCS bucket: 6 objects (one per sequenced entry).
 `coa-entries`: still empty.
 
 ## What just happened, in one breath

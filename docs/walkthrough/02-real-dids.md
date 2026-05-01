@@ -1,16 +1,32 @@
-# §02 · Mint five real did:keys
+# §02 · Mint real DIDs (`did:key` and `did:pkh`)
 
-The walkthrough has five actors. In §02 you mint a real secp256k1
-keypair for each one, encode each as a `did:key` (the spec-compliant
-multibase form), and stash the keys somewhere `judicial-cli` can
-find them.
+The walkthrough has actors with two flavors of identity. In §02 you
+mint a real secp256k1 keypair for each one — same primitive in every
+case — and decide whether to encode the public key as a `did:key`
+(the W3C-spec multibase form, used by court personnel) or as a
+`did:pkh:eip155:1:0x<addr>` (the CAIP-10 wallet form, used by
+parties whose primary identity is an Ethereum wallet).
 
 These are not pretend DIDs. They're the same keypair shape the
 operator uses for its own entry-signing key
 (`operator/cmd/operator/main.go:189-200`). A signature produced by
-one of these keys will verify cleanly through the SDK's
-`signatures.VerifyEntry` and roundtrip through
-`did.NewKeyResolver().Resolve(...)`.
+one of these keys verifies cleanly through the SDK's
+`did.NewKeyResolver()` (for did:key) or PKHVerifier (for did:pkh).
+
+## Two DID methods, one signing primitive
+
+| | `did:key` | `did:pkh:eip155:1:0x...` |
+|---|---|---|
+| Underlying key | secp256k1 | secp256k1 |
+| DID encoding | multibase (compressed pubkey) | CAIP-10 (Ethereum address) |
+| Signing primitive | `SignEntry` (64 bytes r\|\|s) | `SignEthereumRecoverable` (65 bytes r\|\|s\|\|v) |
+| Signing digest | sha256(SigningPayload) | EIP191Digest(sha256(SigningPayload)) |
+| Wire `AlgoID` | `SigAlgoECDSA` (0x0001) | `SigAlgoEIP191` (0x0003) |
+| Verifier | KeyVerifier | PKHVerifier |
+| Real-world | Court bar-issued keys, HSM-backed admin | MetaMask, Coinbase Wallet, Privy embedded, Safe wallets |
+
+The `judicial-cli keygen` flag `--method pkh-eip155` switches the
+DID encoding and signing path; everything else is shared.
 
 ## 1. Pick a keys directory
 
@@ -19,27 +35,25 @@ mkdir -p ~/ortholog/keys
 cd ~/ortholog/keys
 ```
 
-Why a dedicated directory: each `judicial-cli` step references a key
-by file path, so keeping them organized matters. Permissions land at
-`0600` (owner read/write only) — the CLI sets that on write.
+Permissions land at `0600` (owner read/write only) — the CLI sets
+that on write.
 
-## 2. The five actors
+## 2. The seven actors
 
-| Alias | Role | Used in case(s) |
-|---|---|---|
-| `clerk-brown` | Court Clerk, Davidson County | Both cases |
-| `cooper`      | Plaintiff's attorney, ACME | Case 1 (civil) |
-| `davis`       | Defendant's attorney, Beta Corp | Case 1 (civil) |
-| `judge-adams` | Trial Judge, Davidson | Case 1 (civil) |
-| `justice-edwards` | Appellate Justice, TN COA | Case 1 (appeal) |
+| Alias | DID method | Role | Used in case(s) |
+|---|---|---|---|
+| `clerk-brown` | `did:key` | Court Clerk, Davidson | Both |
+| `cooper` | `did:key` | Plaintiff's attorney, ACME | Case 1 (civil) |
+| `davis` | `did:key` | Defendant's attorney, Beta | Case 1 (civil) |
+| `judge-adams` | `did:key` | Trial Judge, Davidson | Case 1 |
+| `justice-edwards` | `did:key` | Appellate Justice, TN COA | Case 1 (appeal) |
+| `acme-ceo` | `did:pkh` (web3) | Plaintiff CEO, signs from corporate wallet | Case 1 (witness affidavit) |
+| `beta-cfo` | `did:pkh` (web3) | Defendant CFO, signs from corporate wallet | Case 1 (counter-affidavit) |
 
 Case 2 reuses `clerk-brown` and adds three more (`judge-lewis`,
-`magistrate-owens`, `atty-murphy`) — you'll mint those in §02 of Case
-2 itself, so they appear when their narrative does.
+`magistrate-owens`, `atty-murphy`) — minted in Case 2 itself.
 
-## 3. Mint them
-
-One command per actor:
+## 3. Mint the five court-personnel DIDs (`did:key`)
 
 ```bash
 judicial-cli keygen --out clerk-brown.key.json
@@ -49,106 +63,116 @@ judicial-cli keygen --out judge-adams.key.json
 judicial-cli keygen --out justice-edwards.key.json
 ```
 
-Each prints the assigned DID. Sample run:
+Each prints the assigned DID:
 
 ```
 $ judicial-cli keygen --out clerk-brown.key.json
 did=did:key:zQ3shgNJJbyVUSbFVpqXCGQ8LjWshxtMPufJHrekzougqsyur
+method=key
 file=/home/you/ortholog/keys/clerk-brown.key.json
 ```
 
-The DID encodes the **compressed secp256k1 public key** in
-multibase. Per the [W3C did:key
-spec](https://w3c-ccg.github.io/did-method-key/), anyone holding the
-DID string can re-derive the public key without consulting a
-registry. That's the point: did:key has no resolver dependency.
+The `did:key:zQ3sh...` form encodes the **compressed secp256k1
+public key** in multibase. Per the [W3C did:key
+spec](https://w3c-ccg.github.io/did-method-key/), anyone holding
+the DID string can re-derive the public key without consulting a
+registry. No resolver dependency; ideal for institutional keys.
 
-## 4. Inspect a key file
+## 4. Mint two web3 DIDs (`did:pkh:eip155`)
 
 ```bash
-$ cat clerk-brown.key.json
+judicial-cli keygen --out acme-ceo.key.json --method pkh-eip155
+judicial-cli keygen --out beta-cfo.key.json --method pkh-eip155
+```
+
+Each prints a CAIP-10 form:
+
+```
+$ judicial-cli keygen --out acme-ceo.key.json --method pkh-eip155
+did=did:pkh:eip155:1:0x7ad817edea4e9eb9c223983ec9604376ce2d668f
+method=pkh-eip155
+file=/home/you/ortholog/keys/acme-ceo.key.json
+```
+
+The `eip155:1` part is the CAIP-2 chain identifier — `1` is
+Ethereum mainnet. Pass `--chain-id 137` for Polygon, `--chain-id
+42161` for Arbitrum, etc. The address (`0x7ad817...`) is
+`Keccak256(uncompressed_pubkey[1:])[12:]` — the same derivation
+every Ethereum wallet uses.
+
+## 5. Inspect a `did:pkh` key file
+
+```bash
+$ cat acme-ceo.key.json
 {
-  "did": "did:key:zQ3shgNJJbyVUSbFVpqXCGQ8LjWshxtMPufJHrekzougqsyur",
+  "did": "did:pkh:eip155:1:0x7ad817edea4e9eb9c223983ec9604376ce2d668f",
+  "did_method": "pkh-eip155",
+  "chain_id": 1,
+  "ethereum_address_hex": "0x7ad817edea4e9eb9c223983ec9604376ce2d668f",
   "private_key_hex": "8a1b...32 bytes...4f9c",
   "public_key_compressed_hex": "02d9a8...33 bytes...0b41"
 }
 ```
 
-Three fields:
-- `did` — the public identifier the entries will reference.
-- `private_key_hex` — the 32-byte secp256k1 private scalar.
-- `public_key_compressed_hex` — the 33-byte compressed pubkey
-  (the same bytes encoded in the DID, hex form for convenience).
+Compare to a `did:key` file (no `did_method`, `chain_id`,
+`ethereum_address_hex` fields — just the bare DID + key bytes).
+The CLI's submitter reads `did_method` to pick the right signing
+primitive.
 
-Treat `private_key_hex` like any other secret. In production this
-file would not exist; signing happens inside Privy or an HSM via
-the `IdentityProvider` interface.
-
-## 5. Capture each DID in a shell variable
-
-The walkthrough commands reference DIDs many times; we set
-shell variables once so the commands stay short and copy-pastable:
+## 6. Capture each DID in a shell variable
 
 ```bash
-CLERK=$(jq -r '.did' clerk-brown.key.json)
-COOPER=$(jq -r '.did' cooper.key.json)
-DAVIS=$(jq -r '.did' davis.key.json)
-ADAMS=$(jq -r '.did' judge-adams.key.json)
+CLERK=$(jq -r '.did'   clerk-brown.key.json)
+COOPER=$(jq -r '.did'  cooper.key.json)
+DAVIS=$(jq -r '.did'   davis.key.json)
+ADAMS=$(jq -r '.did'   judge-adams.key.json)
 EDWARDS=$(jq -r '.did' justice-edwards.key.json)
+ACME_CEO=$(jq -r '.did' acme-ceo.key.json)
+BETA_CFO=$(jq -r '.did' beta-cfo.key.json)
 
-echo "$CLERK"
-echo "$COOPER"
-# ...
+echo "$ACME_CEO"   # did:pkh:eip155:1:0x...
+echo "$CLERK"      # did:key:zQ3sh...
 ```
 
-Need `jq`? `apt install jq` / `brew install jq` / your package
-manager. If you don't have `jq`, `python -c "import json,sys;
-print(json.load(open('clerk-brown.key.json'))['did'])"` works
-identically.
-
-## 6. Verify a key roundtrips through the SDK
-
-This is optional but reassuring on first run. From the JN repo:
+## 7. Verify both methods round-trip cleanly
 
 ```bash
 cd ~/ortholog/jn
-go test ./cmd/judicial-cli/ -run TestKeygen_Roundtrip -v
+go test ./cmd/judicial-cli/ -run "TestKeygen_Roundtrip|TestKeygen_PKHEIP155_Roundtrip|TestSignByMethod_PKH_RoundTripsThroughPKHVerifier" -v
 ```
 
-Expected output ends with `--- PASS: TestKeygen_Roundtrip`. The test
-mints a fresh DID, parses it back through `did.ParseDIDKey`,
-recovers the compressed pubkey, and compares byte-for-byte to the
-file. If this passes, every key you minted will sign cleanly.
+Expected: three PASSes. The third is load-bearing — it pins that a
+signature produced by `judicial-cli` for a `did:pkh` key verifies
+through `sdksigs.VerifySecp256k1EIP191`, which is the same primitive
+the operator's PKHVerifier dispatches to under `SigAlgoEIP191`.
 
-## 7. What's NOT happening yet
+If those three pass, every web3 step in the walkthrough will work.
 
-- No HTTP request has been issued to either operator.
-- No entry is on the log.
-- No DID has any *role* assigned (e.g., `clerk` for
-  `clerk-brown.key.json`). DIDs are just public-key identifiers; the
-  judicial-network's role catalog and authority resolver bind a DID
-  to a role inside an institutional context. In the production path
-  that binding happens via a `JudicialDelegationPayload` entry on
-  the log; in the walkthrough we'll show that step explicitly in
-  Case 1 (CJ assigns Adams to the trial).
+## 8. What's NOT happening yet
 
-## 8. Recap
+- No HTTP request issued to either operator.
+- No entry on either log.
+- No DID has any *role* assigned. DIDs are public-key identifiers;
+  the judicial-network's role catalog and authority resolver bind a
+  DID to a role inside an institutional context. In production that
+  binding happens via a `JudicialDelegationPayload` entry on the
+  log; in the walkthrough we'll see that step explicitly in Case 1.
+
+## 9. Recap
 
 | You have | Where |
 |---|---|
-| 5 secp256k1 keypairs as JSON files | `~/ortholog/keys/*.key.json` |
-| 5 `did:key` identifiers in shell vars | `$CLERK`, `$COOPER`, `$DAVIS`, `$ADAMS`, `$EDWARDS` |
-| 0 entries on either log | confirm with `curl -fsS $DAVIDSON/v1/tree/head` |
+| 5 `did:key` keypairs | `~/ortholog/keys/{clerk,cooper,davis,judge-adams,justice-edwards}.key.json` |
+| 2 `did:pkh` keypairs (web3 wallets) | `~/ortholog/keys/{acme-ceo,beta-cfo}.key.json` |
+| 7 DID strings in shell vars | `$CLERK $COOPER $DAVIS $ADAMS $EDWARDS $ACME_CEO $BETA_CFO` |
+| 0 entries on either log | `curl -fsS $DAVIDSON/v1/tree/head` |
 
-Now we make something happen.
+## Next
 
-Choose your case:
-
-- **Case 1: ACME Industries v. Beta Corp** —
-  [cases/01-acme-v-beta.md](cases/01-acme-v-beta.md)
-  · Civil contract dispute, trial on Davidson, appeal to COA.
-  Cross-exchange composition.
+- **Case 1: ACME v. Beta** —
+  [cases/01-acme-v-beta.md](cases/01-acme-v-beta.md). The trial-act
+  walkthrough now includes a wallet-signed CEO affidavit step
+  ([trial.md](cases/01-acme-v-beta-trial.md) §3.5) demonstrating
+  did:pkh end-to-end.
 - **Case 2: In re Anderson** —
-  [cases/02-in-re-anderson.md](cases/02-in-re-anderson.md)
-  · Family case with a sealed minor binding, judicial succession to
-  Juvenile, and a delegation revocation.
+  [cases/02-in-re-anderson.md](cases/02-in-re-anderson.md).

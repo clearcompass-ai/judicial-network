@@ -18,8 +18,9 @@ intentionally skipped, and how to add the missing pieces.
 | 9 | `JudicialRevocationPayload` | `schemas/judicial_amendments.go:28` | — | ✓ succession step 7 |
 | 10 | `AppellateDispositionPayload` | `schemas/appellate_disposition.go:34` | ✓ appeal step 5 | — |
 | 11 | `AppellateOpinionPublicationPayload` | `schemas/appellate_opinion_publication.go:33` | ✓ appeal step 6 | — |
+| 12 | `EvidenceArtifactPayload` | `schemas/evidence_artifact.go:71` | ✓ trial step 4 (CEO affidavit, web3) | — |
 
-11 of the 17 payload schemas exercised. The remaining 6 are listed
+12 of the 17 payload schemas exercised. The remaining 5 are listed
 below with a one-paragraph "how to add" each.
 
 ## Cross-cutting features exercised
@@ -31,9 +32,12 @@ below with a one-paragraph "how to add" each.
 | Sealed binding (umbral_pre, sealed grant mode) | Case 2 filing step 2 |
 | Scoped judicial succession (`inheritance: narrowed`) | Case 2 succession step 6 |
 | Delegation revocation | Case 2 succession step 7 |
-| Real secp256k1 DIDs minted via `judicial-cli keygen` | §02 |
+| Real `did:key` DIDs minted via `judicial-cli keygen` | §02 |
+| Real `did:pkh:eip155` (web3) DIDs minted via `--method pkh-eip155` | §02 |
+| Mixed-method entries (did:key + did:pkh on the same log) | Case 1 trial step 4 |
+| EIP-191 wallet signing (`SigAlgoEIP191`, 65-byte r\|\|s\|\|v) | Case 1 trial step 4 |
 | Real two-operator topology (`make dev-up`) | §01 |
-| Real S3-compatible bytestore (MinIO) | §01 |
+| Real GCS bytestore (`fake-gcs-server`, anonymous mode) | §01 |
 | Sequence-number monotonicity per log | observable in `tree/head` after each step |
 
 ## What's missing — natural extensions
@@ -49,12 +53,6 @@ plus `charges []string`, `victim_info`, `sealed_exhibits`. Pair with
 a `PartyBindingSealedPayload` for the victim. **Suggested add:** a
 third case, *State v. Wilson* — felony assault with a sealed-victim
 binding and an evidence chain.
-
-#### `EvidenceArtifactPayload`
-`schemas/evidence_artifact.go:71`. Carries `evidence_id`,
-`content_digest`, `artifact_cid`, classification, optionally a
-disclosure-order back-reference. **Suggested add:** add an
-exhibit entry to either case 1's trial or case 2's juvenile docket.
 
 #### `KeyAttestationPayload`
 `schemas/key_attestation.go:87`. Attests that an entity's key was
@@ -153,4 +151,4 @@ cd ~/ortholog/operator
 make dev-down
 ```
 
-Goodbye, MinIO buckets. Until next time.
+Goodbye, GCS buckets. Until next time.

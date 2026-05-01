@@ -42,6 +42,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -141,11 +142,20 @@ func loadSubmitSpec(path string) (*SubmitSpec, error) {
 // buildAndSign performs the wire-format pipeline. Returns the
 // canonical bytes ready for POST plus the canonical-hash a caller
 // can use to track sequencing via /v1/entries-hash.
+//
+// Per-signer signing path is chosen by the key file's did_method:
+//   - "key"        : SignEntry      (64-byte r||s)        + SigAlgoECDSA
+//   - "pkh-eip155" : signEthereumMsg (65-byte r||s||v EIP-191) + SigAlgoEIP191
+//
+// All signers (primary + cosigners) sign over the SAME signing-
+// payload digest; the wallet-DID path simply wraps that digest
+// in EIP-191 prefix before signing, so the verifier reconstructs
+// the same prefix when ecrecover-checking.
 func buildAndSign(spec *SubmitSpec) ([]byte, [32]byte, error) {
 	var zero [32]byte
 
 	// 1) Load primary signer.
-	primaryDID, primaryPriv, err := LoadKey(spec.PrimarySignerKey)
+	primaryDID, primaryMethod, primaryPriv, err := LoadKey(spec.PrimarySignerKey)
 	if err != nil {
 		return nil, zero, fmt.Errorf("load primary signer: %w", err)
 	}
@@ -185,29 +195,29 @@ func buildAndSign(spec *SubmitSpec) ([]byte, [32]byte, error) {
 
 	// 5) Primary signature first (Signatures[0].SignerDID must
 	//    equal Header.SignerDID per envelope invariant).
-	sig0, err := sdksigs.SignEntry(digest, primaryPriv)
+	primarySig, primaryAlgo, err := signByMethod(primaryMethod, primaryPriv, digest)
 	if err != nil {
-		return nil, zero, fmt.Errorf("primary SignEntry: %w", err)
+		return nil, zero, fmt.Errorf("primary sign: %w", err)
 	}
 	entry.Signatures = []sdkenv.Signature{{
 		SignerDID: primaryDID,
-		AlgoID:    sdkenv.SigAlgoECDSA,
-		Bytes:     sig0,
+		AlgoID:    primaryAlgo,
+		Bytes:     primarySig,
 	}}
 
 	// 6) Cosigners.
 	for _, kp := range spec.CosignerKeys {
-		cdid, cpriv, err := LoadKey(kp)
+		cdid, cmethod, cpriv, err := LoadKey(kp)
 		if err != nil {
 			return nil, zero, fmt.Errorf("load cosigner %q: %w", kp, err)
 		}
-		csig, err := sdksigs.SignEntry(digest, cpriv)
+		csig, calgo, err := signByMethod(cmethod, cpriv, digest)
 		if err != nil {
-			return nil, zero, fmt.Errorf("cosigner %s SignEntry: %w", cdid, err)
+			return nil, zero, fmt.Errorf("cosigner %s sign: %w", cdid, err)
 		}
 		entry.Signatures = append(entry.Signatures, sdkenv.Signature{
 			SignerDID: cdid,
-			AlgoID:    sdkenv.SigAlgoECDSA,
+			AlgoID:    calgo,
 			Bytes:     csig,
 		})
 	}
@@ -256,4 +266,47 @@ func postEntry(endpoint, token string, wire []byte) ([]byte, int, error) {
 		return nil, resp.StatusCode, fmt.Errorf("read response: %w", err)
 	}
 	return body, resp.StatusCode, nil
+}
+
+// signByMethod dispatches signing to the correct primitive based on
+// the loaded key file's did_method.
+//
+// Returns (sig_bytes, algo_id, error). The verifier reads algo_id
+// from the entry's Signature.AlgoID and selects the matching
+// VerifySecp256k1* primitive on the read side.
+//
+// Method-to-algo mapping (kept in sync with PKHVerifier and KeyVerifier):
+//   - "key", ""    -> SignEntry (64B)              + SigAlgoECDSA  (0x0001)
+//   - "pkh-eip155" -> SignEthereumRecoverable(EIP-191 digest) (65B)
+//                                                  + SigAlgoEIP191 (0x0003)
+//
+// Adding a new DID method (e.g., "pkh-eip155-eip712" using EIP-712
+// typed data, or full smart-contract-wallet EIP-1271) is a new
+// case here plus matching support in PKHVerifier.
+func signByMethod(method string, priv *ecdsa.PrivateKey, digest [32]byte) ([]byte, uint16, error) {
+	switch method {
+	case DIDMethodKey, "":
+		sig, err := sdksigs.SignEntry(digest, priv)
+		if err != nil {
+			return nil, 0, fmt.Errorf("SignEntry: %w", err)
+		}
+		return sig, sdkenv.SigAlgoECDSA, nil
+
+	case DIDMethodPKHEIP155:
+		// did:pkh + EIP-191 path: wrap the canonical-hash digest in
+		// the EIP-191 personal_sign prefix, sign with recoverable v,
+		// label the signature SigAlgoEIP191. The verifier reconstructs
+		// the same prefixed digest from the canonical hash and does
+		// ecrecover against the address inside the did:pkh.
+		eip191Digest := sdksigs.EIP191Digest(digest[:])
+		sig, err := sdksigs.SignEthereumRecoverable(priv, eip191Digest)
+		if err != nil {
+			return nil, 0, fmt.Errorf("SignEthereumRecoverable: %w", err)
+		}
+		return sig, sdkenv.SigAlgoEIP191, nil
+
+	default:
+		return nil, 0, fmt.Errorf("unknown did_method %q (valid: %q, %q)",
+			method, DIDMethodKey, DIDMethodPKHEIP155)
+	}
 }

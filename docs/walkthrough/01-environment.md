@@ -1,6 +1,6 @@
 # §01 · Bring up your laptop topology
 
-Goal: two operators running, two MinIO buckets ready, a `judicial-cli`
+Goal: two operators running, two GCS buckets ready, a `judicial-cli`
 binary on your `$PATH`, and a clean log on both exchanges.
 
 ## 1. Clone (or `cd` into) the three repos
@@ -24,11 +24,17 @@ cd ~/ortholog/operator
 make dev-up
 ```
 
-`make dev-up` builds the operator image, starts Postgres + MinIO,
-creates two databases (`ortholog_davidson`, `ortholog_coa`) and two
-buckets (`davidson-entries`, `coa-entries`), then waits for both
-operators to report `/healthz = ok`. Cold build: 3–5 min. Warm
-restart: ~15 seconds.
+`make dev-up` builds the operator image, starts Postgres +
+`fake-gcs-server`, creates two databases (`ortholog_davidson`,
+`ortholog_coa`) and two GCS buckets (`davidson-entries`,
+`coa-entries`), then waits for both operators to report
+`/healthz = ok`. Cold build: 3–5 min. Warm restart: ~15 seconds.
+
+> The dev topology uses `fsouza/fake-gcs-server` — an anonymous-mode
+> GCS API emulator. The operator hits it via `BYTE_STORE_BACKEND=gcs`
+> + `BYTE_STORE_GCS_ENDPOINT=http://gcs:4443` +
+> `BYTE_STORE_GCS_ANONYMOUS=true`, exactly the same code path as a
+> production deployment pointed at storage.googleapis.com.
 
 Sanity:
 
@@ -104,13 +110,24 @@ export COA=http://localhost:8081
 Sanity: `curl -fsS $DAVIDSON/v1/admission/difficulty` returns a JSON
 admission-difficulty object.
 
-## 6. Optional — open the MinIO console
+## 6. Optional — peek at the GCS buckets
 
-Visit <http://localhost:9001> in your browser, log in with
-`minioadmin` / `minioadmin`, and click into the `davidson-entries`
-bucket. It's empty now. Keep this tab open: as the walkthrough runs,
-you'll watch entry bytes appear here in real time, one S3 object per
-sequenced entry.
+`fake-gcs-server` has no web console, but its REST API is the same
+GCS HTTP API a production deployment hits:
+
+```bash
+$ curl -fsS http://localhost:4443/storage/v1/b | jq '.items[].name'
+"coa-entries"
+"davidson-entries"
+
+# Empty until the walkthrough runs:
+$ curl -fsS 'http://localhost:4443/storage/v1/b/davidson-entries/o' | jq '.items // []'
+[]
+```
+
+Keep that command handy — re-run after each walkthrough step to
+see new entry objects appear in the buckets, one per sequenced
+entry.
 
 ## 7. Where everything lives
 
@@ -134,7 +151,7 @@ After §01 you have:
 - Two operators (Davidson `:8080`, COA `:8081`), each a
   domain-agnostic Ortholog operator, currently empty (size 0).
 - One Postgres (`:5432`), two databases.
-- One MinIO (`:9000`/`:9001`), two buckets.
+- One `fake-gcs-server` (`:4443`), two GCS buckets.
 - One `judicial-cli` binary on your `$PATH`.
 
 You have no DIDs yet. **§02 mints them.**

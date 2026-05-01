@@ -49,13 +49,16 @@ func TestKeygen_Roundtrip(t *testing.T) {
 		t.Errorf("key file has empty fields: %+v", kf)
 	}
 
-	// LoadKey returns the same DID and a working private key.
-	gotDID, priv, err := LoadKey(keyPath)
+	// LoadKey returns the same DID, "key" method, and a working priv.
+	gotDID, gotMethod, priv, err := LoadKey(keyPath)
 	if err != nil {
 		t.Fatalf("LoadKey: %v", err)
 	}
 	if gotDID != kf.DID {
 		t.Errorf("DID drift: file=%s loader=%s", kf.DID, gotDID)
+	}
+	if gotMethod != DIDMethodKey {
+		t.Errorf("method drift: want %q, got %q", DIDMethodKey, gotMethod)
 	}
 
 	// End-to-end signing: sign a digest, recover the pubkey,
@@ -118,7 +121,7 @@ func TestLoadKey_RejectsBadFile(t *testing.T) {
 			if err := os.WriteFile(path, []byte(c.content), 0o600); err != nil {
 				t.Fatalf("write: %v", err)
 			}
-			if _, _, err := LoadKey(path); err == nil {
+			if _, _, _, err := LoadKey(path); err == nil {
 				t.Errorf("MUST reject %q", c.name)
 			}
 		})
