@@ -96,16 +96,16 @@ func TestFactory_RedisBackend_MissingAddrErrors(t *testing.T) {
 	}
 }
 
-func TestFactory_BuildForExchange_RequiresExchangeDID(t *testing.T) {
+func TestFactory_BuildForExchange_RequiresDestination(t *testing.T) {
 	_, err := NonceStoreConfig{}.BuildForExchange("")
 	if err == nil {
-		t.Fatal("expected error for empty exchangeDID")
+		t.Fatal("expected error for empty destination")
 	}
 	if !errors.Is(err, ErrInvalidNonceConfig) {
 		t.Errorf("error should wrap ErrInvalidNonceConfig: %v", err)
 	}
-	if !strings.Contains(err.Error(), "exchangeDID") {
-		t.Errorf("error should mention exchangeDID: %v", err)
+	if !strings.Contains(err.Error(), "destination") {
+		t.Errorf("error should mention destination: %v", err)
 	}
 }
 
