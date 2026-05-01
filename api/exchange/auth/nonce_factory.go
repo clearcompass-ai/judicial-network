@@ -37,9 +37,7 @@ KEY ARCHITECTURAL DECISIONS:
       RedisNonceStore can prefix every key with it.
     - Cross-tenant collision protection: the SDK's RedisNonceStore
       formats keys as "{prefix}{destination}:{nonce}" — two different
-      destinations sharing the same Redis instance never collide. The
-      SDK field is named ExchangeDID (we honor that name only when
-      passing values through to RedisNonceStoreConfig).
+      destinations sharing the same Redis instance never collide.
 
 KEY DEPENDENCIES:
     - ortholog-sdk/exchange/auth: NonceStore interface +
@@ -188,9 +186,7 @@ func (cfg NonceStoreConfig) BuildForExchange(destination string) (*NonceStore, e
 }
 
 // buildRedisStore constructs an SDK RedisNonceStore for destination
-// using the connection params on cfg. The SDK's RedisNonceStoreConfig
-// uses the field name ExchangeDID; we pass the destination through
-// verbatim because it is the value the SDK uses for key prefixing.
+// using the connection params on cfg.
 func (cfg NonceStoreConfig) buildRedisStore(destination string) (sdkauth.NonceStore, error) {
 	if cfg.RedisAddr == "" {
 		return nil, fmt.Errorf("%w: RedisAddr required for redis backend",
@@ -203,7 +199,7 @@ func (cfg NonceStoreConfig) buildRedisStore(destination string) (sdkauth.NonceSt
 	})
 	return sdkauth.NewRedisNonceStore(sdkauth.RedisNonceStoreConfig{
 		Client:      client,
-		ExchangeDID: destination, // SDK field name; value is the destination DID.
+		Destination: destination,
 		KeyPrefix:   cfg.RedisKeyPrefix,
 	})
 }
