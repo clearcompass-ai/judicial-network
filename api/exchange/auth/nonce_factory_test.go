@@ -24,11 +24,13 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────
-// Factory backend selection
+// Factory backend selection — multi-tenant via BuildForExchange
 // ─────────────────────────────────────────────────────────────────────
 
+const testTenantDID = "did:web:exchange.test"
+
 func TestFactory_DefaultsToMemoryBackend(t *testing.T) {
-	store, err := NewNonceStoreFromConfig(NonceStoreConfig{})
+	store, err := NonceStoreConfig{}.BuildForExchange(testTenantDID)
 	if err != nil {
 		t.Fatalf("factory: %v", err)
 	}
@@ -47,7 +49,7 @@ func TestFactory_DefaultsToMemoryBackend(t *testing.T) {
 }
 
 func TestFactory_ExplicitMemoryBackend(t *testing.T) {
-	store, err := NewNonceStoreFromConfig(NonceStoreConfig{Backend: BackendMemory})
+	store, err := NonceStoreConfig{Backend: BackendMemory}.BuildForExchange(testTenantDID)
 	if err != nil {
 		t.Fatalf("factory: %v", err)
 	}
@@ -56,11 +58,33 @@ func TestFactory_ExplicitMemoryBackend(t *testing.T) {
 	}
 }
 
+func TestFactory_PerTenantNamespacing_MemoryBackend(t *testing.T) {
+	// Two tenants on the memory backend — each gets its own store, so
+	// the same nonce is reservable independently in both namespaces.
+	a, err := NonceStoreConfig{}.BuildForExchange("did:web:tenant-a")
+	if err != nil {
+		t.Fatalf("tenant A: %v", err)
+	}
+	b, err := NonceStoreConfig{}.BuildForExchange("did:web:tenant-b")
+	if err != nil {
+		t.Fatalf("tenant B: %v", err)
+	}
+	ctx := context.Background()
+	if err := a.Reserve(ctx, "shared"); err != nil {
+		t.Fatalf("A first Reserve: %v", err)
+	}
+	if err := b.Reserve(ctx, "shared"); err != nil {
+		t.Errorf("B first Reserve should succeed (different tenant): %v", err)
+	}
+	if err := a.Reserve(ctx, "shared"); !errors.Is(err, sdkauth.ErrNonceReserved) {
+		t.Errorf("A replay should fail: got %v", err)
+	}
+}
+
 func TestFactory_RedisBackend_MissingAddrErrors(t *testing.T) {
-	_, err := NewNonceStoreFromConfig(NonceStoreConfig{
-		Backend:     BackendRedis,
-		ExchangeDID: "did:web:exchange.test",
-	})
+	_, err := NonceStoreConfig{
+		Backend: BackendRedis,
+	}.BuildForExchange(testTenantDID)
 	if err == nil {
 		t.Fatal("expected error for missing RedisAddr")
 	}
@@ -72,23 +96,23 @@ func TestFactory_RedisBackend_MissingAddrErrors(t *testing.T) {
 	}
 }
 
-func TestFactory_RedisBackend_MissingExchangeDIDErrors(t *testing.T) {
-	_, err := NewNonceStoreFromConfig(NonceStoreConfig{
-		Backend:   BackendRedis,
-		RedisAddr: "redis.svc:6379",
-	})
+func TestFactory_BuildForExchange_RequiresExchangeDID(t *testing.T) {
+	_, err := NonceStoreConfig{}.BuildForExchange("")
 	if err == nil {
-		t.Fatal("expected error for missing ExchangeDID")
+		t.Fatal("expected error for empty exchangeDID")
 	}
-	if !strings.Contains(err.Error(), "ExchangeDID") {
-		t.Errorf("error should mention ExchangeDID: %v", err)
+	if !errors.Is(err, ErrInvalidNonceConfig) {
+		t.Errorf("error should wrap ErrInvalidNonceConfig: %v", err)
+	}
+	if !strings.Contains(err.Error(), "exchangeDID") {
+		t.Errorf("error should mention exchangeDID: %v", err)
 	}
 }
 
 func TestFactory_UnknownBackendErrors(t *testing.T) {
-	_, err := NewNonceStoreFromConfig(NonceStoreConfig{
+	_, err := NonceStoreConfig{
 		Backend: NonceStoreBackend("postgres"),
-	})
+	}.BuildForExchange(testTenantDID)
 	if err == nil {
 		t.Fatal("expected error for unknown backend")
 	}

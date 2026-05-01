@@ -65,9 +65,6 @@ type ServerConfig struct {
 
 	// Log index for sequential scanning.
 	Index *index.LogIndex
-
-	// Exchange DID (from cert SAN).
-	ExchangeDID string
 }
 
 // Server is the exchange HTTP server.
@@ -88,7 +85,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		VerificationEndpoint:  cfg.VerificationEndpoint,
 		KeyStore:              cfg.KeyStore,
 		Index:                 cfg.Index,
-		ExchangeDID:           cfg.ExchangeDID,
 	}
 
 	mux := http.NewServeMux()

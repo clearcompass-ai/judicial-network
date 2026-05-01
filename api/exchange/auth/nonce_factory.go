@@ -3,9 +3,11 @@ FILE PATH: api/exchange/auth/nonce_factory.go
 
 DESCRIPTION:
     Deployment-time selector for the SDK strict-forever NonceStore
-    backend. Mirrors the operator's nonce_factory pattern: production
-    deployments switch from in-memory to Redis via a single config
-    knob without changing call sites.
+    backend. Multi-tenant: a single process serves N exchanges, each
+    keyed by its own ExchangeDID; the factory constructs one
+    backend-bound *NonceStore per registered exchange and the
+    composition root looks up the right one per request from
+    entry.Header.Destination.
 
     Two backends:
 
@@ -20,24 +22,20 @@ DESCRIPTION:
                             replicas behind a load balancer.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Factory pattern, not direct construction: callers (server.go
-      composition root) hold a NonceStoreConfig and ask for an
-      *NonceStore. The factory owns backend selection so changing the
-      default flips the deployment in one place.
+    - Connection-vs-namespace split. NonceStoreConfig holds backend
+      selection + connection params (RedisAddr, RedisPassword, …).
+      Per-tenant namespacing lives on the per-exchange BuildForExchange
+      call. One Redis connection, N stores keyed by ExchangeDID.
     - Strict-forever contract preserved by both backends. The factory
       does NOT add TTL, eviction, or any other reservation-forgetting
-      behavior — the SDK contract requires reservations to be
-      permanent. Freshness handling is JN's responsibility (window in
-      the wrapping NonceStore) and is deliberately separate from
-      replay protection.
-    - ExchangeDID is required for redis (cross-tenant namespacing per
-      SDK CONTRACT — NAMESPACING). For memory it is accepted but
-      ignored, so ops can flip the env var without re-deploying with
-      new config.
-    - The redis branch builds the redis client from cfg fields
-      directly; if a future deployment needs OTel tracing or sentinel
-      mode, extend NonceStoreConfig rather than introducing a separate
-      factory.
+      behavior — the SDK contract requires reservations to be permanent.
+      Freshness handling is JN's responsibility (window in the wrapping
+      NonceStore) and is deliberately separate from replay protection.
+    - Memory backend ignores ExchangeDID (single-process namespace
+      already implicit). Redis backend REQUIRES ExchangeDID.
+    - Cross-tenant collision protection: the SDK's RedisNonceStore
+      formats keys as "{prefix}{exchangeDID}:{nonce}" — two different
+      exchanges sharing the same Redis instance never collide.
 
 KEY DEPENDENCIES:
     - ortholog-sdk/exchange/auth: NonceStore interface +
@@ -88,11 +86,13 @@ const DefaultFreshnessWindow = 5 * time.Minute
 var ErrInvalidNonceConfig = errors.New("auth: invalid nonce store configuration")
 
 // ─────────────────────────────────────────────────────────────────────
-// Config
+// Config — connection only; per-tenant namespacing is per-call
 // ─────────────────────────────────────────────────────────────────────
 
 // NonceStoreConfig configures the factory. Backend selects the
-// concrete impl; the rest are backend-specific.
+// concrete impl; the rest are backend-specific connection parameters.
+// Per-tenant namespacing (ExchangeDID) is supplied per-tenant via
+// BuildForExchange so a single connection can serve N exchanges.
 type NonceStoreConfig struct {
 	// Backend selects which NonceStore concrete impl to construct.
 	// Empty defaults to DefaultNonceStoreBackend.
@@ -101,11 +101,6 @@ type NonceStoreConfig struct {
 	// FreshnessWindow caps signed-request timestamp staleness.
 	// Empty/zero defaults to DefaultFreshnessWindow.
 	FreshnessWindow time.Duration
-
-	// ExchangeDID namespaces every reservation when using the redis
-	// backend (per SDK CONTRACT — NAMESPACING). Required when
-	// Backend == BackendRedis. Ignored when Backend == BackendMemory.
-	ExchangeDID string
 
 	// RedisAddr is the redis endpoint (e.g., "redis.svc:6379").
 	// Required when Backend == BackendRedis.
@@ -124,13 +119,34 @@ type NonceStoreConfig struct {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Factory
+// Factory — per-tenant build
 // ─────────────────────────────────────────────────────────────────────
 
-// NewNonceStoreFromConfig returns a *NonceStore whose backend honors
-// cfg.Backend. Returns ErrInvalidNonceConfig wrapped with a specific
-// message on validation failure.
-func NewNonceStoreFromConfig(cfg NonceStoreConfig) (*NonceStore, error) {
+// BuildForExchange returns a *NonceStore namespaced for exchangeDID.
+// For BackendMemory the exchangeDID is recorded for diagnostics but
+// not enforced (single-process namespace). For BackendRedis it is
+// required and used as the key namespace ({prefix}{exchangeDID}:{nonce}).
+//
+// Composition root pattern:
+//
+//	stores := map[string]*NonceStore{}
+//	for _, did := range registry.ExchangeDIDs() {
+//	    s, err := cfg.BuildForExchange(did)
+//	    if err != nil { return err }
+//	    stores[did] = s
+//	}
+//
+// Per-request lookup:
+//
+//	store := stores[entry.Header.Destination]
+//
+// Returns ErrInvalidNonceConfig wrapped with a specific message on
+// validation failure.
+func (cfg NonceStoreConfig) BuildForExchange(exchangeDID string) (*NonceStore, error) {
+	if exchangeDID == "" {
+		return nil, fmt.Errorf("%w: exchangeDID required", ErrInvalidNonceConfig)
+	}
+
 	window := cfg.FreshnessWindow
 	if window <= 0 {
 		window = DefaultFreshnessWindow
@@ -144,9 +160,11 @@ func NewNonceStoreFromConfig(cfg NonceStoreConfig) (*NonceStore, error) {
 	var store sdkauth.NonceStore
 	switch backend {
 	case BackendMemory:
+		// Memory backend: single-process namespace. ExchangeDID is
+		// implicit (each tenant gets its own *InMemoryNonceStore).
 		store = sdkauth.NewInMemoryNonceStore()
 	case BackendRedis:
-		s, err := buildRedisStore(cfg)
+		s, err := cfg.buildRedisStore(exchangeDID)
 		if err != nil {
 			return nil, err
 		}
@@ -159,16 +177,11 @@ func NewNonceStoreFromConfig(cfg NonceStoreConfig) (*NonceStore, error) {
 	return NewNonceStoreWithBackend(store, window), nil
 }
 
-// buildRedisStore validates redis config and constructs the SDK
-// RedisNonceStore. ExchangeDID is required for cross-tenant
-// namespacing per the SDK contract.
-func buildRedisStore(cfg NonceStoreConfig) (sdkauth.NonceStore, error) {
+// buildRedisStore constructs an SDK RedisNonceStore for exchangeDID
+// using the connection params on cfg.
+func (cfg NonceStoreConfig) buildRedisStore(exchangeDID string) (sdkauth.NonceStore, error) {
 	if cfg.RedisAddr == "" {
 		return nil, fmt.Errorf("%w: RedisAddr required for redis backend",
-			ErrInvalidNonceConfig)
-	}
-	if cfg.ExchangeDID == "" {
-		return nil, fmt.Errorf("%w: ExchangeDID required for redis backend",
 			ErrInvalidNonceConfig)
 	}
 	client := redis.NewClient(&redis.Options{
@@ -178,7 +191,7 @@ func buildRedisStore(cfg NonceStoreConfig) (sdkauth.NonceStore, error) {
 	})
 	return sdkauth.NewRedisNonceStore(sdkauth.RedisNonceStoreConfig{
 		Client:      client,
-		ExchangeDID: cfg.ExchangeDID,
+		ExchangeDID: exchangeDID,
 		KeyPrefix:   cfg.RedisKeyPrefix,
 	})
 }

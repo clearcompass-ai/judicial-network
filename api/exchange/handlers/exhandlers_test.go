@@ -113,6 +113,11 @@ func mockOperator(t *testing.T) *httptest.Server {
 	return srv
 }
 
+// testExchangeDID is the destination tests use as the target tenant.
+// Multi-tenant: callers stamp this on request bodies; nothing in
+// Dependencies carries an ExchangeDID anymore.
+const testExchangeDID = "did:web:test-exchange"
+
 func testDeps(t *testing.T) *Dependencies {
 	t.Helper()
 	op := mockOperator(t)
@@ -121,7 +126,6 @@ func testDeps(t *testing.T) *Dependencies {
 		ArtifactStoreEndpoint: "http://localhost:0",
 		KeyStore:              newMockKS(),
 		Index:                 index.NewLogIndex(),
-		ExchangeDID:           "did:web:test-exchange",
 	}
 }
 
