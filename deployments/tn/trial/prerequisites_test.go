@@ -3,7 +3,7 @@ FILE PATH: deployments/tn/trial/prerequisites_test.go
 
 DESCRIPTION:
     Tests the TN trial prereq fixture. Lifted from
-    deployments/davidson_county/rules/prerequisites_test.go and
+    internal/testfixtures/davidsonlegacy/prerequisites_test.go and
     re-scoped to the shared TN trial framework. Pins:
       - vocabulary completeness (closed-set size + names),
       - structural validation,
@@ -51,13 +51,16 @@ func TestMustPrerequisitePolicy_IndependentCalls(t *testing.T) {
 // TestPrerequisitePolicy_VocabularyPin pins the EXACT closed-set
 // vocabulary. New event_types should require an explicit policy
 // + test update — silent additions are a v1.8 invariant violation.
+// TestPrerequisitePolicy_VocabularyPin pins the BASE vocabulary
+// (the events declared directly in PrerequisiteRules() — 19
+// entries: counsel_appearance + the §1–§13 lifecycle subset).
+// §3A–§3I motion event_types are merged in via motion_*; pinned
+// separately below.
 func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
-	want := map[string]bool{
-		"motion_continuance":            true,
-		"motion_summary_judgment":       true,
+	baseWant := map[string]bool{
+		"counsel_appearance":            true,
 		"responsive_pleading":           true,
-		"motion_state_dismissal":        true,
 		"fiduciary_accounting":          true,
 		"asset_disposition_order":       true,
 		"appointment_guardian_ad_litem": true,
@@ -73,42 +76,39 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 		"case_initiated":                true,
 		"hearing":                       true,
 	}
-	got := p.EventTypes()
-	if len(got) != len(want) {
-		t.Errorf("vocabulary size = %d, want %d (%v)", len(got), len(want), got)
-	}
-	for _, evt := range got {
-		if !want[evt] {
-			t.Errorf("unexpected event_type in vocabulary: %q", evt)
-		}
-	}
-	for evt := range want {
+	// Every base event must be present.
+	for evt := range baseWant {
 		if !p.KnowsEventType(evt) {
-			t.Errorf("missing event_type in vocabulary: %q", evt)
+			t.Errorf("missing base event_type in vocabulary: %q", evt)
 		}
+	}
+	// Every motion-helper event must also be present.
+	for _, m := range allMotions() {
+		if !p.KnowsEventType(m.EventType) {
+			t.Errorf("missing motion event_type in vocabulary: %q",
+				m.EventType)
+		}
+	}
+	// Total size = base + motions, no extras.
+	wantSize := len(baseWant) + len(allMotions())
+	// motion_continuance / motion_summary_judgment / responsive_pleading
+	// / motion_state_dismissal currently appear in BOTH lists (legacy
+	// base + §3 helper). De-dup before comparing.
+	for _, m := range allMotions() {
+		if baseWant[m.EventType] {
+			wantSize--
+		}
+	}
+	if got := len(p.EventTypes()); got != wantSize {
+		t.Errorf("vocabulary size = %d, want %d", got, wantSize)
 	}
 }
 
 // ─── representative walks ──────────────────────────────────────────
 
-func TestWalk_MotionContinuance_RequiresCaseInit(t *testing.T) {
-	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-
-	v := w.Check("motion_continuance", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
-	})
-	if !v.OK {
-		t.Errorf("with case_initiated must be OK: %+v", v)
-	}
-
-	v = w.Check("motion_continuance", prerequisites.CaseContext{ObservedEvents: nil})
-	if v.OK {
-		t.Error("without case_initiated must be rejected")
-	}
-	if v.Rejection != prerequisites.WalkRejectMissingAncestor {
-		t.Errorf("Rejection=%s", v.Rejection)
-	}
-}
+// motion_continuance walk is pinned in motions_3g_test.go after
+// §3G lands; the helper-supplied event_type isn't in the
+// vocabulary until §3G's commit.
 
 func TestWalk_Verdict_RequiresMeritsPosture(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}

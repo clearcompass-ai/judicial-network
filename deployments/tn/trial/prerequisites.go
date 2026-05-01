@@ -4,7 +4,7 @@ FILE PATH: deployments/tn/trial/prerequisites.go
 DESCRIPTION:
     TN trial-court framework — prerequisite policy shared by
     every Tennessee county exchange. Lifted from
-    deployments/davidson_county/rules/prerequisites.go.
+    internal/testfixtures/davidsonlegacy/prerequisites.go.
 
     The 18 event_types match the cosignature policy's vocabulary
     plus two structural anchors (case_initiated, hearing) that
@@ -49,12 +49,11 @@ import (
 // vocabulary. Shared by every TN county exchange. Edit with
 // care: changing this set changes the network's accept/reject
 // contract for every TN trial court.
+//
+// caseInitAncestor (the shared Hard prereq used by every motion)
+// lives in motions.go so the §3A–§3I motion files can reuse it
+// without import gymnastics.
 func PrerequisiteRules() map[string][]prerequisites.Prereq {
-	caseInitAncestor := prerequisites.Prereq{
-		Mode:             prerequisites.PrereqModeHard,
-		RequiredAncestor: []string{"case_initiated"},
-		Reason:           "every case-lifecycle event requires a case_initiated ancestor",
-	}
 	meritsPostureAncestor := prerequisites.Prereq{
 		Mode: prerequisites.PrereqModeHard,
 		RequiredAncestor: []string{
@@ -70,14 +69,20 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		Reason:           "transcript_publication advisory: hearing should precede transcript",
 	}
 
-	return map[string][]prerequisites.Prereq{
-		// ── attorney-driven filings ──────────────────────────────
-		"motion_continuance":      {caseInitAncestor},
-		"motion_summary_judgment": {caseInitAncestor},
-		"responsive_pleading":     {caseInitAncestor},
+	rules := map[string][]prerequisites.Prereq{
+		// ── §1 Genesis: counsel_appearance ──────────────────────
+		// Hard: case_initiated. The Advisory binding_id-per-
+		// represents check is enforced by the verifier-level
+		// payload walk (the prereq Walker does not have a
+		// per-payload "for each X in Y" primitive in v0.5.0;
+		// the appearance entry's Hard prereq is the case root).
+		"counsel_appearance": {caseInitAncestor},
 
-		// ── prosecutor-driven ────────────────────────────────────
-		"motion_state_dismissal": {caseInitAncestor},
+		// motion_* prereqs live in motions_3X.go files via the
+		// motionPrerequisiteRules() helper (merged below).
+
+		// ── §2 Pleadings (non-motion) ───────────────────────────
+		"responsive_pleading": {caseInitAncestor},
 
 		// ── fiduciary filings ────────────────────────────────────
 		"fiduciary_accounting":    {caseInitAncestor},
@@ -121,6 +126,13 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		// ── hearing: posture event, requires case_initiated ─────
 		"hearing": {caseInitAncestor},
 	}
+
+	// Merge every §3A–§3I motion's prereqs (Hard case_initiated
+	// ancestor + the section file's AdditionalPrereqs).
+	for evt, prereqs := range motionPrerequisiteRules() {
+		rules[evt] = prereqs
+	}
+	return rules
 }
 
 // MustPrerequisitePolicy returns a policy populated with

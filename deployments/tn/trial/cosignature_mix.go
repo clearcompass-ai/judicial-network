@@ -4,7 +4,7 @@ FILE PATH: deployments/tn/trial/cosignature_mix.go
 DESCRIPTION:
     TN trial-court framework — cosignature-mix policy shared by
     every Tennessee county exchange. Lifted from
-    deployments/davidson_county/rules/cosignature_mix.go so
+    internal/testfixtures/davidsonlegacy/cosignature_mix.go so
     multi-county deployments reuse one fixture.
 
     The fixture covers a representative slice of the v1.8
@@ -50,36 +50,18 @@ import (
 // CosignatureRules is the TN trial-court reference cosig fixture
 // shared across every county exchange.
 func CosignatureRules() []policy.CosignatureRule {
-	return []policy.CosignatureRule{
-		// ── attorney-driven filings ──────────────────────────────
+	rules := []policy.CosignatureRule{
+		// ── §1 Genesis: counsel_appearance ──────────────────────
+		// Per v1.8: defense_counsel / civil_attorney / prosecutor
+		// file the appearance; court_clerk cosigns. bpr_number
+		// (TN Board of Professional Responsibility) is the
+		// attorney-licensing credential.
 		{
-			EventType: "motion_continuance",
+			EventType: "counsel_appearance",
 			AllowedFilerRoles: []schemas.FilerRole{
 				schemas.FilerRoleDefenseCounsel,
 				schemas.FilerRoleCivilAttorney,
 				schemas.FilerRoleProsecutor,
-			},
-			RequiredSignerRoles: []string{"court_clerk", "judge"},
-			MinSignerCosigners:  1,
-			IntraExchangeOnly:   true,
-			RequiredCredentials: []string{"bpr_number"},
-		},
-		{
-			EventType: "motion_summary_judgment",
-			AllowedFilerRoles: []schemas.FilerRole{
-				schemas.FilerRoleDefenseCounsel,
-				schemas.FilerRoleCivilAttorney,
-			},
-			RequiredSignerRoles: []string{"court_clerk", "judge"},
-			MinSignerCosigners:  1,
-			IntraExchangeOnly:   true,
-			RequiredCredentials: []string{"bpr_number"},
-		},
-		{
-			EventType: "responsive_pleading",
-			AllowedFilerRoles: []schemas.FilerRole{
-				schemas.FilerRoleDefenseCounsel,
-				schemas.FilerRoleCivilAttorney,
 			},
 			RequiredSignerRoles: []string{"court_clerk"},
 			MinSignerCosigners:  1,
@@ -87,13 +69,18 @@ func CosignatureRules() []policy.CosignatureRule {
 			RequiredCredentials: []string{"bpr_number"},
 		},
 
-		// ── prosecutor-driven ────────────────────────────────────
+		// motion_continuance      (§3G; defined in motions_3g.go)
+		// motion_summary_judgment (§3B; defined in motions_3b.go)
+		// motion_state_dismissal  (§3B; defined in motions_3b.go)
+
+		// ── pleadings (non-motion) ──────────────────────────────
 		{
-			EventType: "motion_state_dismissal",
+			EventType: "responsive_pleading",
 			AllowedFilerRoles: []schemas.FilerRole{
-				schemas.FilerRoleProsecutor,
+				schemas.FilerRoleDefenseCounsel,
+				schemas.FilerRoleCivilAttorney,
 			},
-			RequiredSignerRoles: []string{"court_clerk", "judge"},
+			RequiredSignerRoles: []string{"court_clerk"},
 			MinSignerCosigners:  1,
 			IntraExchangeOnly:   true,
 			RequiredCredentials: []string{"bpr_number"},
@@ -195,6 +182,11 @@ func CosignatureRules() []policy.CosignatureRule {
 			IntraExchangeOnly:   false,
 		},
 	}
+	// Append every §3A–§3I motion rule. Each motions_3X.go file
+	// returns motionSpecs; motions.go converts them to the
+	// canonical "filer + court_clerk cosign + bpr_number" shape.
+	rules = append(rules, motionCosignatureRules()...)
+	return rules
 }
 
 // MustCosignaturePolicy returns a policy populated with

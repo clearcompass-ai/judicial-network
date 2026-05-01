@@ -17,6 +17,7 @@ DESCRIPTION:
 package davidson
 
 import (
+	"context"
 	"testing"
 
 	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
@@ -126,6 +127,13 @@ func TestComposer_AppellateVocabIsEmpty(t *testing.T) {
 // ─── placeholder chain resolver fails closed ──────────────────────
 
 func TestComposer_ChainResolverFailsClosed(t *testing.T) {
+	// Reset to default before this test (other tests may have
+	// injected a custom resolver). Defer cleanup so we don't
+	// leak state into later tests.
+	prev := authorityChainResolver
+	defer func() { authorityChainResolver = prev }()
+	SetAuthorityChainResolver(nil)
+
 	r := MustBundle().AuthorityChainResolver()
 	v := r.Resolve(t.Context(), jurisdiction.AuthorityRequest{
 		SignerDID: "did:key:zsigner",
@@ -135,6 +143,60 @@ func TestComposer_ChainResolverFailsClosed(t *testing.T) {
 	}
 	if v.Rejection != "no_resolver_configured" {
 		t.Errorf("rejection token: want no_resolver_configured, got %q",
+			v.Rejection)
+	}
+}
+
+// ─── production resolver injection ──────────────────────────────
+
+// fakeResolver is an injectable AuthorityChainResolver for tests.
+type fakeResolver struct {
+	verdict jurisdiction.AuthorityVerdict
+}
+
+func (f fakeResolver) Resolve(_ context.Context,
+	_ jurisdiction.AuthorityRequest) jurisdiction.AuthorityVerdict {
+	return f.verdict
+}
+
+// TestSetAuthorityChainResolver_Injects pins that production
+// boot wiring works: SetAuthorityChainResolver(real) replaces
+// the placeholder; subsequent MustBundle().AuthorityChainResolver()
+// returns the injected resolver.
+func TestSetAuthorityChainResolver_Injects(t *testing.T) {
+	prev := authorityChainResolver
+	defer func() { authorityChainResolver = prev }()
+
+	want := jurisdiction.AuthorityVerdict{OK: true, Role: "judge"}
+	SetAuthorityChainResolver(fakeResolver{verdict: want})
+
+	got := MustBundle().AuthorityChainResolver().Resolve(
+		t.Context(), jurisdiction.AuthorityRequest{})
+	if !got.OK || got.Role != "judge" {
+		t.Errorf("injected resolver not used: %+v", got)
+	}
+}
+
+// TestSetAuthorityChainResolver_NilReverts pins that
+// SetAuthorityChainResolver(nil) reverts to the closed-by-
+// default placeholder (so callers can explicitly tear down
+// the production wiring).
+func TestSetAuthorityChainResolver_NilReverts(t *testing.T) {
+	prev := authorityChainResolver
+	defer func() { authorityChainResolver = prev }()
+
+	SetAuthorityChainResolver(fakeResolver{
+		verdict: jurisdiction.AuthorityVerdict{OK: true},
+	})
+	SetAuthorityChainResolver(nil)
+
+	v := MustBundle().AuthorityChainResolver().Resolve(
+		t.Context(), jurisdiction.AuthorityRequest{})
+	if v.OK {
+		t.Error("after nil-revert, resolver must fail closed")
+	}
+	if v.Rejection != "no_resolver_configured" {
+		t.Errorf("rejection: want no_resolver_configured, got %q",
 			v.Rejection)
 	}
 }

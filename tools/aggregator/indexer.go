@@ -18,8 +18,21 @@ func NewIndexer(db *common.DB) *Indexer {
 	return &Indexer{db: db}
 }
 
-// Index dispatches a classified entry to the appropriate table writer.
+// Index dispatches a classified entry to the appropriate table
+// writer, then runs the parties_filings extension (3E.5) so any
+// capacity blocks (filed_by_capacity / signed_by_capacities) in
+// the payload land in parties_filings — independent of which
+// EntryType class the entry fell into.
 func (idx *Indexer) Index(ctx context.Context, c *ClassifiedEntry) error {
+	if err := idx.indexByType(ctx, c); err != nil {
+		return err
+	}
+	return idx.indexPartiesFilings(ctx, c)
+}
+
+// indexByType is the original switch dispatcher (pre-3E.5).
+// Extracted so Index can chain the parties_filings step.
+func (idx *Indexer) indexByType(ctx context.Context, c *ClassifiedEntry) error {
 	switch c.EntryType {
 	case "new_case":
 		return idx.indexNewCase(ctx, c)
