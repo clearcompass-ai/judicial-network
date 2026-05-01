@@ -55,6 +55,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
+	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
@@ -89,12 +90,21 @@ type deps struct {
 	// KeyStore for the "memory" backend; future Phase 8 wires
 	// PKCS#11 / Vault here.
 	newKeyStore func(config.KeyStoreConfig) (keystore.KeyStore, error)
+
+	// newAuthenticator builds the composer-level Authenticator from
+	// cfg.Auth (mtls or jwt). realDeps points at buildAuthenticator;
+	// tests substitute a stub that authenticates with a fixed DID.
+	// Returning nil + nil means "no composer auth"; the composer
+	// then runs unwrapped (constituent handlers' own auth still
+	// applies).
+	newAuthenticator func(config.AuthConfig) (middleware.Authenticator, error)
 }
 
 func realDeps() deps {
 	return deps{
-		registerBundles: registerProductionBundles,
-		newKeyStore:     buildKeyStore,
+		registerBundles:  registerProductionBundles,
+		newKeyStore:      buildKeyStore,
+		newAuthenticator: buildAuthenticator,
 	}
 }
 
@@ -132,11 +142,20 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("keystore: %w", err)
 	}
 
+	// Construct the composer-level authenticator (mTLS or JWT) per
+	// cfg.Auth.Mode. nil return means "no composer auth"; the
+	// constituent handlers' own auth still applies.
+	authenticator, err := d.newAuthenticator(cfg.Auth)
+	if err != nil {
+		return fmt.Errorf("authenticator: %w", err)
+	}
+
 	srv, err := api.NewServer(api.Config{
 		Addr:         cfg.ListenAddr,
 		TLSCertFile:  cfg.Auth.TLSCertFile,
 		TLSKeyFile:   cfg.Auth.TLSKeyFile,
 		ClientCAFile: cfg.Auth.ClientCAFile,
+		Auth:         authenticator,
 		Exchange: exchange.ServerConfig{
 			OperatorEndpoint:      cfg.OperatorEndpoint,
 			ArtifactStoreEndpoint: cfg.ArtifactStoreEndpoint,
@@ -273,5 +292,32 @@ func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 		return nil, fmt.Errorf("keystore: vault backend not yet wired (Phase 8a)")
 	default:
 		return nil, fmt.Errorf("keystore: unknown backend %q", cfg.Backend)
+	}
+}
+
+// buildAuthenticator constructs the composer-level Authenticator from
+// cfg.Mode. Returns:
+//
+//   mtls → middleware.MTLSAuth{} (composer's listener already verifies
+//          the cert chain when ClientCAFile is set; this middleware
+//          lifts the SAN URI DID into request context).
+//   jwt  → *middleware.JWTAuth fetched against cfg.JWKSURL.
+//   ""   → nil, nil (no auth; dev / single-process deployments).
+//
+// Any other Mode value is a config-validation failure and never
+// reaches here — config.Validate rejects unknown modes at boot.
+func buildAuthenticator(cfg config.AuthConfig) (middleware.Authenticator, error) {
+	switch cfg.Mode {
+	case config.AuthModeMTLS:
+		return middleware.MTLSAuth{}, nil
+	case config.AuthModeJWT:
+		return middleware.NewJWTAuth(middleware.JWTConfig{
+			Issuer:  cfg.JWTIssuer,
+			JWKSURL: cfg.JWKSURL,
+		})
+	case "":
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("authenticator: unknown auth mode %q", cfg.Mode)
 	}
 }

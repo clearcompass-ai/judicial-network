@@ -42,6 +42,7 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
+	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
 
@@ -284,6 +285,127 @@ func TestBuildKeyStore_UnknownBackend_Errors(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// buildAuthenticator (Phase 5 wiring)
+// ─────────────────────────────────────────────────────────────────────
+
+func TestBuildAuthenticator_MTLS_ReturnsMTLSAuth(t *testing.T) {
+	a, err := buildAuthenticator(config.AuthConfig{Mode: config.AuthModeMTLS})
+	if err != nil {
+		t.Fatalf("buildAuthenticator(mtls): %v", err)
+	}
+	if a == nil {
+		t.Fatal("expected non-nil Authenticator")
+	}
+	if _, ok := a.(middleware.MTLSAuth); !ok {
+		t.Errorf("expected middleware.MTLSAuth, got %T", a)
+	}
+}
+
+func TestBuildAuthenticator_JWT_ReturnsJWTAuth(t *testing.T) {
+	a, err := buildAuthenticator(config.AuthConfig{
+		Mode:      config.AuthModeJWT,
+		JWTIssuer: "https://idp.test",
+		JWKSURL:   "https://idp.test/.well-known/jwks.json",
+	})
+	if err != nil {
+		t.Fatalf("buildAuthenticator(jwt): %v", err)
+	}
+	if a == nil {
+		t.Fatal("expected non-nil Authenticator")
+	}
+	if _, ok := a.(*middleware.JWTAuth); !ok {
+		t.Errorf("expected *middleware.JWTAuth, got %T", a)
+	}
+}
+
+func TestBuildAuthenticator_JWT_MissingIssuerErrors(t *testing.T) {
+	_, err := buildAuthenticator(config.AuthConfig{
+		Mode:    config.AuthModeJWT,
+		JWKSURL: "https://idp.test/.well-known/jwks.json",
+		// JWTIssuer left empty
+	})
+	if err == nil {
+		t.Fatal("expected error: jwt mode requires JWTIssuer")
+	}
+}
+
+func TestBuildAuthenticator_EmptyMode_ReturnsNil(t *testing.T) {
+	a, err := buildAuthenticator(config.AuthConfig{})
+	if err != nil {
+		t.Fatalf("empty Mode should not error: %v", err)
+	}
+	if a != nil {
+		t.Errorf("empty Mode should return nil Authenticator (no composer auth); got %T", a)
+	}
+}
+
+func TestBuildAuthenticator_UnknownMode_Errors(t *testing.T) {
+	_, err := buildAuthenticator(config.AuthConfig{Mode: "oidc-implicit"})
+	if err == nil {
+		t.Fatal("unknown mode should error")
+	}
+	if !strings.Contains(err.Error(), "unknown auth mode") {
+		t.Errorf("error should mention 'unknown auth mode': %v", err)
+	}
+}
+
+// TestBuildAuthenticator_FlowsThroughRunDeps confirms the dependency
+// injection seam works: a stub newAuthenticator that always returns a
+// fixed authenticator is honored by run().
+func TestBuildAuthenticator_FlowsThroughRunDeps(t *testing.T) {
+	called := false
+	stub := deps{
+		registerBundles: registerProductionBundles,
+		newKeyStore:     buildKeyStore,
+		newAuthenticator: func(cfg config.AuthConfig) (middleware.Authenticator, error) {
+			called = true
+			return middleware.MTLSAuth{}, nil
+		},
+	}
+
+	// Need a free port and a valid config for run() to reach the
+	// authenticator step.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+
+	cfgPath := writeJSON(t, map[string]any{
+		"listen_addr":             addr,
+		"operator_endpoint":       "http://op.test",
+		"artifact_store_endpoint": "http://art.test",
+		"verification_endpoint":   "http://verify.test",
+		"eth_rpc_endpoint":        "http://rpc.test",
+		"keystore":                map[string]any{"backend": "memory"},
+		"nonce_store": map[string]any{
+			"backend":          "memory",
+			"freshness_window": int64(time.Minute),
+		},
+		"auth": map[string]any{
+			"mode":       "jwt",
+			"jwt_issuer": "https://idp.test",
+			"jwks_url":   "https://idp.test/.well-known/jwks.json",
+		},
+	})
+	clearAPIEnv(t)
+
+	runErr := make(chan error, 1)
+	go func() { runErr <- run([]string{"--config", cfgPath}, stub) }()
+
+	// Trigger shutdown after a brief moment so the goroutine exits.
+	time.Sleep(200 * time.Millisecond)
+	proc, _ := os.FindProcess(os.Getpid())
+	_ = proc.Signal(os.Interrupt)
+	<-runErr
+
+	if !called {
+		t.Error("stub newAuthenticator was never called; run() bypassed the dep seam")
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // End-to-end run() lifecycle
 // ─────────────────────────────────────────────────────────────────────
 
@@ -333,10 +455,13 @@ func TestRun_HealthzServedThenShutdown(t *testing.T) {
 	})
 	clearAPIEnv(t)
 
-	// Stub deps: register one test Bundle, build memory keystore.
+	// Stub deps: register one test Bundle, build memory keystore,
+	// build JWT-or-mTLS authenticator from cfg (nil for empty Mode,
+	// which the smoke test uses below — see config without Auth.Mode).
 	stubDeps := deps{
-		registerBundles: registerProductionBundles, // production set is fine
-		newKeyStore:     buildKeyStore,
+		registerBundles:  registerProductionBundles, // production set is fine
+		newKeyStore:      buildKeyStore,
+		newAuthenticator: buildAuthenticator,
 	}
 
 	// Run the binary in a goroutine.
