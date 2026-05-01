@@ -37,6 +37,7 @@ import (
 	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -70,6 +71,7 @@ var ErrUnauthorized = errors.New("artifact/retrieve: requester not authorized")
 var ErrCaseRevoked = errors.New("artifact/retrieve: case entity revoked or succeeded")
 
 type RetrievalRequest struct {
+	Destination     string // DID of target exchange. Required (envelope.ValidateDestination).
 	ArtifactCID     storage.CID
 	ContentDigest   storage.CID
 	FilingEntryPos  types.LogPosition
@@ -82,21 +84,21 @@ type RetrievalRequest struct {
 	RetrievalExpiry time.Duration
 	OwnerMasterKey  []byte
 	// PkDel: per-artifact delegation public key. NOT a grant input.
-	// Carried for downstream decrypt path (VerifyAndDecryptArtifact.OwnerPubKey).
+	// Carried for downstream decrypt path (lifecycle/artifact.VerifyAndDecrypt.OwnerPubKey).
 	PkDel   []byte
 	Capsule *sdkartifact.Capsule
 }
 
 func RetrieveArtifact(
 	req RetrievalRequest,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
 	retrievalProvider storage.RetrievalProvider,
 	extractor schema.SchemaParameterExtractor,
 	leafReader smt.LeafReader,
 	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
-) (*lifecycle.GrantArtifactAccessResult, error) {
+) (*lifecycleartifact.GrantResult, error) {
 	if req.ArtifactCID.IsZero() {
 		return nil, ErrNotFound
 	}
@@ -134,7 +136,8 @@ func RetrieveArtifact(
 		scopePtr = &req.ScopePos
 	}
 
-	grantParams := lifecycle.GrantArtifactAccessParams{
+	grantParams := lifecycleartifact.GrantParams{
+		Destination:          req.Destination,
 		ArtifactCID:          req.ArtifactCID,
 		ContentDigest:        req.ContentDigest,
 		RecipientPubKey:      req.RequesterPubKey,
@@ -169,7 +172,7 @@ func RetrieveArtifact(
 		grantParams.Capsule = req.Capsule
 	}
 
-	result, err := lifecycle.GrantArtifactAccess(grantParams)
+	result, err := lifecycleartifact.Grant(grantParams)
 	if err != nil {
 		if isAuthorizationError(err) {
 			return nil, ErrUnauthorized

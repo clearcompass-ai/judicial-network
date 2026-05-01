@@ -22,6 +22,7 @@ import (
 	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -32,7 +33,7 @@ import (
 // -------------------------------------------------------------------------------------------------
 
 // DelegationKeyStore maps artifact CID to ECIES-wrapped PRE delegation keys.
-// Separate from lifecycle.ArtifactKeyStore (fixed 44-byte struct).
+// Separate from lifecycleartifact.KeyStore (fixed 44-byte struct).
 // ECIES-wrapped delegation keys are ~113 bytes variable-length ciphertext.
 type DelegationKeyStore interface {
 	Store(cid storage.CID, wrappedKey []byte) error
@@ -72,7 +73,7 @@ type PublishedArtifact struct {
 func PublishArtifact(
 	cfg PublishConfig,
 	contentStore storage.ContentStore,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
 	fetcher types.EntryFetcher,
@@ -124,7 +125,7 @@ func PublishArtifact(
 func publishAESGCM(
 	cfg PublishConfig,
 	contentStore storage.ContentStore,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	contentDigest storage.CID,
 ) (*PublishedArtifact, error) {
 	ciphertext, artKey, err := sdkartifact.EncryptArtifact(cfg.Plaintext)

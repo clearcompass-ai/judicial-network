@@ -75,25 +75,6 @@ func InitiateUngracefulMigration(cfg UngracefulMigrationConfig) (*lifecycle.Init
 	})
 }
 
-// CollectEscrowShares gathers M-of-N shares from escrow nodes.
-func CollectEscrowShares(params lifecycle.CollectSharesParams) (*lifecycle.CollectedShares, error) {
-	return lifecycle.CollectShares(params)
-}
-
-// ExecuteKeyRecovery reconstructs the signing keys from collected shares.
-func ExecuteKeyRecovery(params lifecycle.ExecuteRecoveryParams) (*lifecycle.RecoveryResult, error) {
-	return lifecycle.ExecuteRecovery(params)
-}
-
-// EjectFailedExchange initiates scope removal of the failed exchange
-// from the consortium. Uses N-1 consent with optional objective
-// triggers for 7-day reduced time-lock.
-//
-// Correction #4: this is where ActivateRemoval is used.
-func EjectFailedExchange(params lifecycle.RemovalParams) (*lifecycle.RemovalExecution, error) {
-	return lifecycle.ExecuteRemoval(params)
-}
-
 // ArbitrateHostileRecovery is the consensus-override path documented
 // in ortholog-sdk/docs/recovery.md Part 2: Arbitrated / Hostile
 // Recovery. When cooperative escrow recovery is impossible (stolen
@@ -139,15 +120,6 @@ func ArbitrateHostileRecovery(
 			res.RequiredCount, res.HasWitnessCosig)
 	}
 	return res, nil
-}
-
-// ActivateExchangeRemoval finalizes the removal after the time-lock
-// expires. This is the terminal step — the failed exchange DID is
-// removed from the authority set.
-//
-// Correction #4: ActivateRemoval with EvidencePointers.
-func ActivateExchangeRemoval(params lifecycle.ActivateRemovalParams) (*envelope.Entry, error) {
-	return lifecycle.ActivateRemoval(params)
 }
 
 // PublishMigrationRecord creates a commentary entry documenting the

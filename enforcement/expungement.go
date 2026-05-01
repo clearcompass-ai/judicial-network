@@ -19,7 +19,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -50,7 +50,7 @@ type ExpungementResult struct {
 // cryptographic erasure of all case artifacts.
 func ExpungeCase(
 	cfg ExpungementConfig,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	contentStore storage.ContentStore,
 	fetcher types.EntryFetcher,

@@ -19,7 +19,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -54,7 +54,7 @@ type JudicialActionResult struct {
 func RecordJudicialAction(
 	cfg JudicialActionConfig,
 	contentStore storage.ContentStore,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
 	fetcher types.EntryFetcher,

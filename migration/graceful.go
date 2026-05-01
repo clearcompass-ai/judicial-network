@@ -7,7 +7,6 @@ import (
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
@@ -111,9 +110,4 @@ func PlanGracefulMigration(cfg GracefulMigrationConfig) (*GracefulMigrationPlan,
 	}
 
 	return plan, nil
-}
-
-// ReEncryptArtifact re-encrypts a single artifact under new keys.
-func ReEncryptArtifact(params lifecycle.ReEncryptWithGrantParams) (*lifecycle.ReEncryptWithGrantResult, error) {
-	return lifecycle.ReEncryptWithGrant(params)
 }

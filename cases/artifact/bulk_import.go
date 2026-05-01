@@ -18,7 +18,7 @@ OVERVIEW:
 
 KEY DEPENDENCIES:
     - ortholog-sdk/builder: EntryFetcher
-    - ortholog-sdk/lifecycle: ArtifactKeyStore
+    - ortholog-sdk/lifecycle/artifact: KeyStore
     - ortholog-sdk/storage: ContentStore
     - DelegationKeyStore (defined in publish.go)
 */
@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -83,7 +83,7 @@ type BulkImportResult struct {
 func BulkImport(
 	cfg BulkImportConfig,
 	contentStore storage.ContentStore,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
 	extractor schema.SchemaParameterExtractor,
 	fetcher types.EntryFetcher,
