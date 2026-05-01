@@ -72,15 +72,17 @@ $ judicial-cli get --endpoint $DAVIDSON --seq 1 | jq '.signatures | length'
 ```
 
 Two signatures (clerk + cooper). The civil case is officially open.
-A quick GCS-bucket inspection confirms the entry landed:
+A quick GCS-bucket inspection confirms the entry landed in your
+real bucket:
 
 ```bash
-$ curl -fsS 'http://localhost:4443/storage/v1/b/davidson-entries/o' | jq '.items | length'
+$ gcloud storage ls gs://$OPERATOR_DEV_BUCKET_DAVIDSON | wc -l
 1
 ```
 
 That one object **is** the entry; its content is the canonical
-wire bytes.
+wire bytes. `gcloud storage cat gs://$OPERATOR_DEV_BUCKET_DAVIDSON/<name>`
+shows them.
 
 ## Step 2 — Bind the parties (`PartyBindingPayload` ×2)
 
@@ -251,12 +253,10 @@ two different DID methods — all verifying through the operator's
 single per-method DID dispatcher when an SDK-level audit reads the
 log later.
 
-The "evidence" object now exists in the `davidson-entries` GCS
-bucket:
+The evidence object now exists in your real Davidson GCS bucket:
 
 ```bash
-$ curl -fsS 'http://localhost:4443/storage/v1/b/davidson-entries/o' \
-    | jq '.items | length'
+$ gcloud storage ls gs://$OPERATOR_DEV_BUCKET_DAVIDSON | wc -l
 6
 ```
 

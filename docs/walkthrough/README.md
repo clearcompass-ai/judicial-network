@@ -50,14 +50,22 @@ DID dispatcher.
                     │   │  davidson          │  │  coa               ││
                     │   └─────────┬──────────┘  └────────┬───────────┘│
                     │             │                      │            │
-                    │   ┌─────────┴──────────────────────┴───────────┐│
-                    │   │  Postgres (2 DBs) + fake-gcs-server (2 buckets) ││
-                    │   └─────────────────────────────────────────────┘│
-                    └────────────────────────────────────────────────┘
+                    │   ┌──────────┴────────────────┴──┐                │
+                    │   │  Postgres (2 DBs)             │                │
+                    │   └───────────────────────────────┘                │
+                    └────────────────┬─────────────────────────────────┘
+                                     │
+                                     ▼
+                            storage.googleapis.com
+                       (your real GCS buckets, your project,
+                        your gcloud Application Default Creds)
 ```
 
-(The dev compose uses `fsouza/fake-gcs-server` — the operator's
-production GCS code path runs unchanged. No dev-vs-prod drift.)
+The dev path uses **real GCS** in your own GCP project — same code
+path as production, same IAM, same latency. For an offline /
+no-cloud topology there's a separate
+`docker-compose.integration.yml` with `fake-gcs-server`; the
+walkthrough doesn't use that path.
 
 Both operators are stock Ortholog operators — domain-agnostic
 "dumb writes" that admit signed canonical bytes, sequence them, and
@@ -117,8 +125,9 @@ hit a documentation bug — open an issue and it gets fixed.
 
 - Docker + Docker Compose v2 (`docker compose`, not `docker-compose`)
 - Go 1.25+ (to build `judicial-cli` from source)
-- About 2 GiB of free disk for Postgres + fake-gcs-server + the operator image
-- Ports 5432, 8080, 8081, 4443 free on your laptop
+- About 1 GiB of free disk for Postgres + the operator image (GCS storage lives in your GCP project, not on disk)
+- A Google Cloud project + `gcloud` CLI installed, where you can create two buckets
+- Ports 5432, 8080, 8081 free on your laptop
 
 We won't ask you to install Privy SDKs, Cellebrite tools, or anything
 exotic. Every primitive in this walkthrough is open-source and runs

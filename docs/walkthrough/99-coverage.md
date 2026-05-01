@@ -37,7 +37,7 @@ below with a one-paragraph "how to add" each.
 | Mixed-method entries (did:key + did:pkh on the same log) | Case 1 trial step 4 |
 | EIP-191 wallet signing (`SigAlgoEIP191`, 65-byte r\|\|s\|\|v) | Case 1 trial step 4 |
 | Real two-operator topology (`make dev-up`) | §01 |
-| Real GCS bytestore (`fake-gcs-server`, anonymous mode) | §01 |
+| **Real** Google Cloud Storage bytestore (your own buckets) | §01 |
 | Sequence-number monotonicity per log | observable in `tree/head` after each step |
 
 ## What's missing — natural extensions
