@@ -137,12 +137,15 @@ func (c *InMemoryScopeChecker) Allowed(signerDID, builderName string) error {
 // Dependencies shared across all exchange handlers.
 //
 // The api/exchange surface is multi-tenant: a single process serves N
-// exchanges, each identified by its own ExchangeDID. The target tenant
-// is ALWAYS sourced from the request payload (entry.Header.Destination
-// for /v1/entries/submit; req.Destination for /v1/entries/build and
-// management endpoints) — never from a process-level field. This makes
-// horizontal-scale deployments (one binary, many courts) trivial and
-// keeps the entry's wire shape the single source of truth for routing.
+// destinations. The target destination is ALWAYS sourced from the
+// request payload (entry.Header.Destination for /v1/entries/submit;
+// req.Destination for /v1/entries/build and the management endpoints)
+// — never from a process-level field. This makes horizontal-scale
+// deployments (one binary, many destinations) trivial and keeps the
+// entry's wire shape the single source of truth for routing. The
+// per-destination policy bundle is resolved from the destination at
+// admission time via jurisdiction.Registry; see submit_gate.go for the
+// dispatch path.
 type Dependencies struct {
 	OperatorEndpoint      string
 	ArtifactStoreEndpoint string
