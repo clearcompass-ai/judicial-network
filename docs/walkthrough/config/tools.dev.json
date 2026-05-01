@@ -1,0 +1,20 @@
+{
+  "operator_url":             "http://localhost:8080",
+  "exchange_url":             "http://localhost:8080",
+  "verification_url":         "http://localhost:8080",
+  "artifact_store_url":       "http://localhost:8002",
+
+  "court_did":                "did:web:state:tn:davidson",
+  "officers_log":             "did:web:state:tn:davidson",
+  "cases_log":                "did:web:state:tn:davidson",
+  "parties_log":              "did:web:state:tn:davidson",
+
+  "database_url":             "postgres://ortholog:orthologpassword@localhost:5432/court_tools?sslmode=disable",
+
+  "court_tools_addr":         ":8090",
+  "provider_tools_addr":      ":8091",
+
+  "aggregator_batch_size":    100,
+
+  "provider_api_key_header":  "X-API-Key"
+}

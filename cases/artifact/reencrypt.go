@@ -12,14 +12,14 @@ KEY ARCHITECTURAL DECISIONS:
       not storage). Therefore this file uses ArtifactKeyStore only — no
       DelegationKeyStore involvement.
     - content_digest UNCHANGED (same plaintext). artifact_cid CHANGES (new key).
-    - Delegates to SDK lifecycle.ReEncryptWithGrant.
+    - Delegates to SDK lifecycle/artifact.ReEncrypt.
 
 OVERVIEW:
-    Per artifact: ReEncryptWithGrant → new CT + new key → push + store.
+    Per artifact: ReEncrypt → new CT + new key → push + store.
     Batch: semaphore concurrency, per-CID retry.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle: ReEncryptWithGrant, ArtifactKeyStore
+    - ortholog-sdk/lifecycle/artifact: ReEncrypt, KeyStore
     - ortholog-sdk/storage: ContentStore, CID
 */
 package artifact
@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 )
 
@@ -71,13 +71,13 @@ type BatchReencryptResult struct {
 
 func ReencryptArtifact(
 	cfg ReencryptConfig,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	contentStore storage.ContentStore,
 ) (*ReencryptResult, error) {
 	if cfg.OldCID.IsZero() {
 		return nil, fmt.Errorf("artifact/reencrypt: zero old CID")
 	}
-	sdkResult, err := lifecycle.ReEncryptWithGrant(lifecycle.ReEncryptWithGrantParams{
+	sdkResult, err := lifecycleartifact.ReEncrypt(lifecycleartifact.ReEncryptParams{
 		OldCID:              cfg.OldCID,
 		KeyStore:            keyStore,
 		ContentStore:        contentStore,
@@ -99,7 +99,7 @@ func ReencryptArtifact(
 
 func BatchReencrypt(
 	cfg BatchReencryptConfig,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	contentStore storage.ContentStore,
 ) (*BatchReencryptResult, error) {
 	if keyStore == nil || contentStore == nil {
@@ -167,7 +167,7 @@ func BatchReencrypt(
 func reencryptWithRetry(
 	cid storage.CID,
 	cfg BatchReencryptConfig,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	contentStore storage.ContentStore,
 ) (*ReencryptResult, error) {
 	var lastErr error

@@ -34,7 +34,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -66,7 +66,7 @@ type SourceDecryptor interface {
 // AppellateDeps groups the appellate-side SDK injection points.
 type AppellateDeps struct {
 	ContentStore storage.ContentStore
-	KeyStore     lifecycle.ArtifactKeyStore
+	KeyStore     lifecycleartifact.KeyStore
 	DelKeyStore  artifact.DelegationKeyStore
 	Extractor    schema.SchemaParameterExtractor
 	Fetcher      types.EntryFetcher
@@ -228,7 +228,7 @@ func TransferRecord(
 // (clerks with direct key-store access). AES-GCM artifacts only.
 type DirectKeySourceDecryptor struct {
 	ContentStore storage.ContentStore
-	KeyStore     lifecycle.ArtifactKeyStore
+	KeyStore     lifecycleartifact.KeyStore
 }
 
 // DecryptSource fetches ciphertext, looks up the AES key, and decrypts.

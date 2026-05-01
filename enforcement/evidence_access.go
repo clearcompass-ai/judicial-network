@@ -21,7 +21,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
 	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -30,6 +30,7 @@ import (
 )
 
 type EvidenceAccessConfig struct {
+	Destination     string // DID of target exchange. Required.
 	ArtifactCID     storage.CID
 	ContentDigest   storage.CID
 	FilingEntryPos  types.LogPosition
@@ -49,14 +50,14 @@ type EvidenceAccessConfig struct {
 // did_keys.ResolveEncryptionKey and delegates to the SDK's sealed-mode grant.
 func GrantEvidenceAccess(
 	cfg EvidenceAccessConfig,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore artifact.DelegationKeyStore,
 	retrievalProvider storage.RetrievalProvider,
 	extractor schema.SchemaParameterExtractor,
 	leafReader smt.LeafReader,
 	fetcher types.EntryFetcher,
 	resolver did.DIDResolver,
-) (*lifecycle.GrantArtifactAccessResult, error) {
+) (*lifecycleartifact.GrantResult, error) {
 	if cfg.RequesterDID == "" {
 		return nil, fmt.Errorf("enforcement/evidence_access: empty requester DID")
 	}
@@ -73,6 +74,7 @@ func GrantEvidenceAccess(
 
 	return artifact.RetrieveArtifact(
 		artifact.RetrievalRequest{
+			Destination:     cfg.Destination,
 			ArtifactCID:     cfg.ArtifactCID,
 			ContentDigest:   cfg.ContentDigest,
 			FilingEntryPos:  cfg.FilingEntryPos,

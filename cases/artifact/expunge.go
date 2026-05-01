@@ -21,7 +21,7 @@ OVERVIEW:
     BatchExpunge: multiple CIDs, continues on individual failures.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle: ArtifactKeyStore for AES-GCM key destruction
+    - ortholog-sdk/lifecycle/artifact: KeyStore for AES-GCM key destruction
     - ortholog-sdk/storage: ContentStore for ciphertext removal
     - DelegationKeyStore (defined in publish.go) for PRE key destruction
 */
@@ -30,7 +30,7 @@ package artifact
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 )
 
@@ -62,7 +62,7 @@ type ExpungeResult struct {
 // At least one key store must be non-nil.
 func ExpungeArtifact(
 	cfg ExpungeConfig,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
 	contentStore storage.ContentStore,
 ) (*ExpungeResult, error) {
@@ -130,7 +130,7 @@ type BatchExpungeResult struct {
 // BatchExpunge expunges multiple artifacts. Continues on individual failures.
 func BatchExpunge(
 	cids []storage.CID,
-	keyStore lifecycle.ArtifactKeyStore,
+	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
 	contentStore storage.ContentStore,
 ) (*BatchExpungeResult, error) {
