@@ -254,23 +254,56 @@ func TestBuildKeyStore_Memory_ReturnsInMemoryStore(t *testing.T) {
 	}
 }
 
-func TestBuildKeyStore_SoftHSM_ErrorsWithPhase8Marker(t *testing.T) {
+func TestBuildKeyStore_SoftHSM_RequiresPKCS11Config(t *testing.T) {
 	_, err := buildKeyStore(config.KeyStoreConfig{Backend: config.KeyStoreBackendSoftHSM})
 	if err == nil {
-		t.Fatal("softhsm backend should error until Phase 8a wires it")
+		t.Fatal("softhsm backend without pkcs11 config should error")
 	}
-	if !strings.Contains(err.Error(), "Phase 8a") {
-		t.Errorf("error should mention Phase 8a: %v", err)
+	if !strings.Contains(err.Error(), "pkcs11 config") {
+		t.Errorf("error should mention missing pkcs11 config: %v", err)
 	}
 }
 
-func TestBuildKeyStore_Vault_ErrorsWithPhase8Marker(t *testing.T) {
+func TestBuildKeyStore_SoftHSM_BadPINFile_Errors(t *testing.T) {
+	_, err := buildKeyStore(config.KeyStoreConfig{
+		Backend: config.KeyStoreBackendSoftHSM,
+		PKCS11: &config.PKCS11Config{
+			LibraryPath: "/lib/dummy.so",
+			PINFile:     "/no/such/pin/file",
+		},
+	})
+	if err == nil {
+		t.Fatal("missing PIN file should error")
+	}
+	if !strings.Contains(err.Error(), "PIN file") {
+		t.Errorf("error should mention PIN file: %v", err)
+	}
+}
+
+func TestBuildKeyStore_Vault_RequiresVaultConfig(t *testing.T) {
 	_, err := buildKeyStore(config.KeyStoreConfig{Backend: config.KeyStoreBackendVault})
 	if err == nil {
-		t.Fatal("vault backend should error until Phase 8a wires it")
+		t.Fatal("vault backend without vault config should error")
 	}
-	if !strings.Contains(err.Error(), "Phase 8a") {
-		t.Errorf("error should mention Phase 8a: %v", err)
+	if !strings.Contains(err.Error(), "vault config") {
+		t.Errorf("error should mention missing vault config: %v", err)
+	}
+}
+
+func TestBuildKeyStore_Vault_BadTokenFile_Errors(t *testing.T) {
+	_, err := buildKeyStore(config.KeyStoreConfig{
+		Backend: config.KeyStoreBackendVault,
+		Vault: &config.VaultConfig{
+			Address:   "https://vault.svc",
+			TokenFile: "/no/such/token/file",
+			Mount:     "transit",
+		},
+	})
+	if err == nil {
+		t.Fatal("missing token file should error")
+	}
+	if !strings.Contains(err.Error(), "token file") {
+		t.Errorf("error should mention token file: %v", err)
 	}
 }
 

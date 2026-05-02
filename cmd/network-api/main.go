@@ -55,6 +55,8 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
+	pkcs11ks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/pkcs11"
+	vaultks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/vault"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
@@ -280,16 +282,44 @@ func buildNonceStores(cfg config.Operational, r *jurisdiction.Registry) (map[str
 }
 
 // buildKeyStore returns a keystore.KeyStore for the configured
-// backend. Today only the "memory" backend is wired; Phase 8 adds
-// SoftHSM (PKCS#11) and Vault Transit native paths behind this seam.
+// backend. Phase 8a wires SoftHSM (PKCS#11) and Vault Transit native
+// alongside the in-memory dev path. The PKCS#11 backend compiles in
+// only with -tags pkcs11; the no-cgo build target returns
+// pkcs11.ErrNotBuilt, surfaced here so operators see a clear message.
 func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 	switch cfg.Backend {
 	case config.KeyStoreBackendMemory:
 		return keystore.NewMemoryKeyStore(), nil
+
 	case config.KeyStoreBackendSoftHSM:
-		return nil, fmt.Errorf("keystore: softhsm backend not yet wired (Phase 8a)")
+		if cfg.PKCS11 == nil {
+			return nil, fmt.Errorf("keystore: softhsm requires pkcs11 config")
+		}
+		pin, err := pkcs11ks.LoadPINFile(cfg.PKCS11.PINFile)
+		if err != nil {
+			return nil, fmt.Errorf("keystore: softhsm: %w", err)
+		}
+		return pkcs11ks.New(pkcs11ks.Config{
+			LibraryPath: cfg.PKCS11.LibraryPath,
+			SlotID:      cfg.PKCS11.SlotID,
+			PIN:         pin,
+			TokenLabel:  cfg.PKCS11.TokenLabel,
+		})
+
 	case config.KeyStoreBackendVault:
-		return nil, fmt.Errorf("keystore: vault backend not yet wired (Phase 8a)")
+		if cfg.Vault == nil {
+			return nil, fmt.Errorf("keystore: vault requires vault config")
+		}
+		token, err := vaultks.LoadTokenFile(cfg.Vault.TokenFile)
+		if err != nil {
+			return nil, fmt.Errorf("keystore: vault: %w", err)
+		}
+		return vaultks.New(vaultks.Config{
+			Address: cfg.Vault.Address,
+			Token:   token,
+			Mount:   cfg.Vault.Mount,
+		})
+
 	default:
 		return nil, fmt.Errorf("keystore: unknown backend %q", cfg.Backend)
 	}
