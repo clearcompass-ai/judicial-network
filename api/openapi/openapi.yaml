@@ -1,0 +1,2385 @@
+openapi: 3.1.0
+
+# ─────────────────────────────────────────────────────────────────────
+# Info
+# ─────────────────────────────────────────────────────────────────────
+info:
+  title: Ortholog Judicial Network API
+  version: 0.1.0
+  summary: Multi-court federation API for judicial log entries, artifacts, and cross-court verification.
+  description: |
+    The Judicial Network (JN) API is the HTTP surface for an Ortholog
+    deployment serving one or more courts on a single listener. The
+    composer mounts three sub-surfaces:
+
+      - `/v1/judicial/*` — domain-aware judicial flows (cases, appeals,
+        enforcement, parties, onboarding, artifacts, verification,
+        monitoring, consortium federation, delegation, topology).
+      - `/v1/entries/*`, `/v1/artifacts/*`, `/v1/delegations/*`,
+        `/v1/keys/*`, `/v1/dids`, `/v1/scope/*` — generic Ortholog
+        protocol surface (build/sign/submit, key custody, scope
+        amendment).
+      - `/v1/verify/*` — read-side verification (origin, authority,
+        delegation, cross-log, fraud-proof).
+
+    Routing is multi-tenant payload-driven: every entry's destination
+    is sourced from `entry.Header.Destination`, looked up in the
+    Bundle Registry. There is exactly one handler tree per route
+    family, shared across all registered destinations.
+
+    ### Build / sign / submit pattern
+
+    Most write endpoints under `/v1/judicial/*` return a
+    `BuildResponse` carrying the unsigned entry bytes and the
+    signing payload. The caller signs the payload externally
+    (typically through Privy or an SCW party signer) and submits the
+    signed entry to `/v1/entries/submit`. Endpoints that require
+    state mutation beyond a single entry (cross-log proofs, lifecycle
+    amendments) are explicitly `501 Not Implemented` with operational
+    reasoning attached — those flows are operator-tooling driven.
+
+    ### Authentication
+
+    Two composer-level modes are supported:
+
+      - **mTLS**: client cert SAN URI carries the caller's DID;
+        composer middleware lifts it into request context.
+      - **JWT**: `Authorization: Bearer <jwt>` validated against a
+        configured JWKS endpoint; the `sub` claim is the caller DID.
+
+    Per-handler auth (api/exchange `SignerAuth`) layers signed-request
+    replay protection on top for write endpoints under
+    `/v1/entries/*`, `/v1/artifacts/*`, `/v1/keys/*`, `/v1/dids`,
+    `/v1/delegations/*`, `/v1/scope/*`.
+  contact:
+    name: ClearCompass AI
+    url: https://github.com/clearcompass-ai/judicial-network
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+# ─────────────────────────────────────────────────────────────────────
+# Servers
+# ─────────────────────────────────────────────────────────────────────
+servers:
+  - url: https://{host}:{port}
+    description: Production deployment (mTLS).
+    variables:
+      host:
+        default: api.davidson.tn.courts.gov
+      port:
+        default: '8443'
+  - url: http://localhost:8080
+    description: Local development (plain HTTP, no auth).
+
+# ─────────────────────────────────────────────────────────────────────
+# Tags
+# ─────────────────────────────────────────────────────────────────────
+tags:
+  - name: Cases
+    description: Case initiation, amendment, lookup, filings, judicial actions, division/county transfer.
+  - name: Appeals
+    description: Appeal initiation, decisions, mandates (affirm/reverse), record transfer.
+  - name: Enforcement
+    description: Sealing, unsealing (with cosignature), expungement, evidence access grants, compliance.
+  - name: Parties
+    description: Party/binding lifecycle, case-link records, sealed (PRE-encrypted) bindings.
+  - name: Onboarding
+    description: Schema adoption, court provisioning, anchor registration, legacy record migration.
+  - name: Artifacts (Judicial)
+    description: Court-grade artifact publish/retrieve/expunge/reencrypt with delegation-aware grants.
+  - name: Verification
+    description: Read-side verification of case status, enforcement, custody, appeals, cross-log.
+  - name: Monitoring
+    description: Operational monitors — blob availability, delegation health, sealing/grant compliance.
+  - name: Consortium
+    description: Multi-court federation (membership proposals, cross-court proofs).
+  - name: Delegation (Judicial)
+    description: Delegation issue/revoke/succession (operational-tooling 501 stubs).
+  - name: Topology
+    description: Anchor publish + chain discovery (operational-tooling 501 stubs).
+  - name: Entries
+    description: Generic build/sign/submit pipeline + entry status.
+  - name: Artifacts
+    description: Generic artifact publish + grant.
+  - name: Delegations
+    description: Generic delegation create/revoke.
+  - name: Keys
+    description: Key custody operations (generate, rotate, escrow, list).
+  - name: DIDs
+    description: DID lifecycle.
+  - name: Scope
+    description: Scope amendment lifecycle (propose/approve/execute).
+  - name: Verify
+    description: Generic verification read paths.
+  - name: Health
+    description: Liveness probes.
+
+# ─────────────────────────────────────────────────────────────────────
+# Security
+# ─────────────────────────────────────────────────────────────────────
+security:
+  - mTLS: []
+  - bearerAuth: []
+
+# ─────────────────────────────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Health ────────────────────────────────────────────────────────
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Composer-level liveness probe.
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: ok
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+  /v1/judicial/healthz:
+    get:
+      tags: [Health]
+      summary: Stand-alone judicial liveness probe (shadowed in composed deployments).
+      operationId: judicialHealth
+      security: []
+      responses:
+        '200':
+          description: ok
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+  /v1/openapi.yaml:
+    get:
+      tags: [Health]
+      summary: Canonical OpenAPI 3.1 spec for this deployment.
+      description: |
+        Served unauthenticated so external tooling (Swagger UI, code
+        generators) can fetch the spec without a client cert.
+      operationId: openapiSpec
+      security: []
+      responses:
+        '200':
+          description: OpenAPI 3.1 YAML.
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  # ── Cases ─────────────────────────────────────────────────────────
+  /v1/judicial/cases:
+    post:
+      tags: [Cases]
+      summary: Initiate a new case.
+      description: |
+        Builds an unsigned case-root entry. Returns the signing
+        payload; caller signs externally and submits to
+        `/v1/entries/submit`.
+      operationId: caseInitiate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseInitiateRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/cases/{caseRootSeq}/amend:
+    post:
+      tags: [Cases]
+      summary: Amend an existing case (status change, reassignment, artifact update).
+      operationId: caseAmend
+      parameters:
+        - $ref: '#/components/parameters/CaseRootSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseAmendRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/cases/{caseRootSeq}/filings:
+    post:
+      tags: [Cases]
+      summary: Record a filing on a case (publishes the artifact + builds the filing entry).
+      operationId: caseFile
+      parameters:
+        - $ref: '#/components/parameters/CaseRootSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseFilingRequest'
+      responses:
+        '200':
+          description: Filing entry built; artifact published and pinned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilingResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/cases/{caseRootSeq}/actions:
+    post:
+      tags: [Cases]
+      summary: Record a judicial action (ruling, order, sentence, disposition).
+      operationId: caseAction
+      parameters:
+        - $ref: '#/components/parameters/CaseRootSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseActionRequest'
+      responses:
+        '200':
+          description: Action entry built; opinion artifact published if attached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilingResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/cases/{docket}:
+    get:
+      tags: [Cases]
+      summary: Look up a case by docket number.
+      operationId: caseLookup
+      parameters:
+        - name: docket
+          in: path
+          required: true
+          schema: { type: string }
+          description: URL-encoded docket number.
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+          description: Cases-log DID to scan.
+      responses:
+        '200':
+          description: Found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseLookupResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/judicial/cases/{caseRootSeq}/transfer/division:
+    post:
+      tags: [Cases]
+      summary: Transfer a case between divisions of the same court.
+      operationId: caseTransferDivision
+      parameters:
+        - $ref: '#/components/parameters/CaseRootSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseTransferDivisionRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/cases/{caseRootSeq}/transfer/county:
+    post:
+      tags: [Cases]
+      summary: Transfer a case between counties (cross-court).
+      description: |
+        501 Not Implemented. Cross-court transfer requires composing a
+        source-side amendment + N delegation mirrors + an anchor
+        commitment chain. Operator-tooling driven — the JN binary
+        composes the bundle, not the HTTP surface.
+      operationId: caseTransferCounty
+      parameters:
+        - $ref: '#/components/parameters/CaseRootSeq'
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # ── Appeals ───────────────────────────────────────────────────────
+  /v1/judicial/appeals/decisions:
+    post:
+      tags: [Appeals]
+      summary: Record an appellate decision (per-court appeals log entry).
+      operationId: appealDecision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppealDecisionRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/appeals/mandates/affirm:
+    post:
+      tags: [Appeals]
+      summary: Issue an affirm-mandate (no cross-log composition).
+      operationId: appealMandateAffirm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppealMandateAffirmRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/appeals/initiations:
+    post:
+      tags: [Appeals]
+      summary: Initiate an appeal (cross-log).
+      description: |
+        501 Not Implemented. Cross-log initiation requires composing a
+        source-court reference + appeals-log notice — operator-tooling
+        driven.
+      operationId: appealInitiate
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/appeals/mandates/reverse:
+    post:
+      tags: [Appeals]
+      summary: Issue a reverse-mandate (cross-log; remands the case-root entry).
+      description: 501 Not Implemented. Cross-log; operator-tooling composes.
+      operationId: appealMandateReverse
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/appeals/records/transfer:
+    post:
+      tags: [Appeals]
+      summary: Transfer the appellate record back to the trial court.
+      description: 501 Not Implemented. Cross-log; operator-tooling composes.
+      operationId: appealRecordTransfer
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # ── Enforcement ───────────────────────────────────────────────────
+  /v1/judicial/enforcement/seal:
+    post:
+      tags: [Enforcement]
+      summary: Seal a case (statutory sealing — auto-activates after dwell).
+      operationId: enforcementSeal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SealRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/enforcement/unseal:
+    post:
+      tags: [Enforcement]
+      summary: Unseal a previously sealed case.
+      operationId: enforcementUnseal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnsealRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/enforcement/unseal/cosignature:
+    post:
+      tags: [Enforcement]
+      summary: Add a cosignature to an in-flight unseal request.
+      operationId: enforcementUnsealCosignature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnsealCosignatureRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/enforcement/sealing-status:
+    get:
+      tags: [Enforcement]
+      summary: Check whether a sealing has activated.
+      operationId: enforcementSealingStatus
+      parameters:
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: seal_seq
+          in: query
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Sealing status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SealingStatusResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/enforcement/expunge:
+    post:
+      tags: [Enforcement]
+      summary: Expunge a case (irreversibly destroys plaintext custody).
+      operationId: enforcementExpunge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpungeRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/enforcement/evidence-access:
+    post:
+      tags: [Enforcement]
+      summary: Grant evidence access to a third party (delegation-aware).
+      operationId: enforcementEvidenceAccess
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvidenceAccessRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/enforcement/compliance:
+    get:
+      tags: [Enforcement]
+      summary: Run a compliance sweep over a window of entries.
+      operationId: enforcementCompliance
+      parameters:
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: start_seq
+          in: query
+          required: true
+          schema: { type: integer, format: uint64 }
+        - name: end_seq
+          in: query
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Compliance report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceReport'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── Parties ───────────────────────────────────────────────────────
+  /v1/judicial/parties/bindings:
+    post:
+      tags: [Parties]
+      summary: Create a party-binding entry.
+      operationId: partyBindingCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartyBindingCreateRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Parties]
+      summary: List party bindings on a case.
+      operationId: partyBindingList
+      parameters:
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: case_root_seq
+          in: query
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Bindings list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyBindingsList'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/parties/bindings/{seq}/status:
+    patch:
+      tags: [Parties]
+      summary: Update a party binding's status.
+      operationId: partyBindingUpdate
+      parameters:
+        - name: seq
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartyBindingUpdateRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/parties/case-links:
+    post:
+      tags: [Parties]
+      summary: Link a party to a case via a binding pointer.
+      operationId: partyCaseLink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartyCaseLinkRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/parties/bindings/sealed:
+    post:
+      tags: [Parties]
+      summary: Create a sealed party-binding (PRE-encrypted real DID).
+      description: |
+        Used for protected populations (juvenile, victim) where the
+        real DID is encrypted to a recovery quorum and only released
+        on cosigned unseal.
+      operationId: partyBindingSealed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartyBindingSealedRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/parties/bindings/by-id/{bindingID}:
+    get:
+      tags: [Parties]
+      summary: Look up a party binding by its stable binding ID.
+      operationId: partyBindingFind
+      parameters:
+        - name: bindingID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyBinding'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── Onboarding ────────────────────────────────────────────────────
+  /v1/judicial/onboarding/schema-adoption:
+    post:
+      tags: [Onboarding]
+      summary: Adopt a JN schema into a court's catalog.
+      operationId: onboardingAdoptSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchemaAdoptRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/onboarding/court-provision:
+    post:
+      tags: [Onboarding]
+      summary: Provision a new court (bootstrap).
+      description: 501 Not Implemented. Bootstrap-script-driven.
+      operationId: onboardingCourtProvision
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/onboarding/anchor-registration:
+    post:
+      tags: [Onboarding]
+      summary: Register an anchor relationship (state ↔ county).
+      description: 501 Not Implemented. Requires `*witness.TreeHeadClient`.
+      operationId: onboardingAnchorRegistration
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/onboarding/migrate-records:
+    post:
+      tags: [Onboarding]
+      summary: Migrate legacy records into the JN.
+      description: 501 Not Implemented. Bulk-import operator tooling.
+      operationId: onboardingMigrateRecords
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # ── Artifacts (Judicial) ──────────────────────────────────────────
+  /v1/judicial/artifacts:
+    post:
+      tags: [Artifacts (Judicial)]
+      summary: Publish a judicial artifact (encrypted at rest, content-addressed).
+      operationId: judicialArtifactPublish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactPublishRequest'
+      responses:
+        '200':
+          description: Published; returns CID + key fingerprints.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedArtifact'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/artifacts/retrieve:
+    get:
+      tags: [Artifacts (Judicial)]
+      summary: Retrieve an artifact's grant material (server-side decrypt is forbidden).
+      operationId: judicialArtifactRetrieve
+      parameters:
+        - name: cid
+          in: query
+          required: true
+          schema: { type: string }
+        - name: as_role
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Grant + ciphertext bytes; caller decrypts with their key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/judicial/artifacts/{cid}:
+    delete:
+      tags: [Artifacts (Judicial)]
+      summary: Expunge an artifact (irreversibly destroys ciphertext + grant material).
+      operationId: judicialArtifactExpunge
+      parameters:
+        - name: cid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Expunged.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/judicial/artifacts/reencrypt:
+    post:
+      tags: [Artifacts (Judicial)]
+      summary: Re-encrypt an artifact under a new role/key.
+      operationId: judicialArtifactReencrypt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactReencryptRequest'
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── Verification (Judicial) ───────────────────────────────────────
+  /v1/judicial/verification/case-status:
+    get:
+      tags: [Verification]
+      summary: Verify a case's current status by walking case-root → amendments.
+      operationId: verifyCaseStatus
+      parameters:
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: seq
+          in: query
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Verified status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseStatusResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/judicial/verification/enforcement-status:
+    get:
+      tags: [Verification]
+      summary: Verify a sealing/expungement entry's enforcement state.
+      operationId: verifyEnforcement
+      parameters:
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: seq
+          in: query
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Enforcement state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnforcementStatusResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/verification/filing-delegation:
+    post:
+      tags: [Verification]
+      summary: Verify a filing delegation chain.
+      operationId: verifyFilingDelegation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyFilingDelegationRequest'
+      responses:
+        '200':
+          description: Verified delegation chain.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/verification/custody-chain:
+    get:
+      tags: [Verification]
+      summary: Walk an artifact's custody chain (publish → grants → expunge).
+      operationId: verifyCustodyChain
+      parameters:
+        - name: artifact_cid
+          in: query
+          required: true
+          schema: { type: string }
+        - name: log_did
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Custody chain.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustodyChain'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/judicial/verification/background-check:
+    get:
+      tags: [Verification]
+      summary: Resolve a party's prior-case history for background-check use.
+      operationId: verifyBackgroundCheck
+      parameters:
+        - name: party_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: X-Cases-Log-DID
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Background check result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackgroundCheckResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/verification/appeal-chain:
+    post:
+      tags: [Verification]
+      summary: Verify an appeal chain (initiation → decision → mandate → record transfer).
+      operationId: verifyAppealChain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyAppealChainRequest'
+      responses:
+        '200':
+          description: Verified.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/judicial/verification/key-attestation:
+    get:
+      tags: [Verification]
+      summary: Verify a key attestation (C6 carve-out).
+      description: 501 Not Implemented. C6 carve-out — operator-tooling.
+      operationId: verifyKeyAttestation
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/verification/cross-log-proof:
+    post:
+      tags: [Verification]
+      summary: Verify a cross-log proof against source-court witness keys.
+      operationId: verifyCrossLogProof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossLogProofRequest'
+      responses:
+        '200':
+          description: Verification verdict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossLogProofResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ── Monitoring ────────────────────────────────────────────────────
+  /v1/judicial/monitoring/blob-availability:
+    post:
+      tags: [Monitoring]
+      summary: Audit which expected CIDs are present/absent in the content store.
+      operationId: monitorBlobAvailability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonBlobAvailRequest'
+      responses:
+        '200': { $ref: '#/components/responses/MonitorResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/judicial/monitoring/delegation-health:
+    post:
+      tags: [Monitoring]
+      summary: Audit delegation freshness + revocation cascade.
+      operationId: monitorDelegationHealth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonDelegationHealthRequest'
+      responses:
+        '200': { $ref: '#/components/responses/MonitorResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/judicial/monitoring/anchor-freshness:
+    get:
+      tags: [Monitoring]
+      summary: Audit anchor freshness vs. configured staleness threshold.
+      description: 501 Not Implemented. Requires `*witness.TreeHeadClient`.
+      operationId: monitorAnchorFreshness
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/monitoring/dual-attestation:
+    post:
+      tags: [Monitoring]
+      summary: Audit dual-attestation invariants on a log.
+      operationId: monitorDualAttestation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonDualAttestationRequest'
+      responses:
+        '200': { $ref: '#/components/responses/MonitorResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/judicial/monitoring/mirror-consistency:
+    post:
+      tags: [Monitoring]
+      summary: Audit officer ↔ cases mirror consistency.
+      operationId: monitorMirrorConsistency
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonMirrorConsistencyRequest'
+      responses:
+        '200': { $ref: '#/components/responses/MonitorResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/monitoring/sealing-compliance:
+    post:
+      tags: [Monitoring]
+      summary: Audit sealing-compliance invariants.
+      operationId: monitorSealingCompliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonSealingComplianceRequest'
+      responses:
+        '200': { $ref: '#/components/responses/MonitorResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/monitoring/grant-compliance:
+    post:
+      tags: [Monitoring]
+      summary: Audit grant-compliance invariants (delegation + recipient match).
+      operationId: monitorGrantCompliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonGrantComplianceRequest'
+      responses:
+        '200': { $ref: '#/components/responses/MonitorResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/monitoring/dashboard:
+    post:
+      tags: [Monitoring]
+      summary: Aggregate monitor results across courts into a dashboard.
+      operationId: monitorDashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonDashboardRequest'
+      responses:
+        '200':
+          description: Aggregated dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorDashboard'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── Consortium ────────────────────────────────────────────────────
+  /v1/judicial/consortium/members/propose-addition:
+    post:
+      tags: [Consortium]
+      summary: Propose adding a member court to the consortium.
+      operationId: consortiumProposeAddition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsortiumProposalRequest'
+      responses:
+        '200':
+          description: Proposal entry built.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AmendmentProposal'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/consortium/members/propose-removal:
+    post:
+      tags: [Consortium]
+      summary: Propose removing a member court from the consortium.
+      operationId: consortiumProposeRemoval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsortiumProposalRequest'
+      responses:
+        '200':
+          description: Proposal entry built.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AmendmentProposal'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/consortium/cross-court-proof/verify:
+    post:
+      tags: [Consortium]
+      summary: Verify a cross-court proof against source witness keys.
+      operationId: consortiumVerifyCrossCourtProof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossLogProofRequest'
+      responses:
+        '200':
+          description: Verification verdict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossLogProofResult'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /v1/judicial/consortium/cross-court-proof/build:
+    post:
+      tags: [Consortium]
+      summary: Build a cross-court proof.
+      description: 501 Not Implemented. Requires Merkle provers + cosigned tree heads.
+      operationId: consortiumBuildCrossCourtProof
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/consortium/members/execute-addition:
+    post:
+      tags: [Consortium]
+      summary: Execute a fully-approved member-addition amendment.
+      description: 501 Not Implemented. `lifecycle.ExecuteAmendmentParams` — operator-tooling.
+      operationId: consortiumExecuteAddition
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/consortium/members/execute-removal:
+    post:
+      tags: [Consortium]
+      summary: Execute a fully-approved member-removal amendment (starts time-lock).
+      description: 501 Not Implemented. `lifecycle.RemovalParams` — operator-tooling.
+      operationId: consortiumExecuteRemoval
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/consortium/members/activate-removal:
+    post:
+      tags: [Consortium]
+      summary: Activate a member-removal after the time-lock expires.
+      description: 501 Not Implemented. `lifecycle.ActivateRemovalParams` — operator-tooling.
+      operationId: consortiumActivateRemoval
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/consortium/formation:
+    post:
+      tags: [Consortium]
+      summary: Form a new consortium (bootstrap).
+      description: 501 Not Implemented. Bootstrap-script-driven.
+      operationId: consortiumFormation
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # ── Delegation (Judicial) ─────────────────────────────────────────
+  /v1/judicial/delegation/issue:
+    post:
+      tags: [Delegation (Judicial)]
+      summary: Issue a delegation.
+      description: 501 Not Implemented. Requires process-scoped `BuildContext`.
+      operationId: judicialDelegationIssue
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/delegation/revoke:
+    post:
+      tags: [Delegation (Judicial)]
+      summary: Revoke a delegation.
+      description: 501 Not Implemented. Requires process-scoped `BuildContext`.
+      operationId: judicialDelegationRevoke
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/delegation/succeed:
+    post:
+      tags: [Delegation (Judicial)]
+      summary: Succeed a prior delegation.
+      description: 501 Not Implemented. Requires process-scoped `BuildContext`.
+      operationId: judicialDelegationSucceed
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # ── Topology ──────────────────────────────────────────────────────
+  /v1/judicial/topology/publish-anchor:
+    post:
+      tags: [Topology]
+      summary: Publish an anchor entry.
+      description: 501 Not Implemented. Requires `*witness.TreeHeadClient`.
+      operationId: topologyPublishAnchor
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/topology/anchor-chain:
+    get:
+      tags: [Topology]
+      summary: Discover the anchor chain for a court DID.
+      description: 501 Not Implemented. Requires `*witness.TreeHeadClient`.
+      operationId: topologyAnchorChain
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
+  # ── Generic Entries (api/exchange) ────────────────────────────────
+  /v1/entries/build:
+    post:
+      tags: [Entries]
+      summary: Build an unsigned entry from raw header + payload.
+      operationId: entryBuild
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EntryBuildRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/entries/sign:
+    post:
+      tags: [Entries]
+      summary: Server-side sign a built entry (legacy / dev path).
+      operationId: entrySign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EntrySignRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SignedEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/entries/submit:
+    post:
+      tags: [Entries]
+      summary: Submit a signed entry to the operator.
+      operationId: entrySubmit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EntrySubmitRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SubmittedEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/entries/build-sign-submit:
+    post:
+      tags: [Entries]
+      summary: Combined build → sign → submit (legacy single-shot path).
+      operationId: entryFull
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EntryFullRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SubmittedEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/entries/status/{hash}:
+    get:
+      tags: [Entries]
+      summary: Look up the status of a submitted entry by content hash.
+      operationId: entryStatus
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Entry status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntryStatus' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── Generic Artifacts (api/exchange) ──────────────────────────────
+  /v1/artifacts/publish:
+    post:
+      tags: [Artifacts]
+      summary: Publish a generic artifact (legacy path; use /v1/judicial/artifacts).
+      operationId: artifactPublish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GenericArtifactPublishRequest' }
+      responses:
+        '200':
+          description: Published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishedArtifact' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/artifacts/{cid}/grant:
+    post:
+      tags: [Artifacts]
+      summary: Grant access to an artifact (returns ciphertext + grant material).
+      operationId: artifactGrant
+      parameters:
+        - name: cid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Grant material.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GrantResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── Generic Delegations ───────────────────────────────────────────
+  /v1/delegations:
+    post:
+      tags: [Delegations]
+      summary: Create a generic delegation.
+      operationId: delegationCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DelegationCreateRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/delegations/{did}:
+    delete:
+      tags: [Delegations]
+      summary: Revoke a delegation by delegate DID.
+      operationId: delegationRevoke
+      parameters:
+        - name: did
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Revoked. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── Keys ──────────────────────────────────────────────────────────
+  /v1/keys/generate:
+    post:
+      tags: [Keys]
+      summary: Generate a new keypair under a DID.
+      operationId: keyGenerate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KeyGenerateRequest' }
+      responses:
+        '200':
+          description: KeyInfo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KeyInfo' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/keys/rotate:
+    post:
+      tags: [Keys]
+      summary: Rotate a key (bumps tier).
+      operationId: keyRotate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KeyRotateRequest' }
+      responses:
+        '200':
+          description: Rotated KeyInfo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KeyInfo' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/keys/escrow:
+    post:
+      tags: [Keys]
+      summary: Run an escrow ceremony (split key into shares).
+      operationId: keyEscrow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KeyEscrowRequest' }
+      responses:
+        '200':
+          description: Escrow envelope.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EscrowEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/keys:
+    get:
+      tags: [Keys]
+      summary: List managed keys.
+      operationId: keyList
+      responses:
+        '200':
+          description: KeyInfo list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/KeyInfo' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── DIDs ──────────────────────────────────────────────────────────
+  /v1/dids:
+    post:
+      tags: [DIDs]
+      summary: Create a new DID.
+      operationId: didCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DIDCreateRequest' }
+      responses:
+        '200':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DIDDocument' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [DIDs]
+      summary: List DIDs.
+      operationId: didList
+      responses:
+        '200':
+          description: DID list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DIDDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── Scope ─────────────────────────────────────────────────────────
+  /v1/scope/propose:
+    post:
+      tags: [Scope]
+      summary: Propose a scope amendment (Phase 1).
+      operationId: scopePropose
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScopeProposeRequest' }
+      responses:
+        '200':
+          description: Proposal entry built.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AmendmentProposal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/scope/approve/{pos}:
+    post:
+      tags: [Scope]
+      summary: Cosign an in-flight scope amendment proposal.
+      operationId: scopeApprove
+      parameters:
+        - name: pos
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Approval status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalStatus' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/scope/execute/{pos}:
+    post:
+      tags: [Scope]
+      summary: Execute a fully-approved scope amendment (Phase 3).
+      operationId: scopeExecute
+      parameters:
+        - name: pos
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── Verify (api/verification) ─────────────────────────────────────
+  /v1/verify/origin/{logID}/{pos}:
+    get:
+      tags: [Verify]
+      summary: Verify an entry's origin (signature + envelope).
+      operationId: verifyOrigin
+      parameters:
+        - name: logID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: pos
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Verified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerifyResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /v1/verify/authority/{logID}/{pos}:
+    get:
+      tags: [Verify]
+      summary: Verify an entry's authority chain.
+      operationId: verifyAuthority
+      parameters:
+        - name: logID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: pos
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Verified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerifyResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /v1/verify/batch/{logID}/{positions}:
+    get:
+      tags: [Verify]
+      summary: Verify a batch of entries on a log (positions = comma-separated uint64s).
+      operationId: verifyBatch
+      parameters:
+        - name: logID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: positions
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Per-position results.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/VerifyResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /v1/verify/delegation/{logID}/{pos}:
+    get:
+      tags: [Verify]
+      summary: Verify a delegation entry.
+      operationId: verifyDelegation
+      parameters:
+        - name: logID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: pos
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Verified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerifyResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /v1/verify/cross-log:
+    post:
+      tags: [Verify]
+      summary: Verify a generic cross-log proof.
+      operationId: verifyCrossLog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CrossLogProofRequest' }
+      responses:
+        '200':
+          description: Verdict.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CrossLogProofResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /v1/verify/fraud-proof:
+    post:
+      tags: [Verify]
+      summary: Verify a fraud proof (e.g., split-view by an operator).
+      operationId: verifyFraudProof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FraudProofRequest' }
+      responses:
+        '200':
+          description: Verdict.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerifyResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+# ─────────────────────────────────────────────────────────────────────
+# Components
+# ─────────────────────────────────────────────────────────────────────
+components:
+
+  # ── Security schemes ──────────────────────────────────────────────
+  securitySchemes:
+    mTLS:
+      type: mutualTLS
+      description: |
+        Client certificate carries the caller's DID in a SAN URI.
+        Composer-level middleware lifts it into request context.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT validated against a configured JWKS endpoint. The `sub`
+        claim is the caller DID.
+
+  # ── Reusable parameters ───────────────────────────────────────────
+  parameters:
+    CaseRootSeq:
+      name: caseRootSeq
+      in: path
+      required: true
+      schema: { type: integer, format: uint64 }
+      description: Case-root entry sequence on the cases log.
+
+  # ── Reusable responses ────────────────────────────────────────────
+  responses:
+    BuildResponse:
+      description: Built entry; caller signs and submits to /v1/entries/submit.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/BuildResponse' }
+    SignedEntry:
+      description: Signed entry.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SignedEntry' }
+    SubmittedEntry:
+      description: Submitted entry; carries the operator-assigned position.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SubmittedEntry' }
+    MonitorResult:
+      description: Monitor verdict.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MonitorResult' }
+    BadRequest:
+      description: Invalid request body or missing required fields.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid auth (no callerDID resolved).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotImplemented:
+      description: |
+        Endpoint is reachable but the underlying operation requires
+        operator tooling (process-scoped BuildContext, witness
+        TreeHeadClient, lifecycle Params, etc.). The body's `error`
+        field carries the operational reasoning.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InternalError:
+      description: Server-side error (typically a misconfigured dependency).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  # ── Schemas ───────────────────────────────────────────────────────
+  schemas:
+
+    # ── Common ────────────────────────────────────────────────────
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+
+    LogPositionRef:
+      type: object
+      required: [log_did, sequence]
+      properties:
+        log_did: { type: string }
+        sequence: { type: integer, format: uint64 }
+
+    ControlHeader:
+      type: object
+      description: Subset of envelope.ControlHeader exposed for caller inspection.
+      properties:
+        destination: { type: string }
+        signer_did: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+        event_time: { type: integer, format: int64 }
+
+    BuildResponse:
+      type: object
+      required: [signing_payload, entry_bytes, header]
+      properties:
+        signing_payload:
+          type: string
+          format: byte
+          description: Bytes the caller must SHA-256 + sign (base64).
+        entry_bytes:
+          type: string
+          format: byte
+          description: Same bytes as signing_payload (base64) for transport ergonomics.
+        header:
+          $ref: '#/components/schemas/ControlHeader'
+
+    # ── Cases ─────────────────────────────────────────────────────
+    CaseInitiateRequest:
+      type: object
+      required: [destination, docket_number, case_type, filed_date]
+      properties:
+        destination: { type: string }
+        docket_number: { type: string }
+        case_type:
+          type: string
+          enum: [criminal, civil, family, juvenile]
+        filed_date: { type: string, description: ISO-8601 date }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+        extra_payload:
+          type: object
+          additionalProperties: true
+        event_time: { type: integer, format: int64 }
+
+    CaseAmendRequest:
+      type: object
+      required: [destination, case_root_log_did, amendment_type]
+      properties:
+        destination: { type: string }
+        case_root_log_did: { type: string }
+        amendment_type:
+          type: string
+          enum: [status_change, reassignment, artifact_update]
+        new_status: { type: string }
+        new_artifact_cid: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+        evidence_pointers:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+
+    CaseFilingRequest:
+      type: object
+      required: [destination, case_root_log_did, document_type, document_title]
+      properties:
+        destination: { type: string }
+        case_root_log_did: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+        delegation_pointers:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+        document_type: { type: string }
+        document_title: { type: string }
+        plaintext_b64:
+          type: string
+          format: byte
+          description: Base64-encoded artifact plaintext.
+
+    CaseActionRequest:
+      type: object
+      required: [destination, case_root_log_did, action_type, description]
+      properties:
+        destination: { type: string }
+        case_root_log_did: { type: string }
+        action_type:
+          type: string
+          enum: [ruling, order, sentence, disposition]
+        description: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+        candidate_positions:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+        plaintext_b64: { type: string, format: byte }
+
+    CaseTransferDivisionRequest:
+      type: object
+      required: [destination, case_root_log_did, target_division, reason]
+      properties:
+        destination: { type: string }
+        case_root_log_did: { type: string }
+        target_division: { type: string }
+        reason: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+        event_time: { type: integer, format: int64 }
+
+    FilingResponse:
+      type: object
+      required: [signing_payload, entry_bytes, header, artifact_cid]
+      properties:
+        signing_payload: { type: string, format: byte }
+        entry_bytes: { type: string, format: byte }
+        header: { $ref: '#/components/schemas/ControlHeader' }
+        artifact_cid: { type: string }
+
+    CaseLookupResponse:
+      type: object
+      properties:
+        case_root_seq: { type: integer, format: uint64 }
+        docket_number: { type: string }
+        case_type: { type: string }
+        status: { type: string }
+        amendments:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+
+    # ── Appeals ───────────────────────────────────────────────────
+    AppealDecisionRequest:
+      type: object
+      required: [destination, appeal_initiation, decision_type]
+      properties:
+        destination: { type: string }
+        appeal_initiation: { $ref: '#/components/schemas/LogPositionRef' }
+        decision_type:
+          type: string
+          enum: [affirmed, reversed, remanded, dismissed]
+        opinion_summary: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+        opinion_b64: { type: string, format: byte }
+
+    AppealMandateAffirmRequest:
+      type: object
+      required: [destination, decision_pointer]
+      properties:
+        destination: { type: string }
+        decision_pointer: { $ref: '#/components/schemas/LogPositionRef' }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    # ── Enforcement ───────────────────────────────────────────────
+    SealRequest:
+      type: object
+      required: [destination, case_root_log_did, seal_type]
+      properties:
+        destination: { type: string }
+        case_root_log_did: { type: string }
+        seal_type:
+          type: string
+          enum: [statutory, judicial_order, juvenile_default]
+        statute_citation: { type: string }
+        dwell_seconds: { type: integer, format: int64 }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    UnsealRequest:
+      type: object
+      required: [destination, seal_pointer, justification]
+      properties:
+        destination: { type: string }
+        seal_pointer: { $ref: '#/components/schemas/LogPositionRef' }
+        justification: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    UnsealCosignatureRequest:
+      type: object
+      required: [destination, unseal_request_pointer]
+      properties:
+        destination: { type: string }
+        unseal_request_pointer: { $ref: '#/components/schemas/LogPositionRef' }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    SealingStatusResponse:
+      type: object
+      properties:
+        seal_seq: { type: integer, format: uint64 }
+        activated: { type: boolean }
+        activation_seq: { type: integer, format: uint64 }
+        dwell_remaining_seconds: { type: integer, format: int64 }
+
+    ExpungeRequest:
+      type: object
+      required: [destination, case_root_log_did, statute_citation]
+      properties:
+        destination: { type: string }
+        case_root_log_did: { type: string }
+        statute_citation: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    EvidenceAccessRequest:
+      type: object
+      required: [destination, artifact_cid, recipient_did]
+      properties:
+        destination: { type: string }
+        artifact_cid: { type: string }
+        recipient_did: { type: string }
+        delegation_pointer: { $ref: '#/components/schemas/LogPositionRef' }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    ComplianceReport:
+      type: object
+      properties:
+        log_did: { type: string }
+        start_seq: { type: integer, format: uint64 }
+        end_seq: { type: integer, format: uint64 }
+        violations:
+          type: array
+          items: { $ref: '#/components/schemas/ComplianceViolation' }
+
+    ComplianceViolation:
+      type: object
+      properties:
+        seq: { type: integer, format: uint64 }
+        kind: { type: string }
+        message: { type: string }
+
+    # ── Parties ───────────────────────────────────────────────────
+    PartyBindingCreateRequest:
+      type: object
+      required: [destination, party_did, party_role]
+      properties:
+        destination: { type: string }
+        party_did: { type: string }
+        party_role:
+          type: string
+          enum: [defendant, plaintiff, witness, attorney, victim, juvenile]
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    PartyBindingUpdateRequest:
+      type: object
+      required: [destination, new_status]
+      properties:
+        destination: { type: string }
+        new_status: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    PartyCaseLinkRequest:
+      type: object
+      required: [destination, binding_pointer, case_root_log_did]
+      properties:
+        destination: { type: string }
+        binding_pointer: { $ref: '#/components/schemas/LogPositionRef' }
+        case_root_log_did: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    PartyBindingSealedRequest:
+      type: object
+      required: [destination, party_role, real_did_ciphertext_b64]
+      properties:
+        destination: { type: string }
+        party_role: { type: string }
+        real_did_ciphertext_b64:
+          type: string
+          format: byte
+          description: PRE-encrypted real DID (recovery quorum can decrypt).
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    PartyBinding:
+      type: object
+      properties:
+        binding_id: { type: string }
+        party_did: { type: string }
+        party_role: { type: string }
+        status: { type: string }
+        position: { $ref: '#/components/schemas/LogPositionRef' }
+
+    PartyBindingsList:
+      type: object
+      properties:
+        bindings:
+          type: array
+          items: { $ref: '#/components/schemas/PartyBinding' }
+
+    # ── Onboarding ────────────────────────────────────────────────
+    SchemaAdoptRequest:
+      type: object
+      required: [destination, schema_id, schema_version]
+      properties:
+        destination: { type: string }
+        schema_id: { type: string }
+        schema_version: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    # ── Artifacts ─────────────────────────────────────────────────
+    ArtifactPublishRequest:
+      type: object
+      required: [destination, plaintext_b64]
+      properties:
+        destination: { type: string }
+        plaintext_b64: { type: string, format: byte }
+        document_type: { type: string }
+        delegation_pointers:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    ArtifactReencryptRequest:
+      type: object
+      required: [destination, cid, target_role]
+      properties:
+        destination: { type: string }
+        cid: { type: string }
+        target_role: { type: string }
+        schema_ref: { type: integer, format: uint64 }
+        schema_log_did: { type: string }
+
+    PublishedArtifact:
+      type: object
+      properties:
+        cid: { type: string }
+        pk_del: { type: string }
+        capsule_b64: { type: string, format: byte }
+
+    GrantResult:
+      type: object
+      properties:
+        cid: { type: string }
+        ciphertext_b64: { type: string, format: byte }
+        capsule_b64: { type: string, format: byte }
+        grant_proof: { type: object, additionalProperties: true }
+
+    GenericArtifactPublishRequest:
+      $ref: '#/components/schemas/ArtifactPublishRequest'
+
+    # ── Verification ──────────────────────────────────────────────
+    VerifyFilingDelegationRequest:
+      type: object
+      required: [delegation_pointers]
+      properties:
+        delegation_pointers:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+        as_of: { type: integer, format: int64 }
+
+    VerifyAppealChainRequest:
+      type: object
+      required: [steps]
+      properties:
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+
+    CrossLogProofRequest:
+      type: object
+      required: [proof, source_log_did]
+      properties:
+        proof:
+          type: object
+          additionalProperties: true
+          description: Marshaled types.CrossLogProof.
+        source_log_did: { type: string }
+        source_witness_keys_b64:
+          type: array
+          items: { type: string, format: byte }
+        source_witness_quorum: { type: integer }
+
+    CrossLogProofResult:
+      type: object
+      required: [verified]
+      properties:
+        verified: { type: boolean }
+        error: { type: string }
+
+    CaseStatusResult:
+      type: object
+      properties:
+        status: { type: string }
+        verified: { type: boolean }
+        amendments:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+
+    EnforcementStatusResult:
+      type: object
+      properties:
+        kind: { type: string }
+        activated: { type: boolean }
+        verified: { type: boolean }
+
+    CustodyChain:
+      type: object
+      properties:
+        publish: { $ref: '#/components/schemas/LogPositionRef' }
+        grants:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+        expunge: { $ref: '#/components/schemas/LogPositionRef' }
+        verified: { type: boolean }
+
+    BackgroundCheckResult:
+      type: object
+      properties:
+        party_did: { type: string }
+        prior_cases:
+          type: array
+          items: { $ref: '#/components/schemas/LogPositionRef' }
+
+    VerifyResult:
+      type: object
+      required: [verified]
+      properties:
+        verified: { type: boolean }
+        error: { type: string }
+        details: { type: object, additionalProperties: true }
+
+    FraudProofRequest:
+      type: object
+      properties:
+        kind: { type: string }
+        evidence: { type: object, additionalProperties: true }
+
+    # ── Monitoring ────────────────────────────────────────────────
+    MonBlobAvailRequest:
+      type: object
+      required: [backend]
+      properties:
+        backend: { type: string, enum: [gcs, s3, ipfs, local] }
+        expected_present:
+          type: array
+          items: { type: string }
+        expected_absent:
+          type: array
+          items: { type: string }
+
+    MonDelegationHealthRequest:
+      type: object
+      required: [local_log_did, officers_log_did]
+      properties:
+        local_log_did: { type: string }
+        officers_log_did: { type: string }
+        as_of: { type: integer, format: int64 }
+
+    MonDualAttestationRequest:
+      type: object
+      required: [log_did]
+      properties:
+        log_did: { type: string }
+
+    MonMirrorConsistencyRequest:
+      type: object
+      required: [officers_log_did, cases_log_did]
+      properties:
+        officers_log_did: { type: string }
+        cases_log_did: { type: string }
+
+    MonSealingComplianceRequest:
+      type: object
+      required: [local_log_did]
+      properties:
+        local_log_did: { type: string }
+
+    MonGrantComplianceRequest:
+      type: object
+      required: [local_log_did]
+      properties:
+        local_log_did: { type: string }
+
+    MonDashboardRequest:
+      type: object
+      required: [per_court]
+      properties:
+        per_court:
+          type: object
+          additionalProperties:
+            type: array
+            items: { $ref: '#/components/schemas/MonitorResult' }
+
+    MonitorResult:
+      type: object
+      properties:
+        ok: { type: boolean }
+        kind: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+
+    MonitorDashboard:
+      type: object
+      properties:
+        per_court:
+          type: object
+          additionalProperties:
+            type: array
+            items: { $ref: '#/components/schemas/MonitorResult' }
+        summary:
+          type: object
+          properties:
+            total: { type: integer }
+            ok: { type: integer }
+            failures: { type: integer }
+
+    # ── Consortium ────────────────────────────────────────────────
+    ConsortiumProposalRequest:
+      type: object
+      required: [destination, target_did]
+      properties:
+        destination: { type: string, description: Consortium federated DID hosting the scope log. }
+        target_did: { type: string, description: Member court being added/removed. }
+        court_name: { type: string }
+        reason: { type: string }
+
+    AmendmentProposal:
+      type: object
+      properties:
+        entry: { type: object, additionalProperties: true }
+        proposal_type: { type: string }
+        requires_unanimity: { type: boolean }
+
+    ApprovalStatus:
+      type: object
+      properties:
+        approvals_collected: { type: integer }
+        approvals_required: { type: integer }
+        complete: { type: boolean }
+
+    # ── Generic exchange ──────────────────────────────────────────
+    EntryBuildRequest:
+      type: object
+      required: [header, payload_b64]
+      properties:
+        header: { $ref: '#/components/schemas/ControlHeader' }
+        payload_b64: { type: string, format: byte }
+
+    EntrySignRequest:
+      type: object
+      required: [entry_bytes_b64]
+      properties:
+        entry_bytes_b64: { type: string, format: byte }
+
+    EntrySubmitRequest:
+      type: object
+      required: [signed_entry_b64]
+      properties:
+        signed_entry_b64: { type: string, format: byte }
+
+    EntryFullRequest:
+      type: object
+      required: [header, payload_b64]
+      properties:
+        header: { $ref: '#/components/schemas/ControlHeader' }
+        payload_b64: { type: string, format: byte }
+
+    SignedEntry:
+      type: object
+      required: [signed_entry_b64]
+      properties:
+        signed_entry_b64: { type: string, format: byte }
+        signature_b64: { type: string, format: byte }
+
+    SubmittedEntry:
+      type: object
+      properties:
+        position: { $ref: '#/components/schemas/LogPositionRef' }
+        content_hash: { type: string }
+        committed: { type: boolean }
+
+    EntryStatus:
+      type: object
+      properties:
+        content_hash: { type: string }
+        position: { $ref: '#/components/schemas/LogPositionRef' }
+        committed: { type: boolean }
+        committed_at: { type: integer, format: int64 }
+
+    # ── Keys ──────────────────────────────────────────────────────
+    KeyGenerateRequest:
+      type: object
+      required: [did, purpose, curve]
+      properties:
+        did: { type: string }
+        purpose: { type: string, enum: [signing, encryption, delegation] }
+        curve: { type: string, enum: [ed25519, secp256k1] }
+
+    KeyRotateRequest:
+      type: object
+      required: [did, tier]
+      properties:
+        did: { type: string }
+        tier: { type: integer }
+
+    KeyEscrowRequest:
+      type: object
+      required: [did, threshold, shares]
+      properties:
+        did: { type: string }
+        threshold: { type: integer }
+        shares: { type: integer }
+        recipient_dids:
+          type: array
+          items: { type: string }
+
+    KeyInfo:
+      type: object
+      properties:
+        key_id: { type: string }
+        did: { type: string }
+        purpose: { type: string }
+        curve: { type: string }
+        public_key:
+          type: string
+          format: byte
+        created: { type: string, format: date-time }
+        rotated: { type: string, format: date-time }
+        rotation_tier: { type: integer }
+
+    EscrowEnvelope:
+      type: object
+      properties:
+        threshold: { type: integer }
+        shares: { type: integer }
+        recipients:
+          type: array
+          items: { type: string }
+
+    # ── DIDs ──────────────────────────────────────────────────────
+    DIDCreateRequest:
+      type: object
+      required: [method]
+      properties:
+        method: { type: string, enum: [web, key, peer] }
+        operator_endpoint: { type: string }
+
+    DIDDocument:
+      type: object
+      properties:
+        id: { type: string }
+        controller: { type: string }
+        verification_method:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    # ── Scope ─────────────────────────────────────────────────────
+    ScopeProposeRequest:
+      type: object
+      required: [destination, proposal_type]
+      properties:
+        destination: { type: string }
+        proposal_type: { type: string }
+        target_did: { type: string }
+        description: { type: string }
+        proposal_payload:
+          type: string
+          format: byte
+
+    DelegationCreateRequest:
+      type: object
+      required: [destination, delegate_did, scope]
+      properties:
+        destination: { type: string }
+        delegate_did: { type: string }
+        scope: { type: array, items: { type: string } }
+        not_before: { type: integer, format: int64 }
+        not_after: { type: integer, format: int64 }
