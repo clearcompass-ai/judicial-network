@@ -195,6 +195,24 @@ func TestRouting_NonVerify_GoesToExchangeHandler(t *testing.T) {
 	}
 }
 
+// TestRouting_JudicialPrefix_GoesToJudicialHandler hits a judicial
+// route and asserts the judicial handler tree runs. The expected
+// "route matched, handler ran" signal is a 401 (no caller DID wired
+// in this test) — distinguishable from the mux's plain-text 404.
+func TestRouting_JudicialPrefix_GoesToJudicialHandler(t *testing.T) {
+	srv := mustComposer(t)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/judicial/cases", strings.NewReader("{}"))
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("judicial route did not match composer; status=%d body=%q",
+			rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "unauthenticated") {
+		t.Errorf("expected judicial handler's 401 body; got %q", rec.Body.String())
+	}
+}
+
 func TestRouting_UnknownPath_404(t *testing.T) {
 	srv := mustComposer(t)
 	rec := httptest.NewRecorder()

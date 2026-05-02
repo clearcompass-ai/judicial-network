@@ -54,6 +54,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
+	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/api/openapi"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
@@ -94,6 +95,14 @@ type Config struct {
 	// composer feeds into BuildHandler on each constituent package.
 	Exchange     exchange.ServerConfig
 	Verification verification.ServerConfig
+
+	// Judicial is the judicial-domain handler tree (cases, appeals,
+	// enforcement, parties, onboarding, artifacts, verification,
+	// monitoring, consortium, delegation, topology). Mounted at
+	// /v1/judicial/. Optional — when Judicial.Deps.Registry is nil
+	// the composer skips judicial registration entirely (older
+	// deployments that have not yet adopted the judicial surface).
+	Judicial judicial.ServerConfig
 
 	// Auth is the optional composer-level authenticator. When set,
 	// every request to /v1/* is wrapped — the authenticator must
@@ -156,6 +165,7 @@ func NewServer(cfg Config) (*Server, error) {
 	// internal route registration; the parent mux delegates by prefix.
 	exchHandler := exchange.BuildHandler(cfg.Exchange)
 	verifyHandler := verification.BuildHandler(cfg.Verification)
+	judicialHandler := judicial.BuildHandler(cfg.Judicial)
 
 	// Composer-level auth wraps every /v1/* delegated handler. When
 	// cfg.Auth is nil (e.g., dev / test) the handlers run unwrapped.
@@ -164,13 +174,15 @@ func NewServer(cfg Config) (*Server, error) {
 	if cfg.Auth != nil {
 		exchHandler = cfg.Auth.Wrap(exchHandler)
 		verifyHandler = cfg.Auth.Wrap(verifyHandler)
+		judicialHandler = cfg.Auth.Wrap(judicialHandler)
 	}
 
 	// Order of registration is irrelevant for net/http.ServeMux —
-	// longest-matching-prefix wins. /v1/verify/ is more specific than
-	// /v1/ so verification routes always take precedence over the
-	// exchange catch-all when their patterns overlap.
+	// longest-matching-prefix wins. /v1/verify/ and /v1/judicial/ are
+	// more specific than /v1/ so they always take precedence over the
+	// exchange catch-all.
 	mux.Handle("/v1/verify/", verifyHandler)
+	mux.Handle("/v1/judicial/", judicialHandler)
 	mux.Handle("/v1/", exchHandler)
 
 	// Composer-owned health probe. Returns 200 unconditionally; the
