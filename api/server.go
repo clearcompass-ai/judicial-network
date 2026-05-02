@@ -55,6 +55,7 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	"github.com/clearcompass-ai/judicial-network/api/openapi"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 )
 
@@ -181,6 +182,12 @@ func NewServer(cfg Config) (*Server, error) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+
+	// OpenAPI 3.1 spec — served unauthenticated so external tooling
+	// (Swagger UI, code generators) can fetch the canonical artifact
+	// without a client cert. The spec bytes are embedded into the
+	// binary at build time from api/openapi/openapi.yaml.
+	mux.Handle("GET /v1/openapi.yaml", openapi.Handler())
 
 	// Default timeouts mirror api/exchange's stand-alone values.
 	read := cfg.ReadTimeout
