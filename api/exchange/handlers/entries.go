@@ -52,6 +52,8 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 )
 
 // ScopeChecker authorizes a signing request before the exchange
@@ -167,6 +169,19 @@ type Dependencies struct {
 	// a real *SubmitGate that resolves the Bundle from
 	// entry.Header.Destination and runs cosig + walker checks.
 	SubmitGate SubmitGater
+
+	// OperatorBreaker fast-fails operator submits when an operator
+	// outage trips the breaker. nil → no breaker; submits flow
+	// through bare. Production wires
+	// reliability.NewBreaker(reliability.DefaultCircuitConfig()).
+	OperatorBreaker *reliability.Breaker
+
+	// OperatorMetrics records per-submit latency + outcome + breaker
+	// state. nil → no metrics observed (current behavior). Production
+	// wires the same observability.MetricsRegistry the composer uses
+	// for /metrics so jn_operator_submit_* metrics are scraped
+	// alongside the inbound jn_http_* RED triad.
+	OperatorMetrics *observability.OperatorSubmitMetrics
 }
 
 // scopeOrAllowAll returns the configured checker or the AllowAll
@@ -421,8 +436,9 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	signed := envelope.Serialize(signedEntry)
 
-	// Submit to operator via shared SDK-tuned client.
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	// Submit to operator via shared SDK-tuned client + Phase 14
+	// circuit breaker + Phase 15 metrics (when wired).
+	submitToOperatorProtected(w, h.deps, signed)
 }
 
 // ─── Status ─────────────────────────────────────────────────────────

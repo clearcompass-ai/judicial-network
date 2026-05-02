@@ -175,6 +175,7 @@ func (h *ArtifactGrantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	signed := append(entryBytes, sig...)
 
 	// Submit to operator via shared SDK-tuned client (see
-	// management.go::operatorSubmitClient).
-	submitToOperator(w, h.deps.OperatorEndpoint, signed)
+	// management.go::operatorSubmitClient) plus Phase 14 breaker
+	// + Phase 15 metrics when wired.
+	submitToOperatorProtected(w, h.deps, signed)
 }

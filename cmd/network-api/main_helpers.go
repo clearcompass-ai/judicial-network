@@ -24,6 +24,7 @@ import (
 	pkcs11ks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/pkcs11"
 	vaultks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/vault"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
@@ -120,6 +121,25 @@ func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 	default:
 		return nil, fmt.Errorf("keystore: unknown backend %q", cfg.Backend)
 	}
+}
+
+// buildReadyzChecks builds the composer's /readyz check list.
+// Includes operator + artifact-store HTTP reachability when their
+// respective endpoints are configured. An unset endpoint is
+// silently skipped — the composer's /readyz returns 200 only
+// when EVERY configured check passes; missing checks neither
+// pass nor fail.
+func buildReadyzChecks(cfg config.Operational) []observability.ReadyCheck {
+	var checks []observability.ReadyCheck
+	if cfg.OperatorEndpoint != "" {
+		checks = append(checks, observability.CheckHTTPGet(
+			"operator", cfg.OperatorEndpoint+"/healthz"))
+	}
+	if cfg.ArtifactStoreEndpoint != "" {
+		checks = append(checks, observability.CheckHTTPGet(
+			"artifact_store", cfg.ArtifactStoreEndpoint+"/healthz"))
+	}
+	return checks
 }
 
 // buildAuthenticator constructs the composer-level Authenticator from

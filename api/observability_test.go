@@ -107,3 +107,65 @@ func TestObservability_MetricsReachableWhenRateLimited(t *testing.T) {
 		t.Errorf("metrics under rate-limit: got %d, want 200", rec.Code)
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// /readyz (Priority 3)
+// ─────────────────────────────────────────────────────────────────────
+
+func TestReadyz_NoChecks_200(t *testing.T) {
+	// Default mustComposer config has no ReadyzChecks → /readyz is
+	// 200 by design ("nothing to check, process is up").
+	srv := mustComposer(t)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200 (no checks)", rec.Code)
+	}
+}
+
+func TestReadyz_AllPass_200(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	srv, err := NewServer(Config{
+		Addr: ":0",
+		ReadyzChecks: []observability.ReadyCheck{
+			observability.CheckHTTPGet("operator", upstream.URL),
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `"operator":"ok"`) {
+		t.Errorf("body should mention operator:ok; got %s", rec.Body.String())
+	}
+}
+
+func TestReadyz_OneFails_503(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer upstream.Close()
+
+	srv, err := NewServer(Config{
+		Addr: ":0",
+		ReadyzChecks: []observability.ReadyCheck{
+			observability.CheckHTTPGet("operator", upstream.URL),
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503 (operator unhealthy)", rec.Code)
+	}
+}

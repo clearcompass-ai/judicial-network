@@ -60,6 +60,24 @@ func (o *Observability) MetricsHandler() http.Handler {
 	return o.metrics.Handler()
 }
 
+// Metrics returns the underlying *MetricsRegistry so callers
+// (e.g., cmd/network-api wiring NewOperatorSubmitMetrics) can
+// register additional collectors against the same registry the
+// composer's /metrics endpoint scrapes.
+func (o *Observability) Metrics() *observability.MetricsRegistry {
+	return o.metrics
+}
+
+// ReadyzHandler returns the composer's /readyz endpoint. Operators
+// populate Config.ReadyzChecks so dependencies (operator endpoint,
+// artifact store, etc.) are surfaced through the same handler the
+// composer mounts unauthenticated alongside /healthz and /metrics.
+func (o *Observability) ReadyzHandler(checks []observability.ReadyCheck) http.Handler {
+	return observability.ReadyzHandler(observability.ReadyzConfig{
+		Checks: checks,
+	})
+}
+
 // Wrap stacks RequestID → Metrics → Logger around next, in
 // outer-to-inner order. routeLabel is the static label used for
 // metrics + log fields (e.g. "/v1/judicial"); request paths with

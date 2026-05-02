@@ -53,6 +53,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
 	"github.com/clearcompass-ai/judicial-network/api/openapi"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 )
@@ -114,6 +115,13 @@ type Config struct {
 	// Observability bundle (Phase 15). nil → NewObservability().
 	Observability *Observability
 
+	// ReadyzChecks (Priority 3) populates the composer's /readyz
+	// endpoint with operator + artifact-store reachability checks.
+	// Empty slice → /readyz always returns 200 ("nothing to check,
+	// process is up"). Operators wire CheckHTTPGet helpers from
+	// the observability package per-deployment.
+	ReadyzChecks []observability.ReadyCheck
+
 	// ReadTimeout / WriteTimeout / IdleTimeout cap each request's
 	// lifecycle. Empty/zero values default to safe production values.
 	ReadTimeout  time.Duration
@@ -173,21 +181,15 @@ func NewServer(cfg Config) (*Server, error) {
 		judicialHandler = cfg.Auth.Wrap(judicialHandler)
 	}
 
-	// Reliability middleware (Phase 14). Wrap order, outer → inner:
-	//   RateLimitGlobal → RequestTimeout → MaxBodyBytes → Auth → handler
-	// Each is opt-in via the Config knobs; /healthz, /metrics, and
-	// /v1/openapi.yaml are NOT wrapped — liveness probes, scrapers,
-	// and the public spec must remain reachable under load shed.
+	// Reliability middleware (Phase 14). Outer→inner: RateLimitGlobal
+	// → RequestTimeout → MaxBodyBytes → Auth → handler. /healthz +
+	// /metrics + /readyz + /v1/openapi.yaml are NOT wrapped.
 	exchHandler = wrapReliability(cfg, exchHandler)
 	verifyHandler = wrapReliability(cfg, verifyHandler)
 	judicialHandler = wrapReliability(cfg, judicialHandler)
 
-	// Observability middleware (Phase 15). Outermost so request_id +
-	// metrics + logs see the full request including auth + reliability
-	// outcomes. Stack order:
-	//   RequestID → Metrics → Logger → reliability → auth → handler
-	// MetricsRegistry is held on the Server so /metrics + tests can
-	// reach it.
+	// Observability middleware (Phase 15). Outermost wrap so
+	// request_id + metrics + logs see auth + reliability outcomes.
 	if cfg.Observability == nil {
 		cfg.Observability = NewObservability()
 	}
@@ -213,11 +215,13 @@ func NewServer(cfg Config) (*Server, error) {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	// /metrics — Prometheus scraper endpoint. Mounted outside auth +
-	// reliability + observability wrappers so scrapers can always
-	// reach it (same rationale as /healthz). Cardinality is bounded
-	// by the metrics middleware's static-route labels.
+	// /metrics — Prometheus scrape (unauth, no wrappers, static-
+	// route labels keep cardinality bounded).
 	mux.Handle("GET /metrics", cfg.Observability.MetricsHandler())
+
+	// /readyz — readiness probe (Priority 3). 200 when every
+	// configured check passes; 503 otherwise. Empty checks → 200.
+	mux.Handle("GET /readyz", cfg.Observability.ReadyzHandler(cfg.ReadyzChecks))
 
 	// OpenAPI 3.1 spec — served unauthenticated so external tooling
 	// (Swagger UI, code generators) can fetch the canonical artifact

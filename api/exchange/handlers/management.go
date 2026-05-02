@@ -477,7 +477,7 @@ func signAndSubmit(w http.ResponseWriter, deps *Dependencies, signerDID string, 
 	}
 
 	signed := append(entryBytes, sig...)
-	submitToOperator(w, deps.OperatorEndpoint, signed)
+	submitToOperatorProtected(w, deps, signed)
 }
 
 // proposalTypeFromString maps a string label to the SDK's ProposalType enum.
