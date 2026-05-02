@@ -31,21 +31,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
 )
 
 // SignedRequest is the envelope a signer sends when not using mTLS.
+//
+// Destination is optional and selects which per-destination NonceStore
+// services this request's replay-defence reservation. When empty,
+// SignerAuth falls back to its single-tenant store (used by tests +
+// older single-tenant deploys). Setting Destination is required for
+// multi-replica deploys with a Redis-backed NonceStore so nonces from
+// distinct destinations stay namespace-isolated.
 type SignedRequest struct {
-	SignerDID string          `json:"signer_did"`
-	Action    string          `json:"action"`
-	Payload   json.RawMessage `json:"payload"`
-	Timestamp time.Time       `json:"timestamp"`
-	Nonce     string          `json:"nonce"`
-	Signature []byte          `json:"signature"` // Ed25519 over canonical bytes
+	SignerDID   string          `json:"signer_did"`
+	Action      string          `json:"action"`
+	Destination string          `json:"destination,omitempty"`
+	Payload     json.RawMessage `json:"payload"`
+	Timestamp   time.Time       `json:"timestamp"`
+	Nonce       string          `json:"nonce"`
+	Signature   []byte          `json:"signature"` // Ed25519 over canonical bytes
 }
 
 // NonceStore composes the SDK's strict-forever NonceStore (the replay
@@ -129,7 +135,16 @@ func (ns *NonceStore) CheckFreshness(timestamp time.Time) error {
 var ErrTimestampStale = errors.New("auth: signed request timestamp older than window")
 
 // VerifySignedRequest verifies the Ed25519 signature over the canonical
-// request bytes. The canonical form is: signer_did + action + payload + timestamp + nonce.
+// request bytes. The canonical form is:
+//
+//	signer_did | action | payload | timestamp | nonce
+//	signer_did | action | payload | timestamp | nonce | destination   (when destination set)
+//
+// The trailing-destination form is appended only when req.Destination
+// is non-empty so existing single-tenant clients (which never set
+// Destination) keep verifying byte-for-byte. Multi-tenant clients
+// that set Destination MUST sign over it — the destination then binds
+// the request to its NonceStore namespace, defeating swap-replay.
 func VerifySignedRequest(req *SignedRequest, publicKey ed25519.PublicKey) error {
 	canonical := fmt.Sprintf("%s|%s|%s|%s|%s",
 		req.SignerDID,
@@ -138,115 +153,15 @@ func VerifySignedRequest(req *SignedRequest, publicKey ed25519.PublicKey) error 
 		req.Timestamp.UTC().Format(time.RFC3339Nano),
 		req.Nonce,
 	)
+	if req.Destination != "" {
+		canonical = canonical + "|" + req.Destination
+	}
 
 	if !ed25519.Verify(publicKey, []byte(canonical), req.Signature) {
 		return fmt.Errorf("auth: signature verification failed for %s", req.SignerDID)
 	}
 	return nil
 }
-
-// SignerAuth is middleware that authenticates signers via mTLS cert or
-// signed request envelope, then checks on-log delegation liveness.
-type SignerAuth struct {
-	nonceStore           *NonceStore
-	verificationEndpoint string
-	publicKeyResolver    PublicKeyResolver
-}
-
-// PublicKeyResolver maps a DID to its Ed25519 public key.
-// In production, this resolves via DID Document lookup.
-type PublicKeyResolver interface {
-	Resolve(did string) (ed25519.PublicKey, error)
-}
-
-// NewSignerAuth creates the signer auth middleware.
-func NewSignerAuth(verificationEndpoint string) *SignerAuth {
-	return &SignerAuth{
-		nonceStore:           NewNonceStore(5 * time.Minute),
-		verificationEndpoint: verificationEndpoint,
-	}
-}
-
-// SetPublicKeyResolver sets the resolver for Ed25519 public keys.
-func (sa *SignerAuth) SetPublicKeyResolver(r PublicKeyResolver) {
-	sa.publicKeyResolver = r
-}
-
-// Wrap wraps a handler with signer authentication.
-func (sa *SignerAuth) Wrap(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		signerDID, err := sa.authenticate(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		// Attach authenticated signer DID to request context.
-		ctx := WithSignerDID(r.Context(), signerDID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func (sa *SignerAuth) authenticate(r *http.Request) (string, error) {
-	// Mode A: mTLS — extract DID from client cert SAN.
-	did := ExtractDIDFromRequest(r)
-	if did != "" {
-		return did, nil
-	}
-
-	// Mode B: signed request envelope in body.
-	if r.Body == nil {
-		return "", fmt.Errorf("auth: no client cert and no request body")
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return "", fmt.Errorf("auth: read body: %w", err)
-	}
-
-	var signed SignedRequest
-	if err := json.Unmarshal(body, &signed); err != nil {
-		return "", fmt.Errorf("auth: invalid signed request: %w", err)
-	}
-
-	if signed.SignerDID == "" {
-		return "", fmt.Errorf("auth: missing signer_did")
-	}
-
-	// Freshness gate: reject stale timestamps before any nonce work.
-	// Avoids bloating the strict-forever NonceStore with reservations
-	// for requests that would have failed freshness anyway.
-	if err := sa.nonceStore.CheckFreshness(signed.Timestamp); err != nil {
-		return "", fmt.Errorf("auth: %w", err)
-	}
-	// Replay gate: SDK strict-forever Reserve. Returns typed sentinel
-	// on collision (ErrNonceReserved) or infrastructure failure
-	// (ErrNonceStoreUnavailable).
-	if err := sa.nonceStore.Reserve(r.Context(), signed.Nonce); err != nil {
-		switch {
-		case errors.Is(err, sdkauth.ErrNonceReserved):
-			return "", fmt.Errorf("auth: nonce replayed")
-		case errors.Is(err, sdkauth.ErrNonceStoreUnavailable):
-			return "", fmt.Errorf("auth: nonce store unavailable")
-		default:
-			return "", fmt.Errorf("auth: nonce reserve: %w", err)
-		}
-	}
-
-	// Verify signature.
-	if sa.publicKeyResolver != nil {
-		pubKey, err := sa.publicKeyResolver.Resolve(signed.SignerDID)
-		if err != nil {
-			return "", fmt.Errorf("auth: resolve public key: %w", err)
-		}
-		if err := VerifySignedRequest(&signed, pubKey); err != nil {
-			return "", err
-		}
-	}
-
-	return signed.SignerDID, nil
-}
-
 // Context key for authenticated signer DID.
 type signerDIDKey struct{}
 

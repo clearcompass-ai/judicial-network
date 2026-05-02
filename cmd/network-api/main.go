@@ -122,14 +122,14 @@ func run(argv []string, d deps) error {
 	log.Printf("network-api: registered %d destination(s): %v",
 		registry.Len(), registry.ExchangeDIDs())
 
-	// Per-destination NonceStores.
+	// Per-destination NonceStores. Passed into exchange.ServerConfig
+	// below so SignedRequest replay defence is namespace-isolated per
+	// destination (Redis backend) and falls back to the single in-
+	// memory store when an unknown destination shows up.
 	nonceStores, err := buildNonceStores(cfg, registry)
 	if err != nil {
 		return fmt.Errorf("nonce stores: %w", err)
 	}
-	_ = nonceStores // wired into Phase 5 auth middleware; reserved here so
-	// boot-time validation runs and the connection / config errors
-	// surface BEFORE the listener opens.
 
 	// Construct the keystore. Phase 8 swaps this for HSM / Vault
 	// backends; for now the binary supports the "memory" backend
@@ -176,6 +176,7 @@ func run(argv []string, d deps) error {
 			VerificationEndpoint:  cfg.VerificationEndpoint,
 			KeyStore:              ks,
 			Index:                 index.NewLogIndex(),
+			NonceStores:           nonceStores,
 		},
 		Verification: verification.ServerConfig{
 			// Phase 7 wires real LogQueries + LeafReader from the
