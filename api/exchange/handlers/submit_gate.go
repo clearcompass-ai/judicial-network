@@ -63,10 +63,11 @@ type Rejection struct {
 // jurisdiction.Registry plus a RoleResolver for cosig checking.
 // Production exchange handlers construct one of these at boot.
 type BundleSubmitGate struct {
-	// Registry maps ExchangeDID → Bundle. Required, frozen.
+	// Registry maps destination DID → Bundle. Required, frozen at
+	// boot. Lookup keys are entry.Header.Destination values.
 	Registry *jurisdiction.Registry
 
-	// Resolver maps Signer DIDs → role + exchange. Required.
+	// Resolver maps Signer DIDs → role + destination. Required.
 	// Tests may use a verification.MapRoleResolver.
 	Resolver verification.RoleResolver
 }

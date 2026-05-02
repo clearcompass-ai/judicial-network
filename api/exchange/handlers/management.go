@@ -43,6 +43,7 @@ func NewDelegationCreateHandler(deps *Dependencies) *DelegationCreateHandler {
 }
 
 type DelegationRequest struct {
+	Destination   string          `json:"destination"`
 	DelegatorDID  string          `json:"delegator_did"`
 	DelegateDID   string          `json:"delegate_did"`
 	DomainPayload json.RawMessage `json:"domain_payload"`
@@ -56,12 +57,16 @@ func (h *DelegationCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
+	if req.Destination == "" {
+		writeError(w, http.StatusBadRequest, "destination required")
+		return
+	}
 	if req.DelegatorDID == "" {
 		req.DelegatorDID = callerDID
 	}
 
 	entry, err := builder.BuildDelegation(builder.DelegationParams{
-		Destination: h.deps.ExchangeDID,
+		Destination: req.Destination,
 		SignerDID:   req.DelegatorDID,
 		DelegateDID: req.DelegateDID,
 		Payload:     req.DomainPayload,
@@ -87,20 +92,28 @@ func (h *DelegationRevokeHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	_ = r.PathValue("did") // targetDID for logging/audit
 
 	var body struct {
-		Reason    string `json:"reason"`
-		TargetPos uint64 `json:"target_pos"` // log position of the delegation to revoke
+		Destination string `json:"destination"`
+		Reason      string `json:"reason"`
+		TargetPos   uint64 `json:"target_pos"` // log position of the delegation to revoke
 	}
-	json.NewDecoder(r.Body).Decode(&body)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if body.Destination == "" {
+		writeError(w, http.StatusBadRequest, "destination required")
+		return
+	}
 
 	payload, _ := json.Marshal(map[string]any{
 		"revocation_reason": body.Reason,
 	})
 
 	entry, err := builder.BuildRevocation(builder.RevocationParams{
-		Destination: h.deps.ExchangeDID,
-		SignerDID:  callerDID,
-		TargetRoot: types.LogPosition{Sequence: body.TargetPos},
-		Payload:    payload,
+		Destination: body.Destination,
+		SignerDID:   callerDID,
+		TargetRoot:  types.LogPosition{Sequence: body.TargetPos},
+		Payload:     payload,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -149,12 +162,17 @@ func (h *KeyRotateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	callerDID := auth.SignerDIDFromContext(r.Context())
 
 	var req struct {
+		Destination  string `json:"destination"`
 		DID          string `json:"did"`
 		RotationTier int    `json:"rotation_tier"`
 		TargetPos    uint64 `json:"target_pos"` // DID profile entity position
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if req.Destination == "" {
+		writeError(w, http.StatusBadRequest, "destination required")
 		return
 	}
 	if req.DID == "" {
@@ -173,7 +191,7 @@ func (h *KeyRotateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	entry, err := builder.BuildKeyRotation(builder.KeyRotationParams{
-		Destination: h.deps.ExchangeDID,
+		Destination:  req.Destination,
 		SignerDID:    req.DID,
 		TargetRoot:   types.LogPosition{Sequence: req.TargetPos},
 		NewPublicKey: newInfo.PublicKey,
@@ -370,9 +388,21 @@ func (h *ScopeApproveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	var body struct {
+		Destination string `json:"destination"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if body.Destination == "" {
+		writeError(w, http.StatusBadRequest, "destination required")
+		return
+	}
+
 	// BuildApprovalCosignature takes 3 args: signerDID, proposalPos, eventTime.
 	entry, err := lifecycle.BuildApprovalCosignature(
-		callerDID, h.deps.ExchangeDID,
+		callerDID, body.Destination,
 		types.LogPosition{Sequence: pos},
 		time.Now().UTC().UnixMicro(),
 	)

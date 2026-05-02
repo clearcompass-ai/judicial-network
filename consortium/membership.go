@@ -11,6 +11,10 @@ import (
 
 // MembershipProposal describes a request to add or remove a consortium member.
 type MembershipProposal struct {
+	// Destination is the consortium federated DID hosting the
+	// scope log this proposal targets. Required by
+	// envelope.ValidateDestination on the underlying entry.
+	Destination string
 	ProposerDID string
 	TargetDID   string
 	CourtName   string
@@ -22,6 +26,9 @@ type MembershipProposal struct {
 func ProposeMemberAddition(proposal MembershipProposal) (*lifecycle.AmendmentProposal, error) {
 	if proposal.ProposerDID == "" || proposal.TargetDID == "" {
 		return nil, fmt.Errorf("consortium/membership: proposer and target DIDs required")
+	}
+	if proposal.Destination == "" {
+		return nil, fmt.Errorf("consortium/membership: destination DID required")
 	}
 
 	payload, err := json.Marshal(map[string]any{
@@ -35,6 +42,7 @@ func ProposeMemberAddition(proposal MembershipProposal) (*lifecycle.AmendmentPro
 	}
 
 	return lifecycle.ProposeAmendment(lifecycle.AmendmentProposalParams{
+		Destination:     proposal.Destination,
 		ProposerDID:     proposal.ProposerDID,
 		ProposalType:    lifecycle.ProposalAddAuthority,
 		TargetDID:       proposal.TargetDID,
@@ -48,6 +56,9 @@ func ProposeMemberRemoval(proposal MembershipProposal) (*lifecycle.AmendmentProp
 	if proposal.ProposerDID == "" || proposal.TargetDID == "" {
 		return nil, fmt.Errorf("consortium/membership: proposer and target DIDs required")
 	}
+	if proposal.Destination == "" {
+		return nil, fmt.Errorf("consortium/membership: destination DID required")
+	}
 
 	payload, err := json.Marshal(map[string]any{
 		"action":     "remove_member",
@@ -60,6 +71,7 @@ func ProposeMemberRemoval(proposal MembershipProposal) (*lifecycle.AmendmentProp
 	}
 
 	return lifecycle.ProposeAmendment(lifecycle.AmendmentProposalParams{
+		Destination:     proposal.Destination,
 		ProposerDID:     proposal.ProposerDID,
 		ProposalType:    lifecycle.ProposalRemoveAuthority,
 		TargetDID:       proposal.TargetDID,
