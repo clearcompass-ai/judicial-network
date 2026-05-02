@@ -2,10 +2,13 @@
 FILE PATH: api/judicial/delegation_topology_test.go
 
 DESCRIPTION:
-    Validation contracts for the delegation + topology stub
-    handlers. Each route is auth-gated (401 without a caller) and
-    returns 501 with the operational reasoning attached when called
-    by an authenticated user.
+    Validation contracts for the delegation 501 stubs + the
+    Priority-2 topology wiring.
+
+    Delegation routes (3) remain 501 because they need a process-
+    scoped BuildContext. Topology routes (2) are now wired with
+    Dependencies.TreeHeadClient (+ Hierarchy for anchor-chain) and
+    surface 503 when those deps are nil instead of 501.
 */
 package judicial
 
@@ -16,21 +19,20 @@ import (
 	"testing"
 )
 
-// table-driven: each entry is (route, method) — the contract is
-// uniform across the five stubs.
+// stubRoutes covers the still-501 delegation routes only. Topology
+// routes have moved to topology_test.go since their contract is
+// now 503-when-unconfigured rather than 501-by-design.
 var stubRoutes = []struct {
 	method string
 	path   string
-	hint   string // substring expected in 501 body
+	hint   string
 }{
 	{http.MethodPost, "/v1/judicial/delegation/issue", "BuildContext"},
 	{http.MethodPost, "/v1/judicial/delegation/revoke", "BuildContext"},
 	{http.MethodPost, "/v1/judicial/delegation/succeed", "BuildContext"},
-	{http.MethodPost, "/v1/judicial/topology/publish-anchor", "TreeHeadClient"},
-	{http.MethodGet, "/v1/judicial/topology/anchor-chain", "TreeHeadClient"},
 }
 
-func TestDelegationTopologyStubs_NoCaller_401(t *testing.T) {
+func TestDelegationStubs_NoCaller_401(t *testing.T) {
 	for _, tc := range stubRoutes {
 		t.Run(tc.path, func(t *testing.T) {
 			h := newTestHandler(Dependencies{})
@@ -44,7 +46,7 @@ func TestDelegationTopologyStubs_NoCaller_401(t *testing.T) {
 	}
 }
 
-func TestDelegationTopologyStubs_NotImplemented_WithReason(t *testing.T) {
+func TestDelegationStubs_NotImplemented_WithReason(t *testing.T) {
 	for _, tc := range stubRoutes {
 		t.Run(tc.path, func(t *testing.T) {
 			withCaller(t, testJudge)
@@ -56,7 +58,7 @@ func TestDelegationTopologyStubs_NotImplemented_WithReason(t *testing.T) {
 				t.Errorf("status = %d, want 501", rec.Code)
 			}
 			if !strings.Contains(rec.Body.String(), tc.hint) {
-				t.Errorf("body should mention %q (operational reasoning); got %s",
+				t.Errorf("body should mention %q; got %s",
 					tc.hint, rec.Body.String())
 			}
 		})

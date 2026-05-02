@@ -2,27 +2,24 @@
 FILE PATH: api/judicial/delegation_topology.go
 
 DESCRIPTION:
-    Delegation + topology handlers. All five entry points are
-    operational-tooling territory rather than per-request HTTP shapes:
+    Delegation handlers + the route-registration glue for both
+    delegation and topology surfaces.
 
-      - delegation.Issue/Revoke/Succeed need a long-lived
-        BuildContext (Identity provider + Submitter + Catalog) that
-        boots once at process start, not per-request.
-      - topology.PublishAnchor + DiscoverAnchorChain need a
-        *witness.TreeHeadClient with cosigned-head caches that are
-        likewise process-scoped.
+    Delegation issue/revoke/succeed are 501 stubs because they need
+    a long-lived BuildContext (Identity provider + Submitter +
+    Catalog) that boots once at process start, not per-request.
 
-    Exposing these as wire endpoints would force callers to ship
-    state that should never leave the binary. Instead the routes
-    here advertise the contract (auth-gated, JSON-shaped) and return
-    501 with the operational reasoning so downstream tooling knows
-    why the JN binary itself is the right caller.
+    Topology handlers (publish-anchor + anchor-chain) live in
+    topology.go and are now WIRED with deps.TreeHeadClient + (for
+    anchor-chain) deps.Hierarchy. They surface 503 when their
+    required deps are nil so the binary boots cleanly without
+    witness configuration but routes refuse traffic until configured.
 
       POST /v1/judicial/delegation/issue        → 501 (BuildContext)
       POST /v1/judicial/delegation/revoke       → 501 (BuildContext)
       POST /v1/judicial/delegation/succeed      → 501 (BuildContext)
-      POST /v1/judicial/topology/publish-anchor → 501 (TreeHeadClient)
-      GET  /v1/judicial/topology/anchor-chain   → 501 (TreeHeadClient)
+      POST /v1/judicial/topology/publish-anchor → wired (topology.go)
+      GET  /v1/judicial/topology/anchor-chain   → wired (topology.go)
 */
 package judicial
 
@@ -37,7 +34,7 @@ func registerDelegationTopologyRoutes(mux *http.ServeMux, deps *Dependencies) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// delegation/* — BuildContext-bound
+// delegation/* — BuildContext-bound (501 stubs)
 // ─────────────────────────────────────────────────────────────────────
 
 type delegationIssueHandler struct{ deps *Dependencies }
@@ -69,30 +66,4 @@ func (h *delegationSucceedHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 	writeError(w, http.StatusNotImplemented,
 		"delegation.Succeed requires a process-scoped BuildContext; composed by the JN binary at boot")
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// topology/* — TreeHeadClient-bound
-// ─────────────────────────────────────────────────────────────────────
-
-type topologyPublishAnchorHandler struct{ deps *Dependencies }
-
-func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if requireCaller(w, r) == "" {
-		return
-	}
-	writeError(w, http.StatusNotImplemented,
-		"topology.PublishAnchor requires a *witness.TreeHeadClient with a cosigned-head cache; "+
-			"process-scoped, composed by the JN binary at boot")
-}
-
-type topologyAnchorChainHandler struct{ deps *Dependencies }
-
-func (h *topologyAnchorChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if requireCaller(w, r) == "" {
-		return
-	}
-	writeError(w, http.StatusNotImplemented,
-		"topology.DiscoverAnchorChain requires a *witness.TreeHeadClient + Hierarchy snapshot; "+
-			"process-scoped, composed by the JN binary at boot")
 }
