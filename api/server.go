@@ -93,45 +93,26 @@ type Config struct {
 	Exchange     exchange.ServerConfig
 	Verification verification.ServerConfig
 
-	// Judicial is the judicial-domain handler tree (cases, appeals,
-	// enforcement, parties, onboarding, artifacts, verification,
-	// monitoring, consortium, delegation, topology). Mounted at
-	// /v1/judicial/. Optional — when Judicial.Deps.Registry is nil
-	// the composer skips judicial registration entirely (older
-	// deployments that have not yet adopted the judicial surface).
+	// Judicial is the judicial-domain handler tree mounted at
+	// /v1/judicial/. Optional — empty Deps.Registry means handlers
+	// boot with no destinations registered (every route surfaces 401).
 	Judicial judicial.ServerConfig
 
-	// Auth is the optional composer-level authenticator. When set,
-	// every request to /v1/* is wrapped — the authenticator must
-	// either authenticate the caller (success → callerDID injected
-	// into request context via middleware.WithCallerDID; downstream
-	// handler sees it via middleware.CallerDIDFromContext) or write
-	// a 401 response. /healthz is NEVER wrapped: liveness probes do
-	// not authenticate.
-	//
-	// Concrete impls in api/middleware: MTLSAuth, *JWTAuth.
-	//
-	// nil → no composer-level auth (constituent handlers may still
-	// have their own per-handler auth, e.g., api/exchange/auth.SignerAuth).
+	// Auth is the optional composer-level authenticator (mTLS / JWT).
+	// nil → no composer auth; constituent handlers' own auth still
+	// applies. /healthz, /metrics, /v1/openapi.yaml are NEVER wrapped.
 	Auth middleware.Authenticator
 
-	// MaxBodyBytes caps each request's body. Zero applies the
-	// production default (reliability.DefaultMaxBodyBytes = 1 MiB);
-	// negative disables the wrapper (use only in controlled bulk
-	// paths). Mounted on every /v1/* route uniformly.
-	MaxBodyBytes int64
-
-	// PerRequestTimeout caps each handler's execution. Zero applies
-	// the production default (reliability.DefaultRequestTimeout =
-	// 30s). Negative disables. Mounted on every /v1/* route.
+	// Reliability knobs (Phase 14). MaxBodyBytes: 0 = 1 MiB default,
+	// -1 disables. PerRequestTimeout: 0 = no wrapper. GlobalRPS /
+	// GlobalBurst: both 0 disables the global rate limiter.
+	MaxBodyBytes      int64
 	PerRequestTimeout time.Duration
+	GlobalRPS         float64
+	GlobalBurst       int
 
-	// GlobalRPS / GlobalBurst configure the composer-level token
-	// bucket. Both zero disables the wrapper (acceptable in dev /
-	// tests). Defaults are NOT applied automatically — operators
-	// must opt in by setting both values.
-	GlobalRPS   float64
-	GlobalBurst int
+	// Observability bundle (Phase 15). nil → NewObservability().
+	Observability *Observability
 
 	// ReadTimeout / WriteTimeout / IdleTimeout cap each request's
 	// lifecycle. Empty/zero values default to safe production values.
@@ -194,12 +175,25 @@ func NewServer(cfg Config) (*Server, error) {
 
 	// Reliability middleware (Phase 14). Wrap order, outer → inner:
 	//   RateLimitGlobal → RequestTimeout → MaxBodyBytes → Auth → handler
-	// Each is opt-in via the Config knobs; /healthz and
-	// /v1/openapi.yaml are NOT wrapped — liveness probes and the
-	// public spec must remain reachable under load shed.
+	// Each is opt-in via the Config knobs; /healthz, /metrics, and
+	// /v1/openapi.yaml are NOT wrapped — liveness probes, scrapers,
+	// and the public spec must remain reachable under load shed.
 	exchHandler = wrapReliability(cfg, exchHandler)
 	verifyHandler = wrapReliability(cfg, verifyHandler)
 	judicialHandler = wrapReliability(cfg, judicialHandler)
+
+	// Observability middleware (Phase 15). Outermost so request_id +
+	// metrics + logs see the full request including auth + reliability
+	// outcomes. Stack order:
+	//   RequestID → Metrics → Logger → reliability → auth → handler
+	// MetricsRegistry is held on the Server so /metrics + tests can
+	// reach it.
+	if cfg.Observability == nil {
+		cfg.Observability = NewObservability()
+	}
+	exchHandler = cfg.Observability.Wrap("/v1/exchange", exchHandler)
+	verifyHandler = cfg.Observability.Wrap("/v1/verify", verifyHandler)
+	judicialHandler = cfg.Observability.Wrap("/v1/judicial", judicialHandler)
 
 	// Order of registration is irrelevant for net/http.ServeMux —
 	// longest-matching-prefix wins. /v1/verify/ and /v1/judicial/ are
@@ -218,6 +212,12 @@ func NewServer(cfg Config) (*Server, error) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+
+	// /metrics — Prometheus scraper endpoint. Mounted outside auth +
+	// reliability + observability wrappers so scrapers can always
+	// reach it (same rationale as /healthz). Cardinality is bounded
+	// by the metrics middleware's static-route labels.
+	mux.Handle("GET /metrics", cfg.Observability.MetricsHandler())
 
 	// OpenAPI 3.1 spec — served unauthenticated so external tooling
 	// (Swagger UI, code generators) can fetch the canonical artifact
