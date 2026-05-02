@@ -106,6 +106,13 @@ var registeredRoutes = []routePattern{
 	{method: "POST", path: "/v1/judicial/topology/publish-anchor"},
 	{method: "GET", path: "/v1/judicial/topology/anchor-chain"},
 
+	// Escrow recovery (Phase 10)
+	{method: "POST", path: "/v1/judicial/escrow/recovery/initiate"},
+	{method: "POST", path: "/v1/judicial/escrow/migration/record"},
+	{method: "POST", path: "/v1/judicial/escrow/recovery/collect-share"},
+	{method: "POST", path: "/v1/judicial/escrow/recovery/execute"},
+	{method: "POST", path: "/v1/judicial/escrow/arbitration/evaluate"},
+
 	// Stand-alone judicial healthz
 	{method: "GET", path: "/v1/judicial/healthz"},
 
