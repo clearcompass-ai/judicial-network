@@ -113,10 +113,12 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	registerOnboardingRoutes(mux, &cfg.Deps)
 	// ── Artifacts ────────────────────────────────────────────────
 	registerArtifactRoutes(mux, &cfg.Deps)
+	// ── Verification (read-side) ─────────────────────────────────
+	registerVerificationRoutes(mux, &cfg.Deps)
+	// ── Monitoring ───────────────────────────────────────────────
+	registerMonitoringRoutes(mux, &cfg.Deps)
 
 	// Future commits in this phase will register additional groups:
-	//   registerMonitoringRoutes(mux, &cfg.Deps)     (C5)
-	//   registerVerificationRoutes(mux, &cfg.Deps)   (C5)
 	//   registerConsortiumRoutes(mux, &cfg.Deps)     (C6)
 	//   registerDelegationRoutes(mux, &cfg.Deps)     (C6)
 	//   registerTopologyRoutes(mux, &cfg.Deps)       (C6)
