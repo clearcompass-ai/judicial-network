@@ -44,13 +44,10 @@ package api
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
@@ -118,6 +115,24 @@ type Config struct {
 	// have their own per-handler auth, e.g., api/exchange/auth.SignerAuth).
 	Auth middleware.Authenticator
 
+	// MaxBodyBytes caps each request's body. Zero applies the
+	// production default (reliability.DefaultMaxBodyBytes = 1 MiB);
+	// negative disables the wrapper (use only in controlled bulk
+	// paths). Mounted on every /v1/* route uniformly.
+	MaxBodyBytes int64
+
+	// PerRequestTimeout caps each handler's execution. Zero applies
+	// the production default (reliability.DefaultRequestTimeout =
+	// 30s). Negative disables. Mounted on every /v1/* route.
+	PerRequestTimeout time.Duration
+
+	// GlobalRPS / GlobalBurst configure the composer-level token
+	// bucket. Both zero disables the wrapper (acceptable in dev /
+	// tests). Defaults are NOT applied automatically — operators
+	// must opt in by setting both values.
+	GlobalRPS   float64
+	GlobalBurst int
+
 	// ReadTimeout / WriteTimeout / IdleTimeout cap each request's
 	// lifecycle. Empty/zero values default to safe production values.
 	ReadTimeout  time.Duration
@@ -176,6 +191,15 @@ func NewServer(cfg Config) (*Server, error) {
 		verifyHandler = cfg.Auth.Wrap(verifyHandler)
 		judicialHandler = cfg.Auth.Wrap(judicialHandler)
 	}
+
+	// Reliability middleware (Phase 14). Wrap order, outer → inner:
+	//   RateLimitGlobal → RequestTimeout → MaxBodyBytes → Auth → handler
+	// Each is opt-in via the Config knobs; /healthz and
+	// /v1/openapi.yaml are NOT wrapped — liveness probes and the
+	// public spec must remain reachable under load shed.
+	exchHandler = wrapReliability(cfg, exchHandler)
+	verifyHandler = wrapReliability(cfg, verifyHandler)
+	judicialHandler = wrapReliability(cfg, judicialHandler)
 
 	// Order of registration is irrelevant for net/http.ServeMux —
 	// longest-matching-prefix wins. /v1/verify/ and /v1/judicial/ are
@@ -270,28 +294,3 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// TLS helpers
-// ─────────────────────────────────────────────────────────────────────
-
-// buildMTLSConfig reads the client-CA PEM file and returns a
-// *tls.Config that REQUIRES client certs verified against that CA.
-// The pre-Phase-5 mTLS contract: every authenticated request presents
-// a client cert whose SAN contains the signer's DID; auth middleware
-// (Phase 5) extracts callerDID from the verified cert and threads it
-// into request context.
-func buildMTLSConfig(caFile string) (*tls.Config, error) {
-	caPEM, err := os.ReadFile(caFile)
-	if err != nil {
-		return nil, fmt.Errorf("%w: read ClientCAFile %q: %w", ErrInvalidConfig, caFile, err)
-	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caPEM) {
-		return nil, fmt.Errorf("%w: ClientCAFile %q has no PEM certs", ErrInvalidConfig, caFile)
-	}
-	return &tls.Config{
-		MinVersion: tls.VersionTLS13,
-		ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs:  pool,
-	}, nil
-}
