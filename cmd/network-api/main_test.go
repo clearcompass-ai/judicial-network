@@ -543,7 +543,7 @@ func TestRun_HealthzServedThenShutdown(t *testing.T) {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-func writeJSON(t *testing.T, v any) string {
+func writeJSON(t testing.TB, v any) string {
 	t.Helper()
 	tmp := filepath.Join(t.TempDir(), "config.json")
 	data, err := json.MarshalIndent(v, "", "  ")
@@ -578,7 +578,7 @@ func clearAPIEnv(t *testing.T) {
 
 // waitFor polls cond every 50ms until it returns true or deadline
 // elapses. Returns true on success, false on timeout.
-func waitFor(t *testing.T, timeout time.Duration, cond func() bool) bool {
+func waitFor(t testing.TB, timeout time.Duration, cond func() bool) bool {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
