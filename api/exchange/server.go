@@ -65,6 +65,13 @@ type ServerConfig struct {
 
 	// Log index for sequential scanning.
 	Index *index.LogIndex
+
+	// NonceStores maps destination DID → per-destination NonceStore.
+	// Built once at boot via NonceStoreConfig.BuildForExchange (one
+	// call per registered destination). When non-nil, multi-tenant
+	// signed requests with a Destination field route to the matching
+	// store; nil keeps the single-tenant fallback path.
+	NonceStores map[string]*auth.NonceStore
 }
 
 // Server is the exchange HTTP server.
@@ -93,7 +100,14 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	mux := http.NewServeMux()
 
 	// Auth middleware: verify signer identity on every write request.
-	signerAuth := auth.NewSignerAuth(cfg.VerificationEndpoint)
+	// Multi-tenant when cfg.NonceStores is non-empty; single-tenant
+	// fallback otherwise (preserves dev / test behaviour).
+	var signerAuth *auth.SignerAuth
+	if len(cfg.NonceStores) > 0 {
+		signerAuth = auth.NewSignerAuthWithNonceStores(cfg.VerificationEndpoint, cfg.NonceStores, nil)
+	} else {
+		signerAuth = auth.NewSignerAuth(cfg.VerificationEndpoint)
+	}
 
 	// Entry lifecycle.
 	mux.Handle("POST /v1/entries/build", signerAuth.Wrap(handlers.NewEntryBuildHandler(deps)))

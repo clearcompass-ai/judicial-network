@@ -98,6 +98,8 @@ tags:
     description: Delegation issue/revoke/succession (operational-tooling 501 stubs).
   - name: Topology
     description: Anchor publish + chain discovery (operational-tooling 501 stubs).
+  - name: Escrow
+    description: M-of-N escrow recovery (initiate-recovery + migration-record wired; collect-share / execute / arbitrate stubbed as operational-tooling).
   - name: Entries
     description: Generic build/sign/submit pipeline + entry status.
   - name: Artifacts
@@ -1188,6 +1190,85 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { $ref: '#/components/responses/NotImplemented' }
 
+  # ── Escrow recovery (Phase 10) ───────────────────────────────────
+  /v1/judicial/escrow/recovery/initiate:
+    post:
+      tags: [Escrow]
+      summary: Build the recovery-request commentary entry.
+      description: |
+        Wraps `lifecycle.InitiateRecovery` via
+        `migration.InitiateUngracefulMigration`. The returned entry
+        is unsigned; caller signs and submits via
+        `/v1/entries/submit`.
+      operationId: escrowInitiateRecovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EscrowInitiateRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/escrow/migration/record:
+    post:
+      tags: [Escrow]
+      summary: Build the post-recovery migration-record commentary entry.
+      description: |
+        Wraps `migration.PublishMigrationRecord`. Records the
+        migration outcome on the consortium log for the permanent
+        audit trail. Caller signs + submits.
+      operationId: escrowMigrationRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EscrowMigrationRecordRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/BuildResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/judicial/escrow/recovery/collect-share:
+    post:
+      tags: [Escrow]
+      summary: Submit one decrypted share toward an in-flight recovery.
+      description: |
+        501 Not Implemented. `lifecycle.CollectShares` accumulates
+        per-recovery state across N share submissions; the operator
+        tooling holds that state, not the JN HTTP surface.
+      operationId: escrowCollectShare
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/escrow/recovery/execute:
+    post:
+      tags: [Escrow]
+      summary: Reconstruct the master key and build a Succession Entry.
+      description: |
+        501 Not Implemented. `lifecycle.ExecuteRecovery` returns
+        32-byte MasterKey material; that material MUST NOT cross
+        the HTTP boundary. Operator-tooling runs reconstruction
+        in-process and emits the signed Succession Entry directly
+        to `/v1/entries/submit`.
+      operationId: escrowExecute
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+  /v1/judicial/escrow/arbitration/evaluate:
+    post:
+      tags: [Escrow]
+      summary: Evaluate a hostile-recovery arbitration verdict.
+      description: |
+        501 Not Implemented. `lifecycle.EvaluateArbitration`
+        requires resolved EntryWithMetadata fixtures (escrow
+        approvals + witness cosig) AND scope SchemaParameters;
+        ops-tooling fetches and composes these. Call
+        `escrow.EvaluateArbitration` directly from the ops binary.
+      operationId: escrowArbitrate
+      responses:
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { $ref: '#/components/responses/NotImplemented' }
+
   # ── Generic Entries (api/exchange) ────────────────────────────────
   /v1/entries/build:
     post:
@@ -2244,6 +2325,30 @@ components:
         approvals_collected: { type: integer }
         approvals_required: { type: integer }
         complete: { type: boolean }
+
+    # ── Escrow ────────────────────────────────────────────────────
+    EscrowInitiateRequest:
+      type: object
+      required: [destination, court_did, failed_exchange_did, new_exchange_did]
+      properties:
+        destination: { type: string, description: Consortium / network DID hosting the recovery log. }
+        court_did: { type: string }
+        failed_exchange_did: { type: string }
+        new_exchange_did: { type: string }
+        escrow_package_cid:
+          type: string
+          description: Optional. CID of the escrow package in the content-addressed store.
+
+    EscrowMigrationRecordRequest:
+      type: object
+      required: [destination, failed_exchange_did, new_exchange_did]
+      properties:
+        destination: { type: string }
+        court_did: { type: string }
+        failed_exchange_did: { type: string }
+        new_exchange_did: { type: string }
+        recovery_threshold: { type: integer }
+        trigger_count: { type: integer }
 
     # ── Generic exchange ──────────────────────────────────────────
     EntryBuildRequest:

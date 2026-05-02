@@ -121,6 +121,8 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	registerConsortiumRoutes(mux, &cfg.Deps)
 	// ── Delegation + Topology (operational stubs) ───────────────
 	registerDelegationTopologyRoutes(mux, &cfg.Deps)
+	// ── Escrow recovery (Phase 10) ──────────────────────────────
+	registerEscrowRoutes(mux, &cfg.Deps)
 
 	// Health (stand-alone deployments). Composed mode shadows this
 	// with the composer's parent /healthz.
