@@ -117,11 +117,10 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	registerVerificationRoutes(mux, &cfg.Deps)
 	// ── Monitoring ───────────────────────────────────────────────
 	registerMonitoringRoutes(mux, &cfg.Deps)
-
-	// Future commits in this phase will register additional groups:
-	//   registerConsortiumRoutes(mux, &cfg.Deps)     (C6)
-	//   registerDelegationRoutes(mux, &cfg.Deps)     (C6)
-	//   registerTopologyRoutes(mux, &cfg.Deps)       (C6)
+	// ── Consortium (federation) ─────────────────────────────────
+	registerConsortiumRoutes(mux, &cfg.Deps)
+	// ── Delegation + Topology (operational stubs) ───────────────
+	registerDelegationTopologyRoutes(mux, &cfg.Deps)
 
 	// Health (stand-alone deployments). Composed mode shadows this
 	// with the composer's parent /healthz.
