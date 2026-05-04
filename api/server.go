@@ -44,18 +44,16 @@ package api
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
 	"github.com/clearcompass-ai/judicial-network/api/openapi"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 )
@@ -96,27 +94,33 @@ type Config struct {
 	Exchange     exchange.ServerConfig
 	Verification verification.ServerConfig
 
-	// Judicial is the judicial-domain handler tree (cases, appeals,
-	// enforcement, parties, onboarding, artifacts, verification,
-	// monitoring, consortium, delegation, topology). Mounted at
-	// /v1/judicial/. Optional — when Judicial.Deps.Registry is nil
-	// the composer skips judicial registration entirely (older
-	// deployments that have not yet adopted the judicial surface).
+	// Judicial is the judicial-domain handler tree mounted at
+	// /v1/judicial/. Optional — empty Deps.Registry means handlers
+	// boot with no destinations registered (every route surfaces 401).
 	Judicial judicial.ServerConfig
 
-	// Auth is the optional composer-level authenticator. When set,
-	// every request to /v1/* is wrapped — the authenticator must
-	// either authenticate the caller (success → callerDID injected
-	// into request context via middleware.WithCallerDID; downstream
-	// handler sees it via middleware.CallerDIDFromContext) or write
-	// a 401 response. /healthz is NEVER wrapped: liveness probes do
-	// not authenticate.
-	//
-	// Concrete impls in api/middleware: MTLSAuth, *JWTAuth.
-	//
-	// nil → no composer-level auth (constituent handlers may still
-	// have their own per-handler auth, e.g., api/exchange/auth.SignerAuth).
+	// Auth is the optional composer-level authenticator (mTLS / JWT).
+	// nil → no composer auth; constituent handlers' own auth still
+	// applies. /healthz, /metrics, /v1/openapi.yaml are NEVER wrapped.
 	Auth middleware.Authenticator
+
+	// Reliability knobs (Phase 14). MaxBodyBytes: 0 = 1 MiB default,
+	// -1 disables. PerRequestTimeout: 0 = no wrapper. GlobalRPS /
+	// GlobalBurst: both 0 disables the global rate limiter.
+	MaxBodyBytes      int64
+	PerRequestTimeout time.Duration
+	GlobalRPS         float64
+	GlobalBurst       int
+
+	// Observability bundle (Phase 15). nil → NewObservability().
+	Observability *Observability
+
+	// ReadyzChecks (Priority 3) populates the composer's /readyz
+	// endpoint with operator + artifact-store reachability checks.
+	// Empty slice → /readyz always returns 200 ("nothing to check,
+	// process is up"). Operators wire CheckHTTPGet helpers from
+	// the observability package per-deployment.
+	ReadyzChecks []observability.ReadyCheck
 
 	// ReadTimeout / WriteTimeout / IdleTimeout cap each request's
 	// lifecycle. Empty/zero values default to safe production values.
@@ -177,6 +181,22 @@ func NewServer(cfg Config) (*Server, error) {
 		judicialHandler = cfg.Auth.Wrap(judicialHandler)
 	}
 
+	// Reliability middleware (Phase 14). Outer→inner: RateLimitGlobal
+	// → RequestTimeout → MaxBodyBytes → Auth → handler. /healthz +
+	// /metrics + /readyz + /v1/openapi.yaml are NOT wrapped.
+	exchHandler = wrapReliability(cfg, exchHandler)
+	verifyHandler = wrapReliability(cfg, verifyHandler)
+	judicialHandler = wrapReliability(cfg, judicialHandler)
+
+	// Observability middleware (Phase 15). Outermost wrap so
+	// request_id + metrics + logs see auth + reliability outcomes.
+	if cfg.Observability == nil {
+		cfg.Observability = NewObservability()
+	}
+	exchHandler = cfg.Observability.Wrap("/v1/exchange", exchHandler)
+	verifyHandler = cfg.Observability.Wrap("/v1/verify", verifyHandler)
+	judicialHandler = cfg.Observability.Wrap("/v1/judicial", judicialHandler)
+
 	// Order of registration is irrelevant for net/http.ServeMux —
 	// longest-matching-prefix wins. /v1/verify/ and /v1/judicial/ are
 	// more specific than /v1/ so they always take precedence over the
@@ -194,6 +214,14 @@ func NewServer(cfg Config) (*Server, error) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+
+	// /metrics — Prometheus scrape (unauth, no wrappers, static-
+	// route labels keep cardinality bounded).
+	mux.Handle("GET /metrics", cfg.Observability.MetricsHandler())
+
+	// /readyz — readiness probe (Priority 3). 200 when every
+	// configured check passes; 503 otherwise. Empty checks → 200.
+	mux.Handle("GET /readyz", cfg.Observability.ReadyzHandler(cfg.ReadyzChecks))
 
 	// OpenAPI 3.1 spec — served unauthenticated so external tooling
 	// (Swagger UI, code generators) can fetch the canonical artifact
@@ -270,28 +298,3 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// TLS helpers
-// ─────────────────────────────────────────────────────────────────────
-
-// buildMTLSConfig reads the client-CA PEM file and returns a
-// *tls.Config that REQUIRES client certs verified against that CA.
-// The pre-Phase-5 mTLS contract: every authenticated request presents
-// a client cert whose SAN contains the signer's DID; auth middleware
-// (Phase 5) extracts callerDID from the verified cert and threads it
-// into request context.
-func buildMTLSConfig(caFile string) (*tls.Config, error) {
-	caPEM, err := os.ReadFile(caFile)
-	if err != nil {
-		return nil, fmt.Errorf("%w: read ClientCAFile %q: %w", ErrInvalidConfig, caFile, err)
-	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caPEM) {
-		return nil, fmt.Errorf("%w: ClientCAFile %q has no PEM certs", ErrInvalidConfig, caFile)
-	}
-	return &tls.Config{
-		MinVersion: tls.VersionTLS13,
-		ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs:  pool,
-	}, nil
-}

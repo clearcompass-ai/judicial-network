@@ -39,9 +39,21 @@ func NewDB(connStr string) (*DB, error) {
 	return &DB{Pool: pool}, nil
 }
 
-// Close shuts down the connection pool.
+// Close shuts down the connection pool. Safe to call on a *DB
+// whose Pool was never opened (test stubs construct *DB literals
+// without a real pool); the nil guard returns nil cleanly.
 func (db *DB) Close() error {
+	if db == nil || db.Pool == nil {
+		return nil
+	}
 	return db.Pool.Close()
+}
+
+// PingContext verifies the underlying connection pool is reachable.
+// Delegates to *sql.DB.PingContext. Used by probe handlers
+// (cmd/aggregator) for /readyz checks.
+func (db *DB) PingContext(ctx context.Context) error {
+	return db.Pool.PingContext(ctx)
 }
 
 // GetWatermark returns the last scanned position for a log.

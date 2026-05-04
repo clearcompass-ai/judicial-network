@@ -946,11 +946,50 @@ paths:
     get:
       tags: [Monitoring]
       summary: Audit anchor freshness vs. configured staleness threshold.
-      description: 501 Not Implemented. Requires `*witness.TreeHeadClient`.
+      description: |
+        Wired in Priority 2. Requires `*witness.TreeHeadClient`
+        configured via the binary's witness operational config.
+        503 when unconfigured.
       operationId: monitorAnchorFreshness
+      parameters:
+        - name: local_log_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: parent_log_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: operator_signer_did
+          in: query
+          required: true
+          schema: { type: string }
+        - name: interval_target
+          in: query
+          required: false
+          schema: { type: string, description: Go duration string (e.g. "1h"). Default 1h. }
+        - name: warning_threshold
+          in: query
+          required: false
+          schema: { type: string, description: Default 90m. }
+        - name: critical_threshold
+          in: query
+          required: false
+          schema: { type: string, description: Default 3h. }
       responses:
+        '200':
+          description: Anchor freshness alerts (empty if everything is fine).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '501': { $ref: '#/components/responses/NotImplemented' }
+        '503': { $ref: '#/components/responses/InternalError' }
   /v1/judicial/monitoring/dual-attestation:
     post:
       tags: [Monitoring]
@@ -1174,21 +1213,68 @@ paths:
   /v1/judicial/topology/publish-anchor:
     post:
       tags: [Topology]
-      summary: Publish an anchor entry.
-      description: 501 Not Implemented. Requires `*witness.TreeHeadClient`.
+      summary: Build an anchor commentary entry from the latest cosigned tree head.
+      description: |
+        Wired in Priority 2. Wraps `topology.PublishAnchor` which
+        fetches the latest cosigned tree head from the source log
+        via the binary's `*witness.TreeHeadClient`. The returned
+        BuildResponse carries the unsigned entry plus the
+        TreeHeadRef + TreeSize the caller should audit before
+        signing. 503 when the TreeHeadClient is unconfigured.
       operationId: topologyPublishAnchor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destination, source_log_did]
+              properties:
+                destination: { type: string }
+                source_log_did: { type: string }
+                event_time: { type: integer, format: int64 }
       responses:
+        '200':
+          description: Anchor entry built; sign + submit via /v1/entries/submit.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signing_payload: { type: string, format: byte }
+                  entry_bytes: { type: string, format: byte }
+                  header: { $ref: '#/components/schemas/ControlHeader' }
+                  tree_head_ref: { type: string }
+                  tree_size: { type: integer, format: uint64 }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '501': { $ref: '#/components/responses/NotImplemented' }
+        '503': { $ref: '#/components/responses/InternalError' }
   /v1/judicial/topology/anchor-chain:
     get:
       tags: [Topology]
-      summary: Discover the anchor chain for a court DID.
-      description: 501 Not Implemented. Requires `*witness.TreeHeadClient`.
+      summary: Walk the anchor chain from a court DID up to the state root.
+      description: |
+        Wired in Priority 2. Wraps `topology.DiscoverAnchorChain`.
+        Requires both a configured `*witness.TreeHeadClient` AND
+        a populated `*topology.Hierarchy`; 503 when either is
+        unconfigured.
       operationId: topologyAnchorChain
+      parameters:
+        - name: court_did
+          in: query
+          required: true
+          schema: { type: string }
       responses:
+        '200':
+          description: Anchor chain (chain nodes + state root + valid bool).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '501': { $ref: '#/components/responses/NotImplemented' }
+        '503': { $ref: '#/components/responses/InternalError' }
 
   # ── Escrow recovery (Phase 10) ───────────────────────────────────
   /v1/judicial/escrow/recovery/initiate:

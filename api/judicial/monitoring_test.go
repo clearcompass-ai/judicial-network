@@ -122,20 +122,9 @@ func TestMonDelegationHealth_UnknownLog_500(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// anchor-freshness — 501 stub
+// anchor-freshness — wired in Priority 2 (see topology_test.go for
+// the wired-path 503/400 contracts). Auth gate test stays here.
 // ─────────────────────────────────────────────────────────────────────
-
-func TestMonAnchorFreshness_NotImplemented(t *testing.T) {
-	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{})
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet,
-		"/v1/judicial/monitoring/anchor-freshness", nil)
-	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501", rec.Code)
-	}
-}
 
 func TestMonAnchorFreshness_NoCaller_401(t *testing.T) {
 	h := newTestHandler(Dependencies{})

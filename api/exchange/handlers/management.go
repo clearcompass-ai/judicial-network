@@ -477,7 +477,7 @@ func signAndSubmit(w http.ResponseWriter, deps *Dependencies, signerDID string, 
 	}
 
 	signed := append(entryBytes, sig...)
-	submitToOperator(w, deps.OperatorEndpoint, signed)
+	submitToOperatorProtected(w, deps, signed)
 }
 
 // proposalTypeFromString maps a string label to the SDK's ProposalType enum.
@@ -501,6 +501,13 @@ func proposalTypeFromString(s string) lifecycle.ProposalType {
 // operator's WAL-pressure 503 + Retry-After responses transparently.
 // One client, one conn pool, one retry policy — no behavior drift
 // across the 4 sites.
+//
+// Phase 14 ships api/middleware/reliability.NewTunedClient as a
+// MaxConnsPerHost-capped alternative (256 idle / 1024 max). Wiring
+// it here requires composing it with sdklog.RetryAfterRoundTripper
+// so operator-backpressure handling is preserved; deferred until
+// the SDK exposes the round-tripper as a RoundTripper-compatible
+// wrapper around an arbitrary inner Transport.
 var operatorSubmitClient = sdklog.DefaultClient(30 * time.Second)
 
 // submitToOperator posts signed canonical wire bytes to the

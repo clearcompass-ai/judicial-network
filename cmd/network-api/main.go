@@ -57,6 +57,8 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
@@ -164,12 +166,29 @@ func run(argv []string, d deps) error {
 		return middleware.CallerDIDFromContext(r.Context())
 	})
 
+	// Phase 15 observability bundle is constructed once and shared
+	// between the composer's /metrics endpoint and the operator-
+	// submit metrics so all jn_* metrics scrape from one registry.
+	obs := api.NewObservability()
+
+	// Phase 14b operator-submit protection: circuit breaker +
+	// per-submit metrics. Both wired into Exchange config.
+	operatorBreaker := reliability.NewBreaker(reliability.DefaultCircuitConfig())
+	operatorMetrics := observability.NewOperatorSubmitMetrics(obs.Metrics())
+
+	// Priority 3 /readyz checks: operator + artifact-store
+	// reachability via GET /healthz on each. k8s scrapes /readyz
+	// to gate traffic to a replica that can fulfill its job.
+	readyzChecks := buildReadyzChecks(cfg)
+
 	srv, err := api.NewServer(api.Config{
 		Addr:         cfg.ListenAddr,
 		TLSCertFile:  cfg.Auth.TLSCertFile,
 		TLSKeyFile:   cfg.Auth.TLSKeyFile,
 		ClientCAFile: cfg.Auth.ClientCAFile,
-		Auth:         authenticator,
+		Auth:          authenticator,
+		Observability: obs,
+		ReadyzChecks:  readyzChecks,
 		Exchange: exchange.ServerConfig{
 			OperatorEndpoint:      cfg.OperatorEndpoint,
 			ArtifactStoreEndpoint: cfg.ArtifactStoreEndpoint,
@@ -177,6 +196,8 @@ func run(argv []string, d deps) error {
 			KeyStore:              ks,
 			Index:                 index.NewLogIndex(),
 			NonceStores:           nonceStores,
+			OperatorBreaker:       operatorBreaker,
+			OperatorMetrics:       operatorMetrics,
 		},
 		Verification: verification.ServerConfig{
 			// Phase 7 wires real LogQueries + LeafReader from the

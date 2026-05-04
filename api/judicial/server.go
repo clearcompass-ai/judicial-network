@@ -18,12 +18,14 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/ortholog-sdk/witness"
 	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
+	"github.com/clearcompass-ai/judicial-network/topology"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -72,6 +74,18 @@ type Dependencies struct {
 
 	// Cross-log proof prover (used by appeals / county transfer flows).
 	SourceProver verifier.MerkleProver
+
+	// TreeHeadClient fetches cosigned tree heads from operators +
+	// witness fallbacks. Required by the anchor / topology handlers
+	// and by anchor-freshness monitoring. nil → those handlers
+	// surface 503 (configured via witness operational config).
+	TreeHeadClient *witness.TreeHeadClient
+
+	// Hierarchy is the JN-side anchor hierarchy (county → state →
+	// federal). Built at boot from the registered Bundles' parent
+	// relationships. Consumed by topology.DiscoverAnchorChain. nil
+	// → anchor-chain handler returns 503.
+	Hierarchy *topology.Hierarchy
 }
 
 // ─────────────────────────────────────────────────────────────────────

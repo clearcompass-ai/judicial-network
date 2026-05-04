@@ -113,6 +113,42 @@ type Operational struct {
 	KeyStore   KeyStoreConfig     `json:"keystore"`
 	NonceStore NonceStoreOpConfig `json:"nonce_store"`
 	Auth       AuthConfig         `json:"auth"`
+	Witness    WitnessConfig      `json:"witness"`
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Witness
+// ─────────────────────────────────────────────────────────────────────
+
+// WitnessConfig configures the binary's witness wiring:
+//
+//   - Per-destination operator endpoint overrides for tree-head
+//     fetches. When the per-destination map is empty, every log
+//     falls back to the top-level OperatorEndpoint.
+//   - Per-destination witness fallback endpoints (used when the
+//     operator's tree head is stale).
+//   - TreeHeadClient cache TTL + HTTP timeout.
+//
+// nil / zero-valued WitnessConfig leaves Dependencies.TreeHeadClient
+// at nil — the anchor / topology / monitoring handlers that need it
+// will surface 503 with a clear message.
+type WitnessConfig struct {
+	// OperatorEndpoints maps log DID → operator base URL. Empty
+	// fall back to top-level Operational.OperatorEndpoint.
+	OperatorEndpoints map[string]string `json:"operator_endpoints,omitempty"`
+
+	// WitnessEndpoints maps log DID → list of witness fallback URLs.
+	// Empty disables the witness-fallback path; tree-head fetches
+	// then go to the operator only.
+	WitnessEndpoints map[string][]string `json:"witness_endpoints,omitempty"`
+
+	// CacheTTL is how long a fetched tree head is cached before a
+	// fresh fetch. Zero applies the SDK default.
+	CacheTTL time.Duration `json:"cache_ttl,omitempty"`
+
+	// HTTPTimeout caps a single tree-head HTTP fetch. Zero applies
+	// the SDK default.
+	HTTPTimeout time.Duration `json:"http_timeout,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────────────

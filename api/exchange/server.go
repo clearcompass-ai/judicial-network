@@ -37,6 +37,8 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
+	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 )
 
 // ServerConfig configures the exchange service.
@@ -72,6 +74,14 @@ type ServerConfig struct {
 	// signed requests with a Destination field route to the matching
 	// store; nil keeps the single-tenant fallback path.
 	NonceStores map[string]*auth.NonceStore
+
+	// OperatorBreaker fast-fails operator submits when the operator
+	// is down. Phase 14 reliability primitive. nil → no breaker.
+	OperatorBreaker *reliability.Breaker
+
+	// OperatorMetrics records per-submit metrics. Phase 15
+	// observability primitive. nil → no metrics observed.
+	OperatorMetrics *observability.OperatorSubmitMetrics
 }
 
 // Server is the exchange HTTP server.
@@ -95,6 +105,8 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		VerificationEndpoint:  cfg.VerificationEndpoint,
 		KeyStore:              cfg.KeyStore,
 		Index:                 cfg.Index,
+		OperatorBreaker:       cfg.OperatorBreaker,
+		OperatorMetrics:       cfg.OperatorMetrics,
 	}
 
 	mux := http.NewServeMux()

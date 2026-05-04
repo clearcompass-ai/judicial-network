@@ -48,6 +48,7 @@ import (
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/ortholog-sdk/witness"
 
 	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 
@@ -90,7 +91,47 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	deps.LeafReader = buildLeafReader(cfg.OperatorEndpoint)
 	deps.Resolver = buildDIDResolver()
 	deps.SchemaResolver = newSchemaResolverShim()
+	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
 	return deps, nil
+}
+
+// buildTreeHeadClient constructs the witness.TreeHeadClient from
+// operational config. Per-destination operator endpoints override
+// the top-level OperatorEndpoint; per-destination witness fallbacks
+// are read from cfg.Witness.WitnessEndpoints. Empty maps fall back
+// to the top-level OperatorEndpoint for every registered destination.
+//
+// Returns nil if cfg.OperatorEndpoint is empty (dev / test mode);
+// the anchor / topology / monitoring handlers that need the client
+// surface 503 in that case.
+func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry) *witness.TreeHeadClient {
+	if cfg.OperatorEndpoint == "" {
+		return nil
+	}
+	operators := map[string]string{}
+	for _, did := range registry.ExchangeDIDs() {
+		if ep, ok := cfg.Witness.OperatorEndpoints[did]; ok && ep != "" {
+			operators[did] = ep
+		} else {
+			operators[did] = cfg.OperatorEndpoint
+		}
+	}
+	witnesses := cfg.Witness.WitnessEndpoints
+	if witnesses == nil {
+		witnesses = map[string][]string{}
+	}
+	endpoints := &witness.StaticEndpoints{
+		Operators: operators,
+		Witnesses: witnesses,
+	}
+	thcCfg := witness.DefaultTreeHeadClientConfig()
+	if cfg.Witness.CacheTTL > 0 {
+		thcCfg.CacheTTL = cfg.Witness.CacheTTL
+	}
+	if cfg.Witness.HTTPTimeout > 0 {
+		thcCfg.HTTPTimeout = cfg.Witness.HTTPTimeout
+	}
+	return witness.NewTreeHeadClient(endpoints, thcCfg)
 }
 
 // buildLogQueries constructs one HTTPOperatorQueryAPI per registered
