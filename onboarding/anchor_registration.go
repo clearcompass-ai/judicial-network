@@ -15,14 +15,13 @@ KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/witness
 package onboarding
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/witness"
 )
 
@@ -40,6 +39,10 @@ type AnchorRegistrationConfig struct {
 
 	// EventTime overrides the anchor timestamp. Zero → time.Now().
 	EventTime int64
+
+	// NetworkID binds the tree-head reference hash to a specific
+	// network/fork. Required (cosign.TreeHeadDigest rejects zero).
+	NetworkID cosign.NetworkID
 }
 
 // AnchorRegistrationResult holds the anchor entry + metadata.
@@ -95,8 +98,11 @@ func RegisterFirstAnchor(
 	}
 
 	// Compute tree head reference hash.
-	msg := types.WitnessCosignMessage(head.TreeHead)
-	headHash := sha256.Sum256(msg[:])
+	headHash, err := cosign.TreeHeadDigest(head.TreeHead, cfg.NetworkID)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"onboarding/anchor_registration: tree head digest: %w", err)
+	}
 	headRef := hex.EncodeToString(headHash[:])
 
 	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{

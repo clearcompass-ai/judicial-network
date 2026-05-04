@@ -63,7 +63,8 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	verified, err := verification.VerifyAppealChain(
-		steps, h.deps.WitnessKeys, h.deps.WitnessQuorum, h.deps.BLSVerifier,
+		steps, h.deps.WitnessKeys, h.deps.WitnessQuorum,
+		h.deps.NetworkID, h.deps.BLSVerifier,
 	)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -152,7 +153,7 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	anchorExt := defaultAnchorExtractor
 
 	verifyErr := verifier.VerifyCrossLogProof(
-		proof, keys, quorum, h.deps.BLSVerifier, anchorExt,
+		proof, keys, quorum, h.deps.NetworkID, h.deps.BLSVerifier, anchorExt,
 	)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{

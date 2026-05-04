@@ -34,7 +34,7 @@ func (h *VerifyCrossLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 	quorum := h.deps.WitnessQuorum[req.SourceLogDID]
 
-	err := verifier.VerifyCrossLogProof(req.Proof, keys, quorum, h.deps.BLSVerifier, topology.ExtractAnchorPayload)
+	err := verifier.VerifyCrossLogProof(req.Proof, keys, quorum, h.deps.NetworkID, h.deps.BLSVerifier, topology.ExtractAnchorPayload)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"valid": false,

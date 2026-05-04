@@ -20,7 +20,7 @@ import (
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -35,9 +35,10 @@ type ServerConfig struct {
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
-	BLSVerifier    signatures.BLSVerifier
+	BLSVerifier    cosign.BLSAggregateVerifier
 	WitnessKeys    map[string][]types.WitnessPublicKey
 	WitnessQuorum  map[string]int
+	NetworkID      cosign.NetworkID
 }
 
 // Server is the verification service HTTP server.
@@ -62,6 +63,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		BLSVerifier:    cfg.BLSVerifier,
 		WitnessKeys:    cfg.WitnessKeys,
 		WitnessQuorum:  cfg.WitnessQuorum,
+		NetworkID:      cfg.NetworkID,
 	}
 
 	mux := http.NewServeMux()

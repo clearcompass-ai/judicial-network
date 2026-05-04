@@ -117,7 +117,10 @@ func TestVerifyArtifactCommitmentOnLog_HappyPath(t *testing.T) {
 	grantor := "did:web:exchange:grantor"
 	recipient := "did:web:exchange:recipient"
 	cid := storage.Compute([]byte("artifact-bytes"))
-	splitID := sdkartifact.ComputePREGrantSplitID(grantor, recipient, cid)
+	splitID, err := sdkartifact.ComputePREGrantSplitID(grantor, recipient, cid)
+	if err != nil {
+		t.Fatalf("ComputePREGrantSplitID: %v", err)
+	}
 
 	commitment := &sdkartifact.PREGrantCommitment{
 		SplitID:       splitID,
@@ -165,8 +168,11 @@ func TestVerifyArtifactCommitmentOnLog_TupleMismatch_Mismatch(t *testing.T) {
 	grantorQuery := "did:web:g2"
 	recipientQuery := "did:web:r2"
 	cid := storage.Compute([]byte("artifact"))
-	splitTrue := sdkartifact.ComputePREGrantSplitID(grantorTrue, recipientTrue, cid)
-	splitQuery := sdkartifact.ComputePREGrantSplitID(grantorQuery, recipientQuery, cid)
+	splitTrue, errTrue := sdkartifact.ComputePREGrantSplitID(grantorTrue, recipientTrue, cid)
+	splitQuery, errQuery := sdkartifact.ComputePREGrantSplitID(grantorQuery, recipientQuery, cid)
+	if errTrue != nil || errQuery != nil {
+		t.Fatalf("ComputePREGrantSplitID: %v / %v", errTrue, errQuery)
+	}
 	if splitTrue == splitQuery {
 		t.Fatal("test invariant: split IDs must differ")
 	}
@@ -217,7 +223,10 @@ func TestVerifyArtifactCommitmentOnLog_Equivocation_Surfaces(t *testing.T) {
 	// when more than one entry shares the same SplitID. Our wrapper
 	// passes that through as the wrapped fetch error (NOT a sentinel).
 	cid := storage.Compute([]byte("artifact"))
-	splitID := sdkartifact.ComputePREGrantSplitID("did:web:g", "did:web:r", cid)
+	splitID, err := sdkartifact.ComputePREGrantSplitID("did:web:g", "did:web:r", cid)
+	if err != nil {
+		t.Fatalf("ComputePREGrantSplitID: %v", err)
+	}
 
 	fetcher := &fakeCommitmentFetcher{
 		entries: map[[32]byte][]*types.EntryWithMetadata{
@@ -227,7 +236,7 @@ func TestVerifyArtifactCommitmentOnLog_Equivocation_Surfaces(t *testing.T) {
 			},
 		},
 	}
-	err := VerifyArtifactCommitmentOnLog(fetcher, "did:web:g", "did:web:r", cid)
+	err = VerifyArtifactCommitmentOnLog(fetcher, "did:web:g", "did:web:r", cid)
 	if err == nil {
 		t.Error("equivocation must surface as error")
 	}

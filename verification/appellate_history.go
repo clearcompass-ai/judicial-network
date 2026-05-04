@@ -39,7 +39,7 @@ import (
 	"fmt"
 
 	"github.com/clearcompass-ai/judicial-network/topology"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
@@ -129,7 +129,8 @@ func VerifyAppealChain(
 	steps []AppealStep,
 	witnessKeysByLog map[string][]types.WitnessPublicKey,
 	quorumByLog map[string]int,
-	blsVerifier signatures.BLSVerifier,
+	networkID cosign.NetworkID,
+	blsVerifier cosign.BLSAggregateVerifier,
 ) ([]AppealStep, error) {
 	for i := range steps {
 		if steps[i].Proof == nil {
@@ -142,7 +143,7 @@ func VerifyAppealChain(
 			continue
 		}
 		err := verifier.VerifyCrossLogProof(*steps[i].Proof,
-			sourceKeys, quorum, blsVerifier,
+			sourceKeys, quorum, networkID, blsVerifier,
 			topology.ExtractAnchorPayload)
 		if err != nil {
 			steps[i].ProofVerified = false

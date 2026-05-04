@@ -1,7 +1,7 @@
 package consortium
 
 import (
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
@@ -52,7 +52,8 @@ func VerifyCrossCourtProof(
 	proof types.CrossLogProof,
 	sourceWitnessKeys []types.WitnessPublicKey,
 	sourceQuorumK int,
-	blsVerifier signatures.BLSVerifier,
+	sourceNetworkID cosign.NetworkID,
+	blsVerifier cosign.BLSAggregateVerifier,
 ) error {
-	return verifier.VerifyCrossLogProof(proof, sourceWitnessKeys, sourceQuorumK, blsVerifier, topology.ExtractAnchorPayload)
+	return verifier.VerifyCrossLogProof(proof, sourceWitnessKeys, sourceQuorumK, sourceNetworkID, blsVerifier, topology.ExtractAnchorPayload)
 }
