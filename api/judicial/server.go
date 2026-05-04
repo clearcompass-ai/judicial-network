@@ -12,6 +12,7 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
@@ -19,7 +20,6 @@ import (
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 	"github.com/clearcompass-ai/ortholog-sdk/witness"
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
@@ -62,9 +62,15 @@ type Dependencies struct {
 	SchemaResolver builder.SchemaResolver
 	Extractor      schema.SchemaParameterExtractor
 	Resolver       did.DIDResolver
-	BLSVerifier    sdksigs.BLSVerifier
+	BLSVerifier    cosign.BLSAggregateVerifier
 	WitnessKeys    map[string][]types.WitnessPublicKey
 	WitnessQuorum  map[string]int
+
+	// NetworkID is the deployment's 32-byte cosign-domain identifier
+	// derived from the network bootstrap document. Threaded into
+	// every cosign.Verify / cosign.TreeHeadDigest call site that
+	// runs through the judicial verification surface.
+	NetworkID cosign.NetworkID
 
 	// Storage / artifact stores. Used by handlers that publish or
 	// retrieve documents.

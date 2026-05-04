@@ -1,5 +1,5 @@
 /*
-FILE PATH: tools/cmd/witness/main.go
+FILE PATH: tools/witness/cmd/witness/main.go
 
 DESCRIPTION:
     Standalone witness cosigning daemon. Closes the
@@ -8,8 +8,8 @@ DESCRIPTION:
 
       1. Periodically fetch the latest tree head from each
          configured operator endpoint via *witness.TreeHeadClient.
-      2. Sign the canonical 40-byte WitnessCosignMessage with the
-         daemon's BLS witness key.
+      2. Sign the cosign-canonical tree-head message with the
+         daemon's BLS witness key (cosign.SignBLS, PurposeTreeHead).
       3. POST the cosignature back to the operator's witness-
          accept endpoint (default: <operator>/v1/cosignatures).
 

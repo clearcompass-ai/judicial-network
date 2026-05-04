@@ -26,26 +26,40 @@ DESCRIPTION:
       DelKeyStore (PRE delegation keys)
 
     Things wired as `nil` when not configured:
-      BLSVerifier    — only consumed by cross-log proof verify
+      BLSVerifier    — wired to cosign.NewProductionBLSVerifier when
+                       NetworkBootstrapFile is set; nil otherwise.
+                       Only consumed by cross-log proof verify.
       WitnessKeys    — populated by future witness-roster config
       WitnessQuorum  — same
       SourceProver   — only consumed by ops-tooling cross-log compose
 
     Each nil case yields a 500/501 from the specific handler that
     needs it; the rest of the surface keeps working.
+
+    NetworkID derivation:
+      When cfg.NetworkBootstrapFile is set, the file is loaded and
+      parsed as network.BootstrapDocument; deps.NetworkID = doc.IDs()
+      surfaces the 32-byte cosign-domain identifier into every
+      verification call site. Empty NetworkBootstrapFile leaves
+      deps.NetworkID at zero — call sites that need it will fail
+      loudly via cosign.ErrEmptyNetworkID at runtime.
 */
 package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/did"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
+	sdknetwork "github.com/clearcompass-ai/ortholog-sdk/network"
 	"github.com/clearcompass-ai/ortholog-sdk/storage"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 	"github.com/clearcompass-ai/ortholog-sdk/witness"
@@ -76,6 +90,19 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 		WitnessQuorum: map[string]int{},
 	}
 
+	// Derive NetworkID + wire BLSVerifier when the network bootstrap
+	// document is configured. Both are loaded in the same gate
+	// because cosign.Verify requires both: a non-zero NetworkID
+	// AND a non-nil BLS verifier (when BLS signatures are present).
+	if cfg.NetworkBootstrapFile != "" {
+		networkID, err := loadNetworkID(cfg.NetworkBootstrapFile)
+		if err != nil {
+			return judicial.Dependencies{}, fmt.Errorf("load network bootstrap: %w", err)
+		}
+		deps.NetworkID = networkID
+		deps.BLSVerifier = cosign.NewProductionBLSVerifier()
+	}
+
 	if cfg.OperatorEndpoint == "" {
 		// Dev / test mode — no operator wired. Deps that need it stay
 		// nil; their handlers will return 500 with a clear error.
@@ -93,6 +120,27 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	deps.SchemaResolver = newSchemaResolverShim()
 	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
 	return deps, nil
+}
+
+// loadNetworkID reads the bootstrap document from disk, parses it,
+// and derives the 32-byte cosign NetworkID. Boot fails fast on any
+// error — a misconfigured bootstrap document means cross-component
+// cosignature verification cannot succeed, and every dependent
+// handler would return 500 at runtime.
+func loadNetworkID(path string) (cosign.NetworkID, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return cosign.NetworkID{}, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc sdknetwork.BootstrapDocument
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return cosign.NetworkID{}, fmt.Errorf("parse %s: %w", path, err)
+	}
+	ids, err := doc.IDs()
+	if err != nil {
+		return cosign.NetworkID{}, fmt.Errorf("derive network identity from %s: %w", path, err)
+	}
+	return ids.NetworkID, nil
 }
 
 // buildTreeHeadClient constructs the witness.TreeHeadClient from

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
@@ -199,7 +200,7 @@ func TestVerifyAppealChain_UnknownLogDIDFailsClosed(t *testing.T) {
 	}
 	result, err := VerifyAppealChain(steps,
 		map[string][]types.WitnessPublicKey{},
-		map[string]int{}, nil)
+		map[string]int{}, cosign.NetworkID{1}, nil)
 	if err == nil {
 		t.Error("unknown LogDID must break the chain")
 	}

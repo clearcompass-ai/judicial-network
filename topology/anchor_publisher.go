@@ -12,14 +12,13 @@ KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/witness, ortholog-sdk/types
 package topology
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/witness"
 )
 
@@ -58,6 +57,10 @@ type AnchorConfig struct {
 	SignerDID    string // Operator DID signing the anchor entry
 	SourceLogDID string // Log being anchored (e.g., county cases log)
 	EventTime    int64
+
+	// NetworkID binds the tree-head reference hash to a specific
+	// network/fork. Required (cosign.TreeHeadDigest rejects zero).
+	NetworkID cosign.NetworkID
 }
 
 // AnchorResult holds the output of anchor publishing.
@@ -89,8 +92,10 @@ func PublishAnchor(
 		return nil, fmt.Errorf("topology/anchor: fetch tree head: %w", err)
 	}
 
-	msg := types.WitnessCosignMessage(head.TreeHead)
-	headHash := sha256.Sum256(msg[:])
+	headHash, err := cosign.TreeHeadDigest(head.TreeHead, cfg.NetworkID)
+	if err != nil {
+		return nil, fmt.Errorf("topology/anchor: tree head digest: %w", err)
+	}
 	headRef := hex.EncodeToString(headHash[:])
 
 	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{

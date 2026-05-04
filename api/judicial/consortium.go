@@ -165,7 +165,7 @@ func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *
 			"source_witness_keys + quorum required (or pre-configured for the source log)")
 		return
 	}
-	verifyErr := consortium.VerifyCrossCourtProof(proof, keys, quorum, h.deps.BLSVerifier)
+	verifyErr := consortium.VerifyCrossCourtProof(proof, keys, quorum, h.deps.NetworkID, h.deps.BLSVerifier)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"verified": false, "error": verifyErr.Error()})
 		return

@@ -8,7 +8,7 @@ import (
 
 	"github.com/clearcompass-ai/ortholog-sdk/builder"
 	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
 	"github.com/clearcompass-ai/ortholog-sdk/schema"
 	"github.com/clearcompass-ai/ortholog-sdk/types"
@@ -22,9 +22,10 @@ type Dependencies struct {
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
-	BLSVerifier    signatures.BLSVerifier
+	BLSVerifier    cosign.BLSAggregateVerifier
 	WitnessKeys    map[string][]types.WitnessPublicKey // logDID → keys
 	WitnessQuorum  map[string]int                      // logDID → K
+	NetworkID      cosign.NetworkID
 }
 
 // resolveLog finds the operator query API for a given log identifier.

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
 	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
 	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
@@ -37,6 +38,11 @@ type ShardHealthConfig struct {
 
 	// LogDID identifies the log being monitored (for alert details).
 	LogDID string
+
+	// NetworkID binds the chain verification to a specific network/fork.
+	// Required (verifier.VerifyShardChain rejects zero NetworkID via
+	// the cosign canonical-message preamble).
+	NetworkID cosign.NetworkID
 }
 
 // CheckShardHealth verifies the chain and evaluates size thresholds.
@@ -48,7 +54,7 @@ func CheckShardHealth(cfg ShardHealthConfig, now time.Time) ([]monitoring.Alert,
 	}
 
 	// Chain verification via SDK.
-	result, err := verifier.VerifyShardChain(cfg.Shards)
+	result, err := verifier.VerifyShardChain(cfg.Shards, cfg.NetworkID)
 	if err != nil || result == nil || !result.Valid {
 		brokenAt := -1
 		if result != nil {
