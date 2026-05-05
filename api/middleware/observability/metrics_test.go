@@ -406,7 +406,7 @@ func TestClassifyStatus_Outliers(t *testing.T) {
 	}
 }
 
-// Sanity: sprintf is used in the operator metrics doc; pin that
+// Sanity: sprintf is used in the ledger metrics doc; pin that
 // we don't accidentally drop fmt from the imports list during
 // future edits.
 var _ = fmt.Sprintf

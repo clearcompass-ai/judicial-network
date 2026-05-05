@@ -50,6 +50,7 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/did"
 	sdklog "github.com/clearcompass-ai/attesta/log"
+	sdknetwork "github.com/clearcompass-ai/attesta/network"
 	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/witness"

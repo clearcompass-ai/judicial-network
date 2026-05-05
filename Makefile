@@ -50,21 +50,21 @@ network-api: ## Build cmd/network-api into ./bin/
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/network-api ./cmd/network-api
 
-court-tools: ## Build tools/cmd/court-tools into ./bin/
+court-tools: ## Build tools/court-tools into ./bin/
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/court-tools ./tools/cmd/court-tools
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/court-tools ./tools/court-tools/cmd/court-tools
 
-provider-tools: ## Build tools/cmd/provider-tools into ./bin/
+provider-tools: ## Build tools/provider-tools into ./bin/
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/provider-tools ./tools/cmd/provider-tools
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/provider-tools ./tools/provider-tools/cmd/provider-tools
 
-aggregator: ## Build tools/cmd/aggregator into ./bin/
+aggregator: ## Build tools/aggregator into ./bin/
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/aggregator ./tools/cmd/aggregator
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/aggregator ./tools/aggregator/cmd/aggregator
 
-witness: ## Build tools/cmd/witness into ./bin/
+witness: ## Build tools/witness into ./bin/
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/witness ./tools/cmd/witness
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/witness ./tools/witness/cmd/witness
 
 install-bins: judicial-cli network-api court-tools provider-tools aggregator witness ## Build all 6 binaries into ./bin/
 	@echo ""

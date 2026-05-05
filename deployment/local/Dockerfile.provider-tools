@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags "-X main.Version=0.0.1" \
-    -o /provider-tools ./tools/cmd/provider-tools
+    -o /provider-tools ./tools/provider-tools/cmd/provider-tools
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates tzdata wget

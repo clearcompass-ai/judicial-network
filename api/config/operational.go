@@ -126,7 +126,7 @@ type Operational struct {
 	// the verification surface may leave this empty.
 	//
 	// The same document MUST be loaded by every component participating
-	// in the network (operator, JN composer, every witness); cross-
+	// in the network (ledger, JN composer, every witness); cross-
 	// component signature verification depends on byte-identical
 	// bootstrap inputs.
 	NetworkBootstrapFile string `json:"network_bootstrap_file"`

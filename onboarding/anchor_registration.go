@@ -46,10 +46,6 @@ type AnchorRegistrationConfig struct {
 
 	// EventTime overrides the anchor timestamp. Zero → time.Now().
 	EventTime int64
-
-	// NetworkID binds the tree-head reference hash to a specific
-	// network/fork. Required (cosign.TreeHeadDigest rejects zero).
-	NetworkID cosign.NetworkID
 }
 
 // AnchorRegistrationResult holds the anchor entry + metadata.
