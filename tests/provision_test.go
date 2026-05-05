@@ -25,7 +25,7 @@ func TestProvisionCourt_ThreeLogs(t *testing.T) {
 
 	cfg := onboarding.CourtProvisionConfig{
 		ExchangeDID: "did:web:exchange.test",
-		Spoke: spoke,
+		Spoke:       spoke,
 		AuthoritySet: map[string]struct{}{
 			"did:web:courts.nashville.gov":             {},
 			"did:web:courts.nashville.gov:chief-judge": {},
@@ -96,7 +96,7 @@ func TestProvisionCourt_OfficerFiltering(t *testing.T) {
 
 	cfg := onboarding.CourtProvisionConfig{
 		ExchangeDID: "did:web:exchange.test",
-		Spoke: spoke,
+		Spoke:       spoke,
 		AuthoritySet: map[string]struct{}{
 			"did:web:test.court.gov": {},
 		},
@@ -149,7 +149,7 @@ func TestProvisionCourt_ScopePayload(t *testing.T) {
 
 	cfg := onboarding.CourtProvisionConfig{
 		ExchangeDID: "did:web:exchange.test",
-		Spoke: spoke,
+		Spoke:       spoke,
 		AuthoritySet: map[string]struct{}{
 			"did:web:courts.nashville.gov": {},
 		},
@@ -181,7 +181,7 @@ func TestProvisionCourt_ScopePayload(t *testing.T) {
 func TestProvisionCourt_NilSpoke(t *testing.T) {
 	cfg := onboarding.CourtProvisionConfig{
 		ExchangeDID: "did:web:exchange.test",
-		Spoke: nil,
+		Spoke:       nil,
 		AuthoritySet: map[string]struct{}{
 			"did:web:test": {},
 		},
@@ -240,7 +240,7 @@ func TestProvisionCourt_ScopePayloadContainsCourtAndLogDIDs(t *testing.T) {
 	}
 
 	cfg := onboarding.CourtProvisionConfig{
-		ExchangeDID: "did:web:exchange.test",
+		ExchangeDID:  "did:web:exchange.test",
 		Spoke:        spoke,
 		AuthoritySet: map[string]struct{}{spoke.CourtDID: {}},
 	}

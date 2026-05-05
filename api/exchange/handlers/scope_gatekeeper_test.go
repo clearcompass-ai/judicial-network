@@ -2,12 +2,13 @@
 FILE PATH: api/exchange/handlers/scope_gatekeeper_test.go
 
 COVERAGE:
-    Wave 1 admission gatekeeper. Validates that BOTH the staged build
-    path (EntryBuildHandler) and the build-sign-submit shortcut
-    (EntryFullHandler) consult the ScopeChecker BEFORE invoking
-    KeyStore.Sign. Includes coverage for InMemoryScopeChecker's
-    case-insensitive matching, unknown-signer denial, empty-scope
-    denial, infra-error fallback, and the AllowAll default.
+
+	Wave 1 admission gatekeeper. Validates that BOTH the staged build
+	path (EntryBuildHandler) and the build-sign-submit shortcut
+	(EntryFullHandler) consult the ScopeChecker BEFORE invoking
+	KeyStore.Sign. Includes coverage for InMemoryScopeChecker's
+	case-insensitive matching, unknown-signer denial, empty-scope
+	denial, infra-error fallback, and the AllowAll default.
 */
 package handlers
 

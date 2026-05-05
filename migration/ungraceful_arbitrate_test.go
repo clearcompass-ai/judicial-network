@@ -2,10 +2,11 @@
 FILE PATH: migration/ungraceful_arbitrate_test.go
 
 COVERAGE:
-    ArbitrateHostileRecovery wrapper: success path, supermajority
-    failure, witness-required missing, witness-not-independent,
-    SDK infrastructure error surfacing, and ErrArbitrationDenied
-    sentinel propagation.
+
+	ArbitrateHostileRecovery wrapper: success path, supermajority
+	failure, witness-required missing, witness-not-independent,
+	SDK infrastructure error surfacing, and ErrArbitrationDenied
+	sentinel propagation.
 */
 package migration
 
@@ -13,10 +14,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -27,8 +28,8 @@ import (
 func mkApproval(t *testing.T, signerDID string, recoveryPos types.LogPosition) types.EntryWithMetadata {
 	t.Helper()
 	entry, err := builder.BuildCosignature(builder.CosignatureParams{
-		Destination:  "did:web:exchange.test",
-		SignerDID:    signerDID,
+		Destination:   "did:web:exchange.test",
+		SignerDID:     signerDID,
 		CosignatureOf: recoveryPos,
 	})
 	if err != nil {
@@ -54,10 +55,10 @@ func TestArbitrateHostileRecovery_Supermajority_NoWitness_OK(t *testing.T) {
 	res, err := ArbitrateHostileRecovery(
 		recoveryPos,
 		approvals,
-		5,                // total nodes
-		nil,              // EscrowNodeSet not required when no witness
-		nil,              // no witness cosig
-		nil,              // SchemaParams nil → defaults (2/3 threshold, no witness)
+		5,   // total nodes
+		nil, // EscrowNodeSet not required when no witness
+		nil, // no witness cosig
+		nil, // SchemaParams nil → defaults (2/3 threshold, no witness)
 	)
 	if err != nil {
 		t.Fatalf("err: %v", err)

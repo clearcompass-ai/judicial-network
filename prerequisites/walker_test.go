@@ -2,21 +2,22 @@
 FILE PATH: prerequisites/walker_test.go
 
 DESCRIPTION:
-    Tests pinning the Walker contract. Two intertwined surfaces
-    (vocabulary + prerequisite evaluation) tested via small
-    in-memory policies built per case so the assertions stay tight
-    and obvious.
 
-    Coverage:
-      - Vocabulary: unknown event_type rejected.
-      - Hard ancestor present / missing.
-      - Hard authority present / missing.
-      - Mixed Hard + Advisory rules: Hard violation rejects;
-        Advisory surfaced but does not block.
-      - Multiple ancestors: OR semantics.
-      - HasObservedEvent / HasAuthorityScope helpers.
-      - Edge cases: nil walker, nil policy, walker with
-        un-registered policy event.
+	Tests pinning the Walker contract. Two intertwined surfaces
+	(vocabulary + prerequisite evaluation) tested via small
+	in-memory policies built per case so the assertions stay tight
+	and obvious.
+
+	Coverage:
+	  - Vocabulary: unknown event_type rejected.
+	  - Hard ancestor present / missing.
+	  - Hard authority present / missing.
+	  - Mixed Hard + Advisory rules: Hard violation rejects;
+	    Advisory surfaced but does not block.
+	  - Multiple ancestors: OR semantics.
+	  - HasObservedEvent / HasAuthorityScope helpers.
+	  - Edge cases: nil walker, nil policy, walker with
+	    un-registered policy event.
 */
 package prerequisites
 

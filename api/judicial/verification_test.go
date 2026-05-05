@@ -2,8 +2,9 @@
 FILE PATH: api/judicial/verification_test.go
 
 DESCRIPTION:
-    Validation contracts for the read-side verification handlers
-    (case-status, enforcement-status, filing-delegation, custody-chain).
+
+	Validation contracts for the read-side verification handlers
+	(case-status, enforcement-status, filing-delegation, custody-chain).
 */
 package judicial
 

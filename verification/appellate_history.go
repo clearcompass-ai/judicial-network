@@ -2,46 +2,48 @@
 FILE PATH: verification/appellate_history.go
 
 DESCRIPTION:
-    Appeal chain reconstruction across logs. Topology-agnostic
-    after the v0.7.0 refactor: the walker follows cross-log
-    references for as many hops as exist, supporting any
-    appellate topology:
 
-      TN COA only      trial → COA              (2-level)
-      TN with Sup Ct   trial → COA → Sup Ct     (3-level)
-      Federal          district → circuit       (2-level)
-      Federal w/ SCOTUS district → circuit → SCOTUS (3-level)
-      En-banc rehear   plus an extra link at any level
+	Appeal chain reconstruction across logs. Topology-agnostic
+	after the v0.7.0 refactor: the walker follows cross-log
+	references for as many hops as exist, supporting any
+	appellate topology:
 
-    The chain length is the depth of the topology, not a fixed
-    constant. AppealStep.Step is the 1-indexed position; no
-    enumerated "Level" field.
+	  TN COA only      trial → COA              (2-level)
+	  TN with Sup Ct   trial → COA → Sup Ct     (3-level)
+	  Federal          district → circuit       (2-level)
+	  Federal w/ SCOTUS district → circuit → SCOTUS (3-level)
+	  En-banc rehear   plus an extra link at any level
+
+	The chain length is the depth of the topology, not a fixed
+	constant. AppealStep.Step is the 1-indexed position; no
+	enumerated "Level" field.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Walker is topology-agnostic: it terminates when a step's
-      cross-log proof has no successor, not when it reaches a
-      hard-coded "supreme" level.
-    - VerifyAppealChain re-verifies every cross-log proof
-      against the source log's witness key set.
-    - WalkAppealChain (NEW) constructs the chain by following
-      successor proofs supplied by a NextProofFn callback —
-      caller plugs in operator-fetch logic.
+  - Walker is topology-agnostic: it terminates when a step's
+    cross-log proof has no successor, not when it reaches a
+    hard-coded "supreme" level.
+  - VerifyAppealChain re-verifies every cross-log proof
+    against the source log's witness key set.
+  - WalkAppealChain (NEW) constructs the chain by following
+    successor proofs supplied by a NextProofFn callback —
+    caller plugs in ledger-fetch logic.
 
 OVERVIEW:
-    AppealStep        — one hop in the chain.
-    NextProofFn       — caller-supplied successor lookup.
-    WalkAppealChain   — unbounded walker.
-    VerifyAppealChain — per-step proof verification.
+
+	AppealStep        — one hop in the chain.
+	NextProofFn       — caller-supplied successor lookup.
+	WalkAppealChain   — unbounded walker.
+	VerifyAppealChain — per-step proof verification.
 */
 package verification
 
 import (
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 	"github.com/clearcompass-ai/judicial-network/topology"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
 
 // AppealStep is one hop in an appeal chain. The chain is
@@ -79,7 +81,7 @@ type AppealStep struct {
 //   - any non-nil error halts the walk (ignored if the next
 //     step is nil; the walk simply terminates without error).
 //
-// Production callers wire an operator-fetch implementation that
+// Production callers wire an ledger-fetch implementation that
 // reads the successor's case-root entry from the next log via
 // the cross-log reference embedded in current's payload.
 type NextProofFn func(current AppealStep) (*AppealStep, error)
@@ -129,7 +131,8 @@ func VerifyAppealChain(
 	steps []AppealStep,
 	witnessKeysByLog map[string][]types.WitnessPublicKey,
 	quorumByLog map[string]int,
-	blsVerifier signatures.BLSVerifier,
+	networkIDByLog map[string]cosign.NetworkID,
+	blsVerifier cosign.BLSAggregateVerifier,
 ) ([]AppealStep, error) {
 	for i := range steps {
 		if steps[i].Proof == nil {
@@ -137,12 +140,13 @@ func VerifyAppealChain(
 		}
 		sourceKeys := witnessKeysByLog[steps[i].LogDID]
 		quorum := quorumByLog[steps[i].LogDID]
-		if len(sourceKeys) == 0 || quorum == 0 {
+		networkID := networkIDByLog[steps[i].LogDID]
+		if len(sourceKeys) == 0 || quorum == 0 || networkID.IsZero() {
 			steps[i].ProofVerified = false
 			continue
 		}
 		err := verifier.VerifyCrossLogProof(*steps[i].Proof,
-			sourceKeys, quorum, blsVerifier,
+			sourceKeys, quorum, networkID, blsVerifier,
 			topology.ExtractAnchorPayload)
 		if err != nil {
 			steps[i].ProofVerified = false

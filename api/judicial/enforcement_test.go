@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/enforcement_test.go
 
 DESCRIPTION:
-    Validation contracts for sealing, unsealing, cosignature,
-    sealing-status. Expungement / evidence-access / compliance
-    tests live in enforcement_audit_test.go.
+
+	Validation contracts for sealing, unsealing, cosignature,
+	sealing-status. Expungement / evidence-access / compliance
+	tests live in enforcement_audit_test.go.
 */
 package judicial
 

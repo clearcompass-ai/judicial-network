@@ -2,20 +2,22 @@
 FILE PATH: consortium/formation.go
 
 DESCRIPTION:
-    Creates a new consortium scope entity and provisions the consortium
-    log. A consortium is a governance body over multiple courts that
-    share infrastructure, schemas, or economic settlement.
+
+	Creates a new consortium scope entity and provisions the consortium
+	log. A consortium is a governance body over multiple courts that
+	share infrastructure, schemas, or economic settlement.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle: ProvisionSingleLog, SingleLogConfig,
-      LogProvision (guide §20.1)
-    - ortholog-sdk/builder: BuildScopeCreation (guide §11.3)
-    - ortholog-sdk/types: used for result types
+  - attesta/lifecycle: ProvisionSingleLog, SingleLogConfig,
+    LogProvision (guide §20.1)
+  - attesta/builder: BuildScopeCreation (guide §11.3)
+  - attesta/types: used for result types
 
 OVERVIEW:
-    FormConsortium(cfg) →
-      ProvisionSingleLog for the consortium log
-      Returns ConsortiumProvision with scope entry + log provision
+
+	FormConsortium(cfg) →
+	  ProvisionSingleLog for the consortium log
+	  Returns ConsortiumProvision with scope entry + log provision
 */
 package consortium
 
@@ -24,7 +26,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
+	"github.com/clearcompass-ai/attesta/lifecycle"
 )
 
 // ConsortiumConfig defines a new consortium.
@@ -65,7 +67,7 @@ type ConsortiumProvision struct {
 
 // FormConsortium provisions the consortium governance log and creates
 // the scope entity. The returned entries must be submitted to the
-// consortium log's operator.
+// consortium log's ledger.
 func FormConsortium(cfg ConsortiumConfig) (*ConsortiumProvision, error) {
 	if cfg.ConsortiumDID == "" {
 		return nil, fmt.Errorf("consortium/formation: empty consortium DID")
@@ -86,10 +88,10 @@ func FormConsortium(cfg ConsortiumConfig) (*ConsortiumProvision, error) {
 	}
 
 	scopePayload, err := json.Marshal(map[string]any{
-		"consortium_did":       cfg.ConsortiumDID,
-		"log_did":              cfg.LogDID,
-		"name":                 cfg.Name,
-		"settlement_unit":      cfg.SettlementUnit,
+		"consortium_did":         cfg.ConsortiumDID,
+		"log_did":                cfg.LogDID,
+		"name":                   cfg.Name,
+		"settlement_unit":        cfg.SettlementUnit,
 		"settlement_period_days": cfg.SettlementPeriodDays,
 	})
 	if err != nil {

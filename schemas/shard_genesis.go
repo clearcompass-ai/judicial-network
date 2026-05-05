@@ -3,13 +3,13 @@ FILE PATH: schemas/shard_genesis.go
 DESCRIPTION: shard-genesis-v1 wrapping SDK's ShardGenesisPayload.
 KEY ARCHITECTURAL DECISIONS: Delegates to SDK schema.ParseShardGenesisPayload.
 OVERVIEW: Registers shard-genesis-v1 for topology/anchor_publisher.go.
-KEY DEPENDENCIES: ortholog-sdk/schema
+KEY DEPENDENCIES: attesta/schema
 */
 package schemas
 
 import (
 	"encoding/json"
-	sdkschema "github.com/clearcompass-ai/ortholog-sdk/schema"
+	sdkschema "github.com/clearcompass-ai/attesta/schema"
 )
 
 const SchemaShardGenesisV1 = "shard-genesis-v1"
@@ -27,7 +27,9 @@ func shardGenesisRegistration() *SchemaRegistration {
 		URI: SchemaShardGenesisV1,
 		Serialize: func(payload interface{}) ([]byte, error) {
 			p, ok := payload.(*sdkschema.ShardGenesisPayload)
-			if !ok { return nil, ErrDeserialize }
+			if !ok {
+				return nil, ErrDeserialize
+			}
 			return json.Marshal(p)
 		},
 		Deserialize:     func(data []byte) (interface{}, error) { return sdkschema.ParseShardGenesisPayload(data) },

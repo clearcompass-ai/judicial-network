@@ -2,10 +2,11 @@
 FILE PATH: verification/authority_resolver_test.go
 
 DESCRIPTION:
-    Happy-path + scope-intersection coverage for AuthorityResolver.
-    Helpers (fakeFetcher, makeDelegation, etc.) live in
-    authority_resolver_helpers_test.go; rejection-path tests live in
-    authority_resolver_rejection_test.go.
+
+	Happy-path + scope-intersection coverage for AuthorityResolver.
+	Helpers (fakeFetcher, makeDelegation, etc.) live in
+	authority_resolver_helpers_test.go; rejection-path tests live in
+	authority_resolver_rejection_test.go.
 */
 package verification
 
@@ -13,9 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/types"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // ─── happy path ────────────────────────────────────────────────────

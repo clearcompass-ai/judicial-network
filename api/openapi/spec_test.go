@@ -2,17 +2,18 @@
 FILE PATH: api/openapi/spec_test.go
 
 DESCRIPTION:
-    OpenAPI 3.1 spec validation harness. The canonical artifact is
-    openapi.yaml; the registered-routes table lives in
-    routes_test.go. Tests here pin:
 
-      1. The spec parses as OpenAPI 3.1 + Validate passes.
-      2. Every operation has at least one response + an operationId.
-      3. mTLS + bearerAuth security schemes are declared.
-      4. The set of documented paths matches the set of routes the
-         composer's BuildHandler actually registers — drift is a CI
-         failure here.
-      5. Handler() serves the spec as application/yaml.
+	OpenAPI 3.1 spec validation harness. The canonical artifact is
+	openapi.yaml; the registered-routes table lives in
+	routes_test.go. Tests here pin:
+
+	  1. The spec parses as OpenAPI 3.1 + Validate passes.
+	  2. Every operation has at least one response + an operationId.
+	  3. mTLS + bearerAuth security schemes are declared.
+	  4. The set of documented paths matches the set of routes the
+	     composer's BuildHandler actually registers — drift is a CI
+	     failure here.
+	  5. Handler() serves the spec as application/yaml.
 */
 package openapi
 

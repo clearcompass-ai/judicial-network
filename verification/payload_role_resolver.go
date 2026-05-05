@@ -2,45 +2,47 @@
 FILE PATH: verification/payload_role_resolver.go
 
 DESCRIPTION:
-    PayloadRoleResolver — production-grade RoleResolver that reads
-    its truth from the entry's payload `signed_by_capacities` block.
-    Phase 3D.signed-by deliverable: the verifier no longer needs an
-    off-log registry; every cosigning Signer is self-described in
-    the same payload they cosigned.
 
-    Construction: hand the resolver the entry's domain-payload bytes.
-    The resolver parses signed_by_capacities once, validates each
-    entry, and answers LookupRole(did) from that cache.
+	PayloadRoleResolver — production-grade RoleResolver that reads
+	its truth from the entry's payload `signed_by_capacities` block.
+	.signed-by deliverable: the verifier no longer needs an
+	off-log registry; every cosigning Signer is self-described in
+	the same payload they cosigned.
 
-    Failure modes:
-      - payload has no signed_by_capacities: the resolver is
-        constructed cleanly but every LookupRole call returns
-        ErrSignerUnknown. The verifier surfaces unknown DIDs as
-        InAllowedSet=false; the threshold check then fails. This
-        mirrors the writer's omission honestly — silent fallbacks
-        would be a foot-gun.
-      - payload's signed_by_capacities is malformed: the constructor
-        returns an error and the verifier rejects the entry up-front.
-      - individual entry fails Validate: surfaced at construction
-        time so the audit trail blames the writer, not a downstream
-        check.
+	Construction: hand the resolver the entry's domain-payload bytes.
+	The resolver parses signed_by_capacities once, validates each
+	entry, and answers LookupRole(did) from that cache.
 
-    Composition: callers can layer this with a future
-    AuthorityResolver chain walk (Phase 3D.preqs) by treating
-    PayloadRoleResolver as the source-of-truth and the chain walk
-    as a verifier of that truth. This file ships only the read path.
+	Failure modes:
+	  - payload has no signed_by_capacities: the resolver is
+	    constructed cleanly but every LookupRole call returns
+	    ErrSignerUnknown. The verifier surfaces unknown DIDs as
+	    InAllowedSet=false; the threshold check then fails. This
+	    mirrors the writer's omission honestly — silent fallbacks
+	    would be a foot-gun.
+	  - payload's signed_by_capacities is malformed: the constructor
+	    returns an error and the verifier rejects the entry up-front.
+	  - individual entry fails Validate: surfaced at construction
+	    time so the audit trail blames the writer, not a downstream
+	    check.
+
+	Composition: callers can layer this with a future
+	AuthorityResolver chain walk (.preqs) by treating
+	PayloadRoleResolver as the source-of-truth and the chain walk
+	as a verifier of that truth. This file ships only the read path.
 
 OVERVIEW:
-    PayloadRoleResolver        — type.
-    NewPayloadRoleResolver     — parses payload bytes.
-    NewPayloadRoleResolverFrom — accepts a pre-parsed slice
-                                 (test/composition seam).
-    LookupRole                 — RoleResolver method.
-    Capacities                 — read-only view (audit/tests).
+
+	PayloadRoleResolver        — type.
+	NewPayloadRoleResolver     — parses payload bytes.
+	NewPayloadRoleResolverFrom — accepts a pre-parsed slice
+	                             (test/composition seam).
+	LookupRole                 — RoleResolver method.
+	Capacities                 — read-only view (audit/tests).
 
 KEY DEPENDENCIES:
-    - schemas/signed_by_capacity.go (ExtractSignedByCapacities,
-      SignedByCapacity, FindSignedByCapacity).
+  - schemas/signed_by_capacity.go (ExtractSignedByCapacities,
+    SignedByCapacity, FindSignedByCapacity).
 */
 package verification
 

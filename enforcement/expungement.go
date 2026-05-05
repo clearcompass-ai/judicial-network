@@ -2,13 +2,14 @@
 FILE PATH: enforcement/expungement.go
 DESCRIPTION: Expungement order processing per TCA 40-32-101.
 KEY ARCHITECTURAL DECISIONS:
-    - Two-phase: (1) BuildEnforcement on case root (Path C, AuthorityTip advance).
-      (2) artifact.BatchExpunge for cryptographic erasure of all case artifacts.
-    - Both ArtifactKeyStore and DelegationKeyStore keys destroyed.
-    - Activation pattern with EvaluateContest before executing erasure.
-    - Produces compliance report: which CIDs were erased, which failed.
+  - Two-phase: (1) BuildEnforcement on case root (Path C, AuthorityTip advance).
+    (2) artifact.BatchExpunge for cryptographic erasure of all case artifacts.
+  - Both ArtifactKeyStore and DelegationKeyStore keys destroyed.
+  - Activation pattern with EvaluateContest before executing erasure.
+  - Produces compliance report: which CIDs were erased, which failed.
+
 OVERVIEW: ExpungeCase → enforcement entry + batch erasure + compliance report.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier, cases/artifact
+KEY DEPENDENCIES: attesta/builder, attesta/verifier, cases/artifact
 */
 package enforcement
 
@@ -16,20 +17,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )
 
 type ExpungementConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination    string // DID of target exchange. Required.
 	JudgeDID       string
 	CaseRootPos    types.LogPosition
 	ScopePos       types.LogPosition
@@ -82,7 +83,7 @@ func ExpungeCase(
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: cfg.Destination,
+		Destination:    cfg.Destination,
 		SignerDID:      cfg.JudgeDID,
 		TargetRoot:     cfg.CaseRootPos,
 		ScopePointer:   cfg.ScopePos,
@@ -95,7 +96,7 @@ func ExpungeCase(
 		return nil, fmt.Errorf("enforcement/expungement: build enforcement: %w", err)
 	}
 
-	// Phase 2: Cryptographic erasure.
+	// : Cryptographic erasure.
 	batchResult, batchErr := artifact.BatchExpunge(
 		cfg.ArtifactCIDs, keyStore, delKeyStore, contentStore,
 	)

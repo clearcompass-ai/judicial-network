@@ -2,9 +2,10 @@
 FILE PATH: policy/cosignature_mix_loader_test.go
 
 DESCRIPTION:
-    Tests for the JSON-backed cosignature-mix policy loader:
-    ParseJSON, LoadFile, ReloadFromFile (atomic-on-error), and the
-    handling of malformed input.
+
+	Tests for the JSON-backed cosignature-mix policy loader:
+	ParseJSON, LoadFile, ReloadFromFile (atomic-on-error), and the
+	handling of malformed input.
 */
 package policy
 

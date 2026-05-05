@@ -2,21 +2,22 @@
 FILE PATH: api/exchange/keystore/signer/signer_vault_test.go
 
 DESCRIPTION:
-    Sanity test that the keys/v1.Signer adapter composes correctly
-    against the Vault Transit backend (not just MemoryKeyStore). The
-    vault package's fakeVault httptest server is exercised end-to-end:
-    Generate → Adapter.Sign → RecoverSecp256k1 yields the stored
-    pubkey, exactly the same way it does for the in-memory backend.
-    This confirms the wire-shape translation works regardless of
-    custody backend.
+
+	Sanity test that the keys/v1.Signer adapter composes correctly
+	against the Vault Transit backend (not just MemoryKeyStore). The
+	vault package's fakeVault httptest server is exercised end-to-end:
+	Generate → Adapter.Sign → RecoverSecp256k1 yields the stored
+	pubkey, exactly the same way it does for the in-memory backend.
+	This confirms the wire-shape translation works regardless of
+	custody backend.
 */
 package signer_test
 
 import (
 	"bytes"
+	stdlibecdsa "crypto/ecdsa"
 	"crypto/ed25519"
 	stdliberand "crypto/rand"
-	stdlibecdsa "crypto/ecdsa"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
@@ -30,7 +31,7 @@ import (
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore/signer"
 	vaultks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/vault"

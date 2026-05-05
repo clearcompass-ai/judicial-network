@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/parties_query_test.go
 
 DESCRIPTION:
-    Validation contracts for the read-side party queries (list +
-    find-by-binding-id). Both require X-Parties-Log-DID + signer_did
-    query param.
+
+	Validation contracts for the read-side party queries (list +
+	find-by-binding-id). Both require X-Parties-Log-DID + signer_did
+	query param.
 */
 package judicial
 

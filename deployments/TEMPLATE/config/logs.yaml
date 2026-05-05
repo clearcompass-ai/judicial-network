@@ -3,12 +3,12 @@
 
 officers:
   did: "did:web:courts.JURISDICTION.gov:officers"
-  operator_endpoint: "https://operator.JURISDICTION.gov/v1"
+  ledger_endpoint: "https://ledger.JURISDICTION.gov/v1"
 
 cases:
   did: "did:web:courts.JURISDICTION.gov:cases"
-  operator_endpoint: "https://operator.JURISDICTION.gov/v1"
+  ledger_endpoint: "https://ledger.JURISDICTION.gov/v1"
 
 parties:
   did: "did:web:courts.JURISDICTION.gov:parties"
-  operator_endpoint: "https://operator.JURISDICTION.gov/v1"
+  ledger_endpoint: "https://ledger.JURISDICTION.gov/v1"

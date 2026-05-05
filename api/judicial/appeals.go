@@ -2,28 +2,29 @@
 FILE PATH: api/judicial/appeals.go
 
 DESCRIPTION:
-    Appellate handlers — the wired (non-cross-log) ones. Daily reality
-    of an appellate court:
 
-      POST /v1/judicial/appeals/decisions          → RecordDecision
-      POST /v1/judicial/appeals/mandates/affirm    → IssueMandateAffirm
+	Appellate handlers — the wired (non-cross-log) ones. Daily reality
+	of an appellate court:
 
-    The cross-log paths (FileAppeal, IssueMandateReverse,
-    TransferRecord) live in appeals_crosslog.go behind 501 stubs
-    deferred to C5 alongside the CrossLogProofBuilder helper.
+	  POST /v1/judicial/appeals/decisions          → RecordDecision
+	  POST /v1/judicial/appeals/mandates/affirm    → IssueMandateAffirm
 
-    RecordDecision is artifact-bearing: an appellate panel's opinion
-    is published as a Plaintext attachment, encrypted on the way
-    through. Affirm mandate is plain (no enforcement on the lower
-    court — the case stands).
+	The cross-log paths (FileAppeal, IssueMandateReverse,
+	TransferRecord) live in appeals_crosslog.go behind 501 stubs
+	deferred to C5 alongside the CrossLogProofBuilder helper.
+
+	RecordDecision is artifact-bearing: an appellate panel's opinion
+	is published as a Plaintext attachment, encrypted on the way
+	through. Affirm mandate is plain (no enforcement on the lower
+	court — the case stands).
 */
 package judicial
 
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/appeals"
 )
@@ -42,16 +43,16 @@ func registerAppealsRoutes(mux *http.ServeMux, deps *Dependencies) {
 // ─────────────────────────────────────────────────────────────────────
 
 type appealDecisionRequest struct {
-	Destination        string           `json:"destination"`
-	AppealCaseLogDID   string           `json:"appeal_case_log_did"`
-	AppealCaseSeq      uint64           `json:"appeal_case_seq"`
-	CandidatePositions []logPositionRef `json:"candidate_positions,omitempty"`
-	Outcome            string           `json:"outcome"` // affirm | reverse | remand | dismiss
-	OpinionPlaintextB64 string          `json:"opinion_plaintext_b64,omitempty"`
-	SchemaRef          uint64           `json:"schema_ref"`
-	SchemaLogDID       string           `json:"schema_log_did"`
-	RemandInstructions string           `json:"remand_instructions,omitempty"`
-	EventTime          int64            `json:"event_time,omitempty"`
+	Destination         string           `json:"destination"`
+	AppealCaseLogDID    string           `json:"appeal_case_log_did"`
+	AppealCaseSeq       uint64           `json:"appeal_case_seq"`
+	CandidatePositions  []logPositionRef `json:"candidate_positions,omitempty"`
+	Outcome             string           `json:"outcome"` // affirm | reverse | remand | dismiss
+	OpinionPlaintextB64 string           `json:"opinion_plaintext_b64,omitempty"`
+	SchemaRef           uint64           `json:"schema_ref"`
+	SchemaLogDID        string           `json:"schema_log_did"`
+	RemandInstructions  string           `json:"remand_instructions,omitempty"`
+	EventTime           int64            `json:"event_time,omitempty"`
 }
 
 type appealDecisionHandler struct{ deps *Dependencies }
@@ -115,17 +116,17 @@ func (h *appealDecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 // ─────────────────────────────────────────────────────────────────────
 
 type appealMandateAffirmRequest struct {
-	Destination          string  `json:"destination"`
-	LowerCourtCaseLogDID string  `json:"lower_court_case_log_did"`
-	LowerCourtCaseSeq    uint64  `json:"lower_court_case_seq"`
-	LowerCourtScopeLogDID string `json:"lower_court_scope_log_did"`
-	LowerCourtScopeSeq    uint64 `json:"lower_court_scope_seq"`
-	PriorAuthority       *logPositionRef `json:"prior_authority,omitempty"`
-	AppellateDecisionLogDID string `json:"appellate_decision_log_did"`
-	AppellateDecisionSeq    uint64 `json:"appellate_decision_seq"`
-	SchemaRef    *uint64 `json:"schema_ref,omitempty"`
-	SchemaLogDID string  `json:"schema_log_did,omitempty"`
-	EventTime    int64   `json:"event_time,omitempty"`
+	Destination             string          `json:"destination"`
+	LowerCourtCaseLogDID    string          `json:"lower_court_case_log_did"`
+	LowerCourtCaseSeq       uint64          `json:"lower_court_case_seq"`
+	LowerCourtScopeLogDID   string          `json:"lower_court_scope_log_did"`
+	LowerCourtScopeSeq      uint64          `json:"lower_court_scope_seq"`
+	PriorAuthority          *logPositionRef `json:"prior_authority,omitempty"`
+	AppellateDecisionLogDID string          `json:"appellate_decision_log_did"`
+	AppellateDecisionSeq    uint64          `json:"appellate_decision_seq"`
+	SchemaRef               *uint64         `json:"schema_ref,omitempty"`
+	SchemaLogDID            string          `json:"schema_log_did,omitempty"`
+	EventTime               int64           `json:"event_time,omitempty"`
 }
 
 type appealMandateAffirmHandler struct{ deps *Dependencies }

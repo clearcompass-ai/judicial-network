@@ -2,9 +2,10 @@
 FILE PATH: deployments/tn/sup_ct/role_catalog_test.go
 
 DESCRIPTION:
-    Tests for the TN Supreme Court role catalog. Pins the
-    chief_justice / justice / court_clerk surface and rejects
-    every non-Sup-Ct role name.
+
+	Tests for the TN Supreme Court role catalog. Pins the
+	chief_justice / justice / court_clerk surface and rejects
+	every non-Sup-Ct role name.
 */
 package sup_ct
 

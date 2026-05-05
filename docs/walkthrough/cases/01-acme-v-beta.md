@@ -1,7 +1,7 @@
 # Case 1 · *ACME Industries v. Beta Corp* — overview
 
 A civil contract dispute that gets appealed. **The appeal physically
-crosses operators**: the COA's appellate-disposition entry carries
+crosses ledgers**: the COA's appellate-disposition entry carries
 an `EvidencePointers` reference back to the trial-court entry,
 demonstrating the protocol's cross-exchange composition end-to-end.
 
@@ -29,7 +29,7 @@ which six months later **affirmed**.
 It's the simplest flow that exercises the **cross-exchange seam** —
 the protocol-level mechanism (`EvidencePointers`) by which one
 exchange's entry can cite another's without any prior trust
-relationship between the two operators. Every federated deployment
+relationship between the two ledgers. Every federated deployment
 will hit this pattern; the civil-appeal flow is the cleanest
 realization.
 
@@ -65,7 +65,7 @@ After both acts, the logs hold:
 | COA | 2 | `appellate_opinion_publication` | edwards | clerk | → COA:1 |
 
 That's the centerpiece: **COA sequence 1 carries an
-`EvidencePointers` pointer at Davidson sequence 1**. Two operators
+`EvidencePointers` pointer at Davidson sequence 1**. Two ledgers
 with no shared state, mediated by a single public cross-pointer.
 
 ## What's NOT in this case

@@ -2,36 +2,37 @@
 FILE PATH: cmd/judicial-cli/main.go
 
 DESCRIPTION:
-    judicial-cli — the judicial-network domain-aware client for talking
-    to a running operator over HTTP. This binary lives in
-    judicial-network (not the operator) because it knows about the
-    judicial event payloads (CivilCase, CounselAppearance, etc.) and
-    the cross-exchange composition pattern (EvidencePointers).
 
-    The operator is "dumb writes": POST /v1/entries accepts canonical
-    binary wire bytes. judicial-cli builds those bytes from a
-    human-readable JSON spec, signs them with one or more secp256k1
-    keys, and submits. It also offers ergonomic wrappers for the
-    operator's read endpoints (get / head / wait / inclusion).
+	judicial-cli — the judicial-network domain-aware client for talking
+	to a running ledger over HTTP. This binary lives in
+	judicial-network (not the ledger) because it knows about the
+	judicial event payloads (CivilCase, CounselAppearance, etc.) and
+	the cross-exchange composition pattern (EvidencePointers).
 
-    Subcommands:
-        keygen      mint a real did:key + secp256k1 private key
-        submit      read a JSON spec, build envelope, sign, POST
-        get         GET /v1/entries/{seq}        (or --raw for wire bytes)
-        head        GET /v1/tree/head             (cosigned tree head)
-        inclusion   GET /v1/tree/inclusion/{seq}  (Merkle inclusion proof)
-        wait        poll /v1/entries-hash/{hex}   until sequenced
-        version     print build version
+	The ledger is "dumb writes": POST /v1/entries accepts canonical
+	binary wire bytes. judicial-cli builds those bytes from a
+	human-readable JSON spec, signs them with one or more secp256k1
+	keys, and submits. It also offers ergonomic wrappers for the
+	ledger's read endpoints (get / head / wait / inclusion).
 
-    All transport is plain HTTP/HTTPS; no Privy, no embedded wallet.
-    Secp256k1 keypairs live as JSON files on disk. Production callers
-    swap key-loading for a signing service via the SDK's
-    identity.IdentityProvider interface.
+	Subcommands:
+	    keygen      mint a real did:key + secp256k1 private key
+	    submit      read a JSON spec, build envelope, sign, POST
+	    get         GET /v1/entries/{seq}        (or --raw for wire bytes)
+	    head        GET /v1/tree/head             (cosigned tree head)
+	    inclusion   GET /v1/tree/inclusion/{seq}  (Merkle inclusion proof)
+	    wait        poll /v1/entries-hash/{hex}   until sequenced
+	    version     print build version
+
+	All transport is plain HTTP/HTTPS; no Privy, no embedded wallet.
+	Secp256k1 keypairs live as JSON files on disk. Production callers
+	swap key-loading for a signing service via the SDK's
+	identity.IdentityProvider interface.
 
 KEY ARCHITECTURAL DECISIONS:
   - CLI is schema-agnostic at the wire layer. It reads the payload as
     a raw JSON object and includes it in the envelope verbatim. This
-    mirrors the operator's "I don't parse domain payloads" stance and
+    mirrors the ledger's "I don't parse domain payloads" stance and
     keeps judicial-cli small (no per-schema dispatch table).
   - Walkthrough docs supply the per-schema JSON shapes, citing the
     judicial-network/schemas/ struct file:line. A typo in JSON
@@ -39,13 +40,13 @@ KEY ARCHITECTURAL DECISIONS:
   - Cross-exchange composition is supported via the spec's
     "evidence_pointers" array — the entry's ControlHeader.EvidencePointers
     field is the SDK seam for cross-log references (cap 10 per
-    operator/api/middleware/evidence_cap.go:20).
+    ledger/api/middleware/evidence_cap.go:20).
 
 KEY DEPENDENCIES:
-  - github.com/clearcompass-ai/ortholog-sdk/core/envelope
-  - github.com/clearcompass-ai/ortholog-sdk/crypto/signatures
-  - github.com/clearcompass-ai/ortholog-sdk/did
-  - github.com/clearcompass-ai/ortholog-sdk/types
+  - github.com/clearcompass-ai/attesta/core/envelope
+  - github.com/clearcompass-ai/attesta/crypto/signatures
+  - github.com/clearcompass-ai/attesta/did
+  - github.com/clearcompass-ai/attesta/types
 */
 package main
 

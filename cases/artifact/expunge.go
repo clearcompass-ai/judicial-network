@@ -1,37 +1,40 @@
 /*
 FILE PATH:
-    cases/artifact/expunge.go
+
+	cases/artifact/expunge.go
 
 DESCRIPTION:
-    Destroys artifact keys and performs backend cleanup for cryptographic
-    erasure. Key destruction is THE cryptographic guarantee.
+
+	Destroys artifact keys and performs backend cleanup for cryptographic
+	erasure. Key destruction is THE cryptographic guarantee.
 
 KEY ARCHITECTURAL DECISIONS:
-    - AES-GCM: keyStore.Delete destroys the 44-byte ArtifactKey.
-    - PRE: delKeyStore.Delete destroys the wrapped delegation key.
-      Without the wrapped key, no one can call UnwrapDelegationKey,
-      so no new KFrags/CFrags can be produced. Existing CFrags become
-      useless without M valid fragments for a new capsule.
-    - Both deletions are attempted. Either alone is sufficient for
-      cryptographic erasure of the respective path.
-    - Content store deletion is defense-in-depth (IPFS returns 501).
+  - AES-GCM: keyStore.Delete destroys the 44-byte ArtifactKey.
+  - PRE: delKeyStore.Delete destroys the wrapped delegation key.
+    Without the wrapped key, no one can call UnwrapDelegationKey,
+    so no new KFrags/CFrags can be produced. Existing CFrags become
+    useless without M valid fragments for a new capsule.
+  - Both deletions are attempted. Either alone is sufficient for
+    cryptographic erasure of the respective path.
+  - Content store deletion is defense-in-depth (IPFS returns 501).
 
 OVERVIEW:
-    ExpungeArtifact: keyStore.Delete + delKeyStore.Delete + contentStore.Delete.
-    BatchExpunge: multiple CIDs, continues on individual failures.
+
+	ExpungeArtifact: keyStore.Delete + delKeyStore.Delete + contentStore.Delete.
+	BatchExpunge: multiple CIDs, continues on individual failures.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle/artifact: KeyStore for AES-GCM key destruction
-    - ortholog-sdk/storage: ContentStore for ciphertext removal
-    - DelegationKeyStore (defined in publish.go) for PRE key destruction
+  - attesta/lifecycle/artifact: KeyStore for AES-GCM key destruction
+  - attesta/storage: ContentStore for ciphertext removal
+  - DelegationKeyStore (defined in publish.go) for PRE key destruction
 */
 package artifact
 
 import (
 	"fmt"
 
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // -------------------------------------------------------------------------------------------------

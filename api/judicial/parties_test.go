@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/parties_test.go
 
 DESCRIPTION:
-    Validation contracts for partyBindingCreate, partyBindingUpdate,
-    partyCaseLink. Sealed-binding tests live in parties_sealed_test.go;
-    query tests live in parties_query_test.go.
+
+	Validation contracts for partyBindingCreate, partyBindingUpdate,
+	partyCaseLink. Sealed-binding tests live in parties_sealed_test.go;
+	query tests live in parties_query_test.go.
 */
 package judicial
 
@@ -141,7 +142,7 @@ func TestPartyCaseLink_NoCaller_401(t *testing.T) {
 	body := mustJSON(t, partyCaseLinkRequest{
 		Destination:    testDestination,
 		CaseRootLogDID: testCasesLog, CaseRootSeq: 100,
-		BindingLogDID:  testPartiesLog, BindingSeq: 1,
+		BindingLogDID: testPartiesLog, BindingSeq: 1,
 		BindingID:     "p-001",
 		PartiesLogDID: testPartiesLog,
 		PartyClass:    "plaintiff",
@@ -160,7 +161,7 @@ func TestPartyCaseLink_HappyPath(t *testing.T) {
 	body := mustJSON(t, partyCaseLinkRequest{
 		Destination:    testDestination,
 		CaseRootLogDID: testCasesLog, CaseRootSeq: 100,
-		BindingLogDID:  testPartiesLog, BindingSeq: 1,
+		BindingLogDID: testPartiesLog, BindingSeq: 1,
 		BindingID:     "p-001",
 		PartiesLogDID: testPartiesLog,
 		PartyClass:    "plaintiff",

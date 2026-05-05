@@ -1,21 +1,24 @@
 /*
 FILE PATH:
-    schemas/civil_case.go
+
+	schemas/civil_case.go
 
 DESCRIPTION:
-    Defines tn-civil-case-v1. AES-GCM encryption, open grant mode,
-    real_did identifier scope. Always real_did, aes_gcm, open, no grant entry.
+
+	Defines tn-civil-case-v1. AES-GCM encryption, open grant mode,
+	real_did identifier scope. Always real_did, aes_gcm, open, no grant entry.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Open grant mode: no authorization check on routine civil filings.
-    - Same sealing/unsealing enforcement behaviors as criminal case.
+  - Open grant mode: no authorization check on routine civil filings.
+  - Same sealing/unsealing enforcement behaviors as criminal case.
 
 OVERVIEW:
-    Civil litigation schema with plaintiff/defendant/claim_amount fields.
-    All SDK well-known fields included for SchemaParameterExtractor delegation.
+
+	Civil litigation schema with plaintiff/defendant/claim_amount fields.
+	All SDK well-known fields included for SchemaParameterExtractor delegation.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go: ThresholdConfig, SchemaPosition, SchemaRegistration
+  - schemas/registry.go: ThresholdConfig, SchemaPosition, SchemaRegistration
 */
 package schemas
 
@@ -100,7 +103,7 @@ func civilCaseRegistration() *SchemaRegistration {
 			}
 			return SerializeCivilCasePayload(p)
 		},
-		Deserialize: func(data []byte) (interface{}, error) { return DeserializeCivilCasePayload(data) },
+		Deserialize:     func(data []byte) (interface{}, error) { return DeserializeCivilCasePayload(data) },
 		DefaultParams:   DefaultCivilCaseParams,
 		IdentifierScope: IdentifierScopeRealDID,
 	}

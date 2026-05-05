@@ -11,20 +11,20 @@ KEY ARCHITECTURAL DECISIONS:
   - Wraps retrieve.go with enforcement-layer policy.
 
 OVERVIEW: GrantEvidenceAccess → sealed-mode artifact grant with enforcement checks.
-KEY DEPENDENCIES: ortholog-sdk/lifecycle, cases/artifact
+KEY DEPENDENCIES: attesta/lifecycle, cases/artifact
 */
 package enforcement
 
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

@@ -2,25 +2,26 @@
 FILE PATH: deployments/tn/sup_ct/bundle_test.go
 
 DESCRIPTION:
-    Tests pinning the TN Supreme Court Bundle composer:
-      - ExchangeDID matches the convention.
-      - All five surfaces non-nil.
-      - jurisdiction.Validate accepts.
-      - Composer fidelity (file vs bundle counts).
-      - AppellateVocabulary populated.
-      - Cross-exchange revocation rule reachable from the
-        bundle's CosignaturePolicy.
-      - Registry round-trip works.
-      - All three TN exchanges (Davidson, COA, Sup Ct) can
-        register into the same Registry without DID collision.
+
+	Tests pinning the TN Supreme Court Bundle composer:
+	  - ExchangeDID matches the convention.
+	  - All five surfaces non-nil.
+	  - jurisdiction.Validate accepts.
+	  - Composer fidelity (file vs bundle counts).
+	  - AppellateVocabulary populated.
+	  - Cross-exchange revocation rule reachable from the
+	    bundle's CosignaturePolicy.
+	  - Registry round-trip works.
+	  - All three TN exchanges (Davidson, COA, Sup Ct) can
+	    register into the same Registry without DID collision.
 */
 package sup_ct
 
 import (
 	"testing"
 
-	davidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 	"github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
+	davidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
 

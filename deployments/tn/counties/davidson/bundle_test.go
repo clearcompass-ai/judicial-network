@@ -2,17 +2,18 @@
 FILE PATH: deployments/tn/counties/davidson/bundle_test.go
 
 DESCRIPTION:
-    Tests pinning Davidson's composer Bundle:
-      - ExchangeDID matches the new convention
-        (did:web:state:tn:davidson).
-      - MustBundle does not panic and returns non-nil surfaces.
-      - jurisdiction.Validate accepts the shipped Bundle.
-      - The composer's role/cosig/prereq surfaces match the
-        underlying tn/trial framework (proves zero drift).
-      - AppellateVocabulary is the empty trial-only vocab.
-      - The placeholder AuthorityChainResolver fails closed.
-      - Registry round-trip works.
-      - BundleProvider returns the same Bundle.
+
+	Tests pinning Davidson's composer Bundle:
+	  - ExchangeDID matches the new convention
+	    (did:web:state:tn:davidson).
+	  - MustBundle does not panic and returns non-nil surfaces.
+	  - jurisdiction.Validate accepts the shipped Bundle.
+	  - The composer's role/cosig/prereq surfaces match the
+	    underlying tn/trial framework (proves zero drift).
+	  - AppellateVocabulary is the empty trial-only vocab.
+	  - The placeholder AuthorityChainResolver fails closed.
+	  - Registry round-trip works.
+	  - BundleProvider returns the same Bundle.
 */
 package davidson
 

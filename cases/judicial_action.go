@@ -1,13 +1,16 @@
 /*
 FILE PATH: cases/judicial_action.go
 DESCRIPTION: Judge signs via Path B delegation chain. SDK AssemblePathB resolves
-    the chain from judge back to court root. Builds Path B entry for orders.
+
+	the chain from judge back to court root. Builds Path B entry for orders.
+
 KEY ARCHITECTURAL DECISIONS:
-    - AssemblePathB validates and orders delegation pointers.
-    - BuildPathBEntry creates the delegated entry.
-    - Artifact encryption via same PublishArtifact pipeline as filing.go.
+  - AssemblePathB validates and orders delegation pointers.
+  - BuildPathBEntry creates the delegated entry.
+  - Artifact encryption via same PublishArtifact pipeline as filing.go.
+
 OVERVIEW: RecordJudicialAction → Path B entry for judge-signed orders.
-KEY DEPENDENCIES: ortholog-sdk/builder, cases/artifact
+KEY DEPENDENCIES: attesta/builder, cases/artifact
 */
 package cases
 
@@ -15,21 +18,21 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )
 
 // JudicialActionConfig configures a judge-signed action.
 type JudicialActionConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination        string // DID of target exchange. Required.
 	JudgeDID           string
 	CaseRootPos        types.LogPosition
 	ActionType         string // "ruling", "order", "sentence", "disposition"
@@ -132,7 +135,7 @@ func RecordJudicialAction(
 	}
 
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
-		Destination: cfg.Destination,
+		Destination:        cfg.Destination,
 		SignerDID:          cfg.JudgeDID,
 		TargetRoot:         cfg.CaseRootPos,
 		DelegationPointers: assembly.DelegationPointers,

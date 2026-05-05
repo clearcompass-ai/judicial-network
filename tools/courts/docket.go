@@ -82,10 +82,10 @@ func (s *Server) GetDocket(w http.ResponseWriter, r *http.Request) {
 		rows.Scan(&judgeDID, &courtrooms, &caseTypes, &pos, &division)
 		assignments = append(assignments, map[string]any{
 			"judge_did":    judgeDID,
-			"courtrooms":  courtrooms,
-			"case_types":  caseTypes,
+			"courtrooms":   courtrooms,
+			"case_types":   caseTypes,
 			"log_position": pos,
-			"division":    division,
+			"division":     division,
 		})
 	}
 
@@ -98,11 +98,11 @@ func (s *Server) GetDocket(w http.ResponseWriter, r *http.Request) {
 // Reassign handles POST /v1/docket/reassign.
 func (s *Server) Reassign(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Date        string   `json:"date"`
-		FromJudge   string   `json:"from_judge"`
-		ToJudge     string   `json:"to_judge"`
-		Courtrooms  []string `json:"courtrooms"`
-		Reason      string   `json:"reason"`
+		Date       string   `json:"date"`
+		FromJudge  string   `json:"from_judge"`
+		ToJudge    string   `json:"to_judge"`
+		Courtrooms []string `json:"courtrooms"`
+		Reason     string   `json:"reason"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")

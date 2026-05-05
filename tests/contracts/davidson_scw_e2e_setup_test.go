@@ -2,16 +2,17 @@
 FILE PATH: tests/contracts/davidson_scw_e2e_setup_test.go
 
 DESCRIPTION:
-    Test fixtures + harness for davidson_scw_e2e_test.go. Owns:
 
-      - SCW destination + DID + canonical addr / magic-value helpers
-      - scwE2EHarness: composed listener + signer.Adapter + SCW DID
-      - rebuildUnsignedEntry: independent rebuild used as the
-        signing-payload drift detector
+	Test fixtures + harness for davidson_scw_e2e_test.go. Owns:
 
-    Kept in a sibling file so the main e2e test stays under the
-    300-line cap and the harness can be shared by future SCW tests
-    (cross-court, sealing, etc.) without copy-paste.
+	  - SCW destination + DID + canonical addr / magic-value helpers
+	  - scwE2EHarness: composed listener + signer.Adapter + SCW DID
+	  - rebuildUnsignedEntry: independent rebuild used as the
+	    signing-payload drift detector
+
+	Kept in a sibling file so the main e2e test stays under the
+	300-line cap and the harness can be shared by future SCW tests
+	(cross-court, sealing, etc.) without copy-paste.
 */
 package contracts
 
@@ -20,8 +21,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
 
 	composerapi "github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
@@ -79,7 +80,7 @@ type scwE2EHarness struct {
 // newSCWE2EHarness wires:
 //   - memory keystore + controlling EOA generated under
 //     scwE2EOwnerDID
-//   - signer.Adapter bound to that EOA (Phase 8b)
+//   - signer.Adapter bound to that EOA
 //   - jurisdiction.Registry with Davidson registered + frozen
 //   - composer (api.NewServer) with judicial mounted at /v1/judicial/
 //   - judicial.SetCallerDIDResolver pinned to the SCW DID;

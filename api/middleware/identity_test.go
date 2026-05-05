@@ -2,17 +2,18 @@
 FILE PATH: api/middleware/identity_test.go
 
 DESCRIPTION:
-    Coverage for the identity context surface. Pinned properties:
 
-      1. WithCallerDID + CallerDIDFromContext round-trip preserves the DID.
-      2. Empty DID is a no-op (does not pollute context).
-      3. Reading from a context that never had a DID returns "".
-      4. Context key is unexported — external code can NOT set the key
-         via raw context.WithValue (compile-time + runtime check).
-      5. writeUnauth produces 401 with WWW-Authenticate: Bearer header
-         and an empty body (no diagnostic leakage).
-      6. Authenticator interface contract holds (compile-time check
-         on a stub).
+	Coverage for the identity context surface. Pinned properties:
+
+	  1. WithCallerDID + CallerDIDFromContext round-trip preserves the DID.
+	  2. Empty DID is a no-op (does not pollute context).
+	  3. Reading from a context that never had a DID returns "".
+	  4. Context key is unexported — external code can NOT set the key
+	     via raw context.WithValue (compile-time + runtime check).
+	  5. writeUnauth produces 401 with WWW-Authenticate: Bearer header
+	     and an empty body (no diagnostic leakage).
+	  6. Authenticator interface contract holds (compile-time check
+	     on a stub).
 */
 package middleware
 

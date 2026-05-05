@@ -2,32 +2,33 @@
 FILE PATH: api/middleware/reliability/transport.go
 
 DESCRIPTION:
-    Tuned http.Transport for the JN binary's outbound HTTP. The
-    primary call site is `submitToOperator` in
-    api/exchange/handlers/management.go, which previously used
-    `sdklog.DefaultClient(30s)` — that path inherits Go's stdlib
-    defaults including `MaxIdleConnsPerHost: 2`, which silently
-    caps each replica to ~2 concurrent operator submits regardless
-    of CPU.
 
-    Production deployments expect ~1000 TPS sustained. With the
-    stdlib default, JN spends most of its time waiting for free
-    connections instead of submitting; tail latencies blow up,
-    which the operator perceives as load that isn't really there.
+	Tuned http.Transport for the JN binary's outbound HTTP. The
+	primary call site is `submitToLedger` in
+	api/exchange/handlers/management.go, which previously used
+	`sdklog.DefaultClient(30s)` — that path inherits Go's stdlib
+	defaults including `MaxIdleConnsPerHost: 2`, which silently
+	caps each replica to ~2 concurrent ledger submits regardless
+	of CPU.
 
-    This package exposes:
+	Production deployments expect ~1000 TPS sustained. With the
+	stdlib default, JN spends most of its time waiting for free
+	connections instead of submitting; tail latencies blow up,
+	which the ledger perceives as load that isn't really there.
 
-      - NewTunedClient(...)  — *http.Client with sane production
-        defaults (MaxIdleConnsPerHost 256, MaxConnsPerHost 1024,
-        IdleConnTimeout 90s, ResponseHeaderTimeout 10s, expect-
-        continue 1s). Single source of truth — the binary swaps
-        sdklog.DefaultClient for this at boot.
+	This package exposes:
 
-      - DefaultClientConfig — the default *Config* values surfaced
-        as named constants so operators can override per-deploy.
+	  - NewTunedClient(...)  — *http.Client with sane production
+	    defaults (MaxIdleConnsPerHost 256, MaxConnsPerHost 1024,
+	    IdleConnTimeout 90s, ResponseHeaderTimeout 10s, expect-
+	    continue 1s). Single source of truth — the binary swaps
+	    sdklog.DefaultClient for this at boot.
 
-    No tunable defeats correctness. The settings here protect tail
-    latency under load; they do not change semantics.
+	  - DefaultClientConfig — the default *Config* values surfaced
+	    as named constants so ledgers can override per-deploy.
+
+	No tunable defeats correctness. The settings here protect tail
+	latency under load; they do not change semantics.
 */
 package reliability
 

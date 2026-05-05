@@ -185,7 +185,7 @@ func TestDailyDocket_Write_RequiresDelegation(t *testing.T) {
 func TestDailyDocket_Write_CreatesCommentaryEntry(t *testing.T) {
 	// POST /v1/docket/daily with valid delegation → builds
 	// commentary entry with tn-daily-assignment-v1 schema.
-	// Assert: entry submitted to operator via exchange.
+	// Assert: entry submitted to ledger via exchange.
 }
 
 // ─── Party Search ───────────────────────────────────────────────────

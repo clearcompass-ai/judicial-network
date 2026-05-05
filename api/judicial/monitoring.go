@@ -2,16 +2,17 @@
 FILE PATH: api/judicial/monitoring.go
 
 DESCRIPTION:
-    Monitoring handlers — operational-visibility checks the court ops
-    team runs to detect drift, broken delegations, missing artifacts.
 
-      POST /v1/judicial/monitoring/blob-availability   → CheckBlobAvailability
-      POST /v1/judicial/monitoring/delegation-health   → CheckDelegationHealth
-      GET  /v1/judicial/monitoring/anchor-freshness    → 501 (witness deps)
+	Monitoring handlers — operational-visibility checks the court ops
+	team runs to detect drift, broken delegations, missing artifacts.
 
-    Compliance-side (dual-attestation, mirror-consistency, sealing-
-    compliance, grant-compliance, shard-health, dashboard) lives in
-    monitoring_compliance.go.
+	  POST /v1/judicial/monitoring/blob-availability   → CheckBlobAvailability
+	  POST /v1/judicial/monitoring/delegation-health   → CheckDelegationHealth
+	  GET  /v1/judicial/monitoring/anchor-freshness    → 501 (witness deps)
+
+	Compliance-side (dual-attestation, mirror-consistency, sealing-
+	compliance, grant-compliance, shard-health, dashboard) lives in
+	monitoring_compliance.go.
 */
 package judicial
 
@@ -19,9 +20,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/witness"
 
 	"github.com/clearcompass-ai/judicial-network/monitoring"
 )
@@ -139,7 +140,7 @@ func (h *monDelegationHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 // ─────────────────────────────────────────────────────────────────────
 
 // monAnchorFreshnessHandler wraps monitoring.CheckAnchorFreshness.
-// Reads the local + parent log DIDs, anchor cadence, and operator
+// Reads the local + parent log DIDs, anchor cadence, and ledger
 // signer DID from query params; uses Dependencies.LogQueries +
 // TreeHeadClient. 503 when TreeHeadClient is unconfigured.
 type monAnchorFreshnessHandler struct{ deps *Dependencies }
@@ -157,10 +158,10 @@ func (h *monAnchorFreshnessHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	q := r.URL.Query()
 	localLogDID := q.Get("local_log_did")
 	parentLogDID := q.Get("parent_log_did")
-	operatorSignerDID := q.Get("operator_signer_did")
-	if localLogDID == "" || parentLogDID == "" || operatorSignerDID == "" {
+	ledgerSignerDID := q.Get("ledger_signer_did")
+	if localLogDID == "" || parentLogDID == "" || ledgerSignerDID == "" {
 		writeError(w, http.StatusBadRequest,
-			"local_log_did, parent_log_did, operator_signer_did all required")
+			"local_log_did, parent_log_did, ledger_signer_did all required")
 		return
 	}
 	queryAPI, ok := h.deps.LogQueries[localLogDID]
@@ -172,7 +173,7 @@ func (h *monAnchorFreshnessHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	cfg := monitoring.AnchorFreshnessConfig{
 		LocalLogDID:          localLogDID,
 		ParentLogDID:         parentLogDID,
-		OperatorSignerDID:    operatorSignerDID,
+		LedgerSignerDID:      ledgerSignerDID,
 		AnchorIntervalTarget: parseDurationDefault(q.Get("interval_target"), time.Hour),
 		WarningThreshold:     parseDurationDefault(q.Get("warning_threshold"), 90*time.Minute),
 		CriticalThreshold:    parseDurationDefault(q.Get("critical_threshold"), 3*time.Hour),
@@ -199,7 +200,7 @@ func parseDurationDefault(s string, fallback time.Duration) time.Duration {
 	return d
 }
 
-// queryAPIFor resolves an OperatorQueryAPI from Dependencies.LogQueries.
+// queryAPIFor resolves an LedgerQueryAPI from Dependencies.LogQueries.
 // Used by every monitoring handler that scans a single log.
 func (deps *Dependencies) queryAPIFor(logDID string) (interface {
 	QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)

@@ -2,11 +2,12 @@
 FILE PATH: enforcement/unsealing.go
 DESCRIPTION: Path C unsealing order with cosignature requirement.
 KEY ARCHITECTURAL DECISIONS:
-    - Requires cosignature from another judge (threshold=1 per sealing schema).
-    - Uses lifecycle.BuildApprovalCosignature for the cosignature entry.
-    - Same activation pattern: conditions → contest check → activate.
+  - Requires cosignature from another judge (threshold=1 per sealing schema).
+  - Uses lifecycle.BuildApprovalCosignature for the cosignature entry.
+  - Same activation pattern: conditions → contest check → activate.
+
 OVERVIEW: UnsealCase → enforcement entry. RequestUnsealCosignature → cosig.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/lifecycle, ortholog-sdk/verifier
+KEY DEPENDENCIES: attesta/builder, attesta/lifecycle, attesta/verifier
 */
 package enforcement
 
@@ -14,14 +15,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 type UnsealingConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination    string // DID of target exchange. Required.
 	JudgeDID       string
 	CaseRootPos    types.LogPosition
 	ScopePos       types.LogPosition
@@ -49,7 +50,7 @@ func UnsealCase(cfg UnsealingConfig) (*SealingResult, error) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: cfg.Destination,
+		Destination:    cfg.Destination,
 		SignerDID:      cfg.JudgeDID,
 		TargetRoot:     cfg.CaseRootPos,
 		ScopePointer:   cfg.ScopePos,

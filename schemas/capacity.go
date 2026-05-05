@@ -2,33 +2,35 @@
 FILE PATH: schemas/capacity.go
 
 DESCRIPTION:
-    FiledByCapacity — the on-log credentials claim that an
-    ActorFiler embeds in their entry's payload. Per the v1.4 Event
-    Dictionary's Tier 2 cosignature requirement (Flag #1), every
-    entry submitted by a filer (Prosecutor, Defense Counsel, Civil
-    Attorney, Fiduciary, Guardian ad litem) must carry both:
 
-      - a `filed_by_capacity` block in the payload that declares
-        the filer's role and credentials (BPR number, jurisdiction,
-        firm); and
-      - a cosignature from the DID stated in `filed_by_capacity.did`
-        (the filer's attestation that they really filed it).
+	FiledByCapacity — the on-log credentials claim that an
+	ActorFiler embeds in their entry's payload. Per the v1.4 Event
+	Dictionary's Tier 2 cosignature requirement (Flag #1), every
+	entry submitted by a filer (Prosecutor, Defense Counsel, Civil
+	Attorney, Fiduciary, Guardian ad litem) must carry both:
 
-    The Phase 3D verifier walks payload+signatures+policy+catalog
-    to enforce the bind. NO off-log registry of attorneys is
-    consulted — the on-log claim IS the truth, the cosignature IS
-    the attestation.
+	  - a `filed_by_capacity` block in the payload that declares
+	    the filer's role and credentials (BPR number, jurisdiction,
+	    firm); and
+	  - a cosignature from the DID stated in `filed_by_capacity.did`
+	    (the filer's attestation that they really filed it).
+
+	The  verifier walks payload+signatures+policy+catalog
+	to enforce the bind. NO off-log registry of attorneys is
+	consulted — the on-log claim IS the truth, the cosignature IS
+	the attestation.
 
 OVERVIEW:
-    FilerRole               — closed-set Tier 2 role enum (5 values).
-    FiledByCapacity         — the payload-embedded claim struct.
-    Validate                — structural sanity (rejects ActorSigner
-                              / ActorParty / unknown roles).
-    ExtractFiledByCapacity  — parses payload bytes; returns
-                              (nil, false, nil) when absent.
+
+	FilerRole               — closed-set Tier 2 role enum (5 values).
+	FiledByCapacity         — the payload-embedded claim struct.
+	Validate                — structural sanity (rejects ActorSigner
+	                          / ActorParty / unknown roles).
+	ExtractFiledByCapacity  — parses payload bytes; returns
+	                          (nil, false, nil) when absent.
 
 KEY DEPENDENCIES:
-    - schemas/actor.go (Actor enum; capacity.Actor must be ActorFiler).
+  - schemas/actor.go (Actor enum; capacity.Actor must be ActorFiler).
 */
 package schemas
 
@@ -41,7 +43,7 @@ import (
 
 // FilerRole enumerates the closed-set Tier 2 (ActorFiler) roles per
 // the v1.4 Event Dictionary, Part 1. Stable identifiers; never
-// renumber. The Phase 3C cosignature-mix policy keys on these.
+// renumber. The  cosignature-mix policy keys on these.
 type FilerRole string
 
 const (
@@ -81,7 +83,7 @@ func (r FilerRole) IsValid() bool {
 
 // FiledByCapacity is the payload-embedded credentials claim. The
 // JSON shape is the on-log truth — every field tag is part of the
-// public contract. The aggregator (Phase 3E) reads this verbatim
+// public contract. The aggregator reads this verbatim
 // into Postgres; verifiers parse it for the cosignature check.
 type FiledByCapacity struct {
 	// Actor classifies the filer. Must equal ActorFiler (=2);
@@ -93,7 +95,7 @@ type FiledByCapacity struct {
 
 	// DID is the filer's signing DID (typically a Privy embedded
 	// wallet's did:key). Required, must appear in the entry's
-	// Signatures — the Phase 3D verifier enforces this binding.
+	// Signatures — the  verifier enforces this binding.
 	DID string `json:"did"`
 
 	// Credentials is the role's free-form credential map. Required
@@ -168,14 +170,14 @@ func (c *FiledByCapacity) HasCredential(key string) bool {
 // ExtractFiledByCapacity parses the `filed_by_capacity` block out
 // of a domain payload. Three return shapes:
 //
-//   nil, false, nil  — payload is empty / not JSON / has no
-//                      filed_by_capacity key. NOT all entries are
-//                      filings; this is the common case.
-//   *cap, true, nil  — payload had a parseable filed_by_capacity
-//                      block. Validate is NOT called here; the
-//                      verifier runs that.
-//   nil, false, err  — payload had a `filed_by_capacity` key but
-//                      the block could not be parsed.
+//	nil, false, nil  — payload is empty / not JSON / has no
+//	                   filed_by_capacity key. NOT all entries are
+//	                   filings; this is the common case.
+//	*cap, true, nil  — payload had a parseable filed_by_capacity
+//	                   block. Validate is NOT called here; the
+//	                   verifier runs that.
+//	nil, false, err  — payload had a `filed_by_capacity` key but
+//	                   the block could not be parsed.
 func ExtractFiledByCapacity(payload []byte) (*FiledByCapacity, bool, error) {
 	if len(payload) == 0 {
 		return nil, false, nil

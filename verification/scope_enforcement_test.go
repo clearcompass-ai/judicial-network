@@ -2,11 +2,12 @@
 FILE PATH: verification/scope_enforcement_test.go
 
 COVERAGE:
-    All branches in scope_enforcement.go: empty chain, missing
-    SchemaRef, fetcher errors, malformed delegation payload, both
-    scope_limit shapes (array + CSV string), unrestricted scope,
-    multi-hop chain with narrowing, case insensitivity, and the
-    *ScopeViolation rich error path.
+
+	All branches in scope_enforcement.go: empty chain, missing
+	SchemaRef, fetcher errors, malformed delegation payload, both
+	scope_limit shapes (array + CSV string), unrestricted scope,
+	multi-hop chain with narrowing, case insensitivity, and the
+	*ScopeViolation rich error path.
 */
 package verification
 
@@ -15,8 +16,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )

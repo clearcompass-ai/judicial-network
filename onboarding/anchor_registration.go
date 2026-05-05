@@ -1,42 +1,48 @@
 /*
 FILE PATH: onboarding/anchor_registration.go
 DESCRIPTION: Publishes the first anchor entry from a newly-provisioned county
-    log to its parent (state) log. The state operator watches for this anchor
-    to admit the county into the network.
+
+	log to its parent (state) log. The state ledger watches for this anchor
+	to admit the county into the network.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses builder.BuildAnchorEntry (commentary, zero SMT impact).
-    - Fetches the county log's initial cosigned tree head via TreeHeadClient
-      (the head that includes the provisioning entries — scope entity,
-      delegations, schemas).
-    - Returns the anchor entry for submission to the state log by the caller.
+  - Uses builder.BuildAnchorEntry (commentary, zero SMT impact).
+  - Fetches the county log's initial cosigned tree head via TreeHeadClient
+    (the head that includes the provisioning entries — scope entity,
+    delegations, schemas).
+  - Returns the anchor entry for submission to the state log by the caller.
+
 OVERVIEW: RegisterFirstAnchor wraps topology/anchor_publisher for onboarding.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/witness
+KEY DEPENDENCIES: attesta/builder, attesta/witness, attesta/crypto/cosign
 */
 package onboarding
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	"github.com/clearcompass-ai/attesta/witness"
 )
 
 // AnchorRegistrationConfig configures the initial anchor publication.
 type AnchorRegistrationConfig struct {
 	Destination string // DID of target exchange. Required.
-	// CountyOperatorDID signs the anchor entry.
-	CountyOperatorDID string
+	// CountyLedgerDID signs the anchor entry.
+	CountyLedgerDID string
 
 	// CountyLogDID is the newly-provisioned county log being anchored.
 	CountyLogDID string
 
 	// ParentLogDID is the state log receiving the anchor.
 	ParentLogDID string
+
+	// NetworkID binds the tree-head reference hash to a specific
+	// network/fork. Required: TreeHeadDigest rejects the zero value.
+	NetworkID cosign.NetworkID
 
 	// EventTime overrides the anchor timestamp. Zero → time.Now().
 	EventTime int64
@@ -59,13 +65,13 @@ type AnchorRegistrationResult struct {
 // Preconditions: the county log must have processed its provisioning
 // entries and produced a cosigned tree head (TreeHeadClient can fetch it).
 // If the county's tree head isn't available yet, this returns an error —
-// the caller retries after the county operator publishes its first head.
+// the caller retries after the county ledger publishes its first head.
 func RegisterFirstAnchor(
 	cfg AnchorRegistrationConfig,
 	treeHeadClient *witness.TreeHeadClient,
 ) (*AnchorRegistrationResult, error) {
-	if cfg.CountyOperatorDID == "" {
-		return nil, fmt.Errorf("onboarding/anchor_registration: empty county operator DID")
+	if cfg.CountyLedgerDID == "" {
+		return nil, fmt.Errorf("onboarding/anchor_registration: empty county ledger DID")
 	}
 	if cfg.CountyLogDID == "" || cfg.ParentLogDID == "" {
 		return nil, fmt.Errorf("onboarding/anchor_registration: both log DIDs required")
@@ -94,14 +100,18 @@ func RegisterFirstAnchor(
 		)
 	}
 
-	// Compute tree head reference hash.
-	msg := types.WitnessCosignMessage(head.TreeHead)
-	headHash := sha256.Sum256(msg[:])
+	// Compute tree head reference hash. Network-bound by construction:
+	// cosign.TreeHeadDigest mixes in NetworkID, so the same bytes under
+	// a different network produce a distinct digest.
+	headHash, err := cosign.TreeHeadDigest(head.TreeHead, cfg.NetworkID)
+	if err != nil {
+		return nil, fmt.Errorf("onboarding/anchor_registration: tree head digest: %w", err)
+	}
 	headRef := hex.EncodeToString(headHash[:])
 
 	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
-		Destination: cfg.Destination,
-		SignerDID:    cfg.CountyOperatorDID,
+		Destination:  cfg.Destination,
+		SignerDID:    cfg.CountyLedgerDID,
 		SourceLogDID: cfg.CountyLogDID,
 		TreeHeadRef:  headRef,
 		TreeSize:     head.TreeSize,

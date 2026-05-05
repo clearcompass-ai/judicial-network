@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/envelope"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
@@ -102,10 +102,10 @@ func (m *mockKS) ExportForEscrow(did string) (ed25519.PrivateKey, error) {
 var _ keystore.KeyStore = (*mockKS)(nil)
 
 // -------------------------------------------------------------------------
-// Mock operator
+// Mock ledger
 // -------------------------------------------------------------------------
 
-func mockOperator(t *testing.T) *httptest.Server {
+func mockLedger(t *testing.T) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -124,9 +124,9 @@ const testDestination = "did:web:exchange.test"
 
 func testDeps(t *testing.T) *Dependencies {
 	t.Helper()
-	op := mockOperator(t)
+	op := mockLedger(t)
 	return &Dependencies{
-		OperatorEndpoint:      op.URL,
+		LedgerEndpoint:        op.URL,
 		ArtifactStoreEndpoint: "http://localhost:0",
 		KeyStore:              newMockKS(),
 		Index:                 index.NewLogIndex(),
@@ -134,18 +134,18 @@ func testDeps(t *testing.T) *Dependencies {
 }
 
 // -------------------------------------------------------------------------
-// Phase 1E pin: shared operator submit client honors 503-Retry-After
+//  pin: shared ledger submit client honors 503-Retry-After
 // -------------------------------------------------------------------------
 
-// TestSubmitToOperator_RetriesOn503 pins the SDK-transport wiring for
-// the package-level operatorSubmitClient. A 503 with Retry-After: 1
+// TestSubmitToLedger_RetriesOn503 pins the SDK-transport wiring for
+// the package-level ledgerSubmitClient. A 503 with Retry-After: 1
 // followed by a 202 succeeds transparently — proving every
-// submit-to-operator site (entries.go EntrySubmitHandler /
+// submit-to-ledger site (entries.go EntrySubmitHandler /
 // EntryFullHandler, artifacts.go grant, management.go scope ops)
 // inherits 503-Retry-After backpressure honoring through the shared
 // client. A future regression that drops sdklog.DefaultClient back
 // to a bare http.Client breaks this test deterministically.
-func TestSubmitToOperator_RetriesOn503(t *testing.T) {
+func TestSubmitToLedger_RetriesOn503(t *testing.T) {
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		n := calls.Add(1)
@@ -161,7 +161,7 @@ func TestSubmitToOperator_RetriesOn503(t *testing.T) {
 	defer srv.Close()
 
 	rec := httptest.NewRecorder()
-	submitToOperator(rec, srv.URL, []byte("signed-entry-bytes"))
+	submitToLedger(rec, srv.URL, []byte("signed-entry-bytes"))
 
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("status: got %d, want 202\nbody: %s", rec.Code, rec.Body.String())
@@ -172,7 +172,7 @@ func TestSubmitToOperator_RetriesOn503(t *testing.T) {
 }
 
 // -------------------------------------------------------------------------
-// ArtifactPublishHandler — Phase 1C.1 BUG #3 mirror
+// ArtifactPublishHandler — .1 BUG #3 mirror
 // -------------------------------------------------------------------------
 
 // TestArtifactPublish_OversizeBody_Returns413 pins the BUG #3 mirror:
@@ -262,7 +262,7 @@ func TestBuildHandler_RootEntity(t *testing.T) {
 // payload-driven dispatch contract: the destination supplied in the
 // request body MUST land verbatim in entry.Header.Destination. A
 // regression where the build path silently substituted a process-level
-// default (the pre-Phase-1 single-tenant pattern) would surface here.
+// default (the previous single-tenant pattern) would surface here.
 //
 // The test deliberately uses an unusual DID value so a hard-coded
 // process default could not coincidentally match.

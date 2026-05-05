@@ -1,18 +1,23 @@
 /*
 FILE PATH: monitoring/evidence_grant_compliance.go
 DESCRIPTION: Monitors evidence artifact grant compliance. For every evidence
-    artifact whose schema has grant_entry_required or grant_requires_audit_entry
-    set, verifies that a commentary grant entry was published. Additionally,
-    verifies any published CFrags via PRE_VerifyCFrag (public-key only, no decrypt).
+
+	artifact whose schema has grant_entry_required or grant_requires_audit_entry
+	set, verifies that a commentary grant entry was published. Additionally,
+	verifies any published CFrags via PRE_VerifyCFrag (public-key only, no decrypt).
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses artifact.PRE_VerifyCFrag: public-key DLEQ verification, no private
-      key needed, no plaintext seen.
-    - Uses verifier.CheckActivationReady to confirm grant preconditions were
-      met at grant time (not retroactively evaluated at now).
-    - Builds BuildCommentary attestation entries on-log for AOC audit trail.
+  - Uses artifact.PRE_VerifyCFrag: public-key DLEQ verification, no private
+    key needed, no plaintext seen.
+  - Uses verifier.CheckActivationReady to confirm grant preconditions were
+    met at grant time (not retroactively evaluated at now).
+  - Builds BuildCommentary attestation entries on-log for AOC audit trail.
+
 OVERVIEW: CheckGrantCompliance scans grant entries, verifies each one, and
-    emits attestation commentary per configured cadence.
-KEY DEPENDENCIES: ortholog-sdk/crypto/artifact, ortholog-sdk/verifier, ortholog-sdk/builder
+
+	emits attestation commentary per configured cadence.
+
+KEY DEPENDENCIES: attesta/crypto/artifact, attesta/verifier, attesta/builder
 */
 package monitoring
 
@@ -23,21 +28,21 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 const MonitorGrantCompliance monitoring.MonitorID = "judicial.grant_compliance"
 
 // GrantComplianceConfig configures the evidence grant compliance monitor.
 type GrantComplianceConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination       string // DID of target exchange. Required.
 	LocalLogDID       string
 	ScanStartSeq      uint64
 	ScanCount         int
@@ -46,12 +51,12 @@ type GrantComplianceConfig struct {
 
 // GrantComplianceResult holds the scan outcome.
 type GrantComplianceResult struct {
-	GrantsScanned     int
-	GrantsVerified    int
-	GrantsFailed      int
-	CFragsVerified    int
-	CFragsFailed      int
-	Alerts            []monitoring.Alert
+	GrantsScanned      int
+	GrantsVerified     int
+	GrantsFailed       int
+	CFragsVerified     int
+	CFragsFailed       int
+	Alerts             []monitoring.Alert
 	AttestationEntries []*envelope.Entry
 }
 
@@ -59,7 +64,7 @@ type GrantComplianceResult struct {
 // each grant's CFrags (if PRE) and activation preconditions.
 func CheckGrantCompliance(
 	cfg GrantComplianceConfig,
-	queryAPI sdklog.OperatorQueryAPI,
+	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
 	leafReader interface{},
 	extractor schema.SchemaParameterExtractor,
@@ -92,13 +97,13 @@ func CheckGrantCompliance(
 		}
 
 		var payload struct {
-			GrantType     string `json:"grant_type"`
-			ArtifactCID   string `json:"artifact_cid"`
-			Scheme        string `json:"scheme"`
-			RecipientDID  string `json:"recipient_did"`
-			ContentDigest string `json:"content_digest"`
+			GrantType     string   `json:"grant_type"`
+			ArtifactCID   string   `json:"artifact_cid"`
+			Scheme        string   `json:"scheme"`
+			RecipientDID  string   `json:"recipient_did"`
+			ContentDigest string   `json:"content_digest"`
 			CFrags        []string `json:"cfrags,omitempty"`
-			Capsule       string `json:"capsule,omitempty"`
+			Capsule       string   `json:"capsule,omitempty"`
 			VKXHex        []string `json:"cfrag_vks,omitempty"`
 		}
 		if json.Unmarshal(entry.DomainPayload, &payload) != nil {
@@ -173,9 +178,9 @@ func CheckGrantCompliance(
 		})
 		attestation, bErr := builder.BuildCommentary(builder.CommentaryParams{
 			Destination: cfg.Destination,
-			SignerDID: cfg.AttesterSignerDID,
-			Payload:   attestPayload,
-			EventTime: now.UTC().UnixMicro(),
+			SignerDID:   cfg.AttesterSignerDID,
+			Payload:     attestPayload,
+			EventTime:   now.UTC().UnixMicro(),
 		})
 		if bErr == nil {
 			result.AttestationEntries = append(result.AttestationEntries, attestation)
@@ -207,7 +212,7 @@ func verifyPublishedCFrags(cfragsB64 []string, capsuleB64 string, vkHexes []stri
 		if i >= len(vkHexes) {
 			continue
 		}
-		// Placeholder: when operators extend grant payloads with
+		// Placeholder: when ledgers extend grant payloads with
 		// serialized CFrag fields, swap this check for the real call:
 		//     sdkartifact.PRE_VerifyCFrag(cfrag, capsule, vkX, vkY)
 		// Absent those fields, return no error — the recipient already

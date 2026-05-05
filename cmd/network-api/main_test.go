@@ -2,20 +2,21 @@
 FILE PATH: cmd/network-api/main_test.go
 
 DESCRIPTION:
-    Boot-time coverage for cmd/network-api. Pinned properties:
 
-      1. loadConfig honors --config flag; missing flag uses Defaults +
-         env overrides.
-      2. loadConfig fails fast on missing file / malformed JSON / invalid
-         operational config (each surface bubbles ErrInvalidConfig).
-      3. registerProductionBundles registers Davidson + COA + Sup. Ct.
-         and freezes; ExchangeDIDs come back sorted.
-      4. buildNonceStores constructs one store per registered destination
-         (memory backend) and surfaces errors for misconfigured Redis.
-      5. buildKeyStore returns the right backend for memory, errors with
-         a Phase-8 marker for softhsm / vault, errors on unknown backend.
-      6. The full run() entry point starts the server, serves /healthz,
-         and shuts down cleanly on context cancel.
+	Boot-time coverage for cmd/network-api. Pinned properties:
+
+	  1. loadConfig honors --config flag; missing flag uses Defaults +
+	     env overrides.
+	  2. loadConfig fails fast on missing file / malformed JSON / invalid
+	     operational config (each surface bubbles ErrInvalidConfig).
+	  3. registerProductionBundles registers Davidson + COA + Sup. Ct.
+	     and freezes; ExchangeDIDs come back sorted.
+	  4. buildNonceStores constructs one store per registered destination
+	     (memory backend) and surfaces errors for misconfigured Redis.
+	  5. buildKeyStore returns the right backend for memory, errors with
+	     a  marker for softhsm / vault, errors on unknown backend.
+	  6. The full run() entry point starts the server, serves /healthz,
+	     and shuts down cleanly on context cancel.
 */
 package main
 
@@ -72,7 +73,7 @@ func TestLoadConfig_ConfigFile_AndValidate(t *testing.T) {
 	clearAPIEnv(t)
 	cfgPath := writeJSON(t, map[string]any{
 		"listen_addr":             ":9001",
-		"operator_endpoint":       "http://op.test",
+		"ledger_endpoint":         "http://op.test",
 		"artifact_store_endpoint": "http://art.test",
 		"verification_endpoint":   "http://verify.test",
 		"eth_rpc_endpoint":        "http://rpc.test",
@@ -318,7 +319,7 @@ func TestBuildKeyStore_UnknownBackend_Errors(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// buildAuthenticator (Phase 5 wiring)
+// buildAuthenticator ( wiring)
 // ─────────────────────────────────────────────────────────────────────
 
 func TestBuildAuthenticator_MTLS_ReturnsMTLSAuth(t *testing.T) {
@@ -407,7 +408,7 @@ func TestBuildAuthenticator_FlowsThroughRunDeps(t *testing.T) {
 
 	cfgPath := writeJSON(t, map[string]any{
 		"listen_addr":             addr,
-		"operator_endpoint":       "http://op.test",
+		"ledger_endpoint":         "http://op.test",
 		"artifact_store_endpoint": "http://art.test",
 		"verification_endpoint":   "http://verify.test",
 		"eth_rpc_endpoint":        "http://rpc.test",
@@ -468,7 +469,7 @@ func TestRun_HealthzServedThenShutdown(t *testing.T) {
 
 	cfgPath := writeJSON(t, map[string]any{
 		"listen_addr":             addr,
-		"operator_endpoint":       "http://op.test",
+		"ledger_endpoint":         "http://op.test",
 		"artifact_store_endpoint": "http://art.test",
 		"verification_endpoint":   "http://verify.test",
 		"eth_rpc_endpoint":        "http://rpc.test",
@@ -481,7 +482,7 @@ func TestRun_HealthzServedThenShutdown(t *testing.T) {
 			// Plain HTTP for this smoke test — auth material with
 			// real TLS would require staging certs out-of-test.
 			// jwt mode + dummy issuer/jwks satisfies Validate.
-			"mode":      "jwt",
+			"mode":       "jwt",
 			"jwt_issuer": "https://idp.test",
 			"jwks_url":   "https://idp.test/.well-known/jwks.json",
 		},
@@ -562,7 +563,7 @@ func clearAPIEnv(t *testing.T) {
 	t.Helper()
 	for _, v := range []string{
 		"API_LISTEN_ADDR",
-		"API_OPERATOR_ENDPOINT",
+		"API_LEDGER_ENDPOINT",
 		"API_ARTIFACT_STORE_ENDPOINT",
 		"API_VERIFICATION_ENDPOINT",
 		"API_ETH_RPC_ENDPOINT",
@@ -595,7 +596,7 @@ func waitFor(t testing.TB, timeout time.Duration, cond func() bool) bool {
 // future tests in this package can use it without depending on
 // fixtures cross-package.
 //
-//nolint:unused // reserved for Phase 5 mTLS auth tests
+//nolint:unused // reserved for  mTLS auth tests
 func generateTestCAPEM(t *testing.T) []byte {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

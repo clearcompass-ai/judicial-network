@@ -137,12 +137,12 @@ func TestMigration_Ungraceful_EjectFailedExchange(t *testing.T) {
 }
 
 func TestMigration_BulkHistorical_CaseRoots(t *testing.T) {
-	// Import 100 historical cases. Phase 1 creates root entities.
+	// Import 100 historical cases.  creates root entities.
 	// Assert: 100 BuildRootEntity calls, ReportProgress called.
 }
 
 func TestMigration_BulkHistorical_RateLimit(t *testing.T) {
-	// RateLimit pacing: don't saturate operator.
+	// RateLimit pacing: don't saturate ledger.
 	// Assert: entries submitted at configured rate, not all at once.
 }
 

@@ -10,7 +10,7 @@ import (
 // Config holds all tools configuration. Loaded from JSON, overridable via env.
 type Config struct {
 	// Upstream services (domain layer — tools have no privilege over these).
-	OperatorURL      string `json:"operator_url"`
+	LedgerURL        string `json:"ledger_url"`
 	ArtifactStoreURL string `json:"artifact_store_url"`
 	ExchangeURL      string `json:"exchange_url"`
 	VerificationURL  string `json:"verification_url"`
@@ -40,7 +40,7 @@ type Config struct {
 // DefaultConfig returns a Config with sane defaults.
 func DefaultConfig() Config {
 	return Config{
-		OperatorURL:            "http://localhost:8001",
+		LedgerURL:              "http://localhost:8001",
 		ArtifactStoreURL:       "http://localhost:8002",
 		ExchangeURL:            "http://localhost:8003",
 		VerificationURL:        "http://localhost:8080",
@@ -72,7 +72,7 @@ func LoadConfig(path string) (Config, error) {
 	}
 
 	// Environment overrides take precedence.
-	envOverride(&cfg.OperatorURL, "TOOLS_OPERATOR_URL")
+	envOverride(&cfg.LedgerURL, "TOOLS_LEDGER_URL")
 	envOverride(&cfg.ArtifactStoreURL, "TOOLS_ARTIFACT_STORE_URL")
 	envOverride(&cfg.ExchangeURL, "TOOLS_EXCHANGE_URL")
 	envOverride(&cfg.VerificationURL, "TOOLS_VERIFICATION_URL")

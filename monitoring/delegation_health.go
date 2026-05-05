@@ -1,15 +1,18 @@
 /*
 FILE PATH: monitoring/delegation_health.go
 DESCRIPTION: Detects expired/revoked officers still signing entries, and
-    orphan delegations (delegations whose grantor is no longer authorized).
+
+	orphan delegations (delegations whose grantor is no longer authorized).
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses verifier.WalkDelegationTree to enumerate the current delegation forest.
-    - Uses builder.ClassifyEntry to bucket recent signatures by path —
-      any Path A/B/C entry signed by a non-live officer is an incident.
-    - Orphan check: a delegation is live (OriginTip==self) but its grantor's
-      own delegation is dead → chain of trust is broken.
+  - Uses verifier.WalkDelegationTree to enumerate the current delegation forest.
+  - Uses builder.ClassifyEntry to bucket recent signatures by path —
+    any Path A/B/C entry signed by a non-live officer is an incident.
+  - Orphan check: a delegation is live (OriginTip==self) but its grantor's
+    own delegation is dead → chain of trust is broken.
+
 OVERVIEW: CheckDelegationHealth returns alerts for expired signers + orphans.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier, ortholog-sdk/log
+KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/log
 */
 package monitoring
 
@@ -17,13 +20,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 const MonitorDelegationHealth monitoring.MonitorID = "judicial.delegation_health"
@@ -42,7 +45,7 @@ type DelegationHealthConfig struct {
 // delegations whose grantor chain is broken.
 func CheckDelegationHealth(
 	cfg DelegationHealthConfig,
-	queryAPI sdklog.OperatorQueryAPI,
+	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	now time.Time,

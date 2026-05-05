@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // GracefulMigrationConfig configures a cooperative exchange transfer.
 type GracefulMigrationConfig struct {
-	Destination string // DID of target exchange. Required.
-	CourtDID         string
+	Destination       string // DID of target exchange. Required.
+	CourtDID          string
 	SourceExchangeDID string
-	DestExchangeDID  string
-	OfficersLogDID   string
-	CasesLogDID      string
-	PartiesLogDID    string
-	NewAuthorityKeys []KeyMaterial
+	DestExchangeDID   string
+	OfficersLogDID    string
+	CasesLogDID       string
+	PartiesLogDID     string
+	NewAuthorityKeys  []KeyMaterial
 
 	// EntityPositions maps log DID → entity position for succession.
 	EntityPositions map[string]types.LogPosition
@@ -35,8 +35,8 @@ type KeyMaterial struct {
 
 // GracefulMigrationPlan contains all entries needed for the migration.
 type GracefulMigrationPlan struct {
-	SuccessionEntries  []*envelope.Entry
-	KeyRotationEntries []*envelope.Entry
+	SuccessionEntries     []*envelope.Entry
+	KeyRotationEntries    []*envelope.Entry
 	ArtifactReEncryptions []ArtifactReEncryption
 }
 
@@ -77,7 +77,7 @@ func PlanGracefulMigration(cfg GracefulMigrationConfig) (*GracefulMigrationPlan,
 		})
 
 		entry, err := builder.BuildSuccession(builder.SuccessionParams{
-			Destination: cfg.Destination,
+			Destination:  cfg.Destination,
 			SignerDID:    cfg.CourtDID,
 			TargetRoot:   entityPos,
 			NewSignerDID: cfg.DestExchangeDID,
@@ -97,7 +97,7 @@ func PlanGracefulMigration(cfg GracefulMigrationConfig) (*GracefulMigrationPlan,
 		})
 
 		entry, err := builder.BuildKeyRotation(builder.KeyRotationParams{
-			Destination: cfg.Destination,
+			Destination:  cfg.Destination,
 			SignerDID:    cfg.CourtDID,
 			TargetRoot:   key.EntityPos,
 			NewPublicKey: key.PublicKey,

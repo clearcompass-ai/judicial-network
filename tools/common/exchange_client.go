@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
+	sdklog "github.com/clearcompass-ai/attesta/log"
 )
 
 // ExchangeClient wraps the exchange's build-sign-submit API.
@@ -21,7 +21,7 @@ type ExchangeClient struct {
 // NewExchangeClient creates a client pointing at the exchange.
 //
 // HTTP transport: sdklog.DefaultClient — same SDK-tuned client the
-// exchange itself uses internally for operator submits (Phase 1E).
+// exchange itself uses internally for ledger submits.
 // Honors 503 + Retry-After from the exchange when WAL pressure
 // upstream propagates back as 503; absorbs locally instead of
 // surfacing to the human/CMS caller.
@@ -33,7 +33,7 @@ func NewExchangeClient(baseURL string) *ExchangeClient {
 }
 
 // SubmitEntry sends builder params to the exchange, which constructs,
-// signs, and submits the entry to the operator.
+// signs, and submits the entry to the ledger.
 //
 // params must include: "builder", "signer_did", "log_did", "domain_payload".
 // Optional: "target_root", "scope_pointer", "delegation_pointers", etc.
@@ -93,11 +93,11 @@ func (c *ExchangeClient) SubmitAmendment(signerDID, logDID string, targetRoot ui
 // SubmitEnforcement is a convenience for BuildEnforcement submissions.
 func (c *ExchangeClient) SubmitEnforcement(signerDID, logDID string, targetRoot, scopePointer uint64, payload map[string]any) (*SubmitResult, error) {
 	return c.SubmitEntry(map[string]any{
-		"builder":       "enforcement",
-		"signer_did":    signerDID,
-		"log_did":       logDID,
-		"target_root":   targetRoot,
-		"scope_pointer": scopePointer,
+		"builder":        "enforcement",
+		"signer_did":     signerDID,
+		"log_did":        logDID,
+		"target_root":    targetRoot,
+		"scope_pointer":  scopePointer,
 		"domain_payload": payload,
 	})
 }
@@ -105,12 +105,12 @@ func (c *ExchangeClient) SubmitEnforcement(signerDID, logDID string, targetRoot,
 // SubmitPathB is a convenience for BuildPathBEntry submissions.
 func (c *ExchangeClient) SubmitPathB(signerDID, logDID string, targetRoot uint64, delegationPointers []uint64, payload map[string]any) (*SubmitResult, error) {
 	return c.SubmitEntry(map[string]any{
-		"builder":              "path_b",
-		"signer_did":           signerDID,
-		"log_did":              logDID,
-		"target_root":          targetRoot,
-		"delegation_pointers":  delegationPointers,
-		"domain_payload":       payload,
+		"builder":             "path_b",
+		"signer_did":          signerDID,
+		"log_did":             logDID,
+		"target_root":         targetRoot,
+		"delegation_pointers": delegationPointers,
+		"domain_payload":      payload,
 	})
 }
 

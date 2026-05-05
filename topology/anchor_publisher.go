@@ -1,26 +1,30 @@
 /*
 FILE PATH: topology/anchor_publisher.go
 DESCRIPTION: Wraps SDK BuildAnchorEntry + TreeHeadClient. Publishes periodic
-    anchors from county log to state log.
+
+	anchors from county log to state log.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses builder.BuildAnchorEntry (commentary entry, zero SMT impact).
-    - Fetches tree head via witness.TreeHeadClient.
-    - Anchor entry payload: source_log_did, tree_head_ref, tree_size.
+  - Uses builder.BuildAnchorEntry (commentary entry, zero SMT impact).
+  - Fetches tree head via witness.TreeHeadClient.
+  - Anchor entry payload: source_log_did, tree_head_ref, tree_size.
+  - Tree-head reference hash is computed via cosign.TreeHeadDigest
+    so it is network-bound (rejects cross-network replay).
+
 OVERVIEW: PublishAnchor fetches latest tree head and builds anchor entry.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/witness, ortholog-sdk/types
+KEY DEPENDENCIES: attesta/builder, attesta/witness, attesta/crypto/cosign
 */
 package topology
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	"github.com/clearcompass-ai/attesta/witness"
 )
 
 // ExtractAnchorPayload parses the JSON payload produced by
@@ -54,17 +58,18 @@ func ExtractAnchorPayload(payload []byte) ([32]byte, error) {
 
 // AnchorConfig configures an anchor publishing operation.
 type AnchorConfig struct {
-	Destination string // DID of target exchange. Required.
-	SignerDID    string // Operator DID signing the anchor entry
+	Destination  string // DID of target exchange. Required.
+	SignerDID    string // Ledger DID signing the anchor entry
 	SourceLogDID string // Log being anchored (e.g., county cases log)
 	EventTime    int64
+	NetworkID    cosign.NetworkID // network-binding for the tree-head digest
 }
 
 // AnchorResult holds the output of anchor publishing.
 type AnchorResult struct {
-	Entry        *envelope.Entry
-	TreeHeadRef  string
-	TreeSize     uint64
+	Entry       *envelope.Entry
+	TreeHeadRef string
+	TreeSize    uint64
 }
 
 // PublishAnchor fetches the latest cosigned tree head for the source log
@@ -89,12 +94,14 @@ func PublishAnchor(
 		return nil, fmt.Errorf("topology/anchor: fetch tree head: %w", err)
 	}
 
-	msg := types.WitnessCosignMessage(head.TreeHead)
-	headHash := sha256.Sum256(msg[:])
+	headHash, err := cosign.TreeHeadDigest(head.TreeHead, cfg.NetworkID)
+	if err != nil {
+		return nil, fmt.Errorf("topology/anchor: tree head digest: %w", err)
+	}
 	headRef := hex.EncodeToString(headHash[:])
 
 	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
-		Destination: cfg.Destination,
+		Destination:  cfg.Destination,
 		SignerDID:    cfg.SignerDID,
 		SourceLogDID: cfg.SourceLogDID,
 		TreeHeadRef:  headRef,

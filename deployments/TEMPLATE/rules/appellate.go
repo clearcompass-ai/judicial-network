@@ -2,15 +2,17 @@
 FILE PATH: deployments/TEMPLATE/rules/appellate.go
 
 DESCRIPTION:
-    TEMPLATE deployment — AppellateVocabulary skeleton. Returns
-    the empty vocab for trial-only exchanges. Appellate
-    deployments override with their jurisdiction's closed-set
-    enums (see deployments/tn/coa/appellate.go for v1.8 §7B
-    closed-set values: 11 opinion types, 6 participation roles,
-    6 disposition outcomes, 3 review types).
+
+	TEMPLATE deployment — AppellateVocabulary skeleton. Returns
+	the empty vocab for trial-only exchanges. Appellate
+	deployments override with their jurisdiction's closed-set
+	enums (see deployments/tn/coa/appellate.go for v1.8 §7B
+	closed-set values: 11 opinion types, 6 participation roles,
+	6 disposition outcomes, 3 review types).
 
 OVERVIEW:
-    AppellateVocabulary  — returns jurisdiction.EmptyAppellateVocab().
+
+	AppellateVocabulary  — returns jurisdiction.EmptyAppellateVocab().
 */
 package rules
 

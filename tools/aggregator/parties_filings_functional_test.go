@@ -2,14 +2,15 @@
 FILE PATH: tools/aggregator/parties_filings_functional_test.go
 
 DESCRIPTION:
-    Functional emulation tests for BuildPartiesFilingRows.
-    Each test reproduces a real on-log entry shape so failures
-    map to user-visible regressions:
 
-      - Defense counsel files counsel_appearance, clerk cosigns.
-      - Pro Se litigant filing (no attorney_did, only binding_id).
+	Functional emulation tests for BuildPartiesFilingRows.
+	Each test reproduces a real on-log entry shape so failures
+	map to user-visible regressions:
 
-    Unit-level tests live in parties_filings_test.go.
+	  - Defense counsel files counsel_appearance, clerk cosigns.
+	  - Pro Se litigant filing (no attorney_did, only binding_id).
+
+	Unit-level tests live in parties_filings_test.go.
 */
 package aggregator
 

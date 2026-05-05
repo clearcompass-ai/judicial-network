@@ -2,17 +2,18 @@
 FILE PATH: deployments/TEMPLATE/rules/bundle_test.go
 
 DESCRIPTION:
-    Tests pinning the TEMPLATE Bundle composer:
-      - the placeholder ExchangeDID is the documented marker so
-        no production deployment accidentally inherits it,
-      - MustBundle does not panic and returns non-nil surfaces,
-      - jurisdiction.Validate accepts the skeleton out-of-the-
-        box (so a deployment can copy → run → fill in roles
-        without pre-validation breakage),
-      - the composer's surfaces match the underlying skeleton
-        files,
-      - the placeholder AuthorityChainResolver fails closed,
-      - registry round-trip works.
+
+	Tests pinning the TEMPLATE Bundle composer:
+	  - the placeholder ExchangeDID is the documented marker so
+	    no production deployment accidentally inherits it,
+	  - MustBundle does not panic and returns non-nil surfaces,
+	  - jurisdiction.Validate accepts the skeleton out-of-the-
+	    box (so a deployment can copy → run → fill in roles
+	    without pre-validation breakage),
+	  - the composer's surfaces match the underlying skeleton
+	    files,
+	  - the placeholder AuthorityChainResolver fails closed,
+	  - registry round-trip works.
 */
 package rules
 

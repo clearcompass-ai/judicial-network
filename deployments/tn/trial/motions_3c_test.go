@@ -2,14 +2,15 @@
 FILE PATH: deployments/tn/trial/motions_3c_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3C equitable, provisional & class motions.
-    Pins:
-      - 4 motion types (3 + 1 catch-all).
-      - Class certification is civil-only (the structural
-        invariant: only civil_attorneys move for class cert).
-      - Catch-all carries CustomTitleRequired.
-      - All §3C events reach both policies via the helpers.
-      - Walker accepts each with case_initiated.
+
+	Tests for v1.8 §3C equitable, provisional & class motions.
+	Pins:
+	  - 4 motion types (3 + 1 catch-all).
+	  - Class certification is civil-only (the structural
+	    invariant: only civil_attorneys move for class cert).
+	  - Catch-all carries CustomTitleRequired.
+	  - All §3C events reach both policies via the helpers.
+	  - Walker accepts each with case_initiated.
 */
 package trial
 

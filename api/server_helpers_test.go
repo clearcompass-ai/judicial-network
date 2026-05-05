@@ -2,18 +2,19 @@
 FILE PATH: api/server_helpers_test.go
 
 DESCRIPTION:
-    Smoke tests for the Phase 14 composer-side reliability wiring.
-    The reliability primitives have unit tests in
-    api/middleware/reliability/; tests here pin that NewServer
-    actually applies them to /v1/* routes.
 
-    Pinned:
-      1. Default Config (no rate limit, default 1 MiB body, no
-         timeout) accepts a normal request — backward compat.
-      2. Tiny GlobalBurst trips a 429 after the burst is exhausted.
-      3. MaxBodyBytes set tight rejects an oversized body with 413.
-      4. /healthz is NEVER wrapped — must remain reachable even
-         when other routes are rate-limited / size-capped.
+	Smoke tests for the  composer-side reliability wiring.
+	The reliability primitives have unit tests in
+	api/middleware/reliability/; tests here pin that NewServer
+	actually applies them to /v1/* routes.
+
+	Pinned:
+	  1. Default Config (no rate limit, default 1 MiB body, no
+	     timeout) accepts a normal request — backward compat.
+	  2. Tiny GlobalBurst trips a 429 after the burst is exhausted.
+	  3. MaxBodyBytes set tight rejects an oversized body with 413.
+	  4. /healthz is NEVER wrapped — must remain reachable even
+	     when other routes are rate-limited / size-capped.
 */
 package api
 

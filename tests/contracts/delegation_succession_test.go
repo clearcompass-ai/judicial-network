@@ -2,26 +2,27 @@
 FILE PATH: tests/contracts/delegation_succession_test.go
 
 DESCRIPTION:
-    The CJ-death scenario, end-to-end. Builds a 3-hop chain
-    (institutional → CJ_old → judge → court_clerk), then publishes
-    a judicial-succession-v1 entry naming a successor for the
-    chief-justice slot. Pins:
 
-      - The succession is a Path A entry signed by the
-        institutional DID with on-payload Authority_Set
-        cosignatures.
-      - When the leafBackend reports OriginTip = succession_pos
-        for CJ_old's leaf, AuthorityResolver passes through
-        (succession is authority-preserving).
-      - The OfficerRegistry transitions CJ_old → succeeded with
-        SuccessorDID = CJ_new.
-      - Downstream chains (judge → court_clerk) continue to
-        Resolve OK because their granter_delegation_ref still
-        points at CJ_old, and CJ_old's chain entry is still
-        live (not revoked).
-      - Inheritance modes (full / narrowed / clean_slate) all
-        produce on-log entries that round-trip through
-        UnmarshalJudicialSuccessionPayload.
+	The CJ-death scenario, end-to-end. Builds a 3-hop chain
+	(institutional → CJ_old → judge → court_clerk), then publishes
+	a judicial-succession-v1 entry naming a successor for the
+	chief-justice slot. Pins:
+
+	  - The succession is a Path A entry signed by the
+	    institutional DID with on-payload Authority_Set
+	    cosignatures.
+	  - When the leafBackend reports OriginTip = succession_pos
+	    for CJ_old's leaf, AuthorityResolver passes through
+	    (succession is authority-preserving).
+	  - The OfficerRegistry transitions CJ_old → succeeded with
+	    SuccessorDID = CJ_new.
+	  - Downstream chains (judge → court_clerk) continue to
+	    Resolve OK because their granter_delegation_ref still
+	    points at CJ_old, and CJ_old's chain entry is still
+	    live (not revoked).
+	  - Inheritance modes (full / narrowed / clean_slate) all
+	    produce on-log entries that round-trip through
+	    UnmarshalJudicialSuccessionPayload.
 */
 package contracts
 
@@ -29,9 +30,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 func TestDelegationSuccession_CJDeath_DownstreamChainsSurvive(t *testing.T) {

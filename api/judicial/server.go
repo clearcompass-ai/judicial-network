@@ -9,20 +9,20 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	"github.com/clearcompass-ai/attesta/did"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/clearcompass-ai/attesta/witness"
 
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/topology"
@@ -53,8 +53,8 @@ type Dependencies struct {
 	// jurisdiction-specific validation. Production: frozen at boot.
 	Registry *jurisdiction.Registry
 
-	// Operator-side reads. Set by the binary at boot.
-	LogQueries map[string]sdklog.OperatorQueryAPI // logDID → query API
+	// Ledger-side reads. Set by the binary at boot.
+	LogQueries map[string]sdklog.LedgerQueryAPI // logDID → query API
 	Fetcher    types.EntryFetcher
 	LeafReader smt.LeafReader
 
@@ -62,9 +62,10 @@ type Dependencies struct {
 	SchemaResolver builder.SchemaResolver
 	Extractor      schema.SchemaParameterExtractor
 	Resolver       did.DIDResolver
-	BLSVerifier    sdksigs.BLSVerifier
+	BLSVerifier    cosign.BLSAggregateVerifier
 	WitnessKeys    map[string][]types.WitnessPublicKey
 	WitnessQuorum  map[string]int
+	WitnessNetwork map[string]cosign.NetworkID // logDID → NetworkID
 
 	// Storage / artifact stores. Used by handlers that publish or
 	// retrieve documents.
@@ -75,7 +76,7 @@ type Dependencies struct {
 	// Cross-log proof prover (used by appeals / county transfer flows).
 	SourceProver verifier.MerkleProver
 
-	// TreeHeadClient fetches cosigned tree heads from operators +
+	// TreeHeadClient fetches cosigned tree heads from ledgers +
 	// witness fallbacks. Required by the anchor / topology handlers
 	// and by anchor-freshness monitoring. nil → those handlers
 	// surface 503 (configured via witness operational config).
@@ -135,7 +136,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	registerConsortiumRoutes(mux, &cfg.Deps)
 	// ── Delegation + Topology (operational stubs) ───────────────
 	registerDelegationTopologyRoutes(mux, &cfg.Deps)
-	// ── Escrow recovery (Phase 10) ──────────────────────────────
+	// ── Escrow recovery ──────────────────────────────
 	registerEscrowRoutes(mux, &cfg.Deps)
 
 	// Health (stand-alone deployments). Composed mode shadows this
@@ -190,7 +191,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 //
 // We also fall back to api/exchange/auth.SignerDIDFromContext for
 // backwards compat with callers that still come through the exchange's
-// own SignerAuth wrapper (pre-Phase-5 path).
+// own SignerAuth wrapper (previous path).
 func callerDID(r *http.Request) string {
 	if did := middlewareCallerDID(r); did != "" {
 		return did

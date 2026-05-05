@@ -2,39 +2,42 @@
 FILE PATH: prerequisites/walker.go
 
 DESCRIPTION:
-    Walker — evaluates an event_type against the prerequisite
-    policy and returns a closed-set verdict. Two intertwined gates:
 
-      1. Vocabulary. Reject up front if event_type is not in
-         policy.EventTypes(). This is the v1.6 "closed-set" promise.
+	Walker — evaluates an event_type against the prerequisite
+	policy and returns a closed-set verdict. Two intertwined gates:
 
-      2. Per-rule evaluation. For each Hard rule, the walker checks
-         the CaseContext and records a violation if unsatisfied.
-         Any Hard violation rejects the entry. Advisory violations
-         are surfaced but do not block.
+	  1. Vocabulary. Reject up front if event_type is not in
+	     policy.EventTypes(). This is the v1.6 "closed-set" promise.
 
-    Why a CaseContext (not a fetcher): the walker is a pure
-    function of (event_type × policy × ctx). The aggregator builds
-    the context once per case-root subtree and feeds the same data
-    to every walker call. Tests drive the walker with hand-built
-    contexts; production wiring (Phase 3E) plugs in a real subtree
-    scanner.
+	  2. Per-rule evaluation. For each Hard rule, the walker checks
+	     the CaseContext and records a violation if unsatisfied.
+	     Any Hard violation rejects the entry. Advisory violations
+	     are surfaced but do not block.
 
-    The walker DOES NOT fetch entries. The walker DOES NOT mutate
-    the policy. It is a small, testable predicate.
+	Why a CaseContext (not a fetcher): the walker is a pure
+	function of (event_type × policy × ctx). The aggregator builds
+	the context once per case-root subtree and feeds the same data
+	to every walker call. Tests drive the walker with hand-built
+	contexts; production wiring plugs in a real subtree
+	scanner.
+
+	The walker DOES NOT fetch entries. The walker DOES NOT mutate
+	the policy. It is a small, testable predicate.
 
 OVERVIEW:
-    Rejection         — closed-set rejection code.
-    CaseContext       — observed events + signer authorities.
-    Verdict           — outcome shape.
-    Violation         — single rule failure (mode + reason +
-                        rule pointer for audit).
-    Walker            — Check(eventType, ctx) Verdict.
-    HasObservedEvent  — helper.
-    HasAuthorityScope — helper.
+
+	Rejection         — closed-set rejection code.
+	CaseContext       — observed events + signer authorities.
+	Verdict           — outcome shape.
+	Violation         — single rule failure (mode + reason +
+	                    rule pointer for audit).
+	Walker            — Check(eventType, ctx) Verdict.
+	HasObservedEvent  — helper.
+	HasAuthorityScope — helper.
 
 KEY DEPENDENCIES:
-    None — only the Policy interface from policy.go.
+
+	None — only the Policy interface from policy.go.
 */
 package prerequisites
 

@@ -1,21 +1,26 @@
 /*
 FILE PATH: onboarding/schema_adoption.go
 DESCRIPTION: Adopts schemas from a source log (typically the state AOC log)
-    onto the local county log. Verifies the predecessor chain and migration
-    policy before publishing local copies.
+
+	onto the local county log. Verifies the predecessor chain and migration
+	policy before publishing local copies.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Two-phase design (SDK correction #6):
-        Phase 1 — verifier.WalkSchemaChain: builds the full version history
-        and checks for cycles / chain depth violations.
-        Phase 2 — verifier.EvaluateMigration: evaluates whether referencing
-        entries from a prior schema version is allowed under the migration
-        policy. Caller gets both results and can make an informed
-        adoption decision.
-    - Local copy: uses builder.BuildRootEntity with the source payload
-      (deterministic — same bytes → same CID).
+  - Two-phase design (SDK correction #6):
+    verifier.WalkSchemaChain: builds the full version history
+    and checks for cycles / chain depth violations.
+    verifier.EvaluateMigration: evaluates whether referencing
+    entries from a prior schema version is allowed under the migration
+    policy. Caller gets both results and can make an informed
+    adoption decision.
+  - Local copy: uses builder.BuildRootEntity with the source payload
+    (deterministic — same bytes → same CID).
+
 OVERVIEW: AdoptSchema runs both phases and returns an AdoptionReport plus
-    the local entries ready for submission.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier, ortholog-sdk/schema
+
+	the local entries ready for submission.
+
+KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/schema
 */
 package onboarding
 
@@ -23,11 +28,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // SchemaAdoptionConfig configures schema adoption.
@@ -41,8 +46,8 @@ type SchemaAdoptionConfig struct {
 
 	// HistoricalReference is an optional older schema version the caller
 	// wants to verify is still referenceable under the current migration
-	// policy. If non-nil, Phase 2 evaluates sourceSchemaRef → HistoricalReference.
-	// Zero (IsNull) skips Phase 2.
+	// policy. If non-nil,  evaluates sourceSchemaRef → HistoricalReference.
+	// Zero (IsNull) skips .
 	HistoricalReference types.LogPosition
 
 	// EventTime overrides the local entry timestamp. Zero → time.Now().
@@ -68,9 +73,9 @@ type AdoptionReport struct {
 
 // AdoptSchema runs the two-phase adoption process.
 //
-// Phase 1 is mandatory. Phase 2 runs only if HistoricalReference is non-zero.
-// A missing predecessor schema in the chain fails Phase 1. Migration
-// policies that forbid the reference fail Phase 2.
+//  is mandatory.  runs only if HistoricalReference is non-zero.
+// A missing predecessor schema in the chain fails . Migration
+// policies that forbid the reference fail .
 //
 // When both phases succeed, LocalEntry contains a local copy of the schema
 // entry, ready for submission. The caller is free to inspect SchemaChain
@@ -89,7 +94,7 @@ func AdoptSchema(
 
 	report := &AdoptionReport{}
 
-	// Phase 1: Walk the predecessor chain.
+	// : Walk the predecessor chain.
 	chain, err := verifier.WalkSchemaChain(cfg.SourceSchemaRef, fetcher, extractor)
 	if err != nil {
 		report.Reason = fmt.Sprintf("chain walk failed: %v", err)
@@ -97,7 +102,7 @@ func AdoptSchema(
 	}
 	report.SchemaChain = chain
 
-	// Phase 2: Migration evaluation (conditional).
+	// : Migration evaluation (conditional).
 	if !cfg.HistoricalReference.IsNull() {
 		migResult := verifier.EvaluateMigration(chain, cfg.SourceSchemaRef, cfg.HistoricalReference)
 		report.Migration = migResult

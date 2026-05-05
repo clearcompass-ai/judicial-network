@@ -2,44 +2,47 @@
 FILE PATH: delegation/succession.go
 
 DESCRIPTION:
-    Succeed — top-of-chain succession when an irreplaceable signer
-    (typically chief justice) dies, resigns, or is removed. Path A
-    Authority_Set entry: signed by the institutional DID with
-    cosignatures from the Authority_Set members per the
-    institution's cosignature_threshold (typically 2-of-3).
 
-    Origin_Tip of the target delegation advances to this succession
-    entry. AuthorityResolver follows the SuccessorDID transparently:
-    downstream chains (judges, clerks, deputies) granted by the
-    deceased signer remain valid, with their on-log granter
-    redirected to the successor.
+	Succeed — top-of-chain succession when an irreplaceable signer
+	(typically chief justice) dies, resigns, or is removed. Path A
+	Authority_Set entry: signed by the institutional DID with
+	cosignatures from the Authority_Set members per the
+	institution's cosignature_threshold (typically 2-of-3).
 
-    Inheritance modes:
-      - "full"        — successor inherits the original scope.
-      - "narrowed"    — successor inherits only the listed
-                        narrowed_scope tokens.
-      - "clean_slate" — successor inherits no chain authority;
-                        downstream re-issuance is required.
+	Origin_Tip of the target delegation advances to this succession
+	entry. AuthorityResolver follows the SuccessorDID transparently:
+	downstream chains (judges, clerks, deputies) granted by the
+	deceased signer remain valid, with their on-log granter
+	redirected to the successor.
 
-    Authority model: the catalog gate does NOT apply. The authority
-    to publish a succession comes from the institutional DID's
-    Authority_Set, enforced upstream by the
-    lifecycle.ScopeGovernance / Authority_Set cosignature contract.
+	Inheritance modes:
+	  - "full"        — successor inherits the original scope.
+	  - "narrowed"    — successor inherits only the listed
+	                    narrowed_scope tokens.
+	  - "clean_slate" — successor inherits no chain authority;
+	                    downstream re-issuance is required.
+
+	Authority model: the catalog gate does NOT apply. The authority
+	to publish a succession comes from the institutional DID's
+	Authority_Set, enforced upstream by the
+	lifecycle.ScopeGovernance / Authority_Set cosignature contract.
 
 OVERVIEW:
-    SuccessionRequest — caller-supplied parameters.
-    SuccessionResult  — assigned position + payload echo.
-    Succeed           — entry point.
+
+	SuccessionRequest — caller-supplied parameters.
+	SuccessionResult  — assigned position + payload echo.
+	Succeed           — entry point.
 
 KEY DEPENDENCIES:
-    - delegation/builders_common.go (BuildContext, signAndSubmit).
-    - schemas/judicial_amendments.go (JudicialSuccessionPayload).
+  - delegation/builders_common.go (BuildContext, signAndSubmit).
+  - schemas/judicial_amendments.go (JudicialSuccessionPayload).
 
 LEGACY NOTE:
-    Replaces the pre-Wave-2 RotateJudge / SuccessionConfig /
-    SuccessionResult shapes. The new model carries inheritance
-    semantics in the Domain Payload and is consumed by
-    AuthorityResolver's origin-aware chain walker.
+
+	Replaces the pre-Wave-2 RotateJudge / SuccessionConfig /
+	SuccessionResult shapes. The new model carries inheritance
+	semantics in the Domain Payload and is consumed by
+	AuthorityResolver's origin-aware chain walker.
 */
 package delegation
 
@@ -48,10 +51,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // SuccessionRequest is the input to Succeed.

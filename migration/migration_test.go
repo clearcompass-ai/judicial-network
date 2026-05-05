@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -27,7 +27,7 @@ const (
 
 func TestGracefulMigration_ProducesSuccessionEntries(t *testing.T) {
 	cfg := GracefulMigrationConfig{
-		Destination: "did:web:exchange.test",
+		Destination:       "did:web:exchange.test",
 		CourtDID:          courtDID,
 		SourceExchangeDID: sourceExchange,
 		DestExchangeDID:   destExchange,
@@ -67,7 +67,7 @@ func TestGracefulMigration_ProducesSuccessionEntries(t *testing.T) {
 
 func TestGracefulMigration_KeyRotationEntries(t *testing.T) {
 	cfg := GracefulMigrationConfig{
-		Destination: "did:web:exchange.test",
+		Destination:       "did:web:exchange.test",
 		CourtDID:          courtDID,
 		SourceExchangeDID: sourceExchange,
 		DestExchangeDID:   destExchange,
@@ -101,7 +101,7 @@ func TestGracefulMigration_KeyRotationEntries(t *testing.T) {
 
 func TestGracefulMigration_EmptyCourtDID_Rejected(t *testing.T) {
 	_, err := PlanGracefulMigration(GracefulMigrationConfig{
-		Destination: "did:web:exchange.test",
+		Destination:       "did:web:exchange.test",
 		SourceExchangeDID: sourceExchange,
 		DestExchangeDID:   destExchange,
 	})
@@ -113,7 +113,7 @@ func TestGracefulMigration_EmptyCourtDID_Rejected(t *testing.T) {
 func TestGracefulMigration_MissingExchangeDIDs_Rejected(t *testing.T) {
 	_, err := PlanGracefulMigration(GracefulMigrationConfig{
 		Destination: "did:web:exchange.test",
-		CourtDID: courtDID,
+		CourtDID:    courtDID,
 	})
 	if err == nil {
 		t.Fatal("expected error for missing exchange DIDs")
@@ -126,7 +126,7 @@ func TestGracefulMigration_MissingExchangeDIDs_Rejected(t *testing.T) {
 
 func TestUngracefulMigration_InitiateRecovery(t *testing.T) {
 	cfg := UngracefulMigrationConfig{
-		Destination: "did:web:exchange.test",
+		Destination:       "did:web:exchange.test",
 		CourtDID:          courtDID,
 		FailedExchangeDID: sourceExchange,
 		NewExchangeDID:    destExchange,
@@ -163,7 +163,7 @@ func TestUngracefulMigration_EmptyDIDs_Rejected(t *testing.T) {
 
 func TestPublishMigrationRecord(t *testing.T) {
 	cfg := UngracefulMigrationConfig{
-		Destination: "did:web:exchange.test",
+		Destination:       "did:web:exchange.test",
 		CourtDID:          courtDID,
 		FailedExchangeDID: sourceExchange,
 		NewExchangeDID:    destExchange,
@@ -199,10 +199,10 @@ func TestBulkImport_RootEntities(t *testing.T) {
 	for i, docket := range []string{"2020-CR-1001", "2021-CV-2002", "2022-CH-3003"} {
 		entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 			Destination: "did:web:exchange.test",
-			SignerDID: courtDID,
+			SignerDID:   courtDID,
 			Payload: mustJSON(t, map[string]any{
-				"docket_number": docket,
-				"import_source": "bulk_historical",
+				"docket_number":  docket,
+				"import_source":  "bulk_historical",
 				"original_court": courtDID,
 			}),
 		})
@@ -230,7 +230,7 @@ func TestSuccessionEntry_Shape(t *testing.T) {
 	entityPos := types.LogPosition{LogDID: officersLog, Sequence: 1}
 
 	entry, err := builder.BuildSuccession(builder.SuccessionParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    courtDID,
 		TargetRoot:   entityPos,
 		NewSignerDID: destExchange,

@@ -2,22 +2,23 @@
 FILE PATH: schemas/appellate_opinion_publication.go
 
 DESCRIPTION:
-    tn-appellate-opinion-publication-v1 — publication of an
-    opinion by an appellate panel. Mints the case-local
-    `opinion_id`. Per v1.8 §7B.2:
 
-      - Case-local mint: opinion_id is unique within an
-        appellate case root (the aggregator enforces).
-      - opinion_type: closed-set per the destination Bundle's
-        AppellateVocabulary (jurisdiction.AppellateVocab).
-      - author_did: the authoring Adjudicator's DID, or empty
-        for per_curiam.
-      - parts: optional list of part identifiers for opinions
-        structurally subdivided to support join-by-section.
+	tn-appellate-opinion-publication-v1 — publication of an
+	opinion by an appellate panel. Mints the case-local
+	`opinion_id`. Per v1.8 §7B.2:
 
-    The schema layer pins the structural shape; per-jurisdiction
-    enum membership is enforced by the verifier consulting the
-    Bundle's AppellateVocabulary at submit time.
+	  - Case-local mint: opinion_id is unique within an
+	    appellate case root (the aggregator enforces).
+	  - opinion_type: closed-set per the destination Bundle's
+	    AppellateVocabulary (jurisdiction.AppellateVocab).
+	  - author_did: the authoring Adjudicator's DID, or empty
+	    for per_curiam.
+	  - parts: optional list of part identifiers for opinions
+	    structurally subdivided to support join-by-section.
+
+	The schema layer pins the structural shape; per-jurisdiction
+	enum membership is enforced by the verifier consulting the
+	Bundle's AppellateVocabulary at submit time.
 */
 package schemas
 

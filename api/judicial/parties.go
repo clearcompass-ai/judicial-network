@@ -2,23 +2,24 @@
 FILE PATH: api/judicial/parties.go
 
 DESCRIPTION:
-    Party-binding handlers — every plaintiff, defendant, respondent,
-    petitioner, or state-actor side gets a binding entry on the
-    parties log when the case is filed.
 
-      POST /v1/judicial/parties/bindings              → CreateBinding
-      PATCH /v1/judicial/parties/bindings/{seq}/status → UpdateBinding
-      POST /v1/judicial/parties/case-links            → LinkPartyToCase
+	Party-binding handlers — every plaintiff, defendant, respondent,
+	petitioner, or state-actor side gets a binding entry on the
+	parties log when the case is filed.
 
-    Sealed bindings (artifact-bearing) live in parties_sealed.go;
-    queries (list, find-by-binding-id) live in parties_query.go.
+	  POST /v1/judicial/parties/bindings              → CreateBinding
+	  PATCH /v1/judicial/parties/bindings/{seq}/status → UpdateBinding
+	  POST /v1/judicial/parties/case-links            → LinkPartyToCase
+
+	Sealed bindings (artifact-bearing) live in parties_sealed.go;
+	queries (list, find-by-binding-id) live in parties_query.go.
 */
 package judicial
 
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/parties"
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -98,12 +99,12 @@ func (h *partyBindingCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 // ─────────────────────────────────────────────────────────────────────
 
 type partyBindingUpdateRequest struct {
-	Destination     string  `json:"destination"`
-	BindingLogDID   string  `json:"binding_log_did"`
-	NewStatus       string  `json:"new_status"` // active | withdrawn | dismissed
-	SchemaRef       *uint64 `json:"schema_ref,omitempty"`
-	SchemaLogDID    string  `json:"schema_log_did,omitempty"`
-	EventTime       int64   `json:"event_time,omitempty"`
+	Destination   string  `json:"destination"`
+	BindingLogDID string  `json:"binding_log_did"`
+	NewStatus     string  `json:"new_status"` // active | withdrawn | dismissed
+	SchemaRef     *uint64 `json:"schema_ref,omitempty"`
+	SchemaLogDID  string  `json:"schema_log_did,omitempty"`
+	EventTime     int64   `json:"event_time,omitempty"`
 }
 
 type partyBindingUpdateHandler struct{ deps *Dependencies }

@@ -2,35 +2,37 @@
 FILE PATH: deployments/tn/trial/role_catalog.go
 
 DESCRIPTION:
-    TN trial-court framework — Signer role catalog shared by
-    every Tennessee county exchange (Davidson, Shelby, Knox,
-    Hamilton, …). Each county composes its Bundle from this
-    framework plus its own ExchangeDID; the role definitions
-    are identical across counties.
 
-    Three Signer roles per the v1.8 Authority Summary:
+	TN trial-court framework — Signer role catalog shared by
+	every Tennessee county exchange (Davidson, Shelby, Knox,
+	Hamilton, …). Each county composes its Bundle from this
+	framework plus its own ExchangeDID; the role definitions
+	are identical across counties.
 
-      institutional_did ── grants ──> judge          (depth 0→1)
-      judge             ── grants ──> court_clerk    (depth 1→2)
-      judge             ── grants ──> court_reporter (depth 1→2)
+	Three Signer roles per the v1.8 Authority Summary:
 
-    Adjudicator subtypes (Magistrate, Chancellor, Justice) are
-    modeled as scope+division concerns inside the `judge` role,
-    not as separate role names. Clerk and Deputy Clerk collapse
-    to a single `court_clerk` — the cryptographic surface is
-    identical, deputy is an HR distinction the log does not need
-    to record.
+	  institutional_did ── grants ──> judge          (depth 0→1)
+	  judge             ── grants ──> court_clerk    (depth 1→2)
+	  judge             ── grants ──> court_reporter (depth 1→2)
 
-    Scope tokens follow the convention "verb:object", e.g.
-    "case_filing", "invite:court_clerk", "revoke:downstream",
-    "transcript_publication".
+	Adjudicator subtypes (Magistrate, Chancellor, Justice) are
+	modeled as scope+division concerns inside the `judge` role,
+	not as separate role names. Clerk and Deputy Clerk collapse
+	to a single `court_clerk` — the cryptographic surface is
+	identical, deputy is an HR distinction the log does not need
+	to record.
+
+	Scope tokens follow the convention "verb:object", e.g.
+	"case_filing", "invite:court_clerk", "revoke:downstream",
+	"transcript_publication".
 
 OVERVIEW:
-    Roles            — slice of Role definitions (3 roles).
-    MustRoleCatalog  — convenience constructor (panics on error).
+
+	Roles            — slice of Role definitions (3 roles).
+	MustRoleCatalog  — convenience constructor (panics on error).
 
 KEY DEPENDENCIES:
-    - schemas.Role / schemas.NewInMemoryCatalog (core types).
+  - schemas.Role / schemas.NewInMemoryCatalog (core types).
 */
 package trial
 

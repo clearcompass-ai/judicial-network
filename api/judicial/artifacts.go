@@ -2,20 +2,21 @@
 FILE PATH: api/judicial/artifacts.go
 
 DESCRIPTION:
-    Artifact handlers — direct publish/retrieve/expunge/reencrypt of
-    documents WITHOUT going through a case-binding wrapper. Daily
-    reality of these flows:
 
-      POST /v1/judicial/artifacts                       → PublishArtifact
-      GET  /v1/judicial/artifacts/retrieve              → RetrieveArtifact
-      DELETE /v1/judicial/artifacts/{cid}               → ExpungeArtifact
-      POST /v1/judicial/artifacts/reencrypt             → ReencryptArtifact
+	Artifact handlers — direct publish/retrieve/expunge/reencrypt of
+	documents WITHOUT going through a case-binding wrapper. Daily
+	reality of these flows:
 
-    The case-bound flows (file a document INTO a case) live in
-    cases_filings.go and call cases.File which wraps PublishArtifact.
-    These handlers are for raw artifact-store operations: bulk
-    document upload pre-case-creation, evidence-store retrievals
-    against pre-existing CIDs, key-rotation re-encryption, etc.
+	  POST /v1/judicial/artifacts                       → PublishArtifact
+	  GET  /v1/judicial/artifacts/retrieve              → RetrieveArtifact
+	  DELETE /v1/judicial/artifacts/{cid}               → ExpungeArtifact
+	  POST /v1/judicial/artifacts/reencrypt             → ReencryptArtifact
+
+	The case-bound flows (file a document INTO a case) live in
+	cases_filings.go and call cases.File which wraps PublishArtifact.
+	These handlers are for raw artifact-store operations: bulk
+	document upload pre-case-creation, evidence-store retrievals
+	against pre-existing CIDs, key-rotation re-encryption, etc.
 */
 package judicial
 
@@ -23,8 +24,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

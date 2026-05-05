@@ -2,18 +2,20 @@
 FILE PATH: verification/authority_resolver_walk.go
 
 DESCRIPTION:
-    The chain-walk algorithm for AuthorityResolver. Split out of
-    authority_resolver.go so that file can stay focused on the type
-    definitions and callers can navigate the walk independently.
+
+	The chain-walk algorithm for AuthorityResolver. Split out of
+	authority_resolver.go so that file can stay focused on the type
+	definitions and callers can navigate the walk independently.
 
 OVERVIEW:
-    Resolve — main entry point: walks tip→root, intersects scope per
-              hop, runs catalog validation at the end.
+
+	Resolve — main entry point: walks tip→root, intersects scope per
+	          hop, runs catalog validation at the end.
 
 KEY DEPENDENCIES:
-    - schemas.LogPositionRef (chain pointer shape)
-    - schemas.RoleCatalog (final-pass authority check)
-    - authority_resolver_origin.go (per-hop fetchAndValidate)
+  - schemas.LogPositionRef (chain pointer shape)
+  - schemas.RoleCatalog (final-pass authority check)
+  - authority_resolver_origin.go (per-hop fetchAndValidate)
 */
 package verification
 

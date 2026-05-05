@@ -2,36 +2,38 @@
 FILE PATH: deployments/TEMPLATE/rules/bundle.go
 
 DESCRIPTION:
-    TEMPLATE deployment — Bundle composer. Wires the four
-    skeleton policy files (role_catalog, cosignature_mix,
-    prerequisites, appellate) into a single jurisdiction.Bundle.
 
-    Copy this entire deployments/TEMPLATE/ tree to a new
-    deployments/<framework>/<court>/ tree, then:
-      1. Replace ExchangeDID with the deployment's actual DID
-         (e.g., did:web:state:tn:shelby for a TN county; or
-         did:web:fed:trial:tnm for a federal trial court).
-      2. Edit role_catalog.go to add the deployment's Signer
-         roles.
-      3. Edit cosignature_mix.go to define the cosignature mix.
-      4. Edit prerequisites.go to define the event vocabulary
-         and per-event prereqs.
-      5. (Appellate exchanges only) edit appellate.go to define
-         the closed-set payload-enum vocabulary.
+	TEMPLATE deployment — Bundle composer. Wires the four
+	skeleton policy files (role_catalog, cosignature_mix,
+	prerequisites, appellate) into a single jurisdiction.Bundle.
 
-    The skeleton compiles, passes jurisdiction.Validate, and
-    registers cleanly into a jurisdiction.Registry — but the
-    placeholder ExchangeDID makes it unsafe for production until
-    the actual DID is wired.
+	Copy this entire deployments/TEMPLATE/ tree to a new
+	deployments/<framework>/<court>/ tree, then:
+	  1. Replace ExchangeDID with the deployment's actual DID
+	     (e.g., did:web:state:tn:shelby for a TN county; or
+	     did:web:fed:trial:tnm for a federal trial court).
+	  2. Edit role_catalog.go to add the deployment's Signer
+	     roles.
+	  3. Edit cosignature_mix.go to define the cosignature mix.
+	  4. Edit prerequisites.go to define the event vocabulary
+	     and per-event prereqs.
+	  5. (Appellate exchanges only) edit appellate.go to define
+	     the closed-set payload-enum vocabulary.
+
+	The skeleton compiles, passes jurisdiction.Validate, and
+	registers cleanly into a jurisdiction.Registry — but the
+	placeholder ExchangeDID makes it unsafe for production until
+	the actual DID is wired.
 
 OVERVIEW:
-    ExchangeDID    — institutional DID constant (PLACEHOLDER).
-    MustBundle     — canonical Bundle factory (panics on error).
-    BundleProvider — jurisdiction.Provider for v3 plugin loading.
-    bundle         — unexported impl of jurisdiction.Bundle.
+
+	ExchangeDID    — institutional DID constant (PLACEHOLDER).
+	MustBundle     — canonical Bundle factory (panics on error).
+	BundleProvider — jurisdiction.Provider for v3 plugin loading.
+	bundle         — unexported impl of jurisdiction.Bundle.
 
 KEY DEPENDENCIES:
-    - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
+  - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
 */
 package rules
 

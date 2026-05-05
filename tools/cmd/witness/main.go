@@ -2,34 +2,35 @@
 FILE PATH: tools/cmd/witness/main.go
 
 DESCRIPTION:
-    Standalone witness cosigning daemon. Closes the
-    "operator self-signs unwitnessed in dev" gap from the
-    walkthrough by running an independent cosignature loop:
 
-      1. Periodically fetch the latest tree head from each
-         configured operator endpoint via *witness.TreeHeadClient.
-      2. Sign the canonical 40-byte WitnessCosignMessage with the
-         daemon's BLS witness key.
-      3. POST the cosignature back to the operator's witness-
-         accept endpoint (default: <operator>/v1/cosignatures).
+	Standalone witness cosigning daemon. Closes the
+	"ledger self-signs unwitnessed in dev" gap from the
+	walkthrough by running an independent cosignature loop:
 
-    The daemon is independent of any single court — operators run
-    one daemon instance per witness identity, configured with the
-    set of log DIDs it cosigns. Cross-tenant by construction.
+	  1. Periodically fetch the latest tree head from each
+	     configured ledger endpoint via *witness.TreeHeadClient.
+	  2. Sign the canonical 40-byte WitnessCosignMessage with the
+	     daemon's BLS witness key.
+	  3. POST the cosignature back to the ledger's witness-
+	     accept endpoint (default: <ledger>/v1/cosignatures).
 
-    Probes (/healthz, /readyz, /metrics) follow the same pattern
-    as the aggregator binary so cluster operators can scrape +
-    monitor uniformly.
+	The daemon is independent of any single court — ledgers run
+	one daemon instance per witness identity, configured with the
+	set of log DIDs it cosigns. Cross-tenant by construction.
 
-    What this daemon does NOT do:
-      - Does not register the witness key on-chain. Witness key
-        registration is governance-driven; the daemon assumes its
-        public key is already in the operator's accepted-witness
-        set.
-      - Does not detect equivocation. The SDK has equivocation
-        detection (witness/equivocation.go) but invoking it from
-        a polling daemon requires a per-log historical store
-        that's outside this binary's scope. Future commit.
+	Probes (/healthz, /readyz, /metrics) follow the same pattern
+	as the aggregator binary so cluster ledgers can scrape +
+	monitor uniformly.
+
+	What this daemon does NOT do:
+	  - Does not register the witness key on-chain. Witness key
+	    registration is governance-driven; the daemon assumes its
+	    public key is already in the ledger's accepted-witness
+	    set.
+	  - Does not detect equivocation. The SDK has equivocation
+	    detection (witness/equivocation.go) but invoking it from
+	    a polling daemon requires a per-log historical store
+	    that's outside this binary's scope. Future commit.
 */
 package main
 
@@ -43,7 +44,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/witness"
 )
 
 // shutdownTimeout caps the probe-server drain on signal. Matches
@@ -111,19 +112,19 @@ func run(argv []string, d deps) error {
 	}
 
 	endpoints := &witness.StaticEndpoints{
-		Operators: cfg.Operators,
+		Ledgers:   cfg.Ledgers,
 		Witnesses: map[string][]string{},
 	}
 	thc := witness.NewTreeHeadClient(endpoints, witness.DefaultTreeHeadClientConfig())
 
 	loop := newCosignLoop(cosignLoopConfig{
-		LogDIDs:        cfg.LogDIDs,
-		Operators:      cfg.Operators,
-		PollInterval:   cfg.PollInterval,
-		WitnessDID:     cfg.WitnessDID,
-		Client:         thc,
-		Signer:         d.signFn,
-		Post:           d.postFn,
+		LogDIDs:      cfg.LogDIDs,
+		Ledgers:      cfg.Ledgers,
+		PollInterval: cfg.PollInterval,
+		WitnessDID:   cfg.WitnessDID,
+		Client:       thc,
+		Signer:       d.signFn,
+		Post:         d.postFn,
 	})
 	probes := newProbeHandlers(cfg)
 

@@ -2,15 +2,16 @@
 FILE PATH: exchange/index/store.go
 
 DESCRIPTION:
-    Local index mapping domain identifiers → log positions. Populated
-    by the scanner reading the operator sequentially. Queried by the
-    business API for docket lookup, party search, etc.
 
-    This is the equivalent of crt.sh's database for CT — the log is
-    append-only and position-addressed, the index provides search.
+	Local index mapping domain identifiers → log positions. Populated
+	by the scanner reading the ledger sequentially. Queried by the
+	business API for docket lookup, party search, etc.
 
-    In-memory for now. Production would back this with SQLite,
-    Postgres, or BadgerDB for persistence across restarts.
+	This is the equivalent of crt.sh's database for CT — the log is
+	append-only and position-addressed, the index provides search.
+
+	In-memory for now. Production would back this with SQLite,
+	Postgres, or BadgerDB for persistence across restarts.
 */
 package index
 

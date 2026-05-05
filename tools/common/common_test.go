@@ -1,14 +1,16 @@
 /*
 FILE PATH:
-    tools/common/common_test.go
+
+	tools/common/common_test.go
 
 DESCRIPTION:
-    Unit tests for tools/common: config loading, env overrides,
-    client construction, request formatting.
+
+	Unit tests for tools/common: config loading, env overrides,
+	client construction, request formatting.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Tests use no external services. Config tested via in-memory JSON.
-    - Client tests verify request construction, not HTTP round-trips.
+  - Tests use no external services. Config tested via in-memory JSON.
+  - Client tests verify request construction, not HTTP round-trips.
 */
 package common
 
@@ -27,8 +29,8 @@ import (
 func TestDefaultConfig_AllFieldsPopulated(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if cfg.OperatorURL == "" {
-		t.Fatal("OperatorURL must have a default")
+	if cfg.LedgerURL == "" {
+		t.Fatal("LedgerURL must have a default")
 	}
 	if cfg.ExchangeURL == "" {
 		t.Fatal("ExchangeURL must have a default")
@@ -59,8 +61,8 @@ func TestLoadConfig_FromJSON(t *testing.T) {
 	path := filepath.Join(dir, "config.json")
 
 	data, _ := json.Marshal(map[string]any{
-		"operator_url": "http://custom:9001",
-		"court_did":    "did:web:test.gov",
+		"ledger_url": "http://custom:9001",
+		"court_did":  "did:web:test.gov",
 	})
 	os.WriteFile(path, data, 0644)
 
@@ -69,8 +71,8 @@ func TestLoadConfig_FromJSON(t *testing.T) {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 
-	if cfg.OperatorURL != "http://custom:9001" {
-		t.Errorf("OperatorURL = %q, want http://custom:9001", cfg.OperatorURL)
+	if cfg.LedgerURL != "http://custom:9001" {
+		t.Errorf("LedgerURL = %q, want http://custom:9001", cfg.LedgerURL)
 	}
 	if cfg.CourtDID != "did:web:test.gov" {
 		t.Errorf("CourtDID = %q, want did:web:test.gov", cfg.CourtDID)
@@ -86,7 +88,7 @@ func TestLoadConfig_FromJSON(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLoadConfig_EnvOverride(t *testing.T) {
-	t.Setenv("TOOLS_OPERATOR_URL", "http://env-override:7001")
+	t.Setenv("TOOLS_LEDGER_URL", "http://env-override:7001")
 	t.Setenv("TOOLS_COURT_DID", "did:web:env.gov")
 
 	cfg, err := LoadConfig("")
@@ -94,8 +96,8 @@ func TestLoadConfig_EnvOverride(t *testing.T) {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 
-	if cfg.OperatorURL != "http://env-override:7001" {
-		t.Errorf("OperatorURL = %q, want env override", cfg.OperatorURL)
+	if cfg.LedgerURL != "http://env-override:7001" {
+		t.Errorf("LedgerURL = %q, want env override", cfg.LedgerURL)
 	}
 	if cfg.CourtDID != "did:web:env.gov" {
 		t.Errorf("CourtDID = %q, want env override", cfg.CourtDID)
@@ -106,18 +108,18 @@ func TestLoadConfig_EnvOverridesJSON(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 
-	data, _ := json.Marshal(map[string]any{"operator_url": "http://from-json:1234"})
+	data, _ := json.Marshal(map[string]any{"ledger_url": "http://from-json:1234"})
 	os.WriteFile(path, data, 0644)
 
-	t.Setenv("TOOLS_OPERATOR_URL", "http://from-env:5678")
+	t.Setenv("TOOLS_LEDGER_URL", "http://from-env:5678")
 
 	cfg, err := LoadConfig(path)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 
-	if cfg.OperatorURL != "http://from-env:5678" {
-		t.Errorf("env should override JSON, got %q", cfg.OperatorURL)
+	if cfg.LedgerURL != "http://from-env:5678" {
+		t.Errorf("env should override JSON, got %q", cfg.LedgerURL)
 	}
 }
 
@@ -161,10 +163,10 @@ func TestNewExchangeClient_NotNil(t *testing.T) {
 	}
 }
 
-func TestNewOperatorClient_NotNil(t *testing.T) {
-	c := NewOperatorClient("http://localhost:8001")
+func TestNewLedgerClient_NotNil(t *testing.T) {
+	c := NewLedgerClient("http://localhost:8001")
 	if c == nil {
-		t.Fatal("OperatorClient must not be nil")
+		t.Fatal("LedgerClient must not be nil")
 	}
 }
 

@@ -2,10 +2,11 @@
 FILE PATH: verification/role_resolver_test.go
 
 DESCRIPTION:
-    Tests for RoleResolver + MapRoleResolver. The interface is the
-    seam the cosignature verifier uses to map cosigner DIDs to
-    their (role, exchange) — replacing the deleted
-    directory.OfficerRegistry per the v1.6 "no registries" design.
+
+	Tests for RoleResolver + MapRoleResolver. The interface is the
+	seam the cosignature verifier uses to map cosigner DIDs to
+	their (role, exchange) — replacing the deleted
+	directory.OfficerRegistry per the v1.6 "no registries" design.
 */
 package verification
 

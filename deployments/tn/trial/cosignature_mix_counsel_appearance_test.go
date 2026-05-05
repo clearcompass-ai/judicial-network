@@ -2,22 +2,23 @@
 FILE PATH: deployments/tn/trial/cosignature_mix_counsel_appearance_test.go
 
 DESCRIPTION:
-    Targeted tests for the v1.8 §1 counsel_appearance cosignature
-    rule. Pins:
 
-      - Filer set: defense_counsel, civil_attorney, prosecutor
-        — every advocate role on the Filer side.
-      - Filer rejection: fiduciary, guardian_ad_litem (those have
-        their own cosig rules and credential requirements).
-      - Signer: court_clerk only (no judge — appearance does not
-        require judicial review at filing time; the merits-side
-        review happens at motion-for-withdraw if any).
-      - Intra-exchange (a Davidson clerk does not cosign a
-        Shelby attorney's appearance on a Shelby case).
-      - bpr_number credential (TN attorney licensing) required.
+	Targeted tests for the v1.8 §1 counsel_appearance cosignature
+	rule. Pins:
 
-    Functional emulation lives in
-    cosignature_mix_counsel_appearance_functional_test.go.
+	  - Filer set: defense_counsel, civil_attorney, prosecutor
+	    — every advocate role on the Filer side.
+	  - Filer rejection: fiduciary, guardian_ad_litem (those have
+	    their own cosig rules and credential requirements).
+	  - Signer: court_clerk only (no judge — appearance does not
+	    require judicial review at filing time; the merits-side
+	    review happens at motion-for-withdraw if any).
+	  - Intra-exchange (a Davidson clerk does not cosign a
+	    Shelby attorney's appearance on a Shelby case).
+	  - bpr_number credential (TN attorney licensing) required.
+
+	Functional emulation lives in
+	cosignature_mix_counsel_appearance_functional_test.go.
 */
 package trial
 

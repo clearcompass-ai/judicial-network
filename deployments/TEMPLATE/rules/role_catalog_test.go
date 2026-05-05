@@ -2,11 +2,12 @@
 FILE PATH: deployments/TEMPLATE/rules/role_catalog_test.go
 
 DESCRIPTION:
-    Tests for the TEMPLATE role catalog. Pins:
-      - the skeleton compiles and validates,
-      - exactly 1 role is defined (the placeholder),
-      - the placeholder is a Signer (HoldsKeys=true),
-      - MustRoleCatalog does not panic.
+
+	Tests for the TEMPLATE role catalog. Pins:
+	  - the skeleton compiles and validates,
+	  - exactly 1 role is defined (the placeholder),
+	  - the placeholder is a Signer (HoldsKeys=true),
+	  - MustRoleCatalog does not panic.
 */
 package rules
 

@@ -2,15 +2,16 @@
 FILE PATH: deployments/tn/trial/motions_3d_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3D discovery & spoliation motions. Pins:
-      - 7 motion types (6 + 1 catch-all).
-      - motion_compel_discovery has Advisory discovery_filing prereq.
-      - motion_discovery_sanctions has Hard interlocutory_order
-        prereq (the order alleged to have been violated).
-      - motion_deem_facts_admitted has Advisory discovery_filing.
-      - All §3D motions are open to every Filer (advocate roles).
-      - Walker accepts Advisory misses but flags them; rejects
-        Hard misses.
+
+	Tests for v1.8 §3D discovery & spoliation motions. Pins:
+	  - 7 motion types (6 + 1 catch-all).
+	  - motion_compel_discovery has Advisory discovery_filing prereq.
+	  - motion_discovery_sanctions has Hard interlocutory_order
+	    prereq (the order alleged to have been violated).
+	  - motion_deem_facts_admitted has Advisory discovery_filing.
+	  - All §3D motions are open to every Filer (advocate roles).
+	  - Walker accepts Advisory misses but flags them; rejects
+	    Hard misses.
 */
 package trial
 
@@ -22,13 +23,13 @@ import (
 
 func TestMotions3D_ExpectedEvents(t *testing.T) {
 	want := map[string]bool{
-		"motion_compel_discovery":      true,
-		"motion_discovery_sanctions":   true,
-		"motion_spoliation_sanctions":  true,
-		"motion_deem_facts_admitted":   true,
-		"motion_protective_order":      true,
-		"motion_quash_subpoena":        true,
-		"motion_discovery_general":     true,
+		"motion_compel_discovery":     true,
+		"motion_discovery_sanctions":  true,
+		"motion_spoliation_sanctions": true,
+		"motion_deem_facts_admitted":  true,
+		"motion_protective_order":     true,
+		"motion_quash_subpoena":       true,
+		"motion_discovery_general":    true,
 	}
 	got := map[string]bool{}
 	for _, m := range motions3D() {

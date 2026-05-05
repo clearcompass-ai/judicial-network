@@ -2,11 +2,12 @@
 FILE PATH: verification/payload_role_resolver_test.go
 
 DESCRIPTION:
-    Tests pinning PayloadRoleResolver behavior. Covers the four
-    construction paths (raw bytes happy / raw bytes empty / raw
-    bytes malformed / pre-parsed slice), the lookup contract
-    (found / unknown / nil receiver), the audit-view accessor, and
-    the wiring against the cosignature_check pipeline.
+
+	Tests pinning PayloadRoleResolver behavior. Covers the four
+	construction paths (raw bytes happy / raw bytes empty / raw
+	bytes malformed / pre-parsed slice), the lookup contract
+	(found / unknown / nil receiver), the audit-view accessor, and
+	the wiring against the cosignature_check pipeline.
 */
 package verification
 

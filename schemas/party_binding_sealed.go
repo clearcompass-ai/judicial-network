@@ -1,12 +1,15 @@
 /*
 FILE PATH: schemas/party_binding_sealed.go
 DESCRIPTION: tn-party-binding-sealed-v1. Sealed party bindings for juvenile/family.
-    Umbral PRE encryption, sealed grant mode, vendor_specific.
+
+	Umbral PRE encryption, sealed grant mode, vendor_specific.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Sealed grant: only named authorized recipients can access the identity mapping.
-    - vendor_specific: real identity never appears on the log.
-    - PRE-encrypted mapping: only scope authority officers can resolve vendor DID → real DID.
-    - Same re_encryption_threshold as evidence (m:3, n:5).
+  - Sealed grant: only named authorized recipients can access the identity mapping.
+  - vendor_specific: real identity never appears on the log.
+  - PRE-encrypted mapping: only scope authority officers can resolve vendor DID → real DID.
+  - Same re_encryption_threshold as evidence (m:3, n:5).
+
 OVERVIEW: PartyBindingSealedPayload with vendor_did, encrypted_mapping_cid.
 KEY DEPENDENCIES: schemas/registry.go
 */
@@ -16,18 +19,18 @@ import "encoding/json"
 
 type PartyBindingSealedPayload struct {
 	// ── SDK well-known fields ────────────────────────────────────────
-	ActivationDelay        int64            `json:"activation_delay,omitempty"`
-	OverrideRequiresWitness bool            `json:"override_requires_witness,omitempty"`
-	MigrationPolicy        string           `json:"migration_policy,omitempty"`
-	ArtifactEncryption     string           `json:"artifact_encryption"`
-	GrantAuthorizationMode string           `json:"grant_authorization_mode"`
-	GrantEntryRequired     bool             `json:"grant_entry_required"`
-	GrantRequiresAuditEntry bool            `json:"grant_requires_audit_entry"`
-	ReEncryptionThreshold  *ThresholdConfig `json:"re_encryption_threshold,omitempty"`
-	PredecessorSchema      *SchemaPosition  `json:"predecessor_schema,omitempty"`
+	ActivationDelay         int64            `json:"activation_delay,omitempty"`
+	OverrideRequiresWitness bool             `json:"override_requires_witness,omitempty"`
+	MigrationPolicy         string           `json:"migration_policy,omitempty"`
+	ArtifactEncryption      string           `json:"artifact_encryption"`
+	GrantAuthorizationMode  string           `json:"grant_authorization_mode"`
+	GrantEntryRequired      bool             `json:"grant_entry_required"`
+	GrantRequiresAuditEntry bool             `json:"grant_requires_audit_entry"`
+	ReEncryptionThreshold   *ThresholdConfig `json:"re_encryption_threshold,omitempty"`
+	PredecessorSchema       *SchemaPosition  `json:"predecessor_schema,omitempty"`
 
 	// ── Sealed party binding fields ──────────────────────────────────
-	VendorDID           string `json:"vendor_did"`                      // opaque DID on the log
+	VendorDID           string `json:"vendor_did"` // opaque DID on the log
 	CaseRef             string `json:"case_ref"`
 	Role                string `json:"role"`
 	Status              string `json:"status"`
@@ -69,7 +72,9 @@ func partyBindingSealedRegistration() *SchemaRegistration {
 		URI: SchemaPartyBindingSealedV1,
 		Serialize: func(payload interface{}) ([]byte, error) {
 			p, ok := payload.(*PartyBindingSealedPayload)
-			if !ok { return nil, ErrDeserialize }
+			if !ok {
+				return nil, ErrDeserialize
+			}
 			return SerializePartyBindingSealedPayload(p)
 		},
 		Deserialize:     func(data []byte) (interface{}, error) { return DeserializePartyBindingSealedPayload(data) },

@@ -2,19 +2,20 @@
 FILE PATH: deployments/tn/sup_ct/role_catalog.go
 
 DESCRIPTION:
-    Tennessee Supreme Court — Signer role catalog. The TN Sup
-    Ct is a single statewide highest-appellate exchange
-    (ExchangeDID = did:web:state:tn:sc). Five sitting Justices;
-    one Chief Justice elected from among them.
 
-    Role hierarchy:
-      institutional_did ── grants ──> chief_justice (depth 0→1)
-      chief_justice     ── grants ──> justice (depth 1→2)
-      chief_justice     ── grants ──> court_clerk (depth 1→2)
+	Tennessee Supreme Court — Signer role catalog. The TN Sup
+	Ct is a single statewide highest-appellate exchange
+	(ExchangeDID = did:web:state:tn:sc). Five sitting Justices;
+	one Chief Justice elected from among them.
 
-    Differs from TN COA's chief_judge / judge naming because TN
-    Supreme Court uses "Justice" (the appellate practitioner-
-    rank distinction in TN). Same shape, different vocabulary.
+	Role hierarchy:
+	  institutional_did ── grants ──> chief_justice (depth 0→1)
+	  chief_justice     ── grants ──> justice (depth 1→2)
+	  chief_justice     ── grants ──> court_clerk (depth 1→2)
+
+	Differs from TN COA's chief_judge / judge naming because TN
+	Supreme Court uses "Justice" (the appellate practitioner-
+	rank distinction in TN). Same shape, different vocabulary.
 */
 package sup_ct
 

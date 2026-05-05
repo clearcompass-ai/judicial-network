@@ -2,11 +2,12 @@
 FILE PATH: consortium/mapping_escrow_test.go
 
 COVERAGE:
-    Every code path in mapping_escrow.go: constructor validation
-    (nil store, threshold range, empty dealer/destination), V2
-    happy path, atomic-emission invariant (every successful create
-    yields CommitmentEntry + Commitment), recovery-with-commitment-
-    verification round-trip, and TransferMapping to a fresh node set.
+
+	Every code path in mapping_escrow.go: constructor validation
+	(nil store, threshold range, empty dealer/destination), V2
+	happy path, atomic-emission invariant (every successful create
+	yields CommitmentEntry + Commitment), recovery-with-commitment-
+	verification round-trip, and TransferMapping to a fresh node set.
 */
 package consortium
 
@@ -16,10 +17,10 @@ import (
 
 	secp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/vss"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/escrow"
-	"github.com/clearcompass-ai/ortholog-sdk/exchange/identity"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/core/vss"
+	"github.com/clearcompass-ai/attesta/crypto/escrow"
+	"github.com/clearcompass-ai/attesta/exchange/identity"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // ─── Helpers ────────────────────────────────────────────────────────

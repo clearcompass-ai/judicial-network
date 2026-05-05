@@ -2,8 +2,9 @@
 FILE PATH: api/judicial/monitoring_test.go
 
 DESCRIPTION:
-    Validation contracts for monitoring handlers (blob-availability,
-    delegation-health, anchor-freshness stub).
+
+	Validation contracts for monitoring handlers (blob-availability,
+	delegation-health, anchor-freshness stub).
 */
 package judicial
 
@@ -13,18 +14,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/storage"
 
 	"github.com/clearcompass-ai/judicial-network/monitoring"
 )
 
-// stubBLS satisfies signatures.BLSVerifier for tests that need a
+// stubBLS satisfies cosign.BLSAggregateVerifier for tests that need a
 // non-nil verifier on Dependencies.
 type stubBLS struct{}
 
-func (stubBLS) VerifyAggregate(_ []byte, sigs []types.WitnessSignature, _ []types.WitnessPublicKey) ([]bool, error) {
-	out := make([]bool, len(sigs))
+func (stubBLS) VerifyBLSAggregate(_ []byte, _ []byte, sigBytes [][]byte, _ [][]byte) ([]bool, error) {
+	out := make([]bool, len(sigBytes))
 	for i := range out {
 		out[i] = true
 	}

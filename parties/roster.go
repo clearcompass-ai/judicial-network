@@ -2,32 +2,34 @@
 FILE PATH: parties/roster.go
 
 DESCRIPTION:
-    Case party roster management. Links bindings to cases via
-    cross-log commentary entries. Query helpers for binding
-    discovery.
 
-    Per the v1.6 Event Dictionary (Phase 3D.cleanup-3), parties
-    have NO DIDs. The only public reference is the case-local
-    `binding_id` minted by `party_binding`; the underlying
-    identity (when public) is the `party_name` field.
+	Case party roster management. Links bindings to cases via
+	cross-log commentary entries. Query helpers for binding
+	discovery.
+
+	Per the v1.6 Event Dictionary (.cleanup-3), parties
+	have NO DIDs. The only public reference is the case-local
+	`binding_id` minted by `party_binding`; the underlying
+	identity (when public) is the `party_name` field.
 
 KEY ARCHITECTURAL DECISIONS:
-    - BuildCommentary on the cases log referencing party binding
-      position on the parties log.
-    - QueryBySignerDID on the parties log to find bindings the
-      caller has signed.
-    - No SMT mutation — commentary entries are zero-impact.
+  - BuildCommentary on the cases log referencing party binding
+    position on the parties log.
+  - QueryBySignerDID on the parties log to find bindings the
+    caller has signed.
+  - No SMT mutation — commentary entries are zero-impact.
 
 OVERVIEW:
-    PartyLink             — discovered party-case association.
-    LinkPartyCaseConfig   — cross-log link config.
-    LinkPartyToCase       — cases-log commentary writer.
-    ListCaseParties       — discovery on the parties log.
-    FindPartyByBindingID  — direct binding lookup.
+
+	PartyLink             — discovered party-case association.
+	LinkPartyCaseConfig   — cross-log link config.
+	LinkPartyToCase       — cases-log commentary writer.
+	ListCaseParties       — discovery on the parties log.
+	FindPartyByBindingID  — direct binding lookup.
 
 KEY DEPENDENCIES:
-    - schemas (PartyBindingPayload, PartyClass).
-    - ortholog-sdk/builder, log.
+  - schemas (PartyBindingPayload, PartyClass).
+  - attesta/builder, log.
 */
 package parties
 
@@ -35,14 +37,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // PartiesQuerier discovers party binding entries.
-// Satisfied by log.OperatorQueryAPI (structural typing).
+// Satisfied by log.LedgerQueryAPI (structural typing).
 type PartiesQuerier interface {
 	QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)
 	QueryByTargetRoot(pos types.LogPosition) ([]types.EntryWithMetadata, error)
@@ -59,7 +61,7 @@ type PartyLink struct {
 	Status     string
 	CaseRef    string
 	IsSealed   bool // when true, the underlying identity is in
-	                // the sealed mirror; PartyName is empty
+	// the sealed mirror; PartyName is empty
 }
 
 // LinkPartyCaseConfig configures a cross-log party-case link.

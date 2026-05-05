@@ -2,26 +2,27 @@
 FILE PATH: api/judicial/parties_sealed.go
 
 DESCRIPTION:
-    Sealed party binding handler. Daily reality: minor cases, victim
-    protection, witness anonymity. The real party DID is encrypted via
-    PRE; only an opaque vendor DID appears on the parties log.
-    Authorized officers decrypt via GrantArtifactAccess sealed mode.
 
-    Wire shape carries every cfg field from parties.SealedBindingConfig
-    plus the artifact-stack deps already on Dependencies.
+	Sealed party binding handler. Daily reality: minor cases, victim
+	protection, witness anonymity. The real party DID is encrypted via
+	PRE; only an opaque vendor DID appears on the parties log.
+	Authorized officers decrypt via GrantArtifactAccess sealed mode.
 
-      POST /v1/judicial/parties/bindings/sealed → CreateSealedBinding
+	Wire shape carries every cfg field from parties.SealedBindingConfig
+	plus the artifact-stack deps already on Dependencies.
 
-    Returns the binding entry's signing payload PLUS the published
-    encrypted-mapping artifact's CID (the caller can audit which CID
-    holds the sealed identity record).
+	  POST /v1/judicial/parties/bindings/sealed → CreateSealedBinding
+
+	Returns the binding entry's signing payload PLUS the published
+	encrypted-mapping artifact's CID (the caller can audit which CID
+	holds the sealed identity record).
 */
 package judicial
 
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/parties"
 )
@@ -80,7 +81,7 @@ func (h *partyBindingSealedHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	resp := struct {
 		buildResponse
-		EncryptedMappingCID   string `json:"encrypted_mapping_cid,omitempty"`
+		EncryptedMappingCID    string `json:"encrypted_mapping_cid,omitempty"`
 		EncryptedContentDigest string `json:"encrypted_content_digest,omitempty"`
 	}{}
 	writeBuildResponseTo(&resp.buildResponse, result.Entry)

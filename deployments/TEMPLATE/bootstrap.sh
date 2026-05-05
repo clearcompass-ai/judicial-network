@@ -13,7 +13,7 @@
 # Prerequisites:
 #   - judicial-network CLI built and on PATH
 #   - Exchange credentials configured
-#   - Operator endpoints reachable
+#   - Ledger endpoints reachable
 
 set -euo pipefail
 

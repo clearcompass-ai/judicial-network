@@ -1,26 +1,29 @@
 /*
 FILE PATH:
-    schemas/criminal_case.go
+
+	schemas/criminal_case.go
 
 DESCRIPTION:
-    Defines tn-criminal-case-v1. AES-GCM encryption, open grant mode.
-    Sealing order activation delay 72h, unsealing 168h.
+
+	Defines tn-criminal-case-v1. AES-GCM encryption, open grant mode.
+	Sealing order activation delay 72h, unsealing 168h.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Open grant mode (spec-mandated): routine criminal case filings use
-      grant_authorization_mode="open" (the default, zero-value). Any party
-      with a valid retrieval request can access. Sealed evidence uses the
-      separate tn-evidence-artifact-v1 schema with sealed mode.
-    - real_did identifier scope: parties identified by real DIDs.
-    - Commutative operations limited to witness_attestation.
+  - Open grant mode (spec-mandated): routine criminal case filings use
+    grant_authorization_mode="open" (the default, zero-value). Any party
+    with a valid retrieval request can access. Sealed evidence uses the
+    separate tn-evidence-artifact-v1 schema with sealed mode.
+  - real_did identifier scope: parties identified by real DIDs.
+  - Commutative operations limited to witness_attestation.
 
 OVERVIEW:
-    Schema parameters: artifact_encryption=aes_gcm, grant_authorization_mode=open,
-    grant_entry_required=false, override_requires_witness=true. Enforcement:
-    sealing 72h/0 cosig, unsealing 168h/1 cosig.
+
+	Schema parameters: artifact_encryption=aes_gcm, grant_authorization_mode=open,
+	grant_entry_required=false, override_requires_witness=true. Enforcement:
+	sealing 72h/0 cosig, unsealing 168h/1 cosig.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go: ThresholdConfig, SchemaPosition, SchemaRegistration
+  - schemas/registry.go: ThresholdConfig, SchemaPosition, SchemaRegistration
 */
 package schemas
 

@@ -2,17 +2,18 @@
 FILE PATH: api/middleware/observability/request_id.go
 
 DESCRIPTION:
-    Request-ID middleware. Honours an inbound `X-Request-ID` header
-    when present and well-formed; otherwise generates a fresh
-    16-byte hex ID. The ID lives in request context for downstream
-    handlers + log + metric labels, and is echoed in the response
-    header for upstream callers (gateway / browser dev tools / etc.)
-    to correlate.
 
-    Stable correlation ID is the load-bearing primitive for
-    debugging tail-latency outliers at 1000 TPS — without it you
-    cannot tie a slow log line to the specific request, the metric
-    bucket it landed in, or the trace span (Phase 15b).
+	Request-ID middleware. Honours an inbound `X-Request-ID` header
+	when present and well-formed; otherwise generates a fresh
+	16-byte hex ID. The ID lives in request context for downstream
+	handlers + log + metric labels, and is echoed in the response
+	header for upstream callers (gateway / browser dev tools / etc.)
+	to correlate.
+
+	Stable correlation ID is the load-bearing primitive for
+	debugging tail-latency outliers at 1000 TPS — without it you
+	cannot tie a slow log line to the specific request, the metric
+	bucket it landed in, or the trace span.
 */
 package observability
 

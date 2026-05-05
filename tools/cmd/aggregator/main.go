@@ -2,28 +2,29 @@
 FILE PATH: tools/cmd/aggregator/main.go
 
 DESCRIPTION:
-    Standalone aggregator binary. Polls the operator for new
-    entries on the registered logs (officers / cases / parties),
-    classifies + indexes them into Postgres, and exposes a small
-    HTTP probe surface (/healthz, /readyz, /metrics) for k8s
-    liveness + Prometheus scraping.
 
-    Distinct from court-tools' --aggregator-only mode: this binary
-    has NO read-side HTTP query endpoints. Query traffic for the
-    aggregator's Postgres state belongs in court-tools or
-    provider-tools, which can be scaled separately. The aggregator
-    is a write-only ingestion service against its own database.
+	Standalone aggregator binary. Polls the ledger for new
+	entries on the registered logs (officers / cases / parties),
+	classifies + indexes them into Postgres, and exposes a small
+	HTTP probe surface (/healthz, /readyz, /metrics) for k8s
+	liveness + Prometheus scraping.
 
-    Boot order:
-      1. Parse flags + load tools/common.Config (JSON + env override).
-      2. Construct OperatorClient + DB.
-      3. Start aggregator.Scanner in a goroutine.
-      4. Stand up the probe HTTP server.
-      5. Block on SIGINT / SIGTERM → cancel context → drain.
+	Distinct from court-tools' --aggregator-only mode: this binary
+	has NO read-side HTTP query endpoints. Query traffic for the
+	aggregator's Postgres state belongs in court-tools or
+	provider-tools, which can be scaled separately. The aggregator
+	is a write-only ingestion service against its own database.
 
-    The probe server uses the Phase 15 observability primitives
-    (Prometheus registry + zerolog) so deployment-time scraping +
-    logging are uniform with cmd/network-api.
+	Boot order:
+	  1. Parse flags + load tools/common.Config (JSON + env override).
+	  2. Construct LedgerClient + DB.
+	  3. Start aggregator.Scanner in a goroutine.
+	  4. Stand up the probe HTTP server.
+	  5. Block on SIGINT / SIGTERM → cancel context → drain.
+
+	The probe server uses the  observability primitives
+	(Prometheus registry + zerolog) so deployment-time scraping +
+	logging are uniform with cmd/network-api.
 */
 package main
 
@@ -47,7 +48,7 @@ import (
 type deps struct {
 	loadConfig    func(string) (common.Config, error)
 	openDB        func(string) (*common.DB, error)
-	newOperator   func(string, string) *common.OperatorClient
+	newLedger   func(string, string) *common.LedgerClient
 	startScanner  func(context.Context, *aggregator.Scanner) error
 	listenAndServ func(*http.Server) error
 }
@@ -56,7 +57,7 @@ func realDeps() deps {
 	return deps{
 		loadConfig:    common.LoadConfig,
 		openDB:        common.NewDB,
-		newOperator:   func(url, did string) *common.OperatorClient { return common.NewOperatorClient(url, did) },
+		newLedger:   func(url, did string) *common.LedgerClient { return common.NewLedgerClient(url, did) },
 		startScanner:  func(ctx context.Context, s *aggregator.Scanner) error { return s.Run(ctx) },
 		listenAndServ: func(srv *http.Server) error { return srv.ListenAndServe() },
 	}
@@ -110,8 +111,8 @@ func run(argv []string, d deps) error {
 	if cfg.DatabaseURL == "" {
 		return errMissingDB
 	}
-	if cfg.OperatorURL == "" {
-		return errMissingOperator
+	if cfg.LedgerURL == "" {
+		return errMissingLedger
 	}
 
 	db, err := d.openDB(cfg.DatabaseURL)
@@ -120,9 +121,9 @@ func run(argv []string, d deps) error {
 	}
 	defer db.Close()
 
-	operator := d.newOperator(cfg.OperatorURL, cfg.CasesLogDID)
-	scanner := aggregator.NewScanner(cfg, operator, db)
-	probes := newProbeHandlers(db, cfg.OperatorURL)
+	ledger := d.newLedger(cfg.LedgerURL, cfg.CasesLogDID)
+	scanner := aggregator.NewScanner(cfg, ledger, db)
+	probes := newProbeHandlers(db, cfg.LedgerURL)
 
 	srv := &http.Server{
 		Addr:              args.listenAddr,

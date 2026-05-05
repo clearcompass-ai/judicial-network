@@ -2,12 +2,13 @@
 FILE PATH: appeals/mandate.go
 DESCRIPTION: Mandate issuance — makes appellate decision effective on lower court.
 KEY ARCHITECTURAL DECISIONS:
-    - Reverse/remand: BuildEnforcement on lower court cases log (Path C).
-    - Affirm: BuildCommentary on lower court noting affirmance.
-    - Cross-log proof references appellate decision.
-    - EvaluateContest before enforcement activation (SDK correction #7).
+  - Reverse/remand: BuildEnforcement on lower court cases log (Path C).
+  - Affirm: BuildCommentary on lower court noting affirmance.
+  - Cross-log proof references appellate decision.
+  - EvaluateContest before enforcement activation (SDK correction #7).
+
 OVERVIEW: IssueMandateReverse → enforcement. IssueMandateAffirm → commentary.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier
+KEY DEPENDENCIES: attesta/builder, attesta/verifier
 */
 package appeals
 
@@ -15,25 +16,25 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 type MandateConfig struct {
-	Destination string // DID of target exchange. Required.
-	SignerDID          string
-	LowerCourtCasePos  types.LogPosition
-	LowerCourtScopePos types.LogPosition
-	PriorAuthority     *types.LogPosition
+	Destination          string // DID of target exchange. Required.
+	SignerDID            string
+	LowerCourtCasePos    types.LogPosition
+	LowerCourtScopePos   types.LogPosition
+	PriorAuthority       *types.LogPosition
 	AppellateDecisionPos types.LogPosition
-	Outcome            string
-	RemandInstructions string
-	SchemaRef          *types.LogPosition
-	EventTime          int64
+	Outcome              string
+	RemandInstructions   string
+	SchemaRef            *types.LogPosition
+	EventTime            int64
 }
 
 type MandateResult struct {
@@ -83,7 +84,7 @@ func IssueMandateReverse(
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: cfg.Destination,
+		Destination:    cfg.Destination,
 		SignerDID:      cfg.SignerDID,
 		TargetRoot:     cfg.LowerCourtCasePos,
 		ScopePointer:   cfg.LowerCourtScopePos,
@@ -109,8 +110,8 @@ func IssueMandateAffirm(cfg MandateConfig) (*envelope.Entry, error) {
 
 	return builder.BuildCommentary(builder.CommentaryParams{
 		Destination: cfg.Destination,
-		SignerDID: cfg.SignerDID,
-		Payload:   payload,
-		EventTime: cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		Payload:     payload,
+		EventTime:   cfg.EventTime,
 	})
 }

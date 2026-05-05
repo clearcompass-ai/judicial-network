@@ -2,52 +2,54 @@
 FILE PATH: delegation/issue.go
 
 DESCRIPTION:
-    IssueDelegation — the canonical write path for the unified
-    judicial-delegation-v1 entry type. Replaces the role-specific
-    legacy role-specific builders with one function whose role is
-    data, not code.
 
-    The flow:
+	IssueDelegation — the canonical write path for the unified
+	judicial-delegation-v1 entry type. Replaces the role-specific
+	legacy role-specific builders with one function whose role is
+	data, not code.
 
-      1. Validate the request (granter, grantee, role, scope,
-         expiration). Reject self-delegation, malformed timestamps,
-         missing fields.
-      2. Run the catalog gate: ValidateGrant(granter_role,
-         grantee_role, requested_scope, requested_duration).
-         Rejection here is a code/config bug or a deliberate policy
-         violation — log on-log only succeeds after this passes.
-      3. Build the JudicialDelegationPayload with mandatory
-         expires_at and (when not depth-0) granter_delegation_ref.
-      4. Build the EIP-712 typed-data display the wallet will show
-         to the granter at sign time. Domain salt is the
-         institutional DID — cross-court replay structurally blocked.
-      5. Call SDK BuildDelegation to produce the unsigned entry.
-      6. Sign-and-submit via the BuildContext pipeline. The
-         IdentityProvider (Privy in production) shows the granter
-         the typed data and waits for approval.
-      7. Return the assigned LogPositionRef so the caller can
-         persist it (officer registry, downstream chain references).
+	The flow:
+
+	  1. Validate the request (granter, grantee, role, scope,
+	     expiration). Reject self-delegation, malformed timestamps,
+	     missing fields.
+	  2. Run the catalog gate: ValidateGrant(granter_role,
+	     grantee_role, requested_scope, requested_duration).
+	     Rejection here is a code/config bug or a deliberate policy
+	     violation — log on-log only succeeds after this passes.
+	  3. Build the JudicialDelegationPayload with mandatory
+	     expires_at and (when not depth-0) granter_delegation_ref.
+	  4. Build the EIP-712 typed-data display the wallet will show
+	     to the granter at sign time. Domain salt is the
+	     institutional DID — cross-court replay structurally blocked.
+	  5. Call SDK BuildDelegation to produce the unsigned entry.
+	  6. Sign-and-submit via the BuildContext pipeline. The
+	     IdentityProvider (Privy in production) shows the granter
+	     the typed data and waits for approval.
+	  7. Return the assigned LogPositionRef so the caller can
+	     persist it (officer registry, downstream chain references).
 
 KEY ARCHITECTURAL DECISIONS:
-    - GranterRole is required even when the granter is the
-      institutional DID at depth 0, so the catalog can validate
-      that the institutional DID may grant the requested role.
-      Pass "" for granter_role to skip the granter-role check
-      (used when the granter is the institution itself).
-    - Scope defaults to the role's DefaultScope when the request
-      Scope is empty — convenience for typical issuances.
-    - Expiration is mandatory at the schema layer; here we also
-      reject expirations beyond role.MaxDuration.
+  - GranterRole is required even when the granter is the
+    institutional DID at depth 0, so the catalog can validate
+    that the institutional DID may grant the requested role.
+    Pass "" for granter_role to skip the granter-role check
+    (used when the granter is the institution itself).
+  - Scope defaults to the role's DefaultScope when the request
+    Scope is empty — convenience for typical issuances.
+  - Expiration is mandatory at the schema layer; here we also
+    reject expirations beyond role.MaxDuration.
 
 OVERVIEW:
-    IssueRequest — caller-supplied parameters.
-    IssueResult  — what the caller persists (LogPositionRef +
-                   payload echo for audit).
-    Issue        — the entry point.
+
+	IssueRequest — caller-supplied parameters.
+	IssueResult  — what the caller persists (LogPositionRef +
+	               payload echo for audit).
+	Issue        — the entry point.
 
 KEY DEPENDENCIES:
-    - delegation/builders_common.go (BuildContext, signAndSubmit).
-    - schemas/judicial_delegation.go (payload + URI).
+  - delegation/builders_common.go (BuildContext, signAndSubmit).
+  - schemas/judicial_delegation.go (payload + URI).
 */
 package delegation
 
@@ -56,9 +58,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
 )
 
 // IssueRequest is the input to Issue.
@@ -106,7 +108,7 @@ type IssueRequest struct {
 
 // IssueResult is the output of Issue.
 type IssueResult struct {
-	// Position is the operator-assigned log position. Persist this
+	// Position is the ledger-assigned log position. Persist this
 	// in the officer registry so future chain walks can reference
 	// it via granter_delegation_ref.
 	Position schemas.LogPositionRef

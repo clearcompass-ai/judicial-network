@@ -2,62 +2,64 @@
 FILE PATH: delegation/cosigned.go
 
 DESCRIPTION:
-    Inline two-actor (or N-actor) signing for entries that require
-    cosignatures. Per the v1.3 Event Dictionary's Tier 2 cosignature
-    requirement, every entry submitted by a Tier 2 actor (Prosecutor,
-    Defense Counsel, Civil Attorney, Fiduciary, Guardian ad litem)
-    MUST be cryptographically cosigned by a Tier 1 holder.
 
-    The wire model is INLINE — one envelope, multiple signatures:
+	Inline two-actor (or N-actor) signing for entries that require
+	cosignatures. Per the v1.3 Event Dictionary's Tier 2 cosignature
+	requirement, every entry submitted by a Tier 2 actor (Prosecutor,
+	Defense Counsel, Civil Attorney, Fiduciary, Guardian ad litem)
+	MUST be cryptographically cosigned by a Tier 1 holder.
 
-        entry.Signatures[0] = primary signer (matches Header.SignerDID)
-        entry.Signatures[1..N] = cosigners
+	The wire model is INLINE — one envelope, multiple signatures:
 
-    All signers compute and sign the SAME 32-byte SigningPayload
-    digest. The wallet UX shows the same EIP-712 typed-data display
-    to every signer.
+	    entry.Signatures[0] = primary signer (matches Header.SignerDID)
+	    entry.Signatures[1..N] = cosigners
 
-    Concretely for an attorney filing:
-      - The Clerk (Tier 1) builds the envelope (Header.SignerDID =
-        Clerk's DID; payload.filed_by = attorney ID).
-      - The Clerk signs first (Signatures[0]).
-      - The cosignature mix may require an Adjudicator (e.g., for
-        certain motion types per the Phase 3C policy module).
-      - The Adjudicator signs the SAME digest; Signatures[1] is
-        appended.
-      - The envelope serializes with both signatures.
+	All signers compute and sign the SAME 32-byte SigningPayload
+	digest. The wallet UX shows the same EIP-712 typed-data display
+	to every signer.
 
-    For institutional Authority_Set succession (already in 2C.5):
-      - The institutional DID signs first.
-      - Each Authority_Set member signs as a cosigner.
-      - 2-of-3 (or whatever threshold) cosignatures present in
-        Signatures[1..N] satisfies the SDK's verifier.
+	Concretely for an attorney filing:
+	  - The Clerk (Tier 1) builds the envelope (Header.SignerDID =
+	    Clerk's DID; payload.filed_by = attorney ID).
+	  - The Clerk signs first (Signatures[0]).
+	  - The cosignature mix may require an Adjudicator (e.g., for
+	    certain motion types per the  policy module).
+	  - The Adjudicator signs the SAME digest; Signatures[1] is
+	    appended.
+	  - The envelope serializes with both signatures.
+
+	For institutional Authority_Set succession (already in 2C.5):
+	  - The institutional DID signs first.
+	  - Each Authority_Set member signs as a cosigner.
+	  - 2-of-3 (or whatever threshold) cosignatures present in
+	    Signatures[1..N] satisfies the SDK's verifier.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Inline only. The dictionary explicitly chose inline over
-      commentary cosignatures. signAndSubmitCosigned never calls
-      builder.BuildCosignature; it appends to entry.Signatures.
-    - Same digest for every signer. The SDK's SigningPayload is
-      computed once before any sign call and shared. A cosigner
-      signing a different digest would produce a verifier-rejected
-      entry; the contract is "all signatures over the same bytes."
-    - Order matters at Signatures[0]. The primary signer MUST be
-      Signatures[0] (envelope.Validate enforces equality with
-      Header.SignerDID). Cosigners are appended in caller-supplied
-      order — auditors see exactly the order the writer requested.
-    - Validation up front. The function rejects empty primary,
-      empty cosigner DIDs, duplicate DIDs (incl. cosigner == primary),
-      and exceeding MaxSignaturesPerEntry (64) before any sign
-      call. Failed up-front validation never asks the wallet to
-      sign.
+  - Inline only. The dictionary explicitly chose inline over
+    commentary cosignatures. signAndSubmitCosigned never calls
+    builder.BuildCosignature; it appends to entry.Signatures.
+  - Same digest for every signer. The SDK's SigningPayload is
+    computed once before any sign call and shared. A cosigner
+    signing a different digest would produce a verifier-rejected
+    entry; the contract is "all signatures over the same bytes."
+  - Order matters at Signatures[0]. The primary signer MUST be
+    Signatures[0] (envelope.Validate enforces equality with
+    Header.SignerDID). Cosigners are appended in caller-supplied
+    order — auditors see exactly the order the writer requested.
+  - Validation up front. The function rejects empty primary,
+    empty cosigner DIDs, duplicate DIDs (incl. cosigner == primary),
+    and exceeding MaxSignaturesPerEntry (64) before any sign
+    call. Failed up-front validation never asks the wallet to
+    sign.
 
 OVERVIEW:
-    signAndSubmitCosigned — the primitive.
-    validateCosigners      — pure structural pre-check.
+
+	signAndSubmitCosigned — the primitive.
+	validateCosigners      — pure structural pre-check.
 
 KEY DEPENDENCIES:
-    - delegation/builders_common.go (signOne, validateSerializeSubmit,
-      sentinels).
+  - delegation/builders_common.go (signOne, validateSerializeSubmit,
+    sentinels).
 */
 package delegation
 
@@ -66,9 +68,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // MaxCosigners caps the cosigner count per entry. The SDK's hard
@@ -78,7 +80,7 @@ import (
 const MaxCosigners = 63
 
 // SignAndSubmitCosigned is the inline cosignature pipeline.
-// Exported so downstream packages (Phase 3C cosignature-mix policy,
+// Exported so downstream packages ( cosignature-mix policy,
 // future filing builders, contract tests) can call it.
 //
 // Inputs:

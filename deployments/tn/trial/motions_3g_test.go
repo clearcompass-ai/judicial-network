@@ -2,17 +2,18 @@
 FILE PATH: deployments/tn/trial/motions_3g_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3G docket-management motions. Pins:
-      - 9 motion types (8 + 1 catch-all).
-      - Hard prereqs: substitution_parties (party_binding),
-        withdraw_counsel (counsel_appearance),
-        disqualification_recusal (judicial_assignment).
-      - Advisory prereq: continuance (scheduling_order).
-      - Catch-all (motion_procedural_general) flag.
-      - Walker accepts/rejects appropriately.
-      - motion_continuance permits all 3 advocate roles
-        (multi-filer pin moved here from base after motion
-        relocation).
+
+	Tests for v1.8 §3G docket-management motions. Pins:
+	  - 9 motion types (8 + 1 catch-all).
+	  - Hard prereqs: substitution_parties (party_binding),
+	    withdraw_counsel (counsel_appearance),
+	    disqualification_recusal (judicial_assignment).
+	  - Advisory prereq: continuance (scheduling_order).
+	  - Catch-all (motion_procedural_general) flag.
+	  - Walker accepts/rejects appropriately.
+	  - motion_continuance permits all 3 advocate roles
+	    (multi-filer pin moved here from base after motion
+	    relocation).
 */
 package trial
 
@@ -25,15 +26,15 @@ import (
 
 func TestMotions3G_ExpectedEvents(t *testing.T) {
 	want := map[string]bool{
-		"motion_continuance":             true,
-		"motion_consolidation_severance": true,
-		"motion_substitution_parties":    true,
-		"motion_change_of_venue":         true,
-		"motion_withdraw_counsel":        true,
-		"motion_disqualification_recusal": true,
+		"motion_continuance":               true,
+		"motion_consolidation_severance":   true,
+		"motion_substitution_parties":      true,
+		"motion_change_of_venue":           true,
+		"motion_withdraw_counsel":          true,
+		"motion_disqualification_recusal":  true,
 		"motion_juvenile_transfer_custody": true,
-		"motion_bond_modification":       true,
-		"motion_procedural_general":      true,
+		"motion_bond_modification":         true,
+		"motion_procedural_general":        true,
 	}
 	got := map[string]bool{}
 	for _, m := range motions3G() {

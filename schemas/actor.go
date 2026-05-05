@@ -2,41 +2,43 @@
 FILE PATH: schemas/actor.go
 
 DESCRIPTION:
-    Actor classification per the v1.4 Event Dictionary, Part 1.
-    Replaces the Phase 3A "Tier" naming with the actor-functional
-    labels Signer / Filer / Party. The dictionary still uses the
-    words "Tier 1 / Tier 2 / Tier 3"; this code uses functional
-    labels because that's what each class DOES on the network.
 
-    Three classes based on cryptographic relationship to the log:
+	Actor classification per the v1.4 Event Dictionary, Part 1.
+	Replaces the  "Tier" naming with the actor-functional
+	labels Signer / Filer / Party. The dictionary still uses the
+	words "Tier 1 / Tier 2 / Tier 3"; this code uses functional
+	labels because that's what each class DOES on the network.
 
-      Actor 1 — Signer (the dictionary's Tier 1).
-                Adjudicators, Clerks, Court Reporters. HOLD network
-                keys; their roles populate schemas.RoleCatalog and
-                AuthorityResolver chains.
+	Three classes based on cryptographic relationship to the log:
 
-      Actor 2 — Filer (the dictionary's Tier 2).
-                Prosecutors, Defense Counsel, Civil Attorneys,
-                Fiduciaries, Guardians ad litem. They hold their
-                own DIDs (Privy wallets) for cosignature attestation
-                but have NO entry in the role catalog. Every filing
-                they cosign carries a `filed_by_capacity` block in
-                the payload (Phase 3C) declaring their role and
-                credentials. No off-log registry — the on-log claim
-                IS the truth.
+	  Actor 1 — Signer (the dictionary's Tier 1).
+	            Adjudicators, Clerks, Court Reporters. HOLD network
+	            keys; their roles populate schemas.RoleCatalog and
+	            AuthorityResolver chains.
 
-      Actor 3 — Party (the dictionary's Tier 3).
-                Plaintiffs, Defendants, Pro Se Litigants. Recorded
-                only via party_binding payloads bound to case roots.
-                Passive metadata subjects.
+	  Actor 2 — Filer (the dictionary's Tier 2).
+	            Prosecutors, Defense Counsel, Civil Attorneys,
+	            Fiduciaries, Guardians ad litem. They hold their
+	            own DIDs (Privy wallets) for cosignature attestation
+	            but have NO entry in the role catalog. Every filing
+	            they cosign carries a `filed_by_capacity` block in
+	            the payload declaring their role and
+	            credentials. No off-log registry — the on-log claim
+	            IS the truth.
 
-    Membership-by-actor answers questions like "may this role
-    cosign a filer's submission?" — the catalog stores the actor
-    class; downstream code (Phase 3C) reads it to enforce the
-    cosignature mix.
+	  Actor 3 — Party (the dictionary's Tier 3).
+	            Plaintiffs, Defendants, Pro Se Litigants. Recorded
+	            only via party_binding payloads bound to case roots.
+	            Passive metadata subjects.
+
+	Membership-by-actor answers questions like "may this role
+	cosign a filer's submission?" — the catalog stores the actor
+	class; downstream code reads it to enforce the
+	cosignature mix.
 
 KEY DEPENDENCIES:
-    None — this file is the leaf of the actor-classification surface.
+
+	None — this file is the leaf of the actor-classification surface.
 */
 package schemas
 
@@ -104,7 +106,7 @@ func (a Actor) IsValid() bool {
 // ActorFiler holds an OWN DID (e.g., a Privy wallet) sufficient
 // to produce a cosignature, but not a "network key" in the
 // dictionary's sense — there is no role-catalog entry, no
-// AuthorityResolver chain, no scope. The Phase 3C cosignature-mix
+// AuthorityResolver chain, no scope. The  cosignature-mix
 // evaluator uses this distinction.
 func (a Actor) HoldsKeys() bool {
 	return a == ActorSigner

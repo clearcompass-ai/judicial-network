@@ -5,7 +5,7 @@ and record both attorneys' appearances. By the end of this file
 `curl -fsS $DAVIDSON/v1/tree/head | jq '.size'` returns `5`.
 
 Pre-flight: §01 + §02 done. `$CLERK`, `$COOPER`, `$DAVIS` are
-exported. You're in `~/ortholog/keys`.
+exported. You're in `~/attesta/keys`.
 
 ## Step 1 — File the case (`CivilCasePayload`)
 
@@ -23,7 +23,7 @@ attorney of record on every initial filing.
 **Build the spec:**
 
 ```bash
-cd ~/ortholog/keys
+cd ~/attesta/keys
 cat > civil-filing.spec.json <<EOF
 {
   "schema":      "civil_case",
@@ -49,10 +49,10 @@ EOF
 $ judicial-cli submit --endpoint $DAVIDSON --spec civil-filing.spec.json
 canonical_hash=4b8c1d8e3f7a9b2c5e6d4f8a1b3c9d2e5f7a8b1c4d6e9f0a3b5c7d8e1f2a4b6c
 status=accepted (HTTP 202)
-sct={"version":1,"signer_did":"did:key:zQ3sh-OPERATOR-DAVIDSON",...}
+sct={"version":1,"signer_did":"did:key:zQ3sh-LEDGER-DAVIDSON",...}
 ```
 
-The operator returned an SCT — a binding promise to sequence within
+The ledger returned an SCT — a binding promise to sequence within
 MMD (24h dev default). The Sequencer goroutine picks the entry up
 immediately; within ~500 ms it lands at sequence 1.
 
@@ -76,12 +76,12 @@ A quick GCS-bucket inspection confirms the entry landed in your
 real bucket:
 
 ```bash
-$ gcloud storage ls gs://$OPERATOR_DEV_BUCKET_DAVIDSON | wc -l
+$ gcloud storage ls gs://$LEDGER_DEV_BUCKET_DAVIDSON | wc -l
 1
 ```
 
 That one object **is** the entry; its content is the canonical
-wire bytes. `gcloud storage cat gs://$OPERATOR_DEV_BUCKET_DAVIDSON/<name>`
+wire bytes. `gcloud storage cat gs://$LEDGER_DEV_BUCKET_DAVIDSON/<name>`
 shows them.
 
 ## Step 2 — Bind the parties (`PartyBindingPayload` ×2)
@@ -228,7 +228,7 @@ judicial-cli submit --endpoint $DAVIDSON --spec affidavit-acme-ceo.spec.json
 EIP-191 path: wrapped the canonical-hash digest in EIP-191 prefix
 (`\x19Ethereum Signed Message:\n32` + 32 hash bytes → keccak256),
 signed with `SignEthereumRecoverable` (65 bytes r||s||v), and
-attached `AlgoID: SigAlgoEIP191` (0x0003). The operator admitted
+attached `AlgoID: SigAlgoEIP191` (0x0003). The ledger admitted
 the entry without ever inspecting the DID method — just bytes.
 
 **Verify the signature shape on the log:**
@@ -249,14 +249,14 @@ $ judicial-cli get --endpoint $DAVIDSON --seq 6 \
 ```
 
 Two signatures on a single entry, two different signing primitives,
-two different DID methods — all verifying through the operator's
+two different DID methods — all verifying through the ledger's
 single per-method DID dispatcher when an SDK-level audit reads the
 log later.
 
 The evidence object now exists in your real Davidson GCS bucket:
 
 ```bash
-$ gcloud storage ls gs://$OPERATOR_DEV_BUCKET_DAVIDSON | wc -l
+$ gcloud storage ls gs://$LEDGER_DEV_BUCKET_DAVIDSON | wc -l
 6
 ```
 
@@ -267,7 +267,7 @@ narrative brevity — the same primary+cosigner pattern repeats. After
 a four-day bench trial Judge Adams enters judgment for ACME for
 $800K plus statutory interest. Beta Corp files a notice of appeal.
 
-The case now moves to the Court of Appeals — a different operator,
+The case now moves to the Court of Appeals — a different ledger,
 on `:8081`. Same CLI; different `--endpoint`.
 
 ## End-of-act state
@@ -289,7 +289,7 @@ attested by opposing counsel, two attorney appearances self-attested
 under their own keys. Each entry is a multi-signature canonical
 envelope; each signature was produced by an actual secp256k1 key
 you minted yourself; each is now sequenced into a Merkle log whose
-head you can fetch via curl. The operator never inspected the
+head you can fetch via curl. The ledger never inspected the
 domain payload — it sequenced canonical bytes whose interior
 *happens* to be JSON about Tennessee civil procedure. That's the
 clean separation between the protocol layer and the domain layer.

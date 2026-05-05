@@ -2,31 +2,32 @@
 FILE PATH: api/judicial/verification_attestation.go
 
 DESCRIPTION:
-    Read-side identity / background verification handlers.
 
-      GET /v1/judicial/verification/background-check?party_did=...
-                                                → BackgroundCheck
-      GET /v1/judicial/verification/key-attestation?entity_did=...&log_did=...&seq=...
-                                                → 501 (needs AttestationFinder
-                                                  + TrustedExchangeChecker)
+	Read-side identity / background verification handlers.
 
-    Daily reality:
-      - Background check: when an attorney files an appearance, the
-        court runs a background check on the represented party's DID
-        across the cases log. Sealed cases are flagged but their
-        details withheld.
-      - Key attestation: confirms an officer's key has at least one
-        valid attestation from a trusted exchange. Stub until the
-        composer wires the AttestationFinder + TrustedExchangeChecker
-        deps in C6.
+	  GET /v1/judicial/verification/background-check?party_did=...
+	                                            → BackgroundCheck
+	  GET /v1/judicial/verification/key-attestation?entity_did=...&log_did=...&seq=...
+	                                            → 501 (needs AttestationFinder
+	                                              + TrustedExchangeChecker)
+
+	Daily reality:
+	  - Background check: when an attorney files an appearance, the
+	    court runs a background check on the represented party's DID
+	    across the cases log. Sealed cases are flagged but their
+	    details withheld.
+	  - Key attestation: confirms an officer's key has at least one
+	    valid attestation from a trusted exchange. Stub until the
+	    composer wires the AttestationFinder + TrustedExchangeChecker
+	    deps in C6.
 */
 package judicial
 
 import (
 	"net/http"
 
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
@@ -65,7 +66,7 @@ func (h *verifyBackgroundCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, assoc)
 }
 
-type backgroundQuerierAdapter struct{ api sdklog.OperatorQueryAPI }
+type backgroundQuerierAdapter struct{ api sdklog.LedgerQueryAPI }
 
 func (a backgroundQuerierAdapter) QueryBySignerDID(did string) ([]types.EntryWithMetadata, error) {
 	return a.api.QueryBySignerDID(did)

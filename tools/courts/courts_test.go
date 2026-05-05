@@ -1,17 +1,19 @@
 /*
 FILE PATH:
-    tools/courts/courts_test.go
+
+	tools/courts/courts_test.go
 
 DESCRIPTION:
-    Unit tests for court tools HTTP handlers. Uses a mock exchange server
-    that accepts build-sign-submit requests and returns synthetic positions.
-    No Postgres required — read endpoints return 503 (correct degraded behavior).
+
+	Unit tests for court tools HTTP handlers. Uses a mock exchange server
+	that accepts build-sign-submit requests and returns synthetic positions.
+	No Postgres required — read endpoints return 503 (correct degraded behavior).
 
 KEY ARCHITECTURAL DECISIONS:
-    - Mock exchange via httptest.NewServer: tests the full HTTP round-trip
-      from handler → ExchangeClient → mock server → response parsing.
-    - No Postgres: DB is nil. Read endpoints correctly return 503.
-    - Auth tested via X-Signer-DID header (sandbox mode).
+  - Mock exchange via httptest.NewServer: tests the full HTTP round-trip
+    from handler → ExchangeClient → mock server → response parsing.
+  - No Postgres: DB is nil. Read endpoints correctly return 503.
+  - Auth tested via X-Signer-DID header (sandbox mode).
 */
 package courts
 
@@ -61,7 +63,7 @@ func testServer(t *testing.T) (*Server, *atomic.Int64) {
 
 	exchange := common.NewExchangeClient(mock.URL)
 	verify := common.NewVerifyClient("http://localhost:0") // not used in write tests
-	s := NewServer(cfg, exchange, verify, nil)              // nil DB
+	s := NewServer(cfg, exchange, verify, nil)             // nil DB
 	return s, seq
 }
 

@@ -2,19 +2,21 @@
 FILE PATH: policy/cosignature_mix_inmemory.go
 
 DESCRIPTION:
-    InMemoryPolicy method implementations. Split out of
-    cosignature_mix.go to keep that file focused on the type
-    surface.
+
+	InMemoryPolicy method implementations. Split out of
+	cosignature_mix.go to keep that file focused on the type
+	surface.
 
 OVERVIEW:
-    Lookup     — return rule or ErrRuleNotFound.
-    List       — sorted by event_type.
-    Add        — late insertion (used by tests + reload paths).
-    Replace    — atomic swap of the entire table.
+
+	Lookup     — return rule or ErrRuleNotFound.
+	List       — sorted by event_type.
+	Add        — late insertion (used by tests + reload paths).
+	Replace    — atomic swap of the entire table.
 
 KEY DEPENDENCIES:
-    - policy/cosignature_mix.go (CosignatureRule, sentinels,
-      validateRule, InMemoryPolicy struct).
+  - policy/cosignature_mix.go (CosignatureRule, sentinels,
+    validateRule, InMemoryPolicy struct).
 */
 package policy
 

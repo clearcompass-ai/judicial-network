@@ -2,32 +2,34 @@
 FILE PATH: deployments/tn/coa/role_catalog.go
 
 DESCRIPTION:
-    Tennessee Court of Appeals — Signer role catalog. The TN
-    COA is a single statewide intermediate appellate exchange
-    (ExchangeDID = did:web:state:tn:coa). Per v1.8, opinions
-    are issued by three-judge panels; the catalog enumerates
-    the Signer roles that hold keys at the COA exchange.
 
-    Role hierarchy (3 roles after Clerk/Deputy-Clerk merge):
+	Tennessee Court of Appeals — Signer role catalog. The TN
+	COA is a single statewide intermediate appellate exchange
+	(ExchangeDID = did:web:state:tn:coa). Per v1.8, opinions
+	are issued by three-judge panels; the catalog enumerates
+	the Signer roles that hold keys at the COA exchange.
 
-      institutional_did ── grants ──> chief_judge (depth 0→1)
-      chief_judge       ── grants ──> judge (depth 1→2)
-      chief_judge       ── grants ──> court_clerk (depth 1→2)
+	Role hierarchy (3 roles after Clerk/Deputy-Clerk merge):
 
-    Scope tokens at the COA differ from trial:
-      - opinion_publication   — author opinions, mint opinion_id
-      - opinion_participation — record per-judge role on opinion
-      - disposition_issuance  — record panel disposition
-      - case_filing           — clerk lifecycle (appellate_case_init,
-                                remand_affirmance)
-      - docket_management     — clerk routine
+	  institutional_did ── grants ──> chief_judge (depth 0→1)
+	  chief_judge       ── grants ──> judge (depth 1→2)
+	  chief_judge       ── grants ──> court_clerk (depth 1→2)
+
+	Scope tokens at the COA differ from trial:
+	  - opinion_publication   — author opinions, mint opinion_id
+	  - opinion_participation — record per-judge role on opinion
+	  - disposition_issuance  — record panel disposition
+	  - case_filing           — clerk lifecycle (appellate_case_init,
+	                            remand_affirmance)
+	  - docket_management     — clerk routine
 
 OVERVIEW:
-    Roles            — slice of Role definitions (3 roles).
-    MustRoleCatalog  — convenience constructor (panics on error).
+
+	Roles            — slice of Role definitions (3 roles).
+	MustRoleCatalog  — convenience constructor (panics on error).
 
 KEY DEPENDENCIES:
-    - schemas.Role / schemas.NewInMemoryCatalog (core types).
+  - schemas.Role / schemas.NewInMemoryCatalog (core types).
 */
 package coa
 

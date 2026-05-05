@@ -2,8 +2,9 @@
 FILE PATH: delegation/revoke_test.go
 
 DESCRIPTION:
-    Tests for delegation.Revoke. Helpers (fakeOperator,
-    stubBoundProvider, newBuildContext) are shared from issue_test.go.
+
+	Tests for delegation.Revoke. Helpers (fakeLedger,
+	stubBoundProvider, newBuildContext) are shared from issue_test.go.
 */
 package delegation
 
@@ -13,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 func TestRevoke_HappyPath(t *testing.T) {
@@ -22,7 +23,7 @@ func TestRevoke_HappyPath(t *testing.T) {
 	target := schemas.LogPositionRef{LogDID: "did:web:state:tn:davidson", Sequence: 7}
 
 	sp := stubBoundProvider(t, cjDID)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	res, err := Revoke(context.Background(), bc, RevokeRequest{
@@ -46,7 +47,7 @@ func TestRevoke_HappyPath(t *testing.T) {
 	// Round-trip through SDK envelope decode.
 	entry, err := envelope.Deserialize(op.captured[0])
 	if err != nil {
-		t.Fatalf("operator received malformed bytes: %v", err)
+		t.Fatalf("ledger received malformed bytes: %v", err)
 	}
 	if entry.Header.SignerDID != cjDID {
 		t.Errorf("signer drift: %q", entry.Header.SignerDID)
@@ -62,7 +63,7 @@ func TestRevoke_HappyPath(t *testing.T) {
 func TestRevoke_RejectsMissingFields(t *testing.T) {
 	cjDID := "did:key:zQ3shCJ"
 	sp := stubBoundProvider(t, cjDID)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	cases := []struct {
@@ -109,7 +110,7 @@ func TestRevoke_HonorsSignRejected(t *testing.T) {
 	cjDID := "did:key:zQ3shCJ"
 	sp := stubBoundProvider(t, cjDID)
 	sp.RejectSigning(cjDID, true)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Revoke(context.Background(), bc, RevokeRequest{
@@ -125,7 +126,7 @@ func TestRevoke_HonorsSignRejected(t *testing.T) {
 func TestRevoke_HonorsSubmitFailed(t *testing.T) {
 	cjDID := "did:key:zQ3shCJ"
 	sp := stubBoundProvider(t, cjDID)
-	op := &fakeOperator{err: errors.New("synthetic")}
+	op := &fakeLedger{err: errors.New("synthetic")}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Revoke(context.Background(), bc, RevokeRequest{

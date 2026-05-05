@@ -2,11 +2,12 @@
 FILE PATH: internal/testfixtures/davidsonlegacy/prerequisites_test.go
 
 DESCRIPTION:
-    Tests for the legacy v1.6 Davidson prereq fixture. Mirrors
-    the original deployments/davidson_county/rules/
-    prerequisites_test.go invariants — vocabulary completeness,
-    structural validation, and a representative walk per event
-    category.
+
+	Tests for the legacy v1.6 Davidson prereq fixture. Mirrors
+	the original deployments/davidson_county/rules/
+	prerequisites_test.go invariants — vocabulary completeness,
+	structural validation, and a representative walk per event
+	category.
 */
 package davidsonlegacy
 

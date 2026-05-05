@@ -8,8 +8,8 @@ case — and decide whether to encode the public key as a `did:key`
 parties whose primary identity is an Ethereum wallet).
 
 These are not pretend DIDs. They're the same keypair shape the
-operator uses for its own entry-signing key
-(`operator/cmd/operator/main.go:189-200`). A signature produced by
+ledger uses for its own entry-signing key
+(`ledger/cmd/ledger/main.go:189-200`). A signature produced by
 one of these keys verifies cleanly through the SDK's
 `did.NewKeyResolver()` (for did:key) or PKHVerifier (for did:pkh).
 
@@ -31,8 +31,8 @@ DID encoding and signing path; everything else is shared.
 ## 1. Pick a keys directory
 
 ```bash
-mkdir -p ~/ortholog/keys
-cd ~/ortholog/keys
+mkdir -p ~/attesta/keys
+cd ~/attesta/keys
 ```
 
 Permissions land at `0600` (owner read/write only) — the CLI sets
@@ -69,7 +69,7 @@ Each prints the assigned DID:
 $ judicial-cli keygen --out clerk-brown.key.json
 did=did:key:zQ3shgNJJbyVUSbFVpqXCGQ8LjWshxtMPufJHrekzougqsyur
 method=key
-file=/home/you/ortholog/keys/clerk-brown.key.json
+file=/home/you/attesta/keys/clerk-brown.key.json
 ```
 
 The `did:key:zQ3sh...` form encodes the **compressed secp256k1
@@ -91,7 +91,7 @@ Each prints a CAIP-10 form:
 $ judicial-cli keygen --out acme-ceo.key.json --method pkh-eip155
 did=did:pkh:eip155:1:0x7ad817edea4e9eb9c223983ec9604376ce2d668f
 method=pkh-eip155
-file=/home/you/ortholog/keys/acme-ceo.key.json
+file=/home/you/attesta/keys/acme-ceo.key.json
 ```
 
 The `eip155:1` part is the CAIP-2 chain identifier — `1` is
@@ -137,20 +137,20 @@ echo "$CLERK"      # did:key:zQ3sh...
 ## 7. Verify both methods round-trip cleanly
 
 ```bash
-cd ~/ortholog/jn
+cd ~/attesta/jn
 go test ./cmd/judicial-cli/ -run "TestKeygen_Roundtrip|TestKeygen_PKHEIP155_Roundtrip|TestSignByMethod_PKH_RoundTripsThroughPKHVerifier" -v
 ```
 
 Expected: three PASSes. The third is load-bearing — it pins that a
 signature produced by `judicial-cli` for a `did:pkh` key verifies
 through `sdksigs.VerifySecp256k1EIP191`, which is the same primitive
-the operator's PKHVerifier dispatches to under `SigAlgoEIP191`.
+the ledger's PKHVerifier dispatches to under `SigAlgoEIP191`.
 
 If those three pass, every web3 step in the walkthrough will work.
 
 ## 8. What's NOT happening yet
 
-- No HTTP request issued to either operator.
+- No HTTP request issued to either ledger.
 - No entry on either log.
 - No DID has any *role* assigned. DIDs are public-key identifiers;
   the judicial-network's role catalog and authority resolver bind a
@@ -162,8 +162,8 @@ If those three pass, every web3 step in the walkthrough will work.
 
 | You have | Where |
 |---|---|
-| 5 `did:key` keypairs | `~/ortholog/keys/{clerk,cooper,davis,judge-adams,justice-edwards}.key.json` |
-| 2 `did:pkh` keypairs (web3 wallets) | `~/ortholog/keys/{acme-ceo,beta-cfo}.key.json` |
+| 5 `did:key` keypairs | `~/attesta/keys/{clerk,cooper,davis,judge-adams,justice-edwards}.key.json` |
+| 2 `did:pkh` keypairs (web3 wallets) | `~/attesta/keys/{acme-ceo,beta-cfo}.key.json` |
 | 7 DID strings in shell vars | `$CLERK $COOPER $DAVIS $ADAMS $EDWARDS $ACME_CEO $BETA_CFO` |
 | 0 entries on either log | `curl -fsS $DAVIDSON/v1/tree/head` |
 
@@ -189,6 +189,6 @@ order:
 
 If you only want the protocol-level walkthrough and not the JN
 tools, you can skip §03 — `judicial-cli` talks directly to the
-operator and doesn't need court-tools or provider-tools to
+ledger and doesn't need court-tools or provider-tools to
 function. Skipping §03 just means cases don't visibly populate
-the workflow API; they still land on the operator's log.
+the workflow API; they still land on the ledger's log.

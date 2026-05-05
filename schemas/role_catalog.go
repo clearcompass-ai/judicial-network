@@ -2,55 +2,57 @@
 FILE PATH: schemas/role_catalog.go
 
 DESCRIPTION:
-    Programmatic role catalog. Roles are *not* hard-coded constants;
-    they are entries in a court-controlled config that the catalog
-    loads at startup (and reloads on signal). Adding a role is a
-    config change, not a JN code change, not a schema migration.
 
-    A Role describes:
-        - what scope tokens a holder *may* be granted (AllowedScope)
-        - what scope tokens are granted by default (DefaultScope)
-        - the maximum duration of a delegation in this role (MaxDuration)
-        - which roles are permitted to *grant* this role (DelegableBy)
-        - which scope tokens may be passed downstream (DelegableScope,
-          i.e. what slice of AllowedScope a holder of this role may
-          re-delegate to a deputy/subordinate)
+	Programmatic role catalog. Roles are *not* hard-coded constants;
+	they are entries in a court-controlled config that the catalog
+	loads at startup (and reloads on signal). Adding a role is a
+	config change, not a JN code change, not a schema migration.
 
-    The on-log JudicialDelegationPayload references a Role by name.
-    AuthorityResolver and IssueDelegation consult the catalog to
-    decide whether the proposed (granter_role, grantee_role,
-    requested_scope, requested_duration) tuple is permissible.
+	A Role describes:
+	    - what scope tokens a holder *may* be granted (AllowedScope)
+	    - what scope tokens are granted by default (DefaultScope)
+	    - the maximum duration of a delegation in this role (MaxDuration)
+	    - which roles are permitted to *grant* this role (DelegableBy)
+	    - which scope tokens may be passed downstream (DelegableScope,
+	      i.e. what slice of AllowedScope a holder of this role may
+	      re-delegate to a deputy/subordinate)
+
+	The on-log JudicialDelegationPayload references a Role by name.
+	AuthorityResolver and IssueDelegation consult the catalog to
+	decide whether the proposed (granter_role, grantee_role,
+	requested_scope, requested_duration) tuple is permissible.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Catalog is read-mostly. Implementations are RWMutex-protected.
-    - The on-log truth never mentions catalog internals; only role
-      name + concrete scope tokens. If the catalog is reloaded the
-      *log* is unchanged. AuthorityResolver evaluates a delegation
-      against whatever catalog the verifying node currently runs;
-      a node out of date may produce a different verdict than a
-      node up-to-date — this is intentional. Catalog drift is
-      auditable: every node logs (catalog_version_hash, decision)
-      pairs, and a periodic reconciliation run flags any
-      disagreement.
-    - "DelegableBy" supports a single special token "*" meaning
-      "any role with the appropriate invite:* scope." This avoids
-      a maintenance trap where every role must enumerate every
-      delegable parent. The chain-walking enforcer (scope_enforcement)
-      still intersects scope tokens, so "*" alone is not a back door.
-    - The reference fixture (DavidsonRoles, in role_catalog_davidson.go)
-      bakes in the Davidson County hierarchy. Tests use it; production
-      loads from file (see role_catalog_loader.go).
-    - Pure helpers (validateRole, subset, roleAllowedToDelegate) live in
-      role_catalog_helpers.go.
+  - Catalog is read-mostly. Implementations are RWMutex-protected.
+  - The on-log truth never mentions catalog internals; only role
+    name + concrete scope tokens. If the catalog is reloaded the
+    *log* is unchanged. AuthorityResolver evaluates a delegation
+    against whatever catalog the verifying node currently runs;
+    a node out of date may produce a different verdict than a
+    node up-to-date — this is intentional. Catalog drift is
+    auditable: every node logs (catalog_version_hash, decision)
+    pairs, and a periodic reconciliation run flags any
+    disagreement.
+  - "DelegableBy" supports a single special token "*" meaning
+    "any role with the appropriate invite:* scope." This avoids
+    a maintenance trap where every role must enumerate every
+    delegable parent. The chain-walking enforcer (scope_enforcement)
+    still intersects scope tokens, so "*" alone is not a back door.
+  - The reference fixture (DavidsonRoles, in role_catalog_davidson.go)
+    bakes in the Davidson County hierarchy. Tests use it; production
+    loads from file (see role_catalog_loader.go).
+  - Pure helpers (validateRole, subset, roleAllowedToDelegate) live in
+    role_catalog_helpers.go.
 
 OVERVIEW:
-    Role            — typed description of one role.
-    RoleCatalog     — interface (Lookup, List, ValidateGrant).
-    InMemoryCatalog — RWMutex-protected map[string]Role implementation.
+
+	Role            — typed description of one role.
+	RoleCatalog     — interface (Lookup, List, ValidateGrant).
+	InMemoryCatalog — RWMutex-protected map[string]Role implementation.
 
 KEY DEPENDENCIES:
-    - schemas/judicial_delegation.go (Role names referenced in
-      JudicialDelegationPayload.Role).
+  - schemas/judicial_delegation.go (Role names referenced in
+    JudicialDelegationPayload.Role).
 */
 package schemas
 
@@ -71,7 +73,7 @@ type Role struct {
 	// Actor classifies the role per the v1.4 Event Dictionary. The
 	// catalog only lists ActorSigner (key-holding) roles by design —
 	// ActorFiler attestations live in the payload's
-	// `filed_by_capacity` block (Phase 3C); ActorParty subjects in
+	// `filed_by_capacity` block; ActorParty subjects in
 	// party_binding entries. validateRole rejects roles whose
 	// Actor is not ActorSigner.
 	//
@@ -256,4 +258,3 @@ func (c *InMemoryCatalog) ValidateGrant(granterRole, granteeRole string, request
 	}
 	return nil
 }
-

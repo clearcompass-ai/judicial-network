@@ -2,28 +2,29 @@
 FILE PATH: deployments/tn/trial/motions_3b.go
 
 DESCRIPTION:
-    v1.8 §3B — Dispositive & Summary Motions. Six event types
-    that resolve a case as a matter of law without a merits
-    trial.
 
-    Prereq variations beyond the §3 default (Hard case_initiated):
-      motion_judgment_on_pleadings  Hard responsive_pleading
-                                    (pleadings closed)
-      motion_default_judgment       Hard party_binding for the
-                                    non-responding party
-      every other motion            no additional prereqs
+	v1.8 §3B — Dispositive & Summary Motions. Six event types
+	that resolve a case as a matter of law without a merits
+	trial.
 
-    Filer set varies:
-      motion_summary_judgment / motion_judgment_on_pleadings —
-        defense+civil (a civil dispositive motion)
-      motion_default_judgment —
-        defense+civil (the moving plaintiff has civil_attorney;
-        a defaulting defendant scenario; either side can move
-        for default if the other failed to respond)
-      motion_state_dismissal / motion_dismiss_unnecessary_delay —
-        prosecutor-only (criminal-side)
-      motion_dispositive_general (catch-all) —
-        all advocates
+	Prereq variations beyond the §3 default (Hard case_initiated):
+	  motion_judgment_on_pleadings  Hard responsive_pleading
+	                                (pleadings closed)
+	  motion_default_judgment       Hard party_binding for the
+	                                non-responding party
+	  every other motion            no additional prereqs
+
+	Filer set varies:
+	  motion_summary_judgment / motion_judgment_on_pleadings —
+	    defense+civil (a civil dispositive motion)
+	  motion_default_judgment —
+	    defense+civil (the moving plaintiff has civil_attorney;
+	    a defaulting defendant scenario; either side can move
+	    for default if the other failed to respond)
+	  motion_state_dismissal / motion_dismiss_unnecessary_delay —
+	    prosecutor-only (criminal-side)
+	  motion_dispositive_general (catch-all) —
+	    all advocates
 */
 package trial
 

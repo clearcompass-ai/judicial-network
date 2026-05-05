@@ -2,26 +2,27 @@
 FILE PATH: api/middleware/reliability/ratelimit.go
 
 DESCRIPTION:
-    Token-bucket rate limiter middleware. Backs onto
-    golang.org/x/time/rate (the canonical Go token bucket).
 
-    Two surfaces:
+	Token-bucket rate limiter middleware. Backs onto
+	golang.org/x/time/rate (the canonical Go token bucket).
 
-      RateLimitGlobal — one bucket shared across all requests. Used
-        as the composer-level safety net so a misbehaving caller
-        cannot drown the binary regardless of which route they hit.
+	Two surfaces:
 
-      RateLimitByCaller — one bucket per caller DID, sourced from
-        middleware.CallerDIDFromContext. Anonymous (empty caller-DID)
-        traffic shares one fallback bucket so it cannot starve
-        authenticated traffic. Used per-route to enforce per-caller
-        fairness.
+	  RateLimitGlobal — one bucket shared across all requests. Used
+	    as the composer-level safety net so a misbehaving caller
+	    cannot drown the binary regardless of which route they hit.
 
-    Refused requests get 429 Too Many Requests.
+	  RateLimitByCaller — one bucket per caller DID, sourced from
+	    middleware.CallerDIDFromContext. Anonymous (empty caller-DID)
+	    traffic shares one fallback bucket so it cannot starve
+	    authenticated traffic. Used per-route to enforce per-caller
+	    fairness.
 
-    Defaults are conservative: 1000 RPS sustained / 200 burst at
-    the global level; 100 RPS / 50 burst per caller. Both override
-    via config.
+	Refused requests get 429 Too Many Requests.
+
+	Defaults are conservative: 1000 RPS sustained / 200 burst at
+	the global level; 100 RPS / 50 burst per caller. Both override
+	via config.
 */
 package reliability
 

@@ -2,18 +2,19 @@
 FILE PATH: exchange/auth/mtls.go
 
 DESCRIPTION:
-    Extracts DID from a client certificate's SAN (Subject Alternative
-    Name) URI field. Standard X.509 extension — the DID is encoded as:
 
-      SAN: URI:did:web:courts.nashville.gov:role:judge-mcclendon-2026
+	Extracts DID from a client certificate's SAN (Subject Alternative
+	Name) URI field. Standard X.509 extension — the DID is encoded as:
 
-    This replaces bearer tokens. The TLS handshake proves the caller
-    controls the private key for the cert. The SAN DID links the cert
-    to the on-log delegation chain.
+	  SAN: URI:did:web:courts.nashville.gov:role:judge-mcclendon-2026
 
-    No sessions table. No token issuance. No token refresh.
-    The cert IS the credential. Revocation is on-log (BuildRevocation
-    against the DID's delegation), not CRL-based.
+	This replaces bearer tokens. The TLS handshake proves the caller
+	controls the private key for the cert. The SAN DID links the cert
+	to the on-log delegation chain.
+
+	No sessions table. No token issuance. No token refresh.
+	The cert IS the credential. Revocation is on-log (BuildRevocation
+	against the DID's delegation), not CRL-based.
 */
 package auth
 

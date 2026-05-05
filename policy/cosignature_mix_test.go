@@ -2,10 +2,11 @@
 FILE PATH: policy/cosignature_mix_test.go
 
 DESCRIPTION:
-    Tests for CosignatureRule + InMemoryPolicy: validation, rule
-    helpers (PermitsFilerRole / PermitsSignerRole / RequiresFiler /
-    EffectiveMinCosigners), Lookup, Add, List ordering, Replace,
-    duplicate detection, concurrent reads.
+
+	Tests for CosignatureRule + InMemoryPolicy: validation, rule
+	helpers (PermitsFilerRole / PermitsSignerRole / RequiresFiler /
+	EffectiveMinCosigners), Lookup, Add, List ordering, Replace,
+	duplicate detection, concurrent reads.
 */
 package policy
 
@@ -189,9 +190,9 @@ func TestInMemoryPolicy_Lookup(t *testing.T) {
 
 func TestInMemoryPolicy_List_Order(t *testing.T) {
 	p, _ := NewInMemoryPolicy([]CosignatureRule{
-		verdictRule(),       // "verdict"
-		motionRule(),        // "motion_continuance"
-		{                    // "abc"
+		verdictRule(), // "verdict"
+		motionRule(),  // "motion_continuance"
+		{ // "abc"
 			EventType:           "abc",
 			RequiredSignerRoles: []string{"judge"},
 		},

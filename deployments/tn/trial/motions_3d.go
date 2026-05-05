@@ -2,25 +2,26 @@
 FILE PATH: deployments/tn/trial/motions_3d.go
 
 DESCRIPTION:
-    v1.8 §3D — Discovery, Spoliation & Protection. Seven event
-    types covering TRCP 36 / 37 discovery enforcement, TRCP 26
-    protective orders, TRCP 45 subpoena practice, plus the
-    catch-all.
 
-    Prereq variations beyond the §3 default (Hard case_initiated):
-      motion_compel_discovery       Advisory discovery_filing
-                                    (the request that wasn't
-                                    answered)
-      motion_discovery_sanctions    Hard interlocutory_order
-                                    (granting discovery — the
-                                    order alleged to have been
-                                    violated)
-      motion_deem_facts_admitted    Advisory discovery_filing
-                                    (the Requests for Admission
-                                    that weren't responded to)
+	v1.8 §3D — Discovery, Spoliation & Protection. Seven event
+	types covering TRCP 36 / 37 discovery enforcement, TRCP 26
+	protective orders, TRCP 45 subpoena practice, plus the
+	catch-all.
 
-    Filer set: all advocates for every §3D motion (criminal +
-    civil discovery practice both apply).
+	Prereq variations beyond the §3 default (Hard case_initiated):
+	  motion_compel_discovery       Advisory discovery_filing
+	                                (the request that wasn't
+	                                answered)
+	  motion_discovery_sanctions    Hard interlocutory_order
+	                                (granting discovery — the
+	                                order alleged to have been
+	                                violated)
+	  motion_deem_facts_admitted    Advisory discovery_filing
+	                                (the Requests for Admission
+	                                that weren't responded to)
+
+	Filer set: all advocates for every §3D motion (criminal +
+	civil discovery practice both apply).
 */
 package trial
 

@@ -2,43 +2,45 @@
 FILE PATH: verification/authority_resolver_origin.go
 
 DESCRIPTION:
-    Per-hop fetch + parse + liveness check for AuthorityResolver.
-    Split out of authority_resolver.go to keep that file focused on
-    the chain-walk control flow.
 
-    fetchAndValidate is called once per hop during Resolve. It:
+	Per-hop fetch + parse + liveness check for AuthorityResolver.
+	Split out of authority_resolver.go to keep that file focused on
+	the chain-walk control flow.
 
-      1. Fetches the entry at the given LogPosition from the
-         operator (via Fetcher).
-      2. Deserializes the entry envelope.
-      3. Inspects DomainPayload to determine schema:
-           - judicial-delegation-v1 → continue (the common case).
-           - judicial-revocation-v1 → reject (chain hop revoked).
-           - judicial-succession-v1 → at this hop, transparently
-             follow the successor (the resolver continues walking
-             but with the SuccessorDID as the expected granter for
-             the next hop, and treats THIS hop's payload as still
-             authoritative because the institutional Authority_Set
-             cosigned the succession).
-      4. Parses the JudicialDelegationPayload (Validate runs).
-      5. Confirms the payload's GranteeDID equals the
-         expected-grantee passed by the walker (each hop's grantee
-         must be the previous hop's granter — the chain rule).
-      6. Confirms not-expired against the resolver's clock.
-      7. If LeafReader is available, evaluates Origin_Tip via the
-         SDK's EvaluateOrigin. If Origin_Tip points to a revocation
-         entry, the hop is rejected; if it points to a succession,
-         the resolver still accepts THIS hop (the original
-         delegation's role + scope are authoritative) but logs the
-         redirect for downstream consumers.
+	fetchAndValidate is called once per hop during Resolve. It:
+
+	  1. Fetches the entry at the given LogPosition from the
+	     ledger (via Fetcher).
+	  2. Deserializes the entry envelope.
+	  3. Inspects DomainPayload to determine schema:
+	       - judicial-delegation-v1 → continue (the common case).
+	       - judicial-revocation-v1 → reject (chain hop revoked).
+	       - judicial-succession-v1 → at this hop, transparently
+	         follow the successor (the resolver continues walking
+	         but with the SuccessorDID as the expected granter for
+	         the next hop, and treats THIS hop's payload as still
+	         authoritative because the institutional Authority_Set
+	         cosigned the succession).
+	  4. Parses the JudicialDelegationPayload (Validate runs).
+	  5. Confirms the payload's GranteeDID equals the
+	     expected-grantee passed by the walker (each hop's grantee
+	     must be the previous hop's granter — the chain rule).
+	  6. Confirms not-expired against the resolver's clock.
+	  7. If LeafReader is available, evaluates Origin_Tip via the
+	     SDK's EvaluateOrigin. If Origin_Tip points to a revocation
+	     entry, the hop is rejected; if it points to a succession,
+	     the resolver still accepts THIS hop (the original
+	     delegation's role + scope are authoritative) but logs the
+	     redirect for downstream consumers.
 
 OVERVIEW:
-    fetchAndValidate — the per-hop primitive.
-    classifyTip      — schema-based tip-entry routing.
+
+	fetchAndValidate — the per-hop primitive.
+	classifyTip      — schema-based tip-entry routing.
 
 KEY DEPENDENCIES:
-    - schemas (JudicialDelegationPayload, schema URI consts).
-    - ortholog-sdk envelope (Deserialize), verifier (EvaluateOrigin).
+  - schemas (JudicialDelegationPayload, schema URI consts).
+  - attesta envelope (Deserialize), verifier (EvaluateOrigin).
 */
 package verification
 
@@ -47,11 +49,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
 
 // fetchAndValidate fetches one chain hop, parses the delegation

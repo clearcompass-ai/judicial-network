@@ -2,13 +2,14 @@
 FILE PATH: api/exchange/keystore/vault/vault_http.go
 
 DESCRIPTION:
-    Vault HTTP plumbing for the Transit-backed keystore. Owns:
-      - createKey: POST /v1/{mount}/keys/{name}
-      - fetchPublicKey: GET /v1/{mount}/keys/{name} (latest version)
-      - signDER: POST /v1/{mount}/sign/{name} (ASN.1-marshaled ECDSA)
-      - signEd25519: POST /v1/{mount}/sign/{name} (raw Ed25519)
-      - parsePublicKeyPEM: PKIX → 65-byte uncompressed (secp) or 32-byte (ed25519)
-      - do: shared transport with X-Vault-Token + non-2xx body capture
+
+	Vault HTTP plumbing for the Transit-backed keystore. Owns:
+	  - createKey: POST /v1/{mount}/keys/{name}
+	  - fetchPublicKey: GET /v1/{mount}/keys/{name} (latest version)
+	  - signDER: POST /v1/{mount}/sign/{name} (ASN.1-marshaled ECDSA)
+	  - signEd25519: POST /v1/{mount}/sign/{name} (raw Ed25519)
+	  - parsePublicKeyPEM: PKIX → 65-byte uncompressed (secp) or 32-byte (ed25519)
+	  - do: shared transport with X-Vault-Token + non-2xx body capture
 */
 package vault
 

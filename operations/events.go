@@ -1,23 +1,28 @@
 /*
 FILE PATH: operations/events.go
 DESCRIPTION: Flexible operational events via BuildCommentary. Handles
-    scheduling, closures, notices, duty assignments, and any future event
-    type without hardcoded structures.
+
+	scheduling, closures, notices, duty assignments, and any future event
+	type without hardcoded structures.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Single generic PublishEvent wrapping BuildCommentary.
-    - Refs []LogPosition for zero-to-many references (zero for court closures,
-      one for single-case hearings, many for consolidated proceedings).
-    - EventType is a free-form string — no enum. CMS bridges and court ops
-      set the type. The SDK never reads it (commentary, zero SMT impact).
-    - Caller decides which log to submit to (officers log for court-wide,
-      cases log for case-specific). This function builds the entry;
-      submission is the caller's responsibility.
-    - No schema. Commentary entries don't need one.
+  - Single generic PublishEvent wrapping BuildCommentary.
+  - Refs []LogPosition for zero-to-many references (zero for court closures,
+    one for single-case hearings, many for consolidated proceedings).
+  - EventType is a free-form string — no enum. CMS bridges and court ops
+    set the type. The SDK never reads it (commentary, zero SMT impact).
+  - Caller decides which log to submit to (officers log for court-wide,
+    cases log for case-specific). This function builds the entry;
+    submission is the caller's responsibility.
+  - No schema. Commentary entries don't need one.
+
 OVERVIEW:
-    PublishEvent → *envelope.Entry (commentary) with typed payload.
-    Covers: scheduling, closure, hours_change, notice, duty, conference,
-    continuance, and anything else a CMS or court ops module invents.
-KEY DEPENDENCIES: ortholog-sdk/builder (BuildCommentary only)
+
+	PublishEvent → *envelope.Entry (commentary) with typed payload.
+	Covers: scheduling, closure, hours_change, notice, duty, conference,
+	continuance, and anything else a CMS or court ops module invents.
+
+KEY DEPENDENCIES: attesta/builder (BuildCommentary only)
 */
 package operations
 
@@ -25,18 +30,18 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // EventConfig configures an operational event.
 // All fields except SignerDID and EventType are optional.
 type EventConfig struct {
 	Destination string // DID of target exchange. Required.
-	SignerDID string
-	EventType string // "scheduling", "closure", "notice", "duty", "conference", etc.
-	EventTime int64
+	SignerDID   string
+	EventType   string // "scheduling", "closure", "notice", "duty", "conference", etc.
+	EventTime   int64
 
 	// Refs are zero-to-many log positions this event relates to.
 	// Empty for court-wide events (closures, hours changes).
@@ -94,9 +99,9 @@ func PublishEvent(cfg EventConfig) (*EventResult, error) {
 
 	entry, err := builder.BuildCommentary(builder.CommentaryParams{
 		Destination: cfg.Destination,
-		SignerDID: cfg.SignerDID,
-		Payload:   payloadBytes,
-		EventTime: cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		Payload:     payloadBytes,
+		EventTime:   cfg.EventTime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("operations/events: build commentary: %w", err)

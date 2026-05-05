@@ -2,12 +2,13 @@
 FILE PATH: verification/attestation_check_test.go
 
 COVERAGE:
-    Every code path in attestation_check.go: nil finder, empty
-    entity, finder error, no attestations, every-attestation-stale,
-    payload malformed, payload entity-mismatch, untrusted exchange
-    (with and without checker), happy path, latest-wins ordering,
-    cross-log attestation tie-break by LogTime, trust-check infra
-    error.
+
+	Every code path in attestation_check.go: nil finder, empty
+	entity, finder error, no attestations, every-attestation-stale,
+	payload malformed, payload entity-mismatch, untrusted exchange
+	(with and without checker), happy path, latest-wins ordering,
+	cross-log attestation tie-break by LogTime, trust-check infra
+	error.
 */
 package verification
 
@@ -17,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 	"github.com/clearcompass-ai/judicial-network/schemas"

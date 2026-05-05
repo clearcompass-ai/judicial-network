@@ -2,14 +2,15 @@
 FILE PATH: cases/transfer.go
 DESCRIPTION: Cross-division and cross-county case transfer.
 KEY ARCHITECTURAL DECISIONS:
-    - Division transfer: BuildAmendment (Path A) on case root.
-    - County transfer: verifier.BuildCrossLogProof + BuildAmendment +
-      delegation.BulkMirrorSync for delegation mirrors on target log.
-    - DRIFT 2 FIX: CountyTransferResult includes DelegationMirrors for
-      the target county log so its operator knows which judges have authority.
-    - Uses BuildCrossLogProof (Gap 12), NOT ResolveCrossLogRef.
+  - Division transfer: BuildAmendment (Path A) on case root.
+  - County transfer: verifier.BuildCrossLogProof + BuildAmendment +
+    delegation.BulkMirrorSync for delegation mirrors on target log.
+  - DRIFT 2 FIX: CountyTransferResult includes DelegationMirrors for
+    the target county log so its ledger knows which judges have authority.
+  - Uses BuildCrossLogProof (Gap 12), NOT ResolveCrossLogRef.
+
 OVERVIEW: TransferDivision (intra-county) and TransferCounty (inter-county).
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier, delegation/mirror
+KEY DEPENDENCIES: attesta/builder, attesta/verifier, delegation/mirror
 */
 package cases
 
@@ -17,17 +18,16 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
-
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // DivisionTransferConfig configures an intra-county division transfer.
 type DivisionTransferConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination    string // DID of target exchange. Required.
 	SignerDID      string
 	CaseRootPos    types.LogPosition
 	TargetDivision string
@@ -53,17 +53,17 @@ func TransferDivision(cfg DivisionTransferConfig) (*envelope.Entry, error) {
 
 	return builder.BuildAmendment(builder.AmendmentParams{
 		Destination: cfg.Destination,
-		SignerDID:  cfg.SignerDID,
-		TargetRoot: cfg.CaseRootPos,
-		Payload:    payload,
-		SchemaRef:  cfg.SchemaRef,
-		EventTime:  cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		TargetRoot:  cfg.CaseRootPos,
+		Payload:     payload,
+		SchemaRef:   cfg.SchemaRef,
+		EventTime:   cfg.EventTime,
 	})
 }
 
 // CountyTransferConfig configures an inter-county case transfer.
 type CountyTransferConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination     string // DID of target exchange. Required.
 	SignerDID       string
 	SourceCasePos   types.LogPosition
 	TargetCountyDID string
@@ -79,11 +79,11 @@ type CountyTransferConfig struct {
 
 // CountyTransferResult holds cross-log proof, amendment, and delegation mirrors.
 type CountyTransferResult struct {
-	CrossLogProof    *types.CrossLogProof
-	SourceAmendment  *envelope.Entry
+	CrossLogProof   *types.CrossLogProof
+	SourceAmendment *envelope.Entry
 
 	// DRIFT 2 FIX: Delegation mirrors for the target county log.
-	// The target county operator needs these to know which judges have
+	// The target county ledger needs these to know which judges have
 	// authority over the transferred case. Caller submits to target log.
 	DelegationMirrors []*envelope.Entry
 }
@@ -127,10 +127,10 @@ func TransferCounty(
 
 	amendment, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: cfg.Destination,
-		SignerDID:  cfg.SignerDID,
-		TargetRoot: cfg.SourceCasePos,
-		Payload:    payload,
-		EventTime:  cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		TargetRoot:  cfg.SourceCasePos,
+		Payload:     payload,
+		EventTime:   cfg.EventTime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cases/transfer: build amendment: %w", err)
@@ -142,7 +142,7 @@ func TransferCounty(
 	}
 
 	// Cross-log delegation mirroring lived in delegation.BulkMirrorSync,
-	// which was removed in Phase 3D.cleanup-2 along with the legacy
+	// which was removed .cleanup-2 along with the legacy
 	// delegation/mirror.go + roster_sync.go. The unified
 	// delegation.Issue + judicial-delegation-v1 schema now drive
 	// every delegation entry; cross-exchange mirroring will be

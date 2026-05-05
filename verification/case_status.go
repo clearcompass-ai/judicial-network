@@ -2,20 +2,21 @@
 FILE PATH: verification/case_status.go
 DESCRIPTION: Origin_Tip → current case state via SDK verifier.EvaluateOrigin.
 KEY ARCHITECTURAL DECISIONS:
-    - Uses SDK EvaluateOrigin (not raw SMT reads) — handles path compression,
-      revocation, succession.
-    - Returns typed CaseState with human-readable status.
+  - Uses SDK EvaluateOrigin (not raw SMT reads) — handles path compression,
+    revocation, succession.
+  - Returns typed CaseState with human-readable status.
+
 OVERVIEW: GetCaseStatus → CaseState{Active, Amended, Sealed, Transferred, Closed}.
-KEY DEPENDENCIES: ortholog-sdk/verifier, ortholog-sdk/core/smt
+KEY DEPENDENCIES: attesta/verifier, attesta/core/smt
 */
 package verification
 
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 type CaseState struct {
@@ -42,7 +43,6 @@ func GetCaseStatus(
 
 	state := &CaseState{
 		OriginState: eval.State,
-		
 	}
 
 	switch eval.State {

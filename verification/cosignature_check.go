@@ -2,56 +2,58 @@
 FILE PATH: verification/cosignature_check.go
 
 DESCRIPTION:
-    Phase 3C cosignature-mix verifier. Read-side enforcement of
-    the v1.4 Event Dictionary's Tier 2 cosignature requirement.
 
-    The verifier walks four inputs:
+	 cosignature-mix verifier. Read-side enforcement of
+	the v1.4 Event Dictionary's Tier 2 cosignature requirement.
 
-      1. envelope.Entry           — the on-log entry under review.
-      2. policy.CosignatureMixPolicy — the (event_type → rule) table.
-      3. RoleResolver             — DID → (role, exchange) lookup.
-                                    Replaces the deleted
-                                    directory.OfficerRegistry per
-                                    the v1.6 "no registries" design.
-      4. exchangeDID              — the verifying exchange's DID
-                                    (used for IntraExchangeOnly).
+	The verifier walks four inputs:
 
-    Returns a typed verdict. The check is closed-set: unknown
-    event types are REJECTED (the catalog must enumerate every
-    event the network accepts).
+	  1. envelope.Entry           — the on-log entry under review.
+	  2. policy.CosignatureMixPolicy — the (event_type → rule) table.
+	  3. RoleResolver             — DID → (role, exchange) lookup.
+	                                Replaces the deleted
+	                                directory.OfficerRegistry per
+	                                the v1.6 "no registries" design.
+	  4. exchangeDID              — the verifying exchange's DID
+	                                (used for IntraExchangeOnly).
 
-    Pipeline:
+	Returns a typed verdict. The check is closed-set: unknown
+	event types are REJECTED (the catalog must enumerate every
+	event the network accepts).
 
-      a. Parse `event_type` from payload. Reject if missing.
-      b. Lookup rule for event_type. Reject on miss.
-      c. Parse `filed_by_capacity` from payload.
-         - If rule has NO AllowedFilerRoles: capacity MUST be
-           absent (pure ActorSigner event).
-         - If rule has AllowedFilerRoles: capacity MUST be
-           present + valid + role permitted by the rule.
-      d. If capacity is present, the cosigner DID
-         capacity.did MUST appear in entry.Signatures
-         (anti-impersonation).
-      e. Count cosigners whose role (looked up via RoleResolver)
-         is in rule.RequiredSignerRoles. Must reach
-         rule.EffectiveMinCosigners().
-      f. If rule.IntraExchangeOnly: every Tier 1 cosigner counted
-         must come from the entry's exchange (delegation_ref.log_did
-         equals exchangeDID).
-      g. If capacity is present: every key in
-         rule.RequiredCredentials must be present + non-empty.
+	Pipeline:
+
+	  a. Parse `event_type` from payload. Reject if missing.
+	  b. Lookup rule for event_type. Reject on miss.
+	  c. Parse `filed_by_capacity` from payload.
+	     - If rule has NO AllowedFilerRoles: capacity MUST be
+	       absent (pure ActorSigner event).
+	     - If rule has AllowedFilerRoles: capacity MUST be
+	       present + valid + role permitted by the rule.
+	  d. If capacity is present, the cosigner DID
+	     capacity.did MUST appear in entry.Signatures
+	     (anti-impersonation).
+	  e. Count cosigners whose role (looked up via RoleResolver)
+	     is in rule.RequiredSignerRoles. Must reach
+	     rule.EffectiveMinCosigners().
+	  f. If rule.IntraExchangeOnly: every Tier 1 cosigner counted
+	     must come from the entry's exchange (delegation_ref.log_did
+	     equals exchangeDID).
+	  g. If capacity is present: every key in
+	     rule.RequiredCredentials must be present + non-empty.
 
 OVERVIEW:
-    CosignatureRejection — closed-set rejection enum.
-    CosignatureVerdict   — verdict struct.
-    CheckCosignature     — the entry point.
+
+	CosignatureRejection — closed-set rejection enum.
+	CosignatureVerdict   — verdict struct.
+	CheckCosignature     — the entry point.
 
 KEY DEPENDENCIES:
-    - schemas (FiledByCapacity, ExtractFiledByCapacity).
-    - policy (CosignatureMixPolicy, CosignatureRule).
-    - verification.RoleResolver (DID → role + exchange; replaces
-      the deleted directory.OfficerRegistry).
-    - ortholog-sdk envelope (Entry).
+  - schemas (FiledByCapacity, ExtractFiledByCapacity).
+  - policy (CosignatureMixPolicy, CosignatureRule).
+  - verification.RoleResolver (DID → role + exchange; replaces
+    the deleted directory.OfficerRegistry).
+  - attesta envelope (Entry).
 */
 package verification
 
@@ -59,9 +61,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // CosignatureRejection enumerates the closed-set verdict values
@@ -69,40 +71,40 @@ import (
 type CosignatureRejection string
 
 const (
-	CosigOK                       CosignatureRejection = ""
-	CosigRejectMissingEventType   CosignatureRejection = "missing_event_type"
-	CosigRejectUnknownEventType   CosignatureRejection = "unknown_event_type"
-	CosigRejectMalformedPayload   CosignatureRejection = "malformed_payload"
-	CosigRejectCapacityMissing    CosignatureRejection = "capacity_missing"
-	CosigRejectCapacityForbidden  CosignatureRejection = "capacity_forbidden"
-	CosigRejectCapacityInvalid    CosignatureRejection = "capacity_invalid"
+	CosigOK                        CosignatureRejection = ""
+	CosigRejectMissingEventType    CosignatureRejection = "missing_event_type"
+	CosigRejectUnknownEventType    CosignatureRejection = "unknown_event_type"
+	CosigRejectMalformedPayload    CosignatureRejection = "malformed_payload"
+	CosigRejectCapacityMissing     CosignatureRejection = "capacity_missing"
+	CosigRejectCapacityForbidden   CosignatureRejection = "capacity_forbidden"
+	CosigRejectCapacityInvalid     CosignatureRejection = "capacity_invalid"
 	CosigRejectFilerRoleNotAllowed CosignatureRejection = "filer_role_not_allowed"
-	CosigRejectFilerSigMissing    CosignatureRejection = "filer_signature_missing"
+	CosigRejectFilerSigMissing     CosignatureRejection = "filer_signature_missing"
 	CosigRejectInsufficientSigners CosignatureRejection = "insufficient_signers"
-	CosigRejectExchangeMismatch   CosignatureRejection = "exchange_mismatch"
-	CosigRejectMissingCredential  CosignatureRejection = "missing_credential"
+	CosigRejectExchangeMismatch    CosignatureRejection = "exchange_mismatch"
+	CosigRejectMissingCredential   CosignatureRejection = "missing_credential"
 )
 
 // CosignatureVerdict is the typed result. OK==true iff
 // Rejection==CosigOK.
 type CosignatureVerdict struct {
-	OK                bool
-	EventType         string
-	Rule              *policy.CosignatureRule
-	Capacity          *schemas.FiledByCapacity // nil for pure-signer events
-	SignerCosigners   []SignerCosigner         // each Tier 1 cosigner observed
-	Rejection         CosignatureRejection
-	Reason            string
+	OK              bool
+	EventType       string
+	Rule            *policy.CosignatureRule
+	Capacity        *schemas.FiledByCapacity // nil for pure-signer events
+	SignerCosigners []SignerCosigner         // each Tier 1 cosigner observed
+	Rejection       CosignatureRejection
+	Reason          string
 }
 
 // SignerCosigner is one observed Tier 1 cosigner (DID + role +
 // exchange). The verifier surfaces this list so audit logs can
 // render exactly who cosigned what.
 type SignerCosigner struct {
-	DID         string
-	Role        string
-	Exchange    string // delegation_ref.log_did (i.e., institutional DID)
-	InAllowedSet bool  // role appears in rule.RequiredSignerRoles
+	DID          string
+	Role         string
+	Exchange     string // delegation_ref.log_did (i.e., institutional DID)
+	InAllowedSet bool   // role appears in rule.RequiredSignerRoles
 }
 
 // CheckCosignature runs the full verification pipeline. Returns a

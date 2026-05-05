@@ -2,16 +2,17 @@
 FILE PATH: deployments/tn/trial/cosignature_mix_test.go
 
 DESCRIPTION:
-    Tests for the TN trial cosignature-mix fixture. Lifted from
-    internal/testfixtures/davidsonlegacy/cosignature_mix_test.go and
-    re-scoped to the shared TN trial framework. Pins:
-      - Every rule validates structurally (via NewInMemoryPolicy).
-      - Every FilerRole from the v1.8 dictionary appears at least
-        once (the fixture covers the full Filer surface).
-      - Pure Signer-only events have no AllowedFilerRoles.
-      - Personnel events require ≥2 cosigners.
-      - Cross-exchange events have IntraExchangeOnly=false.
-      - Specific event lookups return expected shapes.
+
+	Tests for the TN trial cosignature-mix fixture. Lifted from
+	internal/testfixtures/davidsonlegacy/cosignature_mix_test.go and
+	re-scoped to the shared TN trial framework. Pins:
+	  - Every rule validates structurally (via NewInMemoryPolicy).
+	  - Every FilerRole from the v1.8 dictionary appears at least
+	    once (the fixture covers the full Filer surface).
+	  - Pure Signer-only events have no AllowedFilerRoles.
+	  - Personnel events require ≥2 cosigners.
+	  - Cross-exchange events have IntraExchangeOnly=false.
+	  - Specific event lookups return expected shapes.
 */
 package trial
 

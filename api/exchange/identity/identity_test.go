@@ -2,9 +2,10 @@
 FILE PATH: api/exchange/identity/identity_test.go
 
 DESCRIPTION:
-    Tests for Claims and the sentinel-error contract. The interface
-    itself is exercised end-to-end by privy_stub_test.go which drives
-    a deterministic in-memory implementation.
+
+	Tests for Claims and the sentinel-error contract. The interface
+	itself is exercised end-to-end by privy_stub_test.go which drives
+	a deterministic in-memory implementation.
 */
 package identity
 

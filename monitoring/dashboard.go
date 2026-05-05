@@ -1,15 +1,18 @@
 /*
 FILE PATH: monitoring/dashboard.go
 DESCRIPTION: Aggregates health signals from all other monitoring services into
-    a single AOC-style dashboard view. Runs each monitor once per tick and
-    produces a CourtHealth summary per court + a NetworkHealth rollup.
+
+	a single AOC-style dashboard view. Runs each monitor once per tick and
+	produces a CourtHealth summary per court + a NetworkHealth rollup.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Pure reducer over other monitors' outputs. Does NOT re-read the log.
-    - Alerts are not re-emitted — they're summarized. Callers route the
-      underlying monitors' alerts; the dashboard is read-only reporting.
-    - Health grades are deterministic: Critical > Warning > Info > OK.
+  - Pure reducer over other monitors' outputs. Does NOT re-read the log.
+  - Alerts are not re-emitted — they're summarized. Callers route the
+    underlying monitors' alerts; the dashboard is read-only reporting.
+  - Health grades are deterministic: Critical > Warning > Info > OK.
+
 OVERVIEW: BuildDashboard takes per-court MonitorResults and produces a rollup.
-KEY DEPENDENCIES: ortholog-sdk/monitoring (types only)
+KEY DEPENDENCIES: attesta/monitoring (types only)
 */
 package monitoring
 
@@ -17,7 +20,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
+	"github.com/clearcompass-ai/attesta/monitoring"
 )
 
 // HealthGrade is the aggregate health score for a court or network.
@@ -51,23 +54,23 @@ type MonitorResult struct {
 
 // CourtHealth is the per-court dashboard row.
 type CourtHealth struct {
-	CourtDID       string
-	Grade          HealthGrade
-	CriticalCount  int
-	WarningCount   int
-	InfoCount      int
+	CourtDID        string
+	Grade           HealthGrade
+	CriticalCount   int
+	WarningCount    int
+	InfoCount       int
 	AlertsByMonitor map[monitoring.MonitorID]int
-	LastCheckedAt  time.Time
+	LastCheckedAt   time.Time
 }
 
 // NetworkHealth is the network-wide rollup.
 type NetworkHealth struct {
-	Grade         HealthGrade
-	TotalCourts   int
+	Grade          HealthGrade
+	TotalCourts    int
 	CriticalCourts int
 	WarningCourts  int
-	Courts        []CourtHealth
-	GeneratedAt   time.Time
+	Courts         []CourtHealth
+	GeneratedAt    time.Time
 }
 
 // BuildDashboard reduces per-court monitor results into a dashboard view.

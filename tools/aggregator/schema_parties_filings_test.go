@@ -2,10 +2,11 @@
 FILE PATH: tools/aggregator/schema_parties_filings_test.go
 
 DESCRIPTION:
-    Tests the parties_filings DDL added in 3E.5. Loads schema.sql
-    from disk and pins the columns + invariants the Indexer (next
-    commit) will rely on. No live Postgres required — text-level
-    DDL invariants are sufficient to catch silent drift.
+
+	Tests the parties_filings DDL added in 3E.5. Loads schema.sql
+	from disk and pins the columns + invariants the Indexer (next
+	commit) will rely on. No live Postgres required — text-level
+	DDL invariants are sufficient to catch silent drift.
 */
 package aggregator
 

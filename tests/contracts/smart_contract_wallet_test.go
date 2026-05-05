@@ -1,33 +1,35 @@
 /*
 FILE PATH:
-    tests/contracts/smart_contract_wallet_test.go
+
+	tests/contracts/smart_contract_wallet_test.go
 
 DESCRIPTION:
-    End-to-end functional test for v0.8.0 EIP-1271 (smart-contract-
-    wallet) signature verification. Exercises the full happy path
-    AND rejection paths from the operator's verifier-registry seam:
 
-      1. Build an entry whose primary signer is
-         did:pkh:eip155:1:0x<wallet-contract>.
-      2. Attach a SigAlgoEIP1271 signature with arbitrary opaque
-         contract-signature bytes (the SDK never inspects sig.Bytes
-         for this algoID — the wallet contract is the source of
-         truth).
-      3. Hash the SigningPayload and program a stub
-         EthereumRPCClient with the eth_call binding the operator
-         WILL produce when verifying this entry.
-      4. Build the verifier registry via
-         did.DefaultVerifierRegistryWithRPC bound to the
-         destination on the entry.
-      5. Call registry.VerifyEntry(entry) and assert acceptance
-         (happy path) or the appropriate typed rejection (negative
-         paths).
+	End-to-end functional test for v0.8.0 EIP-1271 (smart-contract-
+	wallet) signature verification. Exercises the full happy path
+	AND rejection paths from the ledger's verifier-registry seam:
 
-    This file is the JN consumer's contract assertion that v0.8.0's
-    SDK seam is wired correctly. A future SDK that breaks
-    DefaultVerifierRegistryWithRPC, EncodeIsValidSignatureCalldata,
-    SigAlgoEIP1271 wire registration, or the magic-value comparison
-    will surface here BEFORE any operator deployment.
+	  1. Build an entry whose primary signer is
+	     did:pkh:eip155:1:0x<wallet-contract>.
+	  2. Attach a SigAlgoEIP1271 signature with arbitrary opaque
+	     contract-signature bytes (the SDK never inspects sig.Bytes
+	     for this algoID — the wallet contract is the source of
+	     truth).
+	  3. Hash the SigningPayload and program a stub
+	     EthereumRPCClient with the eth_call binding the ledger
+	     WILL produce when verifying this entry.
+	  4. Build the verifier registry via
+	     did.DefaultVerifierRegistryWithRPC bound to the
+	     destination on the entry.
+	  5. Call registry.VerifyEntry(entry) and assert acceptance
+	     (happy path) or the appropriate typed rejection (negative
+	     paths).
+
+	This file is the JN consumer's contract assertion that v0.8.0's
+	SDK seam is wired correctly. A future SDK that breaks
+	DefaultVerifierRegistryWithRPC, EncodeIsValidSignatureCalldata,
+	SigAlgoEIP1271 wire registration, or the magic-value comparison
+	will surface here BEFORE any ledger deployment.
 
 SECURITY PROPERTIES PINNED:
   - Magic-value return -> registry.VerifyEntry returns nil.
@@ -51,9 +53,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/did"
 )
 
 // ─── helpers ────────────────────────────────────────────────────

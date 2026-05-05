@@ -2,12 +2,13 @@
 FILE PATH: tools/cmd/witness/probes_test.go
 
 DESCRIPTION:
-    Probe surface contract for the witness daemon:
-      1. /healthz always 200 (liveness).
-      2. /readyz 200 when ANY configured operator is reachable;
-         503 when all are down.
-      3. /metrics serves the Prometheus registry.
-      4. Unknown paths 404 (no /v1/* by design).
+
+	Probe surface contract for the witness daemon:
+	  1. /healthz always 200 (liveness).
+	  2. /readyz 200 when ANY configured ledger is reachable;
+	     503 when all are down.
+	  3. /metrics serves the Prometheus registry.
+	  4. Unknown paths 404 (no /v1/* by design).
 */
 package main
 
@@ -18,21 +19,21 @@ import (
 	"testing"
 )
 
-func newWitnessProbes(t *testing.T, operatorOK bool) (*probeHandlers, func()) {
+func newWitnessProbes(t *testing.T, ledgerOK bool) (*probeHandlers, func()) {
 	t.Helper()
 	op := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/healthz" {
 			http.NotFound(w, r)
 			return
 		}
-		if operatorOK {
+		if ledgerOK {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			http.Error(w, "down", http.StatusServiceUnavailable)
 		}
 	}))
 	cfg := Config{
-		Operators: map[string]string{"did:web:test": op.URL},
+		Ledgers: map[string]string{"did:web:test": op.URL},
 	}
 	return newProbeHandlers(cfg), op.Close
 }
@@ -53,7 +54,7 @@ func TestWitnessProbes_Healthz_AlwaysOK(t *testing.T) {
 	}
 }
 
-func TestWitnessProbes_Readyz_OperatorReachable_200(t *testing.T) {
+func TestWitnessProbes_Readyz_LedgerReachable_200(t *testing.T) {
 	p, cleanup := newWitnessProbes(t, true)
 	defer cleanup()
 	rec := hit(p.Handler(), http.MethodGet, "/readyz")
@@ -62,7 +63,7 @@ func TestWitnessProbes_Readyz_OperatorReachable_200(t *testing.T) {
 	}
 }
 
-func TestWitnessProbes_Readyz_AllOperatorsDown_503(t *testing.T) {
+func TestWitnessProbes_Readyz_AllLedgersDown_503(t *testing.T) {
 	p, cleanup := newWitnessProbes(t, false)
 	defer cleanup()
 	rec := hit(p.Handler(), http.MethodGet, "/readyz")
@@ -71,11 +72,11 @@ func TestWitnessProbes_Readyz_AllOperatorsDown_503(t *testing.T) {
 	}
 }
 
-func TestWitnessProbes_Readyz_NoOperators_503(t *testing.T) {
-	p := newProbeHandlers(Config{Operators: map[string]string{}})
+func TestWitnessProbes_Readyz_NoLedgers_503(t *testing.T) {
+	p := newProbeHandlers(Config{Ledgers: map[string]string{}})
 	rec := hit(p.Handler(), http.MethodGet, "/readyz")
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("status = %d, want 503 (empty operators)", rec.Code)
+		t.Errorf("status = %d, want 503 (empty ledgers)", rec.Code)
 	}
 }
 

@@ -2,42 +2,44 @@
 FILE PATH: schemas/signed_by_capacity.go
 
 DESCRIPTION:
-    SignedByCapacity — the on-log self-description of a Signer
-    cosigner. Parallel to FiledByCapacity; the payload symmetry
-    that v1.6 guarantees.
 
-    For every cosigning Signer (Adjudicator, Clerk, Court Reporter)
-    other than the primary signer at Signatures[0], the writer
-    embeds an entry in the payload's `signed_by_capacities` array
-    declaring:
+	SignedByCapacity — the on-log self-description of a Signer
+	cosigner. Parallel to FiledByCapacity; the payload symmetry
+	that v1.6 guarantees.
 
-      - did            — the cosigner's DID (matches a Signatures
-                         entry)
-      - role           — catalog role (chief_justice, judge,
-                         court_clerk, court_staff, court_reporter,
-                         deputy_judge)
-      - exchange       — the institutional DID identifying which
-                         exchange this Signer belongs to
-      - delegation_ref — the LogPositionRef where this Signer's
-                         most-recent delegation entry lives. The
-                         verifier walks the chain via
-                         AuthorityResolver to confirm role +
-                         exchange match the claim.
+	For every cosigning Signer (Adjudicator, Clerk, Court Reporter)
+	other than the primary signer at Signatures[0], the writer
+	embeds an entry in the payload's `signed_by_capacities` array
+	declaring:
 
-    Self-describing entries: the verifier needs no off-log
-    registry. ChainRoleResolver (Phase 3D.signed-by, this commit)
-    reads signed_by_capacities, optionally walks each
-    delegation_ref via AuthorityResolver, and returns the verified
-    role+exchange tuple.
+	  - did            — the cosigner's DID (matches a Signatures
+	                     entry)
+	  - role           — catalog role (chief_justice, judge,
+	                     court_clerk, court_staff, court_reporter,
+	                     deputy_judge)
+	  - exchange       — the institutional DID identifying which
+	                     exchange this Signer belongs to
+	  - delegation_ref — the LogPositionRef where this Signer's
+	                     most-recent delegation entry lives. The
+	                     verifier walks the chain via
+	                     AuthorityResolver to confirm role +
+	                     exchange match the claim.
+
+	Self-describing entries: the verifier needs no off-log
+	registry. ChainRoleResolver (.signed-by, this commit)
+	reads signed_by_capacities, optionally walks each
+	delegation_ref via AuthorityResolver, and returns the verified
+	role+exchange tuple.
 
 OVERVIEW:
-    SignedByCapacity         — typed entry.
-    Validate                 — structural sanity.
-    ExtractSignedByCapacities — parses payload bytes into a slice.
-    Per-DID lookup helper.
+
+	SignedByCapacity         — typed entry.
+	Validate                 — structural sanity.
+	ExtractSignedByCapacities — parses payload bytes into a slice.
+	Per-DID lookup helper.
 
 KEY DEPENDENCIES:
-    - schemas/judicial_delegation.go (LogPositionRef).
+  - schemas/judicial_delegation.go (LogPositionRef).
 */
 package schemas
 
@@ -69,7 +71,7 @@ type SignedByCapacity struct {
 	// recent delegation entry. AuthorityResolver walks the chain
 	// from here back to the institutional grant. Optional in
 	// the trust-mode resolver; required by the verifying-mode
-	// resolver (Phase 3D.preqs).
+	// resolver (.preqs).
 	DelegationRef *LogPositionRef `json:"delegation_ref,omitempty"`
 }
 
@@ -103,12 +105,12 @@ func (c *SignedByCapacity) Validate() error {
 // ExtractSignedByCapacities parses the `signed_by_capacities`
 // array out of a domain payload. Three return shapes:
 //
-//   nil, false, nil — payload has no signed_by_capacities key
-//                     (the common case; many entries are not
-//                     filer events and do not need the
-//                     symmetric block).
-//   slice, true, nil — at least one entry parsed.
-//   nil, false, err  — the array was present but malformed.
+//	nil, false, nil — payload has no signed_by_capacities key
+//	                  (the common case; many entries are not
+//	                  filer events and do not need the
+//	                  symmetric block).
+//	slice, true, nil — at least one entry parsed.
+//	nil, false, err  — the array was present but malformed.
 //
 // Validate is NOT called here; the verifier runs it per-entry so
 // it can surface per-cosigner failures.

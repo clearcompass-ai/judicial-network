@@ -2,17 +2,18 @@
 FILE PATH: deployments/tn/trial/motions_3i.go
 
 DESCRIPTION:
-    v1.8 §3I — Appellate Bridge Motions. Three event types
-    that arrange interlocutory or post-judgment appellate review.
-    No catch-all in §3I per v1.8.
 
-    Prereqs:
-      motion_interlocutory_appeal             Hard interlocutory_order
-      motion_extraordinary_appeal             §3 default only
-      motion_stay_of_execution_pending_appeal Hard notice_of_appeal
+	v1.8 §3I — Appellate Bridge Motions. Three event types
+	that arrange interlocutory or post-judgment appellate review.
+	No catch-all in §3I per v1.8.
 
-    Filer set: all advocates for every §3I motion (every party
-    can move for appellate bridge relief).
+	Prereqs:
+	  motion_interlocutory_appeal             Hard interlocutory_order
+	  motion_extraordinary_appeal             §3 default only
+	  motion_stay_of_execution_pending_appeal Hard notice_of_appeal
+
+	Filer set: all advocates for every §3I motion (every party
+	can move for appellate bridge relief).
 */
 package trial
 

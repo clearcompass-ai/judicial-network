@@ -2,24 +2,25 @@
 FILE PATH: api/judicial/delegation_topology.go
 
 DESCRIPTION:
-    Delegation handlers + the route-registration glue for both
-    delegation and topology surfaces.
 
-    Delegation issue/revoke/succeed are 501 stubs because they need
-    a long-lived BuildContext (Identity provider + Submitter +
-    Catalog) that boots once at process start, not per-request.
+	Delegation handlers + the route-registration glue for both
+	delegation and topology surfaces.
 
-    Topology handlers (publish-anchor + anchor-chain) live in
-    topology.go and are now WIRED with deps.TreeHeadClient + (for
-    anchor-chain) deps.Hierarchy. They surface 503 when their
-    required deps are nil so the binary boots cleanly without
-    witness configuration but routes refuse traffic until configured.
+	Delegation issue/revoke/succeed are 501 stubs because they need
+	a long-lived BuildContext (Identity provider + Submitter +
+	Catalog) that boots once at process start, not per-request.
 
-      POST /v1/judicial/delegation/issue        → 501 (BuildContext)
-      POST /v1/judicial/delegation/revoke       → 501 (BuildContext)
-      POST /v1/judicial/delegation/succeed      → 501 (BuildContext)
-      POST /v1/judicial/topology/publish-anchor → wired (topology.go)
-      GET  /v1/judicial/topology/anchor-chain   → wired (topology.go)
+	Topology handlers (publish-anchor + anchor-chain) live in
+	topology.go and are now WIRED with deps.TreeHeadClient + (for
+	anchor-chain) deps.Hierarchy. They surface 503 when their
+	required deps are nil so the binary boots cleanly without
+	witness configuration but routes refuse traffic until configured.
+
+	  POST /v1/judicial/delegation/issue        → 501 (BuildContext)
+	  POST /v1/judicial/delegation/revoke       → 501 (BuildContext)
+	  POST /v1/judicial/delegation/succeed      → 501 (BuildContext)
+	  POST /v1/judicial/topology/publish-anchor → wired (topology.go)
+	  GET  /v1/judicial/topology/anchor-chain   → wired (topology.go)
 */
 package judicial
 

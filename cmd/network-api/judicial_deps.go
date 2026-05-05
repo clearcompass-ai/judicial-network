@@ -2,37 +2,38 @@
 FILE PATH: cmd/network-api/judicial_deps.go
 
 DESCRIPTION:
-    Builds the judicial.Dependencies bundle the binary feeds into
-    api.Config.Judicial. Each field is satisfied by an SDK HTTP
-    client, an SDK in-memory reference impl, or a JN-side reference
-    impl — selected by the operational config.
 
-    Production wiring summary
-    ─────────────────────────
-      OperatorEndpoint      → HTTPEntryFetcher, HTTPLeafReader,
-                              one HTTPOperatorQueryAPI per registered
-                              destination (per-log query API)
-      ArtifactStoreEndpoint → HTTPContentStore
-      EthRPCEndpoint        → not consumed here; PKHVerifier picks it
-                              up at the SDK boundary
-      DIDResolver           → CachingResolver(WebDIDResolver(...))
-      Schema extractor      → JN schemas.Registry (knows every
-                              JN schema's SchemaParameters layout)
+	Builds the judicial.Dependencies bundle the binary feeds into
+	api.Config.Judicial. Each field is satisfied by an SDK HTTP
+	client, an SDK in-memory reference impl, or a JN-side reference
+	impl — selected by the operational config.
 
-    Things that stay in-memory until separate operational config
-    arrives — surfaced clearly so a deployer knows what they are:
-      ContentStore (when ArtifactStoreEndpoint is empty)
-      KeyStore (AES-GCM artifact keys)
-      DelKeyStore (PRE delegation keys)
+	Production wiring summary
+	─────────────────────────
+	  LedgerEndpoint      → HTTPEntryFetcher, HTTPLeafReader,
+	                          one HTTPLedgerQueryAPI per registered
+	                          destination (per-log query API)
+	  ArtifactStoreEndpoint → HTTPContentStore
+	  EthRPCEndpoint        → not consumed here; PKHVerifier picks it
+	                          up at the SDK boundary
+	  DIDResolver           → CachingResolver(WebDIDResolver(...))
+	  Schema extractor      → JN schemas.Registry (knows every
+	                          JN schema's SchemaParameters layout)
 
-    Things wired as `nil` when not configured:
-      BLSVerifier    — only consumed by cross-log proof verify
-      WitnessKeys    — populated by future witness-roster config
-      WitnessQuorum  — same
-      SourceProver   — only consumed by ops-tooling cross-log compose
+	Things that stay in-memory until separate operational config
+	arrives — surfaced clearly so a deployer knows what they are:
+	  ContentStore (when ArtifactStoreEndpoint is empty)
+	  KeyStore (AES-GCM artifact keys)
+	  DelKeyStore (PRE delegation keys)
 
-    Each nil case yields a 500/501 from the specific handler that
-    needs it; the rest of the surface keeps working.
+	Things wired as `nil` when not configured:
+	  BLSVerifier    — only consumed by cross-log proof verify
+	  WitnessKeys    — populated by future witness-roster config
+	  WitnessQuorum  — same
+	  SourceProver   — only consumed by ops-tooling cross-log compose
+
+	Each nil case yields a 500/501 from the specific handler that
+	needs it; the rest of the surface keeps working.
 */
 package main
 
@@ -42,15 +43,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/did"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/witness"
 
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
@@ -61,9 +62,9 @@ import (
 
 // buildJudicialDeps composes a judicial.Dependencies for the
 // supplied registry + operational config. Returns an error only on
-// unrecoverable misconfiguration (e.g., OperatorEndpoint set but
+// unrecoverable misconfiguration (e.g., LedgerEndpoint set but
 // invalid). Dev / test deployments may pass an empty
-// OperatorEndpoint — the deps that need it remain nil and the
+// LedgerEndpoint — the deps that need it remain nil and the
 // dependent handlers return 500 with a clear error.
 func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) (judicial.Dependencies, error) {
 	deps := judicial.Dependencies{
@@ -76,19 +77,19 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 		WitnessQuorum: map[string]int{},
 	}
 
-	if cfg.OperatorEndpoint == "" {
-		// Dev / test mode — no operator wired. Deps that need it stay
+	if cfg.LedgerEndpoint == "" {
+		// Dev / test mode — no ledger wired. Deps that need it stay
 		// nil; their handlers will return 500 with a clear error.
 		return deps, nil
 	}
 
-	logQueries, err := buildLogQueries(cfg.OperatorEndpoint, registry)
+	logQueries, err := buildLogQueries(cfg.LedgerEndpoint, registry)
 	if err != nil {
 		return judicial.Dependencies{}, fmt.Errorf("build log queries: %w", err)
 	}
 	deps.LogQueries = logQueries
-	deps.Fetcher = buildEntryFetcher(cfg.OperatorEndpoint)
-	deps.LeafReader = buildLeafReader(cfg.OperatorEndpoint)
+	deps.Fetcher = buildEntryFetcher(cfg.LedgerEndpoint)
+	deps.LeafReader = buildLeafReader(cfg.LedgerEndpoint)
 	deps.Resolver = buildDIDResolver()
 	deps.SchemaResolver = newSchemaResolverShim()
 	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
@@ -96,24 +97,24 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 }
 
 // buildTreeHeadClient constructs the witness.TreeHeadClient from
-// operational config. Per-destination operator endpoints override
-// the top-level OperatorEndpoint; per-destination witness fallbacks
+// operational config. Per-destination ledger endpoints override
+// the top-level LedgerEndpoint; per-destination witness fallbacks
 // are read from cfg.Witness.WitnessEndpoints. Empty maps fall back
-// to the top-level OperatorEndpoint for every registered destination.
+// to the top-level LedgerEndpoint for every registered destination.
 //
-// Returns nil if cfg.OperatorEndpoint is empty (dev / test mode);
+// Returns nil if cfg.LedgerEndpoint is empty (dev / test mode);
 // the anchor / topology / monitoring handlers that need the client
 // surface 503 in that case.
 func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry) *witness.TreeHeadClient {
-	if cfg.OperatorEndpoint == "" {
+	if cfg.LedgerEndpoint == "" {
 		return nil
 	}
-	operators := map[string]string{}
+	ledgers := map[string]string{}
 	for _, did := range registry.ExchangeDIDs() {
-		if ep, ok := cfg.Witness.OperatorEndpoints[did]; ok && ep != "" {
-			operators[did] = ep
+		if ep, ok := cfg.Witness.LedgerEndpoints[did]; ok && ep != "" {
+			ledgers[did] = ep
 		} else {
-			operators[did] = cfg.OperatorEndpoint
+			ledgers[did] = cfg.LedgerEndpoint
 		}
 	}
 	witnesses := cfg.Witness.WitnessEndpoints
@@ -121,7 +122,7 @@ func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry
 		witnesses = map[string][]string{}
 	}
 	endpoints := &witness.StaticEndpoints{
-		Operators: operators,
+		Ledgers:   ledgers,
 		Witnesses: witnesses,
 	}
 	thcCfg := witness.DefaultTreeHeadClientConfig()
@@ -134,15 +135,15 @@ func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry
 	return witness.NewTreeHeadClient(endpoints, thcCfg)
 }
 
-// buildLogQueries constructs one HTTPOperatorQueryAPI per registered
+// buildLogQueries constructs one HTTPLedgerQueryAPI per registered
 // destination. The map is keyed by destination DID so judicial
 // handlers can route per-destination read queries (case lookup,
 // docket scan) to the right log.
-func buildLogQueries(operatorEndpoint string, registry *jurisdiction.Registry) (map[string]sdklog.OperatorQueryAPI, error) {
-	out := make(map[string]sdklog.OperatorQueryAPI, registry.Len())
+func buildLogQueries(ledgerEndpoint string, registry *jurisdiction.Registry) (map[string]sdklog.LedgerQueryAPI, error) {
+	out := make(map[string]sdklog.LedgerQueryAPI, registry.Len())
 	for _, didStr := range registry.ExchangeDIDs() {
-		q, err := sdklog.NewHTTPOperatorQueryAPI(sdklog.HTTPOperatorQueryAPIConfig{
-			BaseURL: operatorEndpoint,
+		q, err := sdklog.NewHTTPLedgerQueryAPI(sdklog.HTTPLedgerQueryAPIConfig{
+			BaseURL: ledgerEndpoint,
 			LogDID:  didStr,
 		})
 		if err != nil {
@@ -153,15 +154,15 @@ func buildLogQueries(operatorEndpoint string, registry *jurisdiction.Registry) (
 	return out, nil
 }
 
-func buildEntryFetcher(operatorEndpoint string) types.EntryFetcher {
+func buildEntryFetcher(ledgerEndpoint string) types.EntryFetcher {
 	return sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
-		BaseURL: operatorEndpoint,
+		BaseURL: ledgerEndpoint,
 	})
 }
 
-func buildLeafReader(operatorEndpoint string) smt.LeafReader {
+func buildLeafReader(ledgerEndpoint string) smt.LeafReader {
 	return smt.NewHTTPLeafReader(smt.HTTPLeafReaderConfig{
-		BaseURL: operatorEndpoint,
+		BaseURL: ledgerEndpoint,
 	})
 }
 

@@ -2,12 +2,13 @@
 FILE PATH: internal/testfixtures/davidsonlegacy/role_catalog_test.go
 
 DESCRIPTION:
-    Tests pinning the legacy 6-role Davidson hierarchy fixture.
-    Mirrors the original deployments/davidson_county/rules/
-    role_catalog_test.go invariants — every role is a Signer,
-    the chain composes end-to-end (institutional → CJ → judge →
-    court_clerk → court_staff), and every ValidateGrant
-    rejection path is covered.
+
+	Tests pinning the legacy 6-role Davidson hierarchy fixture.
+	Mirrors the original deployments/davidson_county/rules/
+	role_catalog_test.go invariants — every role is a Signer,
+	the chain composes end-to-end (institutional → CJ → judge →
+	court_clerk → court_staff), and every ValidateGrant
+	rejection path is covered.
 */
 package davidsonlegacy
 

@@ -2,41 +2,42 @@
 FILE PATH: verification/attestation_check.go
 
 DESCRIPTION:
-    Read-side verifier for tn-key-attestation-v1 entries — the
-    judicial domain's evaluation of "what was the institution-witnessed
-    key custody mode for entity X at position P?". Implements the
-    pattern documented in ortholog-sdk/docs/attestation-entries.md
-    "Verifier surface".
+
+	Read-side verifier for tn-key-attestation-v1 entries — the
+	judicial domain's evaluation of "what was the institution-witnessed
+	key custody mode for entity X at position P?". Implements the
+	pattern documented in attesta/docs/attestation-entries.md
+	"Verifier surface".
 
 ALGORITHM (per attestation-entries.md):
-    1. Query all attestations whose AttestedEntity == entityDID
-       (caller-provided AttestationFinder).
-    2. Filter to attestations whose admission position ≤ atPosition
-       (Decision 52 / ADR-004 time-indexed semantics — authorizations
-       valid at action's signing time).
-    3. Pick the latest by admission position.
-    4. Verify the attesting exchange (entry's SignerDID) is in the
-       domain's trusted-exchange list AT THAT SAME POSITION
-       (caller-provided TrustedExchangeChecker — same time-indexed
-       primitive applied to a different scope).
-    5. Validate the deserialized payload (closed-set enum,
-       required fields).
-    6. Return the resolved attestation as the authoritative
-       generation-mode claim.
+ 1. Query all attestations whose AttestedEntity == entityDID
+    (caller-provided AttestationFinder).
+ 2. Filter to attestations whose admission position ≤ atPosition
+    (Decision 52 / ADR-004 time-indexed semantics — authorizations
+    valid at action's signing time).
+ 3. Pick the latest by admission position.
+ 4. Verify the attesting exchange (entry's SignerDID) is in the
+    domain's trusted-exchange list AT THAT SAME POSITION
+    (caller-provided TrustedExchangeChecker — same time-indexed
+    primitive applied to a different scope).
+ 5. Validate the deserialized payload (closed-set enum,
+    required fields).
+ 6. Return the resolved attestation as the authoritative
+    generation-mode claim.
 
 KEY ARCHITECTURAL DECISIONS:
-    - The verifier does NOT make a verdict about WHAT the generation
-      mode means legally — that's domain-application policy.
-    - "No attestation found" is a distinct outcome from "attestation
-      from untrusted exchange" — domains may treat them differently.
-    - Time-indexed exchange trust: the exchange that signed an
-      attestation may have been trusted at the time but later
-      removed. Per ADR-004, authorizations valid at the action's
-      signing time remain valid retrospectively. The trust check
-      runs at the attestation's admission position, not at the
-      verifier's wall-clock.
-    - Same package as scope_enforcement.go and delegation_chain.go;
-      composes with them via the Verification API surface.
+  - The verifier does NOT make a verdict about WHAT the generation
+    mode means legally — that's domain-application policy.
+  - "No attestation found" is a distinct outcome from "attestation
+    from untrusted exchange" — domains may treat them differently.
+  - Time-indexed exchange trust: the exchange that signed an
+    attestation may have been trusted at the time but later
+    removed. Per ADR-004, authorizations valid at the action's
+    signing time remain valid retrospectively. The trust check
+    runs at the attestation's admission position, not at the
+    verifier's wall-clock.
+  - Same package as scope_enforcement.go and delegation_chain.go;
+    composes with them via the Verification API surface.
 */
 package verification
 
@@ -44,8 +45,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
@@ -76,7 +77,7 @@ var (
 )
 
 // AttestationFinder is the caller-injected query surface. Production
-// implementations wrap an OperatorQueryAPI to return entries whose
+// implementations wrap an LedgerQueryAPI to return entries whose
 // SchemaRef points at tn-key-attestation-v1 AND whose payload's
 // AttestedEntity matches the queried DID. Tests inject a stub.
 type AttestationFinder interface {

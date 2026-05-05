@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/onboarding_test.go
 
 DESCRIPTION:
-    Validation contracts for onboarding handlers. Schema adoption
-    has happy-path; the three bootstrap-script-driven endpoints are
-    501 stubs (validated for auth + status).
+
+	Validation contracts for onboarding handlers. Schema adoption
+	has happy-path; the three bootstrap-script-driven endpoints are
+	501 stubs (validated for auth + status).
 */
 package judicial
 

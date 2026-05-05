@@ -1,14 +1,17 @@
 /*
 FILE PATH: cases/artifact/did_keys.go
 DESCRIPTION: DID Document key resolution by purpose (keyAgreement for encryption,
-    assertionMethod for signing). Replaces naive WitnessKeys()[0] in publish.go
-    and retrieve.go. Falls back to first available key for backward compat.
+
+	assertionMethod for signing). Replaces naive WitnessKeys()[0] in publish.go
+	and retrieve.go. Falls back to first available key for backward compat.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Artifact-package utility, NOT delegation concern.
-    - SDK DIDDocument lacks explicit purpose arrays; uses ID suffix convention
-      and Type field for purpose matching.
+  - Artifact-package utility, NOT delegation concern.
+  - SDK DIDDocument lacks explicit purpose arrays; uses ID suffix convention
+    and Type field for purpose matching.
+
 OVERVIEW: ResolveEncryptionKey / ResolveSigningKey → 65-byte public key.
-KEY DEPENDENCIES: ortholog-sdk/did
+KEY DEPENDENCIES: attesta/did
 */
 package artifact
 
@@ -17,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/clearcompass-ai/ortholog-sdk/did"
+	"github.com/clearcompass-ai/attesta/did"
 )
 
 var keyAgreementTypes = []string{

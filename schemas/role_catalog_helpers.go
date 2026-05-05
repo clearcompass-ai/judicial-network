@@ -2,15 +2,17 @@
 FILE PATH: schemas/role_catalog_helpers.go
 
 DESCRIPTION:
-    Pure helpers used by the catalog: per-role structural validator
-    and two set-arithmetic primitives. Split out of role_catalog.go
-    so that file can stay focused on the public interface and
-    InMemoryCatalog implementation.
+
+	Pure helpers used by the catalog: per-role structural validator
+	and two set-arithmetic primitives. Split out of role_catalog.go
+	so that file can stay focused on the public interface and
+	InMemoryCatalog implementation.
 
 OVERVIEW:
-    validateRole          — structural sanity for a single Role.
-    roleAllowedToDelegate — wildcard-aware membership test.
-    subset                — ordered-list ⊆ ordered-list.
+
+	validateRole          — structural sanity for a single Role.
+	roleAllowedToDelegate — wildcard-aware membership test.
+	subset                — ordered-list ⊆ ordered-list.
 */
 package schemas
 

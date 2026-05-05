@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 const (
@@ -31,8 +31,8 @@ func TestFiling_NewCase_RootEntity(t *testing.T) {
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: courtDID,
-		Payload:   payload,
+		SignerDID:   courtDID,
+		Payload:     payload,
 	})
 	if err != nil {
 		t.Fatalf("BuildRootEntity (filing): %v", err)
@@ -67,9 +67,9 @@ func TestFiling_WithSchemaRef(t *testing.T) {
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: courtDID,
-		Payload:   mustJSON(t, map[string]any{"docket_number": "2027-CV-1001"}),
-		SchemaRef: &schemaPos,
+		SignerDID:   courtDID,
+		Payload:     mustJSON(t, map[string]any{"docket_number": "2027-CV-1001"}),
+		SchemaRef:   &schemaPos,
 	})
 	if err != nil {
 		t.Fatalf("BuildRootEntity with SchemaRef: %v", err)
@@ -92,9 +92,9 @@ func TestAmendment_PathA_SameSigner(t *testing.T) {
 
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  courtDID,
-		TargetRoot: casePos,
-		Payload:    mustJSON(t, map[string]any{"status": "disposed", "disposition": "guilty_plea"}),
+		SignerDID:   courtDID,
+		TargetRoot:  casePos,
+		Payload:     mustJSON(t, map[string]any{"status": "disposed", "disposition": "guilty_plea"}),
 	})
 	if err != nil {
 		t.Fatalf("BuildAmendment: %v", err)
@@ -126,7 +126,7 @@ func TestAmendment_WithEvidence(t *testing.T) {
 	evidencePos := types.LogPosition{LogDID: casesLogDID, Sequence: 150}
 
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
-		Destination: "did:web:exchange.test",
+		Destination:      "did:web:exchange.test",
 		SignerDID:        courtDID,
 		TargetRoot:       casePos,
 		EvidencePointers: []types.LogPosition{evidencePos},
@@ -150,14 +150,14 @@ func TestJudicialAction_PathB_Delegated(t *testing.T) {
 	delegPos := types.LogPosition{LogDID: casesLogDID, Sequence: 10}
 
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
-		Destination: "did:web:exchange.test",
+		Destination:        "did:web:exchange.test",
 		SignerDID:          judgeDID,
 		TargetRoot:         casePos,
 		DelegationPointers: []types.LogPosition{delegPos},
 		Payload: mustJSON(t, map[string]any{
-			"action":   "order",
+			"action":     "order",
 			"order_type": "motion_ruling",
-			"ruling":   "denied",
+			"ruling":     "denied",
 		}),
 	})
 	if err != nil {
@@ -193,9 +193,9 @@ func TestJudicialAction_PathB_Delegated(t *testing.T) {
 func TestPathB_MissingDelegationPointers_Rejected(t *testing.T) {
 	_, err := builder.BuildPathBEntry(builder.PathBParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  judgeDID,
-		TargetRoot: types.LogPosition{LogDID: casesLogDID, Sequence: 100},
-		Payload:    []byte("{}"),
+		SignerDID:   judgeDID,
+		TargetRoot:  types.LogPosition{LogDID: casesLogDID, Sequence: 100},
+		Payload:     []byte("{}"),
 		// DelegationPointers intentionally missing.
 	})
 	if err == nil {
@@ -211,7 +211,7 @@ func TestPathB_MultiHopChain(t *testing.T) {
 	deleg2 := types.LogPosition{LogDID: casesLogDID, Sequence: 15}
 
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
-		Destination: "did:web:exchange.test",
+		Destination:        "did:web:exchange.test",
 		SignerDID:          clerkDID,
 		TargetRoot:         casePos,
 		DelegationPointers: []types.LogPosition{deleg1, deleg2},
@@ -233,7 +233,7 @@ func TestPathB_MultiHopChain(t *testing.T) {
 func TestCommentary_CaseNote(t *testing.T) {
 	entry, err := builder.BuildCommentary(builder.CommentaryParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: judgeDID,
+		SignerDID:   judgeDID,
 		Payload: mustJSON(t, map[string]any{
 			"type":          "case_note",
 			"docket_number": "2027-CR-4471",
@@ -260,7 +260,7 @@ func TestCommentary_CaseNote(t *testing.T) {
 func TestCommentary_Recusal(t *testing.T) {
 	entry, err := builder.BuildCommentary(builder.CommentaryParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: judgeDID,
+		SignerDID:   judgeDID,
 		Payload: mustJSON(t, map[string]any{
 			"type":          "recusal",
 			"docket_number": "2027-CR-8891",
@@ -291,7 +291,7 @@ func TestSuccession_ExchangeMigration(t *testing.T) {
 	entityPos := types.LogPosition{LogDID: casesLogDID, Sequence: 1}
 
 	entry, err := builder.BuildSuccession(builder.SuccessionParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    courtDID,
 		TargetRoot:   entityPos,
 		NewSignerDID: "did:web:exchange-b.courts.tn.gov",
@@ -320,7 +320,7 @@ func TestCosignature_Endorsement(t *testing.T) {
 	endorsedPos := types.LogPosition{LogDID: casesLogDID, Sequence: 200}
 
 	entry, err := builder.BuildCosignature(builder.CosignatureParams{
-		Destination: "did:web:exchange.test",
+		Destination:   "did:web:exchange.test",
 		SignerDID:     judgeDID,
 		CosignatureOf: endorsedPos,
 		Payload:       mustJSON(t, map[string]any{"endorsement": "approved"}),

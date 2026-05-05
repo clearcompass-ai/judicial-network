@@ -2,61 +2,63 @@
 FILE PATH: verification/authority_resolver.go
 
 DESCRIPTION:
-    AuthorityResolver — the on-log truth gate for "may signer X
-    perform action A?" in the unified judicial-delegation-v1 model.
 
-    Walks the signer's delegation chain in DOMAIN PAYLOAD via the
-    granter_delegation_ref pointer at each hop. The SDK's
-    DelegationPointers in the Control Header carry the cryptographic
-    chain; granter_delegation_ref is the domain-readable mirror —
-    walking it lets us decide authority O(depth) without re-parsing
-    the SDK header.
+	AuthorityResolver — the on-log truth gate for "may signer X
+	perform action A?" in the unified judicial-delegation-v1 model.
 
-    At each hop:
-      - Fetch the delegation entry from the operator.
-      - Deserialize the DomainPayload as JudicialDelegationPayload.
-      - Confirm not expired (mandatory expiration invariant).
-      - Evaluate origin via the SDK's EvaluateOrigin to catch
-        revocation, amendment, and succession that may have happened
-        on the entry since it was first published.
-      - If origin is succeeded — follow the successor DID (Authority
-        flows transparently through the succession entry).
-      - Intersect the hop's Scope tokens with the running effective
-        scope (narrower-cannot-be-widened).
+	Walks the signer's delegation chain in DOMAIN PAYLOAD via the
+	granter_delegation_ref pointer at each hop. The SDK's
+	DelegationPointers in the Control Header carry the cryptographic
+	chain; granter_delegation_ref is the domain-readable mirror —
+	walking it lets us decide authority O(depth) without re-parsing
+	the SDK header.
 
-    Termination:
-      - granter_delegation_ref == nil → top of chain (institutional
-        DID at depth 0). Walk completes.
-      - Depth > MaxDelegationDepth → reject (the architecture spec
-        caps at 3).
-      - Revocation observed at any hop → reject.
+	At each hop:
+	  - Fetch the delegation entry from the ledger.
+	  - Deserialize the DomainPayload as JudicialDelegationPayload.
+	  - Confirm not expired (mandatory expiration invariant).
+	  - Evaluate origin via the SDK's EvaluateOrigin to catch
+	    revocation, amendment, and succession that may have happened
+	    on the entry since it was first published.
+	  - If origin is succeeded — follow the successor DID (Authority
+	    flows transparently through the succession entry).
+	  - Intersect the hop's Scope tokens with the running effective
+	    scope (narrower-cannot-be-widened).
 
-    The resolver is sub-millisecond on a warm cache; callers run it
-    on every entry submission as the read-side authority gate.
+	Termination:
+	  - granter_delegation_ref == nil → top of chain (institutional
+	    DID at depth 0). Walk completes.
+	  - Depth > MaxDelegationDepth → reject (the architecture spec
+	    caps at 3).
+	  - Revocation observed at any hop → reject.
+
+	The resolver is sub-millisecond on a warm cache; callers run it
+	on every entry submission as the read-side authority gate.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Domain-payload chain walk (granter_delegation_ref) — not the
-      SDK header. The two are kept in sync at issuance; reading the
-      domain side is faster and keeps the resolver schema-aware.
-    - Origin evaluation per-hop. A delegation entry may have been
-      revoked or succeeded since publication; EvaluateOrigin reads
-      Origin_Tip to surface those state changes.
-    - Catalog validation is final-pass. After the chain produces an
-      effective (role, scope), the resolver consults RoleCatalog to
-      confirm the requested action is permissible at that authority.
-    - On rejection, the resolver returns *Authority with OK=false and
-      Reason populated. The caller logs Reason verbatim — auditors
-      get exact answers without re-running the walk.
+  - Domain-payload chain walk (granter_delegation_ref) — not the
+    SDK header. The two are kept in sync at issuance; reading the
+    domain side is faster and keeps the resolver schema-aware.
+  - Origin evaluation per-hop. A delegation entry may have been
+    revoked or succeeded since publication; EvaluateOrigin reads
+    Origin_Tip to surface those state changes.
+  - Catalog validation is final-pass. After the chain produces an
+    effective (role, scope), the resolver consults RoleCatalog to
+    confirm the requested action is permissible at that authority.
+  - On rejection, the resolver returns *Authority with OK=false and
+    Reason populated. The caller logs Reason verbatim — auditors
+    get exact answers without re-running the walk.
 
 OVERVIEW:
-    Authority         — the verdict struct (OK, Role, EffectiveScope,
-                        Depth, Reason).
-    AuthorityResolver — the dependency-injected resolver.
-    Resolve           — the main entry point.
+
+	Authority         — the verdict struct (OK, Role, EffectiveScope,
+	                    Depth, Reason).
+	AuthorityResolver — the dependency-injected resolver.
+	Resolve           — the main entry point.
 
 KEY DEPENDENCIES:
-    - schemas (JudicialDelegationPayload, RoleCatalog).
-    - ortholog-sdk verifier (EvaluateOrigin).
+  - schemas (JudicialDelegationPayload, RoleCatalog).
+  - attesta verifier (EvaluateOrigin).
 */
 package verification
 
@@ -64,10 +66,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // MaxDelegationDepth caps the chain length per the architecture spec.
@@ -81,16 +83,16 @@ const MaxDelegationDepth = 3
 type AuthorityRejection string
 
 const (
-	RejectNone               AuthorityRejection = ""
-	RejectFetchFailed        AuthorityRejection = "fetch_failed"
-	RejectMalformedPayload   AuthorityRejection = "malformed_payload"
-	RejectExpired            AuthorityRejection = "expired"
-	RejectRevoked            AuthorityRejection = "revoked"
-	RejectDepthExceeded      AuthorityRejection = "depth_exceeded"
-	RejectScopeViolation     AuthorityRejection = "scope_violation"
-	RejectCatalogViolation   AuthorityRejection = "catalog_violation"
-	RejectMissingChainTip    AuthorityRejection = "missing_chain_tip"
-	RejectSignerMismatch     AuthorityRejection = "signer_mismatch"
+	RejectNone             AuthorityRejection = ""
+	RejectFetchFailed      AuthorityRejection = "fetch_failed"
+	RejectMalformedPayload AuthorityRejection = "malformed_payload"
+	RejectExpired          AuthorityRejection = "expired"
+	RejectRevoked          AuthorityRejection = "revoked"
+	RejectDepthExceeded    AuthorityRejection = "depth_exceeded"
+	RejectScopeViolation   AuthorityRejection = "scope_violation"
+	RejectCatalogViolation AuthorityRejection = "catalog_violation"
+	RejectMissingChainTip  AuthorityRejection = "missing_chain_tip"
+	RejectSignerMismatch   AuthorityRejection = "signer_mismatch"
 )
 
 // Authority is the verdict returned by AuthorityResolver.Resolve.
@@ -131,7 +133,7 @@ type Authority struct {
 // per process; safe for concurrent Resolve calls.
 type AuthorityResolver struct {
 	// Fetcher reads entries by LogPosition. Production: HTTP client
-	// to the operator. Tests: in-memory fake.
+	// to the ledger. Tests: in-memory fake.
 	Fetcher types.EntryFetcher
 
 	// LeafReader reads SMT leaves for origin evaluation. Required

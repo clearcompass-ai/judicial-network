@@ -2,15 +2,16 @@
 FILE PATH: api/middleware/observability/logger_test.go
 
 DESCRIPTION:
-    Pins the structured-logger middleware:
-      1. Every request emits one JSON log line with the canonical
-         fields (method, route, path, status, latency_ms).
-      2. The request_id from RequestID middleware lands in the
-         log line.
-      3. The caller_did from middleware.CallerDIDFromContext lands
-         in the log line.
-      4. Status drives the log level: 2xx → info, 4xx → warn,
-         5xx → error.
+
+	Pins the structured-logger middleware:
+	  1. Every request emits one JSON log line with the canonical
+	     fields (method, route, path, status, latency_ms).
+	  2. The request_id from RequestID middleware lands in the
+	     log line.
+	  3. The caller_did from middleware.CallerDIDFromContext lands
+	     in the log line.
+	  4. Status drives the log level: 2xx → info, 4xx → warn,
+	     5xx → error.
 */
 package observability
 

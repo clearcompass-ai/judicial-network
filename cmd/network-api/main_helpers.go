@@ -2,16 +2,17 @@
 FILE PATH: cmd/network-api/main_helpers.go
 
 DESCRIPTION:
-    Boot-time helpers split out of main.go to keep that file focused
-    on the run() / main() control flow. Owns:
 
-      - registerProductionBundles : compile-in deployment Bundles
-      - buildNonceStores          : per-destination NonceStore map
-      - buildKeyStore             : memory / softhsm / vault selector
-      - buildAuthenticator        : mTLS / JWT / none selector
+	Boot-time helpers split out of main.go to keep that file focused
+	on the run() / main() control flow. Owns:
 
-    Each helper is independently testable and replaced by a stub in
-    main_test.go via the deps struct.
+	  - registerProductionBundles : compile-in deployment Bundles
+	  - buildNonceStores          : per-destination NonceStore map
+	  - buildKeyStore             : memory / softhsm / vault selector
+	  - buildAuthenticator        : mTLS / JWT / none selector
+
+	Each helper is independently testable and replaced by a stub in
+	main_test.go via the deps struct.
 */
 package main
 
@@ -80,10 +81,10 @@ func buildNonceStores(cfg config.Operational, r *jurisdiction.Registry) (map[str
 }
 
 // buildKeyStore returns a keystore.KeyStore for the configured
-// backend. Phase 8a wires SoftHSM (PKCS#11) and Vault Transit native
+// backend.  wires SoftHSM (PKCS#11) and Vault Transit native
 // alongside the in-memory dev path. The PKCS#11 backend compiles in
 // only with -tags pkcs11; the no-cgo build target returns
-// pkcs11.ErrNotBuilt, surfaced here so operators see a clear message.
+// pkcs11.ErrNotBuilt, surfaced here so ledgers see a clear message.
 func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 	switch cfg.Backend {
 	case config.KeyStoreBackendMemory:
@@ -124,16 +125,16 @@ func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 }
 
 // buildReadyzChecks builds the composer's /readyz check list.
-// Includes operator + artifact-store HTTP reachability when their
+// Includes ledger + artifact-store HTTP reachability when their
 // respective endpoints are configured. An unset endpoint is
 // silently skipped — the composer's /readyz returns 200 only
 // when EVERY configured check passes; missing checks neither
 // pass nor fail.
 func buildReadyzChecks(cfg config.Operational) []observability.ReadyCheck {
 	var checks []observability.ReadyCheck
-	if cfg.OperatorEndpoint != "" {
+	if cfg.LedgerEndpoint != "" {
 		checks = append(checks, observability.CheckHTTPGet(
-			"operator", cfg.OperatorEndpoint+"/healthz"))
+			"ledger", cfg.LedgerEndpoint+"/healthz"))
 	}
 	if cfg.ArtifactStoreEndpoint != "" {
 		checks = append(checks, observability.CheckHTTPGet(

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -39,9 +39,9 @@ func TestPublishEvent_EmptyEventType(t *testing.T) {
 func TestPublishEvent_Scheduling(t *testing.T) {
 	result, err := PublishEvent(EventConfig{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:courts.nashville.gov:role:scheduling-system-2026",
-		EventType: "scheduling",
-		EventTime: 1700000000,
+		SignerDID:   "did:web:courts.nashville.gov:role:scheduling-system-2026",
+		EventType:   "scheduling",
+		EventTime:   1700000000,
 		Payload: map[string]interface{}{
 			"hearing_type":   "motion",
 			"scheduled_date": "2027-05-01",
@@ -79,8 +79,8 @@ func TestPublishEvent_Scheduling(t *testing.T) {
 func TestPublishEvent_Closure_NoRefs(t *testing.T) {
 	result, err := PublishEvent(EventConfig{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:courts.nashville.gov",
-		EventType: "closure",
+		SignerDID:   "did:web:courts.nashville.gov",
+		EventType:   "closure",
 		Payload: map[string]interface{}{
 			"reason":         "weather",
 			"effective_date": "2027-04-20",
@@ -112,9 +112,9 @@ func TestPublishEvent_MultiRef(t *testing.T) {
 	}
 	result, err := PublishEvent(EventConfig{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:court",
-		EventType: "consolidated_hearing",
-		Refs:      refs,
+		SignerDID:   "did:web:court",
+		EventType:   "consolidated_hearing",
+		Refs:        refs,
 	})
 	if err != nil {
 		t.Fatalf("multi-ref: %v", err)
@@ -138,9 +138,9 @@ func TestPublishEvent_MultiRef(t *testing.T) {
 func TestPublishEvent_SerializeRoundtrip(t *testing.T) {
 	result, err := PublishEvent(EventConfig{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:test",
-		EventType: "notice",
-		Payload:   map[string]interface{}{"text": "procedure change"},
+		SignerDID:   "did:web:test",
+		EventType:   "notice",
+		Payload:     map[string]interface{}{"text": "procedure change"},
 	})
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -164,9 +164,9 @@ func TestPublishEvent_SerializeRoundtrip(t *testing.T) {
 func TestPublishEvent_ResultFields(t *testing.T) {
 	result, _ := PublishEvent(EventConfig{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:test",
-		EventType: "duty",
-		Refs:      []types.LogPosition{{LogDID: "did:web:x", Sequence: 1}},
+		SignerDID:   "did:web:test",
+		EventType:   "duty",
+		Refs:        []types.LogPosition{{LogDID: "did:web:x", Sequence: 1}},
 	})
 	if result.Entry == nil {
 		t.Fatal("Entry nil")

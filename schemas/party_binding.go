@@ -2,36 +2,38 @@
 FILE PATH: schemas/party_binding.go
 
 DESCRIPTION:
-    tn-party-binding-v1 — public party-case bindings on the parties
-    log. Per the v1.6 Event Dictionary (Phase 3D.cleanup-3):
 
-      - Parties are NOT network entities and have NO DIDs.
-      - party_binding mints a case-local `binding_id` as the only
-        public reference to the party.
-      - The party's identity (when public) is recorded as
-        `party_name`. When sealed, the underlying identity lives
-        in the encrypted-mapping CID of the sealed mirror schema
-        (tn-party-binding-sealed-v1) and `party_name` is left
-        empty — the binding_id is the public reference either way.
+	tn-party-binding-v1 — public party-case bindings on the parties
+	log. Per the v1.6 Event Dictionary (.cleanup-3):
+
+	  - Parties are NOT network entities and have NO DIDs.
+	  - party_binding mints a case-local `binding_id` as the only
+	    public reference to the party.
+	  - The party's identity (when public) is recorded as
+	    `party_name`. When sealed, the underlying identity lives
+	    in the encrypted-mapping CID of the sealed mirror schema
+	    (tn-party-binding-sealed-v1) and `party_name` is left
+	    empty — the binding_id is the public reference either way.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Closed-set party_class enum — plaintiff / defendant /
-      respondent / petitioner / state. Validators reject unknown
-      classes.
-    - binding_id is opaque to the log — the writer chooses its
-      shape (e.g. "p-001", "d-001"). Uniqueness is per case_ref;
-      the aggregator (Phase 3E) enforces case-local uniqueness.
-    - real_did identifier_scope, AES-GCM encryption restricted
-      grant. Restricted grant: scope authority members gate access
-      to party data.
+  - Closed-set party_class enum — plaintiff / defendant /
+    respondent / petitioner / state. Validators reject unknown
+    classes.
+  - binding_id is opaque to the log — the writer chooses its
+    shape (e.g. "p-001", "d-001"). Uniqueness is per case_ref;
+    the aggregator enforces case-local uniqueness.
+  - real_did identifier_scope, AES-GCM encryption restricted
+    grant. Restricted grant: scope authority members gate access
+    to party data.
 
 OVERVIEW:
-    PartyClass            — closed-set role enum.
-    PartyBindingPayload   — v1.6 schema.
-    Validate              — structural sanity.
+
+	PartyClass            — closed-set role enum.
+	PartyBindingPayload   — v1.6 schema.
+	Validate              — structural sanity.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go (registration)
+  - schemas/registry.go (registration)
 */
 package schemas
 

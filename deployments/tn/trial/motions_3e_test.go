@@ -2,12 +2,13 @@
 FILE PATH: deployments/tn/trial/motions_3e_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3E trial-prep motions. Pins:
-      - 5 motion types (no catch-all in §3E per v1.8).
-      - motion_suppress / motion_competency_evaluation are
-        criminal-only (defense + prosecutor; no civil_attorney).
-      - All §3E motions reach both policies via helpers.
-      - Walker accepts each with case_initiated.
+
+	Tests for v1.8 §3E trial-prep motions. Pins:
+	  - 5 motion types (no catch-all in §3E per v1.8).
+	  - motion_suppress / motion_competency_evaluation are
+	    criminal-only (defense + prosecutor; no civil_attorney).
+	  - All §3E motions reach both policies via helpers.
+	  - Walker accepts each with case_initiated.
 */
 package trial
 

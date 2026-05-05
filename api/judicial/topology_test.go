@@ -2,18 +2,19 @@
 FILE PATH: api/judicial/topology_test.go
 
 DESCRIPTION:
-    Validation contracts for the wired topology handlers (Priority 2):
 
-      POST /v1/judicial/topology/publish-anchor
-      GET  /v1/judicial/topology/anchor-chain
+	Validation contracts for the wired topology handlers (Priority 2):
 
-    Pinned:
-      - 401 on no caller (auth gate runs first)
-      - 503 when Dependencies.TreeHeadClient is nil — the dep is
-        configured via witness operational config; an unconfigured
-        binary surfaces 503 with the reason
-      - 503 on anchor-chain when Hierarchy is nil
-      - 400 on missing required body / query fields when configured
+	  POST /v1/judicial/topology/publish-anchor
+	  GET  /v1/judicial/topology/anchor-chain
+
+	Pinned:
+	  - 401 on no caller (auth gate runs first)
+	  - 503 when Dependencies.TreeHeadClient is nil — the dep is
+	    configured via witness operational config; an unconfigured
+	    binary surfaces 503 with the reason
+	  - 503 on anchor-chain when Hierarchy is nil
+	  - 400 on missing required body / query fields when configured
 */
 package judicial
 
@@ -24,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/witness"
 
 	"github.com/clearcompass-ai/judicial-network/topology"
 )
@@ -35,7 +36,7 @@ import (
 // value so the 503 unconfigured-gate doesn't trip.
 func stubTreeHeadClient() *witness.TreeHeadClient {
 	endpoints := &witness.StaticEndpoints{
-		Operators: map[string]string{},
+		Ledgers:   map[string]string{},
 		Witnesses: map[string][]string{},
 	}
 	return witness.NewTreeHeadClient(endpoints, witness.DefaultTreeHeadClientConfig())
@@ -172,7 +173,7 @@ func TestMonAnchorFreshness_NoTreeHeadClient_503(t *testing.T) {
 	h := newTestHandler(Dependencies{})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet,
-		"/v1/judicial/monitoring/anchor-freshness?local_log_did=x&parent_log_did=y&operator_signer_did=z",
+		"/v1/judicial/monitoring/anchor-freshness?local_log_did=x&parent_log_did=y&ledger_signer_did=z",
 		nil)
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusServiceUnavailable {

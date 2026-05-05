@@ -3,13 +3,13 @@ Package middleware provides composer-level HTTP middleware for the
 api/ surface. The two responsibilities split into separate files:
 
   - identity.go  the canonical context key for "the authenticated
-                  callerDID" + the Authenticator interface every
-                  auth backend implements.
+    callerDID" + the Authenticator interface every
+    auth backend implements.
   - mtls.go      mTLS authenticator: extracts callerDID from the
-                  client cert's SAN URI.
+    client cert's SAN URI.
   - jwt.go       JWT authenticator: verifies a Bearer token against
-                  a JWKS endpoint, extracts callerDID from the
-                  token's `sub` claim.
+    a JWKS endpoint, extracts callerDID from the
+    token's `sub` claim.
 
 Composer-level vs handler-level: this package's middleware runs at
 api/server.go's parent mux, BEFORE delegation to api/exchange or
@@ -19,7 +19,7 @@ CallerDIDFromContext.
 
 Why a new package vs reusing api/exchange/auth: the existing package
 is mTLS+signed-envelope auth wired per exchange handler, with on-log
-delegation checks. Phase 5 adds a thinner, composer-level layer that
+delegation checks.  adds a thinner, composer-level layer that
 only establishes identity. Per-handler authorization (e.g., scope
 checking, delegation liveness) is a separate concern that runs after.
 */

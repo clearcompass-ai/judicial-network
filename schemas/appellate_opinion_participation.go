@@ -2,19 +2,20 @@
 FILE PATH: schemas/appellate_opinion_participation.go
 
 DESCRIPTION:
-    tn-appellate-opinion-participation-v1 — a judge's
-    relationship to a specific opinion. Per v1.8 §7B.2:
 
-      - One participation event per (judge, opinion).
-      - References opinion_id from the publication event.
-      - role: closed-set per the destination Bundle's
-        AppellateVocabulary.ParticipationRoles.
-      - parts: optional list when role is joined_in_part /
-        joined_except_as_to.
+	tn-appellate-opinion-participation-v1 — a judge's
+	relationship to a specific opinion. Per v1.8 §7B.2:
 
-    Multiple participation events compose freely: a single
-    judge in a single case can join one opinion, dissent from
-    another, and recuse from a third.
+	  - One participation event per (judge, opinion).
+	  - References opinion_id from the publication event.
+	  - role: closed-set per the destination Bundle's
+	    AppellateVocabulary.ParticipationRoles.
+	  - parts: optional list when role is joined_in_part /
+	    joined_except_as_to.
+
+	Multiple participation events compose freely: a single
+	judge in a single case can join one opinion, dissent from
+	another, and recuse from a third.
 */
 package schemas
 

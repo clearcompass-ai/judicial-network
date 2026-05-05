@@ -2,10 +2,11 @@
 FILE PATH: schemas/sealing_order.go
 DESCRIPTION: tn-sealing-order-v1. Path C enforcement schema for sealing/unsealing.
 KEY ARCHITECTURAL DECISIONS:
-    - Different SchemaParameters from case schemas: activation_delay=72h,
-      cosignature_threshold=0 for sealing, 1 for unsealing.
-    - No artifact encryption (enforcement entries carry no artifacts).
-    - Juvenile auto-seal: activation_delay=0 per TCA 37-1-153.
+  - Different SchemaParameters from case schemas: activation_delay=72h,
+    cosignature_threshold=0 for sealing, 1 for unsealing.
+  - No artifact encryption (enforcement entries carry no artifacts).
+  - Juvenile auto-seal: activation_delay=0 per TCA 37-1-153.
+
 OVERVIEW: SealingOrderPayload with order_type, authority, affected_artifacts.
 KEY DEPENDENCIES: schemas/registry.go
 */
@@ -49,7 +50,9 @@ func sealingOrderRegistration() *SchemaRegistration {
 		URI: SchemaSealingOrderV1,
 		Serialize: func(payload interface{}) ([]byte, error) {
 			p, ok := payload.(*SealingOrderPayload)
-			if !ok { return nil, ErrDeserialize }
+			if !ok {
+				return nil, ErrDeserialize
+			}
 			return SerializeSealingOrderPayload(p)
 		},
 		Deserialize:     func(data []byte) (interface{}, error) { return DeserializeSealingOrderPayload(data) },

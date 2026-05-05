@@ -2,19 +2,20 @@
 FILE PATH: deployments/tn/trial/motions_3f.go
 
 DESCRIPTION:
-    v1.8 §3F — In-Trial Dispositive Motions. Three event types
-    that resolve a case mid-trial. All carry the same Advisory
-    hearing_convened_concluded prereq (trial-in-progress
-    indicator); the prereq is Advisory because not every TN
-    deployment writes hearing_convened_concluded reliably mid-
-    trial.
 
-    No catch-all in §3F per v1.8.
+	v1.8 §3F — In-Trial Dispositive Motions. Three event types
+	that resolve a case mid-trial. All carry the same Advisory
+	hearing_convened_concluded prereq (trial-in-progress
+	indicator); the prereq is Advisory because not every TN
+	deployment writes hearing_convened_concluded reliably mid-
+	trial.
 
-    Filer set:
-      motion_directed_verdict     defense + civil (civil)
-      motion_judgment_acquittal   defense + prosecutor (criminal)
-      motion_mistrial             all advocates
+	No catch-all in §3F per v1.8.
+
+	Filer set:
+	  motion_directed_verdict     defense + civil (civil)
+	  motion_judgment_acquittal   defense + prosecutor (criminal)
+	  motion_mistrial             all advocates
 */
 package trial
 

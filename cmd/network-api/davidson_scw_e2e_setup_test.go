@@ -2,22 +2,23 @@
 FILE PATH: cmd/network-api/davidson_scw_e2e_setup_test.go
 
 DESCRIPTION:
-    Fixtures + helpers for the binary-level Davidson SCW e2e. Owns:
 
-      - binE2EAddr / binE2EScwDID / binE2EMagicReturn — deterministic
-        SCW contract fixture (distinct from the composer-level
-        fixture in tests/contracts so the two tests can coexist
-        without verifier-registry aliasing).
-      - injectingAuth — test-only middleware.Authenticator that
-        injects a fixed callerDID into request context. Stands in
-        for production mTLS / JWT.
-      - stubOperator — httptest.Server returning 202 SCT for POST
-        /v1/entries; mirrors the operator's wire shape without the
-        Postgres / Tessera infrastructure.
-      - binE2ERebuild — independent envelope rebuild used as the
-        signing-payload drift detector.
-      - panicResolver — refuses every did:web Resolve call so any
-        accidental network traffic crashes loud.
+	Fixtures + helpers for the binary-level Davidson SCW e2e. Owns:
+
+	  - binE2EAddr / binE2EScwDID / binE2EMagicReturn — deterministic
+	    SCW contract fixture (distinct from the composer-level
+	    fixture in tests/contracts so the two tests can coexist
+	    without verifier-registry aliasing).
+	  - injectingAuth — test-only middleware.Authenticator that
+	    injects a fixed callerDID into request context. Stands in
+	    for production mTLS / JWT.
+	  - stubLedger — httptest.Server returning 202 SCT for POST
+	    /v1/entries; mirrors the ledger's wire shape without the
+	    Postgres / Tessera infrastructure.
+	  - binE2ERebuild — independent envelope rebuild used as the
+	    signing-payload drift detector.
+	  - panicResolver — refuses every did:web Resolve call so any
+	    accidental network traffic crashes loud.
 */
 package main
 
@@ -28,9 +29,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/did"
 
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/cases"
@@ -79,11 +80,11 @@ func (a injectingAuth) Wrap(next http.Handler) http.Handler {
 	})
 }
 
-// stubOperator returns an httptest.Server that accepts POST /v1/entries
+// stubLedger returns an httptest.Server that accepts POST /v1/entries
 // (octet-stream) and returns a synthetic SCT JSON. The body is
-// consumed to mirror real operator behaviour; the test asserts
+// consumed to mirror real ledger behaviour; the test asserts
 // non-empty bytes arrived.
-func stubOperator(t *testing.T) *httptest.Server {
+func stubLedger(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {

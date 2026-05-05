@@ -2,27 +2,28 @@
 FILE PATH: api/observability.go
 
 DESCRIPTION:
-    Composer-side bundle of the Phase 15 observability stack:
-    Prometheus metrics, structured logger, request-ID. A single
-    Observability instance is shared across every /v1/* handler so
-    metrics + logs share one registry + logger output.
 
-    The stack order, outer-to-inner, is:
+	Composer-side bundle of the  observability stack:
+	Prometheus metrics, structured logger, request-ID. A single
+	Observability instance is shared across every /v1/* handler so
+	metrics + logs share one registry + logger output.
 
-      RequestID → Metrics → Logger → reliability → auth → handler
+	The stack order, outer-to-inner, is:
 
-    Reasoning:
-      RequestID outermost so correlation IDs are present in every
-        downstream wrapper's log lines.
-      Metrics next so RED counters reflect the FULL request
-        latency including auth + reliability outcomes.
-      Logger next so log lines see the same body + status the
-        metrics counted, without re-buffering.
-      Reliability + auth + handler in their original order.
+	  RequestID → Metrics → Logger → reliability → auth → handler
 
-    Tests construct their own Observability with NewObservability();
-    production reuses a single instance bound to the composer for
-    /metrics scraping.
+	Reasoning:
+	  RequestID outermost so correlation IDs are present in every
+	    downstream wrapper's log lines.
+	  Metrics next so RED counters reflect the FULL request
+	    latency including auth + reliability outcomes.
+	  Logger next so log lines see the same body + status the
+	    metrics counted, without re-buffering.
+	  Reliability + auth + handler in their original order.
+
+	Tests construct their own Observability with NewObservability();
+	production reuses a single instance bound to the composer for
+	/metrics scraping.
 */
 package api
 
@@ -61,15 +62,15 @@ func (o *Observability) MetricsHandler() http.Handler {
 }
 
 // Metrics returns the underlying *MetricsRegistry so callers
-// (e.g., cmd/network-api wiring NewOperatorSubmitMetrics) can
+// (e.g., cmd/network-api wiring NewLedgerSubmitMetrics) can
 // register additional collectors against the same registry the
 // composer's /metrics endpoint scrapes.
 func (o *Observability) Metrics() *observability.MetricsRegistry {
 	return o.metrics
 }
 
-// ReadyzHandler returns the composer's /readyz endpoint. Operators
-// populate Config.ReadyzChecks so dependencies (operator endpoint,
+// ReadyzHandler returns the composer's /readyz endpoint. Ledgers
+// populate Config.ReadyzChecks so dependencies (ledger endpoint,
 // artifact store, etc.) are surfaced through the same handler the
 // composer mounts unauthenticated alongside /healthz and /metrics.
 func (o *Observability) ReadyzHandler(checks []observability.ReadyCheck) http.Handler {

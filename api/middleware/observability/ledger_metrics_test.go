@@ -1,13 +1,14 @@
 /*
-FILE PATH: api/middleware/observability/operator_metrics_test.go
+FILE PATH: api/middleware/observability/ledger_metrics_test.go
 
 DESCRIPTION:
-    Pins the operator-submit metrics:
-      1. Counter increments per result.
-      2. Duration histogram observes per call.
-      3. Breaker gauge is exclusive — when state="open", the
-         "closed" + "half_open" gauges are 0.
-      4. Initial state is "closed" with gauge=1, others=0.
+
+	Pins the ledger-submit metrics:
+	  1. Counter increments per result.
+	  2. Duration histogram observes per call.
+	  3. Breaker gauge is exclusive — when state="open", the
+	     "closed" + "half_open" gauges are 0.
+	  4. Initial state is "closed" with gauge=1, others=0.
 */
 package observability
 
@@ -17,9 +18,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
-func TestOperatorSubmitMetrics_CounterByResult(t *testing.T) {
+func TestLedgerSubmitMetrics_CounterByResult(t *testing.T) {
 	r := NewMetricsRegistry()
-	m := NewOperatorSubmitMetrics(r)
+	m := NewLedgerSubmitMetrics(r)
 	m.Observe(0.05, "ok", "closed")
 	m.Observe(0.05, "ok", "closed")
 	m.Observe(0.10, "error", "closed")
@@ -36,18 +37,18 @@ func TestOperatorSubmitMetrics_CounterByResult(t *testing.T) {
 	}
 }
 
-func TestOperatorSubmitMetrics_DurationObserved(t *testing.T) {
+func TestLedgerSubmitMetrics_DurationObserved(t *testing.T) {
 	r := NewMetricsRegistry()
-	m := NewOperatorSubmitMetrics(r)
+	m := NewLedgerSubmitMetrics(r)
 	m.Observe(0.10, "ok", "closed")
 	if got := testutil.CollectAndCount(m.duration); got == 0 {
 		t.Error("duration histogram observed nothing")
 	}
 }
 
-func TestOperatorSubmitMetrics_BreakerGauge_Exclusive(t *testing.T) {
+func TestLedgerSubmitMetrics_BreakerGauge_Exclusive(t *testing.T) {
 	r := NewMetricsRegistry()
-	m := NewOperatorSubmitMetrics(r)
+	m := NewLedgerSubmitMetrics(r)
 	m.Observe(0.10, "circuit_open", "open")
 	if got := testutil.ToFloat64(m.breaker.WithLabelValues("open")); got != 1 {
 		t.Errorf("open gauge = %v, want 1", got)
@@ -60,9 +61,9 @@ func TestOperatorSubmitMetrics_BreakerGauge_Exclusive(t *testing.T) {
 	}
 }
 
-func TestOperatorSubmitMetrics_InitialState_Closed(t *testing.T) {
+func TestLedgerSubmitMetrics_InitialState_Closed(t *testing.T) {
 	r := NewMetricsRegistry()
-	m := NewOperatorSubmitMetrics(r)
+	m := NewLedgerSubmitMetrics(r)
 	if got := testutil.ToFloat64(m.breaker.WithLabelValues("closed")); got != 1 {
 		t.Errorf("initial closed gauge = %v, want 1", got)
 	}

@@ -55,18 +55,18 @@ check "EvaluateOrigin on parties log" \
 
 echo ""
 echo "Log reachability:"
-check "Officers log operator" \
-    judicial-network ping-operator \
+check "Officers log ledger" \
+    judicial-network ping-ledger \
     --logs-config "${CONFIG_DIR}/logs.yaml" \
     --log officers
 
-check "Cases log operator" \
-    judicial-network ping-operator \
+check "Cases log ledger" \
+    judicial-network ping-ledger \
     --logs-config "${CONFIG_DIR}/logs.yaml" \
     --log cases
 
-check "Parties log operator" \
-    judicial-network ping-operator \
+check "Parties log ledger" \
+    judicial-network ping-ledger \
     --logs-config "${CONFIG_DIR}/logs.yaml" \
     --log parties
 
@@ -82,7 +82,7 @@ if [[ -f "${CONFIG_DIR}/anchor.yaml" ]]; then
     echo ""
     echo "Anchor:"
     check "Anchor log reachable" \
-        judicial-network ping-operator \
+        judicial-network ping-ledger \
         --anchor-config "${CONFIG_DIR}/anchor.yaml"
 fi
 

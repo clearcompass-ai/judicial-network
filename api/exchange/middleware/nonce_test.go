@@ -2,10 +2,11 @@
 FILE PATH: api/exchange/middleware/nonce_test.go
 
 COVERAGE:
-    Every code path in nonce.go: missing header, default vs custom
-    header name, replay rejection, store-unavailable surfacing,
-    misconfig classification, scope namespacing, panics on nil/empty
-    constructor inputs, and downstream-handler isolation on rejection.
+
+	Every code path in nonce.go: missing header, default vs custom
+	header name, replay rejection, store-unavailable surfacing,
+	misconfig classification, scope namespacing, panics on nil/empty
+	constructor inputs, and downstream-handler isolation on rejection.
 */
 package middleware
 
@@ -19,7 +20,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
+	"github.com/clearcompass-ai/attesta/exchange/auth"
 )
 
 // ─── Helpers ────────────────────────────────────────────────────────

@@ -4,20 +4,21 @@
 FILE PATH: api/exchange/keystore/pkcs11/pkcs11_keystore.go
 
 DESCRIPTION:
-    PKCS#11 backend for keystore.KeyStore. This file owns the Config +
-    KeyStore types, constructor / Close, and the management surface
-    (List / Rotate / Destroy / ExportForEscrow). secp256k1 sign/gen
-    glue lives in pkcs11_secp256k1.go; PKCS#11 object-find +
-    EC_POINT plumbing lives in pkcs11_objects.go.
 
-    Default deployment target is SoftHSMv2; the same code path drives
-    any PKCS#11 v2.40 token that supports CKM_EC_KEY_PAIR_GEN +
-    CKM_ECDSA with the secp256k1 OID curve parameter (1.3.132.0.10).
+	PKCS#11 backend for keystore.KeyStore. This file owns the Config +
+	KeyStore types, constructor / Close, and the management surface
+	(List / Rotate / Destroy / ExportForEscrow). secp256k1 sign/gen
+	glue lives in pkcs11_secp256k1.go; PKCS#11 object-find +
+	EC_POINT plumbing lives in pkcs11_objects.go.
 
-    Build tag: this file compiles ONLY with `-tags pkcs11`. The
-    miekg/pkcs11 binding requires cgo + libpkcs11.so; default builds
-    must remain cgo-free, so the unbuilt path is taken by
-    pkcs11_stub.go.
+	Default deployment target is SoftHSMv2; the same code path drives
+	any PKCS#11 v2.40 token that supports CKM_EC_KEY_PAIR_GEN +
+	CKM_ECDSA with the secp256k1 OID curve parameter (1.3.132.0.10).
+
+	Build tag: this file compiles ONLY with `-tags pkcs11`. The
+	miekg/pkcs11 binding requires cgo + libpkcs11.so; default builds
+	must remain cgo-free, so the unbuilt path is taken by
+	pkcs11_stub.go.
 */
 package pkcs11
 
@@ -125,7 +126,7 @@ func (k *KeyStore) Close() {
 
 // label returns the CKA_LABEL we attach to both halves of a key pair
 // so we can find them again by DID.
-func label(did string) []byte { return []byte("ortholog:" + did) }
+func label(did string) []byte { return []byte("attesta:" + did) }
 
 // ─────────────────────────────────────────────────────────────────────
 // keystore.KeyStore — Ed25519 (unsupported)

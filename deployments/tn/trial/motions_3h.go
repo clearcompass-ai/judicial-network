@@ -2,22 +2,23 @@
 FILE PATH: deployments/tn/trial/motions_3h.go
 
 DESCRIPTION:
-    v1.8 §3H — Post-Trial / Post-Conviction Motions. Eleven
-    event types. All §3H motions require a prior verdict OR
-    final_judgment (some require one specifically).
 
-    The prereq Walker treats RequiredAncestor as a satisfy-any
-    list — so a single Prereq with both "verdict" and
-    "final_judgment" in RequiredAncestor satisfies "either" per
-    v1.8 §3H semantics. Stricter "exactly verdict" or "exactly
-    final_judgment" prereqs use a single-element list.
+	v1.8 §3H — Post-Trial / Post-Conviction Motions. Eleven
+	event types. All §3H motions require a prior verdict OR
+	final_judgment (some require one specifically).
 
-    §3H is the largest section. Each motion below carries the
-    minimum Hard prereq that v1.8 specifies; time-bounded
-    prereqs (e.g., motion_reduction_of_sentence's 120-day
-    window) are documented in v1.8 but enforced by the time-
-    bound module beyond the prereq Walker — the Walker only
-    checks ancestor presence here.
+	The prereq Walker treats RequiredAncestor as a satisfy-any
+	list — so a single Prereq with both "verdict" and
+	"final_judgment" in RequiredAncestor satisfies "either" per
+	v1.8 §3H semantics. Stricter "exactly verdict" or "exactly
+	final_judgment" prereqs use a single-element list.
+
+	§3H is the largest section. Each motion below carries the
+	minimum Hard prereq that v1.8 specifies; time-bounded
+	prereqs (e.g., motion_reduction_of_sentence's 120-day
+	window) are documented in v1.8 but enforced by the time-
+	bound module beyond the prereq Walker — the Walker only
+	checks ancestor presence here.
 */
 package trial
 

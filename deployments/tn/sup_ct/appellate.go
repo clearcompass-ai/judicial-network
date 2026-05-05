@@ -2,24 +2,25 @@
 FILE PATH: deployments/tn/sup_ct/appellate.go
 
 DESCRIPTION:
-    TN Supreme Court — AppellateVocabulary. Closed-set enums for
-    the appellate event payloads. v1.8 §7B's enum is the COA
-    baseline; the Sup Ct extends it slightly for highest-court
-    practice:
 
-      OpinionTypes        v1.8 §7B.2 (11 values, COA baseline);
-                          Sup Ct does NOT add seriatim or
-                          in_chambers (those remain SCOTUS-
-                          specific). per_curiam more common at
-                          Sup Ct than COA but vocabulary same.
-      ParticipationRoles  v1.8 §7B.2 baseline.
-      DispositionOutcomes v1.8 §7B.3 baseline.
-      ReviewTypes         v1.8 §7B.1 baseline.
+	TN Supreme Court — AppellateVocabulary. Closed-set enums for
+	the appellate event payloads. v1.8 §7B's enum is the COA
+	baseline; the Sup Ct extends it slightly for highest-court
+	practice:
 
-    Sup Ct keeps the same closed-set as COA for v0.7.0; the file
-    exists separately so future Sup-Ct-only additions (e.g.,
-    en_banc_rehearing_grant) can land here without cross-Bundle
-    coupling.
+	  OpinionTypes        v1.8 §7B.2 (11 values, COA baseline);
+	                      Sup Ct does NOT add seriatim or
+	                      in_chambers (those remain SCOTUS-
+	                      specific). per_curiam more common at
+	                      Sup Ct than COA but vocabulary same.
+	  ParticipationRoles  v1.8 §7B.2 baseline.
+	  DispositionOutcomes v1.8 §7B.3 baseline.
+	  ReviewTypes         v1.8 §7B.1 baseline.
+
+	Sup Ct keeps the same closed-set as COA for v0.7.0; the file
+	exists separately so future Sup-Ct-only additions (e.g.,
+	en_banc_rehearing_grant) can land here without cross-Bundle
+	coupling.
 */
 package sup_ct
 

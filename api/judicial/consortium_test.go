@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/consortium_test.go
 
 DESCRIPTION:
-    Validation contracts for the consortium handlers
-    (propose-addition, propose-removal, cross-court-proof verify,
-    plus the five 501-stubbed federation endpoints).
+
+	Validation contracts for the consortium handlers
+	(propose-addition, propose-removal, cross-court-proof verify,
+	plus the five 501-stubbed federation endpoints).
 */
 package judicial
 

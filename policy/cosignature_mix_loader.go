@@ -2,40 +2,42 @@
 FILE PATH: policy/cosignature_mix_loader.go
 
 DESCRIPTION:
-    File-backed loader for the cosignature-mix policy. Reads a
-    JSON file with shape:
 
-      {
-        "rules": [
-          {
-            "event_type": "motion_continuance",
-            "allowed_filer_roles": ["defense_counsel", "civil_attorney"],
-            "required_signer_roles": ["court_clerk", "judge"],
-            "min_signer_cosigners": 1,
-            "intra_exchange_only": true,
-            "required_credentials": ["bpr_number"]
-          },
-          ...
-        ]
-      }
+	File-backed loader for the cosignature-mix policy. Reads a
+	JSON file with shape:
 
-    Mirrors the role-catalog loader pattern: ParseJSON for in-memory
-    deserialization, LoadFile for disk + parse, ReloadFromFile for
-    the SIGHUP hot-reload path. Failed reload (missing file, parse
-    error, validation error) keeps the previous policy in effect —
-    the system never goes policy-less at runtime.
+	  {
+	    "rules": [
+	      {
+	        "event_type": "motion_continuance",
+	        "allowed_filer_roles": ["defense_counsel", "civil_attorney"],
+	        "required_signer_roles": ["court_clerk", "judge"],
+	        "min_signer_cosigners": 1,
+	        "intra_exchange_only": true,
+	        "required_credentials": ["bpr_number"]
+	      },
+	      ...
+	    ]
+	  }
 
-    Production deployments may skip the file path entirely and use
-    the Davidson reference fixture (cosignature_mix_davidson.go) or
-    a custom Go-defined slice.
+	Mirrors the role-catalog loader pattern: ParseJSON for in-memory
+	deserialization, LoadFile for disk + parse, ReloadFromFile for
+	the SIGHUP hot-reload path. Failed reload (missing file, parse
+	error, validation error) keeps the previous policy in effect —
+	the system never goes policy-less at runtime.
+
+	Production deployments may skip the file path entirely and use
+	the Davidson reference fixture (cosignature_mix_davidson.go) or
+	a custom Go-defined slice.
 
 OVERVIEW:
-    ParseJSON          — bytes → InMemoryPolicy.
-    LoadFile           — path → InMemoryPolicy.
-    ReloadFromFile     — atomic refresh of an existing policy.
+
+	ParseJSON          — bytes → InMemoryPolicy.
+	LoadFile           — path → InMemoryPolicy.
+	ReloadFromFile     — atomic refresh of an existing policy.
 
 KEY DEPENDENCIES:
-    - policy/cosignature_mix.go (CosignatureRule, InMemoryPolicy).
+  - policy/cosignature_mix.go (CosignatureRule, InMemoryPolicy).
 */
 package policy
 
@@ -51,7 +53,7 @@ type policyFile struct {
 }
 
 // ParseJSON decodes JSON bytes into a fresh InMemoryPolicy. Used
-// by tests and by operators piping content from a config service.
+// by tests and by ledgers piping content from a config service.
 func ParseJSON(data []byte) (*InMemoryPolicy, error) {
 	var f policyFile
 	if err := json.Unmarshal(data, &f); err != nil {

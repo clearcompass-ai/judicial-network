@@ -2,13 +2,14 @@
 FILE PATH: api/judicial/delegation_topology_test.go
 
 DESCRIPTION:
-    Validation contracts for the delegation 501 stubs + the
-    Priority-2 topology wiring.
 
-    Delegation routes (3) remain 501 because they need a process-
-    scoped BuildContext. Topology routes (2) are now wired with
-    Dependencies.TreeHeadClient (+ Hierarchy for anchor-chain) and
-    surface 503 when those deps are nil instead of 501.
+	Validation contracts for the delegation 501 stubs + the
+	Priority-2 topology wiring.
+
+	Delegation routes (3) remain 501 because they need a process-
+	scoped BuildContext. Topology routes (2) are now wired with
+	Dependencies.TreeHeadClient (+ Hierarchy for anchor-chain) and
+	surface 503 when those deps are nil instead of 501.
 */
 package judicial
 

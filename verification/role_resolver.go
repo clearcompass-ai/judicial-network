@@ -2,39 +2,42 @@
 FILE PATH: verification/role_resolver.go
 
 DESCRIPTION:
-    RoleResolver — the seam the cosignature verifier uses to find
-    a Signer's role + exchange given their DID. Replaces the
-    deleted directory.OfficerRegistry. Per the v1.6 design, the
-    on-log truth is canonical; off-log mutable registries are
-    forbidden.
 
-    Two implementations ship here:
+	RoleResolver — the seam the cosignature verifier uses to find
+	a Signer's role + exchange given their DID. Replaces the
+	deleted directory.OfficerRegistry. Per the v1.6 design, the
+	on-log truth is canonical; off-log mutable registries are
+	forbidden.
 
-      MapRoleResolver — test/fixture stub. The test wires up a
-                        fixed (DID → role + exchange) map. Used
-                        only by tests; carries no off-log state
-                        the network depends on.
+	Two implementations ship here:
 
-      ChainRoleResolver — Phase 3D.signed-by production
-                          implementation that reads
-                          payload.signed_by_capacities and walks
-                          each cosigner's delegation chain via
-                          AuthorityResolver. Self-describing,
-                          on-log truth, no registry. (Stubbed
-                          here; populated in Phase 3D.signed-by.)
+	  MapRoleResolver — test/fixture stub. The test wires up a
+	                    fixed (DID → role + exchange) map. Used
+	                    only by tests; carries no off-log state
+	                    the network depends on.
 
-    The seam keeps cleanup-1 small: drop the registry, swap in a
-    one-method interface, leave the production wiring for the
-    capacity-symmetry pass.
+	  ChainRoleResolver — .signed-by production
+	                      implementation that reads
+	                      payload.signed_by_capacities and walks
+	                      each cosigner's delegation chain via
+	                      AuthorityResolver. Self-describing,
+	                      on-log truth, no registry. (Stubbed
+	                      here; populated .signed-by.)
+
+	The seam keeps cleanup-1 small: drop the registry, swap in a
+	one-method interface, leave the production wiring for the
+	capacity-symmetry pass.
 
 OVERVIEW:
-    RoleResolver       — interface (LookupRole).
-    MapRoleResolver    — in-memory map for tests.
-    ResolverEntry      — the (Role, Exchange) tuple returned.
-    Sentinels.
+
+	RoleResolver       — interface (LookupRole).
+	MapRoleResolver    — in-memory map for tests.
+	ResolverEntry      — the (Role, Exchange) tuple returned.
+	Sentinels.
 
 KEY DEPENDENCIES:
-    None — this file is the leaf of the role-lookup surface.
+
+	None — this file is the leaf of the role-lookup surface.
 */
 package verification
 
@@ -58,8 +61,8 @@ type ResolverEntry struct {
 //
 // Implementations:
 //   - MapRoleResolver  (tests; in this file)
-//   - ChainRoleResolver (Phase 3D.signed-by; reads payload
-//                        signed_by_capacities + walks chain)
+//   - ChainRoleResolver (.signed-by; reads payload
+//     signed_by_capacities + walks chain)
 type RoleResolver interface {
 	// LookupRole returns the (role, exchange) for did. Returns
 	// ErrSignerUnknown when the DID is not a Signer (or not yet
@@ -84,9 +87,9 @@ var ErrSignerUnknown = errors.New("verification/role_resolver: signer DID unknow
 // The map carries ONLY (role, exchange). No status, no aliases, no
 // timestamps — i.e., NOT a registry. Tests construct one inline:
 //
-//   r := NewMapRoleResolver().
-//        Bind("did:key:zQ3shCLERK", "court_clerk", "did:web:state:tn:davidson").
-//        Bind("did:key:zQ3shJUDGE", "judge",       "did:web:state:tn:davidson")
+//	r := NewMapRoleResolver().
+//	     Bind("did:key:zQ3shCLERK", "court_clerk", "did:web:state:tn:davidson").
+//	     Bind("did:key:zQ3shJUDGE", "judge",       "did:web:state:tn:davidson")
 type MapRoleResolver struct {
 	mu sync.RWMutex
 	m  map[string]ResolverEntry

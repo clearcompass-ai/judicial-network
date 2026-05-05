@@ -10,8 +10,8 @@ DESCRIPTION:
 	the 7-day reduced time-lock.
 
 KEY DEPENDENCIES:
-  - ortholog-sdk/builder: BuildCommentary (guide §11.3)
-  - ortholog-sdk/lifecycle: ExecuteRemoval, ActivateRemoval (guide §20.2)
+  - attesta/builder: BuildCommentary (guide §11.3)
+  - attesta/lifecycle: ExecuteRemoval, ActivateRemoval (guide §20.2)
 */
 package load_accounting
 
@@ -20,19 +20,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // SettlementManager handles periodic settlement computation and
 // publication.
 type SettlementManager struct {
 	destination string
-	signerDID  string
-	aggregator *Aggregator
-	params     LoadAccountingParams
+	signerDID   string
+	aggregator  *Aggregator
+	params      LoadAccountingParams
 }
 
 // NewSettlementManager creates a settlement manager.
@@ -84,8 +84,8 @@ func (sm *SettlementManager) ComputeAndPublishSettlement(
 
 	return builder.BuildCommentary(builder.CommentaryParams{
 		Destination: sm.destination,
-		SignerDID: sm.signerDID,
-		Payload:   payload,
+		SignerDID:   sm.signerDID,
+		Payload:     payload,
 	})
 }
 

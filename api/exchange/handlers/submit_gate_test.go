@@ -2,16 +2,17 @@
 FILE PATH: api/exchange/handlers/submit_gate_test.go
 
 DESCRIPTION:
-    Unit tests for the SubmitGate. Cover the four gate paths:
 
-      - Missing Destination → missing_destination.
-      - Unknown exchange (Destination not in Registry) →
-        unknown_exchange.
-      - Cosignature rejection bubbles up.
-      - Prerequisite rejection bubbles up (Hard prereq violation
-        on the closed-by-default empty CaseContext).
+	Unit tests for the SubmitGate. Cover the four gate paths:
 
-    Functional emulation in submit_gate_functional_test.go.
+	  - Missing Destination → missing_destination.
+	  - Unknown exchange (Destination not in Registry) →
+	    unknown_exchange.
+	  - Cosignature rejection bubbles up.
+	  - Prerequisite rejection bubbles up (Hard prereq violation
+	    on the closed-by-default empty CaseContext).
+
+	Functional emulation in submit_gate_functional_test.go.
 */
 package handlers
 

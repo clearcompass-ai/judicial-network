@@ -2,38 +2,39 @@
 FILE PATH: escrow/event_builder.go
 
 DESCRIPTION:
-    Domain-side wrappers around the SDK's M-of-N escrow-recovery
-    primitives + the migration package's arbitration evaluator.
 
-    The SDK provides four pure functions:
+	Domain-side wrappers around the SDK's M-of-N escrow-recovery
+	primitives + the migration package's arbitration evaluator.
 
-      lifecycle.InitiateRecovery     → unsigned commentary entry
-      lifecycle.CollectShares        → validates per-share input
-      lifecycle.ExecuteRecovery      → reconstructs MasterKey + optional
-                                       Succession Entry
-      lifecycle.EvaluateArbitration  → hostile-override verdict
+	The SDK provides four pure functions:
 
-    This package wraps Initiate + Migration-record + Arbitrate at the
-    domain shape needed by the judicial HTTP surface. CollectShares
-    and ExecuteRecovery are deliberately NOT wrapped here — they
-    require multi-request server-side state (share accumulation) and
-    expose raw 32-byte MasterKey material respectively, both of which
-    are operator-tooling territory and not safe to drive from a
-    request/response HTTP shape.
+	  lifecycle.InitiateRecovery     → unsigned commentary entry
+	  lifecycle.CollectShares        → validates per-share input
+	  lifecycle.ExecuteRecovery      → reconstructs MasterKey + optional
+	                                   Succession Entry
+	  lifecycle.EvaluateArbitration  → hostile-override verdict
 
-    Migration-record is included because every successful recovery
-    publishes a permanent commentary entry summarising the migration
-    for audit. It's the publish-side complement to Initiate.
+	This package wraps Initiate + Migration-record + Arbitrate at the
+	domain shape needed by the judicial HTTP surface. CollectShares
+	and ExecuteRecovery are deliberately NOT wrapped here — they
+	require multi-request server-side state (share accumulation) and
+	expose raw 32-byte MasterKey material respectively, both of which
+	are ledger-tooling territory and not safe to drive from a
+	request/response HTTP shape.
+
+	Migration-record is included because every successful recovery
+	publishes a permanent commentary entry summarising the migration
+	for audit. It's the publish-side complement to Initiate.
 */
 package escrow
 
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/migration"
 )
@@ -134,7 +135,7 @@ func BuildMigrationRecord(cfg MigrationRecordConfig) (*envelope.Entry, error) {
 // which itself wraps lifecycle.EvaluateArbitration. Pure evaluation
 // — no entries built, no key material exposed. Suitable for an HTTP
 // shape because all inputs are caller-supplied (the caller already
-// fetched approvals + witness cosig from the operator).
+// fetched approvals + witness cosig from the ledger).
 func EvaluateArbitration(
 	recoveryRequestPos types.LogPosition,
 	escrowApprovals []types.EntryWithMetadata,
@@ -152,4 +153,3 @@ func EvaluateArbitration(
 		schemaParams,
 	)
 }
-

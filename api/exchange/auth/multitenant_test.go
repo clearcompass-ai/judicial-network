@@ -2,21 +2,22 @@
 FILE PATH: api/exchange/auth/multitenant_test.go
 
 DESCRIPTION:
-    Multi-tenant nonce-routing contract for SignerAuth.
 
-    Pinned properties:
-      1. NewSignerAuthWithNonceStores routes per-destination — a
-         nonce burned on dst-A is still acceptable on dst-B.
-      2. Empty / unknown Destination falls back to the single-tenant
-         store; backward compat preserved.
-      3. The fallback store is auto-allocated when the caller passes
-         nil; the constructor never produces a zero-store SignerAuth.
-      4. nonceStoreFor never returns nil.
-      5. VerifySignedRequest canonical bytes include Destination iff
-         it is non-empty — old single-tenant signatures still verify,
-         and a request that was signed with one Destination cannot
-         be replayed against another Destination because the verify
-         step rejects the swap.
+	Multi-tenant nonce-routing contract for SignerAuth.
+
+	Pinned properties:
+	  1. NewSignerAuthWithNonceStores routes per-destination — a
+	     nonce burned on dst-A is still acceptable on dst-B.
+	  2. Empty / unknown Destination falls back to the single-tenant
+	     store; backward compat preserved.
+	  3. The fallback store is auto-allocated when the caller passes
+	     nil; the constructor never produces a zero-store SignerAuth.
+	  4. nonceStoreFor never returns nil.
+	  5. VerifySignedRequest canonical bytes include Destination iff
+	     it is non-empty — old single-tenant signatures still verify,
+	     and a request that was signed with one Destination cannot
+	     be replayed against another Destination because the verify
+	     step rejects the swap.
 */
 package auth
 
@@ -27,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 )
 
 // ─────────────────────────────────────────────────────────────────────

@@ -2,10 +2,11 @@
 FILE PATH: api/judicial/cases_test.go
 
 DESCRIPTION:
-    Coverage for the simpler cases.* handlers (initiate, amend,
-    lookup, transfer division, transfer county stub). The artifact-
-    bearing handlers (filings, actions) are tested in
-    cases_filings_test.go where the artifact stack lives.
+
+	Coverage for the simpler cases.* handlers (initiate, amend,
+	lookup, transfer division, transfer county stub). The artifact-
+	bearing handlers (filings, actions) are tested in
+	cases_filings_test.go where the artifact stack lives.
 */
 package judicial
 
@@ -17,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 const (

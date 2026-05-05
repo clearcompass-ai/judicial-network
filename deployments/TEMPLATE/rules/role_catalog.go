@@ -2,23 +2,25 @@
 FILE PATH: deployments/TEMPLATE/rules/role_catalog.go
 
 DESCRIPTION:
-    TEMPLATE deployment — Signer role catalog skeleton. Copy
-    this file (and its siblings in this directory) into a new
-    deployments/<framework>/<court>/rules/ tree, then customize
-    the role definitions for the target jurisdiction.
 
-    The skeleton ships ONE role (`judge`) — the minimum needed
-    for jurisdiction.Validate to accept the Bundle. Real
-    deployments expand this to the appropriate set of Signer
-    roles for their jurisdiction.
+	TEMPLATE deployment — Signer role catalog skeleton. Copy
+	this file (and its siblings in this directory) into a new
+	deployments/<framework>/<court>/rules/ tree, then customize
+	the role definitions for the target jurisdiction.
 
-    See deployments/tn/trial/role_catalog.go for a 3-role TN
-    trial reference and deployments/tn/coa/role_catalog.go for
-    a 3-role TN COA reference.
+	The skeleton ships ONE role (`judge`) — the minimum needed
+	for jurisdiction.Validate to accept the Bundle. Real
+	deployments expand this to the appropriate set of Signer
+	roles for their jurisdiction.
+
+	See deployments/tn/trial/role_catalog.go for a 3-role TN
+	trial reference and deployments/tn/coa/role_catalog.go for
+	a 3-role TN COA reference.
 
 OVERVIEW:
-    Roles            — slice of Role definitions.
-    MustRoleCatalog  — convenience constructor (panics on error).
+
+	Roles            — slice of Role definitions.
+	MustRoleCatalog  — convenience constructor (panics on error).
 */
 package rules
 

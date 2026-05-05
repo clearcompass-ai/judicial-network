@@ -2,17 +2,18 @@
 FILE PATH: deployments/tn/trial/motions_3g.go
 
 DESCRIPTION:
-    v1.8 §3G — Docket Management & Procedural Logistics. Nine
-    event types (8 + 1 catch-all).
 
-    Prereq variations beyond §3 default:
-      motion_continuance              Advisory scheduling_order
-      motion_substitution_parties     Hard party_binding
-      motion_withdraw_counsel         Hard counsel_appearance
-      motion_disqualification_recusal Hard judicial_assignment
-      others                          §3 default only
+	v1.8 §3G — Docket Management & Procedural Logistics. Nine
+	event types (8 + 1 catch-all).
 
-    Filer set varies by motion; see per-motion notes.
+	Prereq variations beyond §3 default:
+	  motion_continuance              Advisory scheduling_order
+	  motion_substitution_parties     Hard party_binding
+	  motion_withdraw_counsel         Hard counsel_appearance
+	  motion_disqualification_recusal Hard judicial_assignment
+	  others                          §3 default only
+
+	Filer set varies by motion; see per-motion notes.
 */
 package trial
 

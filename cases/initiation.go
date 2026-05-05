@@ -2,11 +2,12 @@
 FILE PATH: cases/initiation.go
 DESCRIPTION: New case → root entity on cases log via SDK BuildRootEntity.
 KEY ARCHITECTURAL DECISIONS:
-    - BuildRootEntity creates SMT leaf with OriginTip=self, AuthorityTip=self.
-    - Docket number, initial status, filed_date in Domain Payload.
-    - Returns root entity position for all subsequent filings.
+  - BuildRootEntity creates SMT leaf with OriginTip=self, AuthorityTip=self.
+  - Docket number, initial status, filed_date in Domain Payload.
+  - Returns root entity position for all subsequent filings.
+
 OVERVIEW: InitiateCase → root entity entry with case schema payload.
-KEY DEPENDENCIES: ortholog-sdk/builder
+KEY DEPENDENCIES: attesta/builder
 */
 package cases
 
@@ -14,14 +15,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // InitiationConfig configures a new case filing.
 type InitiationConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination  string // DID of target exchange. Required.
 	SignerDID    string // Court clerk or filing attorney DID
 	DocketNumber string
 	CaseType     string // "criminal", "civil", "family", "juvenile"
@@ -62,10 +63,10 @@ func InitiateCase(cfg InitiationConfig) (*InitiationResult, error) {
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: cfg.Destination,
-		SignerDID: cfg.SignerDID,
-		Payload:   payloadBytes,
-		SchemaRef: cfg.SchemaRef,
-		EventTime: cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		Payload:     payloadBytes,
+		SchemaRef:   cfg.SchemaRef,
+		EventTime:   cfg.EventTime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cases/initiation: build root entity: %w", err)

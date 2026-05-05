@@ -2,35 +2,36 @@
 FILE PATH: cmd/network-api/loadtest_bench_test.go
 
 DESCRIPTION:
-    Phase 16 load validation. Drives cmd/network-api.run() as a
-    real HTTP listener with N concurrent workers and measures:
 
-      throughput   (requests / second)
-      p50 / p95 / p99 latency
-      error rate
-      goroutine count delta over the run
+	 load validation. Drives cmd/network-api.run() as a
+	real HTTP listener with N concurrent workers and measures:
 
-    Two scenarios:
+	  throughput   (requests / second)
+	  p50 / p95 / p99 latency
+	  error rate
+	  goroutine count delta over the run
 
-      BenchmarkBinary_Healthz  — minimum-overhead path (auth +
-        reliability + observability all bypass /healthz, so this
-        measures the raw HTTP stack ceiling).
-      BenchmarkBinary_Cases    — POST /v1/judicial/cases with the
-        full middleware stack: RequestID → Metrics → Logger →
-        RateLimit → Timeout → MaxBodyBytes → Auth (injecting) →
-        judicial handler → cases.InitiateCase. The real production
-        write path minus the stub-operator forward.
+	Two scenarios:
 
-    Defaults are tuned for CI: 64 workers × 5s. Operators running
-    real production validation crank up via env vars:
+	  BenchmarkBinary_Healthz  — minimum-overhead path (auth +
+	    reliability + observability all bypass /healthz, so this
+	    measures the raw HTTP stack ceiling).
+	  BenchmarkBinary_Cases    — POST /v1/judicial/cases with the
+	    full middleware stack: RequestID → Metrics → Logger →
+	    RateLimit → Timeout → MaxBodyBytes → Auth (injecting) →
+	    judicial handler → cases.InitiateCase. The real production
+	    write path minus the stub-ledger forward.
 
-      LOADTEST_WORKERS=512 LOADTEST_DURATION=60s \
-        go test -run=^$ -bench=BenchmarkBinary_Cases ./cmd/network-api/
+	Defaults are tuned for CI: 64 workers × 5s. Ledgers running
+	real production validation crank up via env vars:
 
-    Acceptance criteria documented in the result line: throughput
-    in req/sec + percentile latencies + error rate. Use the metrics
-    endpoint scraped during the run for goroutine / GC visibility
-    (Phase 15 wired the Prometheus collectors).
+	  LOADTEST_WORKERS=512 LOADTEST_DURATION=60s \
+	    go test -run=^$ -bench=BenchmarkBinary_Cases ./cmd/network-api/
+
+	Acceptance criteria documented in the result line: throughput
+	in req/sec + percentile latencies + error rate. Use the metrics
+	endpoint scraped during the run for goroutine / GC visibility
+	( wired the Prometheus collectors).
 */
 package main
 
@@ -105,7 +106,7 @@ func runLoadtest(b testing.TB, name string, makeReq func(addr string) *http.Requ
 
 	cfgPath := writeJSON(b, map[string]any{
 		"listen_addr":             addr,
-		"operator_endpoint":       "http://op.test",
+		"ledger_endpoint":         "http://op.test",
 		"artifact_store_endpoint": "http://art.test",
 		"verification_endpoint":   "http://verify.test",
 		"eth_rpc_endpoint":        "http://rpc.test",
@@ -231,7 +232,7 @@ func clearAPIBenchEnv(t testing.TB) {
 	t.Helper()
 	for _, v := range []string{
 		"API_LISTEN_ADDR",
-		"API_OPERATOR_ENDPOINT",
+		"API_LEDGER_ENDPOINT",
 		"API_ARTIFACT_STORE_ENDPOINT",
 		"API_VERIFICATION_ENDPOINT",
 		"API_ETH_RPC_ENDPOINT",

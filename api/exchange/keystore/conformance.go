@@ -2,30 +2,31 @@
 FILE PATH: api/exchange/keystore/conformance.go
 
 DESCRIPTION:
-    Cross-backend conformance suite. Every keystore.KeyStore
-    implementation (memory, vault, pkcs11) must pass this same suite
-    so the wire shapes (65-byte SignCompact, 65-byte uncompressed
-    pubkey, recovery byte recovers the same key) are guaranteed
-    interchangeable at the call site.
 
-    Caller patterns:
+	Cross-backend conformance suite. Every keystore.KeyStore
+	implementation (memory, vault, pkcs11) must pass this same suite
+	so the wire shapes (65-byte SignCompact, 65-byte uncompressed
+	pubkey, recovery byte recovers the same key) are guaranteed
+	interchangeable at the call site.
 
-      // Memory backend:
-      keystore.RunSecp256k1Conformance(t, keystore.NewMemoryKeyStore())
+	Caller patterns:
 
-      // Vault backend (in vault_keystore_test.go's TestMain or
-      // a dedicated test):
-      ks, _ := vault.New(vault.Config{Address: srv.URL, Token: "t",
-          HTTPClient: srv.Client()})
-      keystore.RunSecp256k1Conformance(t, ks)
+	  // Memory backend:
+	  keystore.RunSecp256k1Conformance(t, keystore.NewMemoryKeyStore())
 
-      // PKCS#11 backend (real SoftHSM, build-tagged):
-      ks, _ := pkcs11.New(pkcs11.Config{...})
-      keystore.RunSecp256k1Conformance(t, ks)
+	  // Vault backend (in vault_keystore_test.go's TestMain or
+	  // a dedicated test):
+	  ks, _ := vault.New(vault.Config{Address: srv.URL, Token: "t",
+	      HTTPClient: srv.Client()})
+	  keystore.RunSecp256k1Conformance(t, ks)
 
-    This file lives in the parent keystore package so any backend can
-    import it from its own test file without a circular dependency on
-    a sibling test package.
+	  // PKCS#11 backend (real SoftHSM, build-tagged):
+	  ks, _ := pkcs11.New(pkcs11.Config{...})
+	  keystore.RunSecp256k1Conformance(t, ks)
+
+	This file lives in the parent keystore package so any backend can
+	import it from its own test file without a circular dependency on
+	a sibling test package.
 */
 package keystore
 
@@ -40,10 +41,10 @@ import (
 // PublicKeySecp256k1 / Destroy on the supplied implementation and
 // asserts the wire-shape invariants every backend must honor:
 //
-//   1. Generate returns 65-byte uncompressed (0x04 prefix) public key.
-//   2. SignSecp256k1 returns 65 bytes shaped as [v+27 || R || S].
-//   3. RecoverCompact on the signature returns the same public key.
-//   4. Destroy removes the key (subsequent SignSecp256k1 errors).
+//  1. Generate returns 65-byte uncompressed (0x04 prefix) public key.
+//  2. SignSecp256k1 returns 65 bytes shaped as [v+27 || R || S].
+//  3. RecoverCompact on the signature returns the same public key.
+//  4. Destroy removes the key (subsequent SignSecp256k1 errors).
 func RunSecp256k1Conformance(t *testing.T, ks KeyStore) {
 	t.Helper()
 	const did = "did:web:test:conformance"

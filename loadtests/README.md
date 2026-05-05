@@ -1,4 +1,4 @@
-# Load validation harness (Phase 16)
+# Load validation harness
 
 Empirical proof that `cmd/network-api` holds the production target
 of **1000 TPS sustained** with bounded latency and zero error
@@ -17,7 +17,7 @@ required.
 | Benchmark | Path | Stack |
 |---|---|---|
 | `BenchmarkBinary_Healthz` | `GET /healthz` | bare HTTP — no auth, no reliability, no observability wrapping. Measures the raw mux ceiling. |
-| `BenchmarkBinary_Cases`   | `POST /v1/judicial/cases` | full middleware stack: `RequestID → Metrics → Logger → RateLimit → Timeout → MaxBodyBytes → Auth → judicial.cases.InitiateCase`. The real production write path minus the operator forward. |
+| `BenchmarkBinary_Cases`   | `POST /v1/judicial/cases` | full middleware stack: `RequestID → Metrics → Logger → RateLimit → Timeout → MaxBodyBytes → Auth → judicial.cases.InitiateCase`. The real production write path minus the ledger forward. |
 
 A third test, `TestLoadtest_Smoke`, runs a 1-second 8-worker burst
 against `/healthz` so `go test ./cmd/network-api/...` always
@@ -87,32 +87,32 @@ is +3 — no leak. Error rate is zero.
 
 ## What this validates
 
-- Phase 14 reliability primitives don't impose throughput overhead
+-  reliability primitives don't impose throughput overhead
   beyond their stated work. (RateLimitGlobal disabled in the
   default Config, so this run measures the pure-passthrough cost
   of the middleware shell.)
-- Phase 15 observability wiring (RequestID + Metrics + Logger)
+-  observability wiring (RequestID + Metrics + Logger)
   fits inside the per-request budget — even with a JSON log line
   per request and a Prometheus counter increment, p99 stays under
   10 ms.
-- The default Phase A `judicial.Dependencies` (in-memory
+- The default  `judicial.Dependencies` (in-memory
   KeyStore + DelegationKeyStore, schemas.NewRegistry extractor,
   empty witness maps) does not block the case-initiate hot path.
 
 ## What this does NOT validate
 
-- **Operator throughput.** `OperatorEndpoint` is set to
+- **Ledger throughput.** `LedgerEndpoint` is set to
   `http://op.test` — the binary does NOT actually forward to a
-  real operator during this benchmark. The `submitToOperator`
+  real ledger during this benchmark. The `submitToLedger`
   path is exercised by `TestBinaryE2E_DavidsonSCW_HappyPath`
-  (Phase C) against a stub operator; sustained-throughput
-  validation against a real `ortholog-operator` is the operator
+ against a stub ledger; sustained-throughput
+  validation against a real `ledger` is the ledger
   repo's concern.
 - **Aggregator read path.** `/v1/verify/*` calls into Verification
   deps that are nil-shimmed in this build. Read-side throughput
-  validation lands when the operator HTTP read-side stabilises.
+  validation lands when the ledger HTTP read-side stabilises.
 - **Multi-replica deployment.** Single-replica only here. The
-  Phase B Redis NonceStore wiring has its own unit tests; cross-
+   Redis NonceStore wiring has its own unit tests; cross-
   replica replay-defence under load is a deployment-validation
   concern.
 - **mTLS handshake cost.** The benchmark uses plain HTTP. mTLS

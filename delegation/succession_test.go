@@ -2,9 +2,10 @@
 FILE PATH: delegation/succession_test.go
 
 DESCRIPTION:
-    Tests for delegation.Succeed. Helpers (fakeOperator,
-    stubBoundProvider, newBuildContext) are shared from
-    issue_test.go.
+
+	Tests for delegation.Succeed. Helpers (fakeLedger,
+	stubBoundProvider, newBuildContext) are shared from
+	issue_test.go.
 */
 package delegation
 
@@ -14,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 func TestSucceed_HappyPath_FullInheritance(t *testing.T) {
@@ -24,7 +25,7 @@ func TestSucceed_HappyPath_FullInheritance(t *testing.T) {
 	target := schemas.LogPositionRef{LogDID: institutional, Sequence: 7}
 
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	res, err := Succeed(context.Background(), bc, SuccessionRequest{
@@ -57,7 +58,7 @@ func TestSucceed_HappyPath_FullInheritance(t *testing.T) {
 	}
 	entry, err := envelope.Deserialize(op.captured[0])
 	if err != nil {
-		t.Fatalf("operator received malformed bytes: %v", err)
+		t.Fatalf("ledger received malformed bytes: %v", err)
 	}
 	if entry.Header.SignerDID != institutional {
 		t.Errorf("signer drift: %q", entry.Header.SignerDID)
@@ -70,7 +71,7 @@ func TestSucceed_HappyPath_FullInheritance(t *testing.T) {
 func TestSucceed_NarrowedInheritance(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	res, err := Succeed(context.Background(), bc, SuccessionRequest{
@@ -92,7 +93,7 @@ func TestSucceed_NarrowedInheritance(t *testing.T) {
 func TestSucceed_RejectsMissingFields(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	cases := []struct {
@@ -172,7 +173,7 @@ func TestSucceed_RejectsMissingFields(t *testing.T) {
 func TestSucceed_NarrowedRequiresScope(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Succeed(context.Background(), bc, SuccessionRequest{
@@ -194,7 +195,7 @@ func TestSucceed_NarrowedRequiresScope(t *testing.T) {
 func TestSucceed_HonorsSubmitFailed(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{err: errors.New("synthetic")}
+	op := &fakeLedger{err: errors.New("synthetic")}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Succeed(context.Background(), bc, SuccessionRequest{

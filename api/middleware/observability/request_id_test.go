@@ -2,15 +2,16 @@
 FILE PATH: api/middleware/observability/request_id_test.go
 
 DESCRIPTION:
-    Pins the request-ID middleware contract:
-      1. A fresh request gets a generated 32-char hex ID.
-      2. A valid inbound X-Request-ID header is passed through.
-      3. A malformed inbound header is rejected (CRLF, non-printable,
-         oversize) and a fresh ID is generated.
-      4. The ID is set on the response header BEFORE the wrapped
-         handler runs, so even early-return paths carry it.
-      5. Downstream handlers can read the ID via
-         RequestIDFromContext.
+
+	Pins the request-ID middleware contract:
+	  1. A fresh request gets a generated 32-char hex ID.
+	  2. A valid inbound X-Request-ID header is passed through.
+	  3. A malformed inbound header is rejected (CRLF, non-printable,
+	     oversize) and a fresh ID is generated.
+	  4. The ID is set on the response header BEFORE the wrapped
+	     handler runs, so even early-return paths carry it.
+	  5. Downstream handlers can read the ID via
+	     RequestIDFromContext.
 */
 package observability
 
@@ -55,10 +56,10 @@ func TestRequestID_HonorsValidInbound(t *testing.T) {
 func TestRequestID_RejectsMalformed(t *testing.T) {
 	cases := []string{
 		"",
-		"\r\nX-Injected: oops",            // CRLF injection
-		strings.Repeat("a", 65),            // oversize
-		"with space",                        // space is < 0x21
-		"non\x00ascii",                      // null byte
+		"\r\nX-Injected: oops",  // CRLF injection
+		strings.Repeat("a", 65), // oversize
+		"with space",            // space is < 0x21
+		"non\x00ascii",          // null byte
 	}
 	for _, in := range cases {
 		var seen string

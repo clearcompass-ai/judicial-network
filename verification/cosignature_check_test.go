@@ -1,4 +1,4 @@
-// Tests for CheckCosignature (Phase 3C verifier). Pins every
+// Tests for CheckCosignature ( verifier). Pins every
 // closed-set rejection plus the happy paths for filer events
 // and pure Signer events.
 package verification
@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // ─── helpers ────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ func TestCheck_InsufficientSigners(t *testing.T) {
 		"event_type":        "motion_continuance",
 		"filed_by_capacity": attorneyCapacity(schemas.FilerRoleDefenseCounsel, atyDID),
 	}, atyDID)
-	// Primary is the Clerk; Phase 3D's AuthorityResolver handles
+	// Primary is the Clerk; 's AuthorityResolver handles
 	// primary; this verifier counts the COSIGNERS only. The
 	// motion_continuance rule wants ≥1 cosigner from
 	// {court_clerk, judge}; only the attorney cosigned (and the

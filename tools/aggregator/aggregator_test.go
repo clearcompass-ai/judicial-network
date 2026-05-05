@@ -1,18 +1,20 @@
 /*
 FILE PATH:
-    tools/aggregator/aggregator_test.go
+
+	tools/aggregator/aggregator_test.go
 
 DESCRIPTION:
-    Unit tests for the log aggregator. Tests entry deserialization and
-    classification by header shape. Does not require Postgres — tests the
-    pure classification logic that determines which table each entry targets.
+
+	Unit tests for the log aggregator. Tests entry deserialization and
+	classification by header shape. Does not require Postgres — tests the
+	pure classification logic that determines which table each entry targets.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Deserializer tested with real SDK builders: constructs entries via
-      builder.BuildRootEntity etc., serializes to hex, classifies.
-    - Scanner tested for construction only (Run requires operator + DB).
-    - Indexer not tested here (requires Postgres). Covered in wave5_tools_test.go
-      under sandbox tag.
+  - Deserializer tested with real SDK builders: constructs entries via
+    builder.BuildRootEntity etc., serializes to hex, classifies.
+  - Scanner tested for construction only (Run requires ledger + DB).
+  - Indexer not tested here (requires Postgres). Covered in wave5_tools_test.go
+    under sandbox tag.
 */
 package aggregator
 
@@ -21,9 +23,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 	"github.com/clearcompass-ai/judicial-network/tools/common"
@@ -59,8 +61,8 @@ func mustJSON(t *testing.T, v any) []byte {
 func TestClassify_NewCase(t *testing.T) {
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:test",
-		Payload:   mustJSON(t, map[string]any{"docket_number": "2027-CR-001", "case_type": "criminal"}),
+		SignerDID:   "did:web:test",
+		Payload:     mustJSON(t, map[string]any{"docket_number": "2027-CR-001", "case_type": "criminal"}),
 	})
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -90,9 +92,9 @@ func TestClassify_NewCase(t *testing.T) {
 func TestClassify_Amendment(t *testing.T) {
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  "did:web:test",
-		TargetRoot: types.LogPosition{LogDID: "test", Sequence: 10},
-		Payload:    mustJSON(t, map[string]any{"status": "disposed"}),
+		SignerDID:   "did:web:test",
+		TargetRoot:  types.LogPosition{LogDID: "test", Sequence: 10},
+		Payload:     mustJSON(t, map[string]any{"status": "disposed"}),
 	})
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -150,7 +152,7 @@ func TestClassify_Delegation(t *testing.T) {
 
 func TestClassify_Enforcement(t *testing.T) {
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    "did:web:judge",
 		TargetRoot:   types.LogPosition{LogDID: "test", Sequence: 100},
 		ScopePointer: types.LogPosition{LogDID: "test", Sequence: 1},
@@ -180,7 +182,7 @@ func TestClassify_Enforcement(t *testing.T) {
 
 func TestClassify_PathBOrder(t *testing.T) {
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
-		Destination: "did:web:exchange.test",
+		Destination:        "did:web:exchange.test",
 		SignerDID:          "did:web:judge",
 		TargetRoot:         types.LogPosition{LogDID: "test", Sequence: 100},
 		DelegationPointers: []types.LogPosition{{LogDID: "test", Sequence: 5}},
@@ -211,8 +213,8 @@ func TestClassify_PathBOrder(t *testing.T) {
 func TestClassify_Commentary(t *testing.T) {
 	entry, err := builder.BuildCommentary(builder.CommentaryParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:judge",
-		Payload:   mustJSON(t, map[string]any{"type": "recusal"}),
+		SignerDID:   "did:web:judge",
+		Payload:     mustJSON(t, map[string]any{"type": "recusal"}),
 	})
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -238,7 +240,7 @@ func TestClassify_Commentary(t *testing.T) {
 
 func TestClassify_Cosignature(t *testing.T) {
 	entry, err := builder.BuildCosignature(builder.CosignatureParams{
-		Destination: "did:web:exchange.test",
+		Destination:   "did:web:exchange.test",
 		SignerDID:     "did:web:clerk",
 		CosignatureOf: types.LogPosition{LogDID: "test", Sequence: 50},
 		Payload:       mustJSON(t, map[string]any{"endorsement": "approved"}),
@@ -288,9 +290,9 @@ func TestClassify_CorruptedBytes_Error(t *testing.T) {
 
 func TestNewScanner_NotNil(t *testing.T) {
 	cfg := common.DefaultConfig()
-	operator := common.NewOperatorClient("http://localhost:0")
+	ledger := common.NewLedgerClient("http://localhost:0")
 	// DB is nil — scanner can be constructed but not Run.
-	s := NewScanner(cfg, operator, nil)
+	s := NewScanner(cfg, ledger, nil)
 	if s == nil {
 		t.Fatal("scanner must not be nil")
 	}
@@ -303,8 +305,8 @@ func TestNewScanner_NotNil(t *testing.T) {
 func TestClassify_PayloadExtracted(t *testing.T) {
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:test",
-		Payload:   mustJSON(t, map[string]any{"docket_number": "2027-CR-X", "case_type": "civil"}),
+		SignerDID:   "did:web:test",
+		Payload:     mustJSON(t, map[string]any{"docket_number": "2027-CR-X", "case_type": "civil"}),
 	})
 	if err != nil {
 		t.Fatalf("build: %v", err)

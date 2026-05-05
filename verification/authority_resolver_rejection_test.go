@@ -2,10 +2,11 @@
 FILE PATH: verification/authority_resolver_rejection_test.go
 
 DESCRIPTION:
-    Rejection-path coverage for AuthorityResolver. Helpers
-    (fakeFetcher, makeDelegation, makeRevocation) live in
-    authority_resolver_test.go and are shared via the same test
-    package.
+
+	Rejection-path coverage for AuthorityResolver. Helpers
+	(fakeFetcher, makeDelegation, makeRevocation) live in
+	authority_resolver_test.go and are shared via the same test
+	package.
 */
 package verification
 
@@ -14,10 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 func TestAuthorityResolver_RejectsExpired(t *testing.T) {

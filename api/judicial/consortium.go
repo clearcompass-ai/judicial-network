@@ -2,20 +2,21 @@
 FILE PATH: api/judicial/consortium.go
 
 DESCRIPTION:
-    Consortium governance handlers — multi-court federation events.
-    Most require ops-tooling-driven multi-step ceremonies; the API
-    exposes the wireable pieces (member-addition/removal proposals,
-    cross-court proof verification) and stubs the rest with explicit
-    operational reasoning.
 
-      POST /v1/judicial/consortium/members/propose-addition  → ProposeMemberAddition
-      POST /v1/judicial/consortium/members/propose-removal   → ProposeMemberRemoval
-      POST /v1/judicial/consortium/cross-court-proof/verify  → VerifyCrossCourtProof
-      POST /v1/judicial/consortium/cross-court-proof/build   → 501 (cross-log compose)
-      POST /v1/judicial/consortium/members/execute-addition  → 501 (lifecycle Params)
-      POST /v1/judicial/consortium/members/execute-removal   → 501 (lifecycle Params)
-      POST /v1/judicial/consortium/members/activate-removal  → 501 (lifecycle Params)
-      POST /v1/judicial/consortium/formation                 → 501 (bootstrap script)
+	Consortium governance handlers — multi-court federation events.
+	Most require ops-tooling-driven multi-step ceremonies; the API
+	exposes the wireable pieces (member-addition/removal proposals,
+	cross-court proof verification) and stubs the rest with explicit
+	operational reasoning.
+
+	  POST /v1/judicial/consortium/members/propose-addition  → ProposeMemberAddition
+	  POST /v1/judicial/consortium/members/propose-removal   → ProposeMemberRemoval
+	  POST /v1/judicial/consortium/cross-court-proof/verify  → VerifyCrossCourtProof
+	  POST /v1/judicial/consortium/cross-court-proof/build   → 501 (cross-log compose)
+	  POST /v1/judicial/consortium/members/execute-addition  → 501 (lifecycle Params)
+	  POST /v1/judicial/consortium/members/execute-removal   → 501 (lifecycle Params)
+	  POST /v1/judicial/consortium/members/activate-removal  → 501 (lifecycle Params)
+	  POST /v1/judicial/consortium/formation                 → 501 (bootstrap script)
 */
 package judicial
 
@@ -23,7 +24,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/consortium"
 )
@@ -160,12 +161,13 @@ func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *
 	if quorum == 0 {
 		quorum = h.deps.WitnessQuorum[req.SourceLogDID]
 	}
-	if len(keys) == 0 || quorum == 0 {
+	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
+	if len(keys) == 0 || quorum == 0 || networkID.IsZero() {
 		writeError(w, http.StatusBadRequest,
-			"source_witness_keys + quorum required (or pre-configured for the source log)")
+			"source_witness_keys + quorum + network_id required (or pre-configured for the source log)")
 		return
 	}
-	verifyErr := consortium.VerifyCrossCourtProof(proof, keys, quorum, h.deps.BLSVerifier)
+	verifyErr := consortium.VerifyCrossCourtProof(proof, keys, quorum, networkID, h.deps.BLSVerifier)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"verified": false, "error": verifyErr.Error()})
 		return

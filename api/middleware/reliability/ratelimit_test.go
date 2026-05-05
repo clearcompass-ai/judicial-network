@@ -2,12 +2,13 @@
 FILE PATH: api/middleware/reliability/ratelimit_test.go
 
 DESCRIPTION:
-    Pins the rate-limit middleware:
-      1. Global limiter rejects past burst capacity.
-      2. Per-caller limiter buckets requests by caller DID; one
-         caller's burst doesn't drain another's quota.
-      3. Empty caller DID shares a fallback "anon" bucket.
-      4. rps <= 0 / burst <= 0 disables the wrapper.
+
+	Pins the rate-limit middleware:
+	  1. Global limiter rejects past burst capacity.
+	  2. Per-caller limiter buckets requests by caller DID; one
+	     caller's burst doesn't drain another's quota.
+	  3. Empty caller DID shares a fallback "anon" bucket.
+	  4. rps <= 0 / burst <= 0 disables the wrapper.
 */
 package reliability
 

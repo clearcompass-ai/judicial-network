@@ -2,9 +2,10 @@
 FILE PATH: delegation/issue_rejection_test.go
 
 DESCRIPTION:
-    Rejection-path coverage for delegation.Issue. Helpers (fakeOperator,
-    stubBoundProvider, newBuildContext) live in issue_test.go and are
-    shared via the same test package.
+
+	Rejection-path coverage for delegation.Issue. Helpers (fakeLedger,
+	stubBoundProvider, newBuildContext) live in issue_test.go and are
+	shared via the same test package.
 */
 package delegation
 
@@ -23,7 +24,7 @@ import (
 func TestIssue_RejectsMissingFields(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	cases := []struct {
@@ -75,7 +76,7 @@ func TestIssue_RejectsMissingFields(t *testing.T) {
 func TestIssue_CatalogRejectsUnknownRole(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Issue(context.Background(), bc, IssueRequest{
@@ -91,7 +92,7 @@ func TestIssue_CatalogRejectsUnknownRole(t *testing.T) {
 func TestIssue_CatalogRejectsExcessiveDuration(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Issue(context.Background(), bc, IssueRequest{
@@ -108,7 +109,7 @@ func TestIssue_CatalogRejectsExcessiveDuration(t *testing.T) {
 func TestIssue_CatalogRejectsScopeOutsideAllowed(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Issue(context.Background(), bc, IssueRequest{
@@ -128,7 +129,7 @@ func TestIssue_HonorsSignRejected(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
 	sp.RejectSigning(institutional, true)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Issue(context.Background(), bc, IssueRequest{
@@ -146,14 +147,14 @@ func TestIssue_HonorsSignRejected(t *testing.T) {
 		t.Errorf("error must wrap identity.ErrSignRejected: %v", err)
 	}
 	if len(op.captured) != 0 {
-		t.Errorf("operator must not see entries when sign rejected")
+		t.Errorf("ledger must not see entries when sign rejected")
 	}
 }
 
 func TestIssue_HonorsSubmitFailed(t *testing.T) {
 	institutional := "did:web:state:tn:davidson"
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{err: errors.New("synthetic operator error")}
+	op := &fakeLedger{err: errors.New("synthetic ledger error")}
 	bc := newBuildContext(t, sp, op)
 
 	_, err := Issue(context.Background(), bc, IssueRequest{

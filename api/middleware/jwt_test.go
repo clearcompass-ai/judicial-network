@@ -2,47 +2,48 @@
 FILE PATH: api/middleware/jwt_test.go
 
 DESCRIPTION:
-    Coverage for JWTAuth. Pinned properties (every one matched by at
-    least one negative-path test):
 
-      Construction
-        Empty Issuer / JWKSURL → ErrInvalidConfig.
+	Coverage for JWTAuth. Pinned properties (every one matched by at
+	least one negative-path test):
 
-      Header
-        Missing Authorization header                → 401
-        Wrong scheme (Basic / Token / etc.)         → 401
-        Empty token after "Bearer "                 → 401
-        Malformed (not 3 dot-separated segments)    → 401
-        Header b64-malformed                        → 401
-        Header alg ∉ {RS256, ES256}                 → 401
-        Header missing kid                          → 401
+	  Construction
+	    Empty Issuer / JWKSURL → ErrInvalidConfig.
 
-      JWKS / signature
-        Kid not in JWKS                             → 401 (with cooldown)
-        JWKS fetch fails (server 500)               → 401
-        JWKS document has zero usable keys          → 401
-        Signature does not verify                   → 401
-        ES256 with wrong sig length                 → 401
-        Algorithm mismatch (RS256 hdr, EC key)      → 401
+	  Header
+	    Missing Authorization header                → 401
+	    Wrong scheme (Basic / Token / etc.)         → 401
+	    Empty token after "Bearer "                 → 401
+	    Malformed (not 3 dot-separated segments)    → 401
+	    Header b64-malformed                        → 401
+	    Header alg ∉ {RS256, ES256}                 → 401
+	    Header missing kid                          → 401
 
-      Claims
-        Wrong issuer                                → 401
-        exp absent                                  → 401
-        exp in past (beyond leeway)                 → 401
-        exp in past (within leeway)                 → OK
-        nbf in future (beyond leeway)               → 401
-        nbf in future (within leeway)               → OK
-        sub empty                                   → 401
+	  JWKS / signature
+	    Kid not in JWKS                             → 401 (with cooldown)
+	    JWKS fetch fails (server 500)               → 401
+	    JWKS document has zero usable keys          → 401
+	    Signature does not verify                   → 401
+	    ES256 with wrong sig length                 → 401
+	    Algorithm mismatch (RS256 hdr, EC key)      → 401
 
-      Happy paths
-        RS256 signed token, valid issuer, valid exp → OK + callerDID
-        ES256 signed token                          → OK + callerDID
+	  Claims
+	    Wrong issuer                                → 401
+	    exp absent                                  → 401
+	    exp in past (beyond leeway)                 → 401
+	    exp in past (within leeway)                 → OK
+	    nbf in future (beyond leeway)               → 401
+	    nbf in future (within leeway)               → OK
+	    sub empty                                   → 401
 
-      Concurrency
-        Many goroutines verifying the same token  → all succeed (race-clean)
+	  Happy paths
+	    RS256 signed token, valid issuer, valid exp → OK + callerDID
+	    ES256 signed token                          → OK + callerDID
 
-      Failure-mode hygiene
-        Every 401 carries empty body + WWW-Authenticate: Bearer
+	  Concurrency
+	    Many goroutines verifying the same token  → all succeed (race-clean)
+
+	  Failure-mode hygiene
+	    Every 401 carries empty body + WWW-Authenticate: Bearer
 */
 package middleware
 

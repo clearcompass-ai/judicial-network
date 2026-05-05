@@ -2,22 +2,23 @@
 FILE PATH: deployments/tn/sup_ct/prerequisites.go
 
 DESCRIPTION:
-    Tennessee Supreme Court — prerequisite policy. Vocabulary
-    matches the cosignature fixture (11 events) so
-    jurisdiction.Validate accepts the Bundle at boot.
 
-    Categories:
-      Appellate root        Advisory notice_of_appeal (race
-                            tolerance for cross-network events).
-      Opinion / participation Hard appellate_root ancestor.
-      Disposition           Hard appellate_root + Hard merits
-                            opinion ancestor.
-      Remand                Advisory notice_of_appeal.
-      Revocation (§12C)     Hard appointment ancestor — the
-                            Signer being revoked must already
-                            hold authority. Cross-exchange.
-      Personnel             Authority-scope rules (Hard).
-      Topology              No prereqs.
+	Tennessee Supreme Court — prerequisite policy. Vocabulary
+	matches the cosignature fixture (11 events) so
+	jurisdiction.Validate accepts the Bundle at boot.
+
+	Categories:
+	  Appellate root        Advisory notice_of_appeal (race
+	                        tolerance for cross-network events).
+	  Opinion / participation Hard appellate_root ancestor.
+	  Disposition           Hard appellate_root + Hard merits
+	                        opinion ancestor.
+	  Remand                Advisory notice_of_appeal.
+	  Revocation (§12C)     Hard appointment ancestor — the
+	                        Signer being revoked must already
+	                        hold authority. Cross-exchange.
+	  Personnel             Authority-scope rules (Hard).
+	  Topology              No prereqs.
 */
 package sup_ct
 

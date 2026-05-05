@@ -2,35 +2,36 @@
 FILE PATH: topology/witness_registration.go
 
 DESCRIPTION:
-    BLS witness registration gate for the judicial network. Every
-    public key admitted into a court's witness set MUST be preceded by
-    a successful Proof-of-Possession (PoP) verification call.
+
+	BLS witness registration gate for the judicial network. Every
+	public key admitted into a court's witness set MUST be preceded by
+	a successful Proof-of-Possession (PoP) verification call.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Implements the registrar obligation declared in
-      ortholog-sdk/docs/implementation-obligations.md ("REGISTRAR
-      OBLIGATIONS"). The SDK provides VerifyBLSPoP; the domain
-      enforces the invariant that no key enters a witness set without
-      a PoP that verifies under the protocol's PoP DST.
-    - Failure is fail-closed: rejected admissions are NOT retried, NOT
-      silently downgraded, and NOT recorded as a "pending" state. The
-      registry is the trust boundary for cosignature aggregation; one
-      rogue G2 key admitted without PoP defeats every BLS optimistic
-      verify check downstream.
-    - The registrar is in-memory by design. Persistence is the
-      operator's responsibility (config files, secrets manager, etc.);
-      the registrar's contract is "validate every admission, then
-      record". A persistent layer composes around this without
-      changing the verification semantics.
-    - Rotation is admission of a new key plus revocation of an old
-      one, both gated by PoP for the new key. There is no special
-      "rotate" path that bypasses PoP — that would re-introduce the
-      vulnerability the gate exists to prevent.
+  - Implements the registrar obligation declared in
+    attesta/docs/implementation-obligations.md ("REGISTRAR
+    OBLIGATIONS"). The SDK provides VerifyBLSPoP; the domain
+    enforces the invariant that no key enters a witness set without
+    a PoP that verifies under the protocol's PoP DST.
+  - Failure is fail-closed: rejected admissions are NOT retried, NOT
+    silently downgraded, and NOT recorded as a "pending" state. The
+    registry is the trust boundary for cosignature aggregation; one
+    rogue G2 key admitted without PoP defeats every BLS optimistic
+    verify check downstream.
+  - The registrar is in-memory by design. Persistence is the
+    ledger's responsibility (config files, secrets manager, etc.);
+    the registrar's contract is "validate every admission, then
+    record". A persistent layer composes around this without
+    changing the verification semantics.
+  - Rotation is admission of a new key plus revocation of an old
+    one, both gated by PoP for the new key. There is no special
+    "rotate" path that bypasses PoP — that would re-introduce the
+    vulnerability the gate exists to prevent.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/crypto/signatures: VerifyBLSPoP, ParseBLSPubKey,
-      BLSG1CompressedLen, BLSG2CompressedLen.
-    - ortholog-sdk/types: WitnessPublicKey shape.
+  - attesta/crypto/signatures: VerifyBLSPoP, ParseBLSPubKey,
+    BLSG1CompressedLen, BLSG2CompressedLen.
+  - attesta/types: WitnessPublicKey shape.
 */
 package topology
 
@@ -39,8 +40,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // Errors surfaced by the witness registrar. Stable names so callers
@@ -91,9 +92,9 @@ type RegistrationAuditor interface {
 
 type noopAuditor struct{}
 
-func (noopAuditor) OnAdmit(types.WitnessPublicKey)   {}
-func (noopAuditor) OnRevoke(types.WitnessPublicKey)  {}
-func (noopAuditor) OnReject([32]byte, error)         {}
+func (noopAuditor) OnAdmit(types.WitnessPublicKey)  {}
+func (noopAuditor) OnRevoke(types.WitnessPublicKey) {}
+func (noopAuditor) OnReject([32]byte, error)        {}
 
 // NewWitnessRegistry returns an empty registry. Pass nil auditor for
 // the no-op default; tests use a counting auditor to assert that

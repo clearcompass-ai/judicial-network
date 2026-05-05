@@ -1,24 +1,27 @@
 /*
 FILE PATH: enforcement/compliance.go
 DESCRIPTION: Enforcement timeline verification. Walks the authority lane
-    of a case entity and reports on active, pending, and overridden
-    constraints plus per-constraint contest state.
+
+	of a case entity and reports on active, pending, and overridden
+	constraints plus per-constraint contest state.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Correction #3: uses verifier.EvaluateAuthority (O(A) walker that
-      handles snapshots and skip pointers) rather than manual scanning.
-      This is the difference vs verification/sealing_check.go: compliance
-      produces a rich timeline for court administration; sealing_check
-      returns a compact status for API responses.
-    - Correction #7: per active constraint, calls EvaluateContest to
-      determine whether pending operations referencing it are blocked by
-      unresolved contest. Reports surface this as RequiresAttention.
-    - Pure read-only: no SMT mutation, no entry creation. Safe to run
-      against live logs at arbitrary cadence.
+  - Correction #3: uses verifier.EvaluateAuthority (O(A) walker that
+    handles snapshots and skip pointers) rather than manual scanning.
+    This is the difference vs verification/sealing_check.go: compliance
+    produces a rich timeline for court administration; sealing_check
+    returns a compact status for API responses.
+  - Correction #7: per active constraint, calls EvaluateContest to
+    determine whether pending operations referencing it are blocked by
+    unresolved contest. Reports surface this as RequiresAttention.
+  - Pure read-only: no SMT mutation, no entry creation. Safe to run
+    against live logs at arbitrary cadence.
 
 OVERVIEW: RunComplianceCheck → ComplianceReport{Active, Pending, Overridden,
-    PendingContests, Summary}.
-KEY DEPENDENCIES: ortholog-sdk/verifier, ortholog-sdk/core/smt, ortholog-sdk/schema
+
+	PendingContests, Summary}.
+
+KEY DEPENDENCIES: attesta/verifier, attesta/core/smt, attesta/schema
 */
 package enforcement
 
@@ -27,10 +30,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // ComplianceConfig configures a compliance check.

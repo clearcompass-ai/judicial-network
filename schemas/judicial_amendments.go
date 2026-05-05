@@ -2,19 +2,21 @@
 FILE PATH: schemas/judicial_amendments.go
 
 DESCRIPTION:
-    Amendments to judicial-delegation-v1 entries: revocations
-    (Path A, same_signer) and successions (institutional Authority_Set
-    transitions). Split out of judicial_delegation.go so that file
-    can stay focused on the canonical delegation payload.
+
+	Amendments to judicial-delegation-v1 entries: revocations
+	(Path A, same_signer) and successions (institutional Authority_Set
+	transitions). Split out of judicial_delegation.go so that file
+	can stay focused on the canonical delegation payload.
 
 OVERVIEW:
-    JudicialRevocationPayload — early-termination amendment.
-    JudicialSuccessionPayload — top-of-chain succession (CJ death,
-        resignation, removal). Inheritance modes: full | narrowed |
-        clean_slate.
+
+	JudicialRevocationPayload — early-termination amendment.
+	JudicialSuccessionPayload — top-of-chain succession (CJ death,
+	    resignation, removal). Inheritance modes: full | narrowed |
+	    clean_slate.
 
 KEY DEPENDENCIES:
-    - schemas/judicial_delegation.go (LogPositionRef, schema URI consts)
+  - schemas/judicial_delegation.go (LogPositionRef, schema URI consts)
 */
 package schemas
 
@@ -29,10 +31,10 @@ import (
 type JudicialRevocationPayload struct {
 	SchemaID         string         `json:"schema_id"`
 	TargetDelegation LogPositionRef `json:"target_delegation"`
-	Reason           string         `json:"reason"`     // "expired" | "officer_transfer"
-	                                                    // | "performance" | "conflict"
-	                                                    // | "death_in_office" | other
-	RevokedAt        string         `json:"revoked_at"`
+	Reason           string         `json:"reason"` // "expired" | "officer_transfer"
+	// | "performance" | "conflict"
+	// | "death_in_office" | other
+	RevokedAt string `json:"revoked_at"`
 }
 
 // JudicialSuccessionPayload is the Domain Payload of a succession
@@ -47,18 +49,18 @@ type JudicialRevocationPayload struct {
 // verifier.EvaluateOrigin returns OriginSucceeded; the
 // AuthorityResolver follows the SuccessorDID transparently.
 type JudicialSuccessionPayload struct {
-	SchemaID           string         `json:"schema_id"`
-	TargetDelegation   LogPositionRef `json:"target_delegation"`
-	SuccessorDID       string         `json:"successor_did"` // new did:key
-	Reason             string         `json:"reason"`        // "death_in_office" |
-	                                                         // "resignation" |
-	                                                         // "removal"
-	Inheritance        string         `json:"inheritance"` // "full" | "narrowed" |
-	                                                       // "clean_slate"
-	NarrowedScope      []string       `json:"narrowed_scope,omitempty"` // when
-	                                                                    // Inheritance="narrowed"
-	EffectiveAt        string         `json:"effective_at"`
-	AuthoritySetCosigs []string       `json:"authority_set_cosigs,omitempty"`
+	SchemaID         string         `json:"schema_id"`
+	TargetDelegation LogPositionRef `json:"target_delegation"`
+	SuccessorDID     string         `json:"successor_did"` // new did:key
+	Reason           string         `json:"reason"`        // "death_in_office" |
+	// "resignation" |
+	// "removal"
+	Inheritance string `json:"inheritance"` // "full" | "narrowed" |
+	// "clean_slate"
+	NarrowedScope []string `json:"narrowed_scope,omitempty"` // when
+	// Inheritance="narrowed"
+	EffectiveAt        string   `json:"effective_at"`
+	AuthoritySetCosigs []string `json:"authority_set_cosigs,omitempty"`
 }
 
 // SuccessionInheritance enumerates the closed-set inheritance modes.

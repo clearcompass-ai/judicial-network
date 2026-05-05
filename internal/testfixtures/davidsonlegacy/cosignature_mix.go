@@ -2,41 +2,43 @@
 FILE PATH: internal/testfixtures/davidsonlegacy/cosignature_mix.go
 
 DESCRIPTION:
-    Test-only fixture: the legacy v1.6 Davidson cosignature-mix
-    policy that pairs with the legacy 6-role catalog in
-    role_catalog.go. NOT a production deployment.
 
-    Production TN counties use the simplified TN trial cosig
-    fixture in deployments/tn/trial/cosignature_mix.go (with the
-    full §3 motion vocabulary lifted in via motions_3X.go); this
-    fixture exists for contract tests that need pre-
-    simplification rule shapes.
+	Test-only fixture: the legacy v1.6 Davidson cosignature-mix
+	policy that pairs with the legacy 6-role catalog in
+	role_catalog.go. NOT a production deployment.
 
-    The fixture covers a representative slice of the v1.6 dictionary
-    event_type space — every shape of rule:
+	Production TN counties use the simplified TN trial cosig
+	fixture in deployments/tn/trial/cosignature_mix.go (with the
+	full §3 motion vocabulary lifted in via motions_3X.go); this
+	fixture exists for contract tests that need pre-
+	simplification rule shapes.
 
-      - Filer-driven motions (defense_counsel/civil_attorney/
-        prosecutor → court_clerk cosignature, intra-exchange-only,
-        bpr_number required).
-      - Pure ActorSigner events (verdict, final_judgment) with NO
-        AllowedFilerRoles — no filer permitted.
-      - Intra-exchange-only personnel events (judicial_appointment,
-        clerk_appointment, court_reporter_appointment) requiring
-        2 Adjudicator cosignatures.
-      - Cross-exchange-permitted events (case_transfer_outbound,
-        case_transfer_inbound, relay_attestation) with
-        IntraExchangeOnly=false.
-      - Fiduciary filings with letters_of_administration_ref
-        required credential.
-      - Guardian ad litem with appointment_order_ref required.
+	The fixture covers a representative slice of the v1.6 dictionary
+	event_type space — every shape of rule:
+
+	  - Filer-driven motions (defense_counsel/civil_attorney/
+	    prosecutor → court_clerk cosignature, intra-exchange-only,
+	    bpr_number required).
+	  - Pure ActorSigner events (verdict, final_judgment) with NO
+	    AllowedFilerRoles — no filer permitted.
+	  - Intra-exchange-only personnel events (judicial_appointment,
+	    clerk_appointment, court_reporter_appointment) requiring
+	    2 Adjudicator cosignatures.
+	  - Cross-exchange-permitted events (case_transfer_outbound,
+	    case_transfer_inbound, relay_attestation) with
+	    IntraExchangeOnly=false.
+	  - Fiduciary filings with letters_of_administration_ref
+	    required credential.
+	  - Guardian ad litem with appointment_order_ref required.
 
 OVERVIEW:
-    CosignatureRules         — slice of CosignatureRule.
-    MustCosignaturePolicy    — convenience constructor (panics).
+
+	CosignatureRules         — slice of CosignatureRule.
+	MustCosignaturePolicy    — convenience constructor (panics).
 
 KEY DEPENDENCIES:
-    - policy.CosignatureRule / policy.NewInMemoryPolicy.
-    - schemas.FilerRole consts.
+  - policy.CosignatureRule / policy.NewInMemoryPolicy.
+  - schemas.FilerRole consts.
 */
 package davidsonlegacy
 

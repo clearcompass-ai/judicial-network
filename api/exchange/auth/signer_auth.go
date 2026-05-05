@@ -2,29 +2,30 @@
 FILE PATH: api/exchange/auth/signer_auth.go
 
 DESCRIPTION:
-    SignerAuth middleware. Authenticates exchange writes via mTLS
-    (cert SAN URI → caller DID) or via the SignedRequest envelope
-    (Ed25519 signature + nonce + timestamp → caller DID).
 
-    Multi-tenant nonce routing
-    ──────────────────────────
-    Two constructors:
+	SignerAuth middleware. Authenticates exchange writes via mTLS
+	(cert SAN URI → caller DID) or via the SignedRequest envelope
+	(Ed25519 signature + nonce + timestamp → caller DID).
 
-      NewSignerAuth(endpoint):
-        Single-tenant. One in-memory NonceStore (5-minute freshness).
-        Used by tests + single-replica dev.
+	Multi-tenant nonce routing
+	──────────────────────────
+	Two constructors:
 
-      NewSignerAuthWithNonceStores(endpoint, perDestination, fallback):
-        Multi-tenant. SignedRequests with a populated Destination
-        route to perDestination[destination]; empty / unknown
-        destinations fall through to fallback. Production composes
-        this from NonceStoreConfig.BuildForExchange called once per
-        registered destination at boot — Redis backend gives
-        namespace isolation across replicas.
+	  NewSignerAuth(endpoint):
+	    Single-tenant. One in-memory NonceStore (5-minute freshness).
+	    Used by tests + single-replica dev.
 
-    Both expose the same Wrap(next) → http.Handler surface, so
-    callers (api/exchange/server.go) pick the right constructor at
-    boot and downstream wiring is unchanged.
+	  NewSignerAuthWithNonceStores(endpoint, perDestination, fallback):
+	    Multi-tenant. SignedRequests with a populated Destination
+	    route to perDestination[destination]; empty / unknown
+	    destinations fall through to fallback. Production composes
+	    this from NonceStoreConfig.BuildForExchange called once per
+	    registered destination at boot — Redis backend gives
+	    namespace isolation across replicas.
+
+	Both expose the same Wrap(next) → http.Handler surface, so
+	callers (api/exchange/server.go) pick the right constructor at
+	boot and downstream wiring is unchanged.
 */
 package auth
 
@@ -37,7 +38,7 @@ import (
 	"net/http"
 	"time"
 
-	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 )
 
 // SignerAuth is middleware that authenticates signers via mTLS cert

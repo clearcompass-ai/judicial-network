@@ -2,13 +2,14 @@
 FILE PATH: cases/docket_query.go
 DESCRIPTION: Read-side: docket number → case root position.
 KEY ARCHITECTURAL DECISIONS:
-    - SDK correction #2: Uses verifier.EvaluateOrigin for case state instead
-      of raw SMT leaf reads. Catches succession and path compression that
-      raw OriginTip reads miss.
-    - Queries operator entry index for docket number in Domain Payload.
-    - Read-only: no SMT mutations, no entry creation.
+  - SDK correction #2: Uses verifier.EvaluateOrigin for case state instead
+    of raw SMT leaf reads. Catches succession and path compression that
+    raw OriginTip reads miss.
+  - Queries ledger entry index for docket number in Domain Payload.
+  - Read-only: no SMT mutations, no entry creation.
+
 OVERVIEW: LookupDocket → case root position + status via EvaluateOrigin.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/core/smt, ortholog-sdk/verifier
+KEY DEPENDENCIES: attesta/builder, attesta/core/smt, attesta/verifier
 */
 package cases
 
@@ -16,10 +17,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 type DocketQueryResult struct {

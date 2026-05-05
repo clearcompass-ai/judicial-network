@@ -2,17 +2,18 @@
 FILE PATH: api/server_helpers.go
 
 DESCRIPTION:
-    Composer-side helpers split out of server.go so that file stays
-    under the 300-line cap. Owns:
 
-      - wrapReliability : Phase 14 RateLimitGlobal / RequestTimeout /
-        MaxBodyBytes wrapper composition.
-      - buildMTLSConfig : reads the client-CA PEM and builds the
-        *tls.Config that REQUIRES client certs verified against it.
+	Composer-side helpers split out of server.go so that file stays
+	under the 300-line cap. Owns:
 
-    server.go retains Config / NewServer / Server / Handler / Start /
-    StartTLS / Shutdown — the public surface — and dispatches into
-    these helpers.
+	  - wrapReliability :  RateLimitGlobal / RequestTimeout /
+	    MaxBodyBytes wrapper composition.
+	  - buildMTLSConfig : reads the client-CA PEM and builds the
+	    *tls.Config that REQUIRES client certs verified against it.
+
+	server.go retains Config / NewServer / Server / Handler / Start /
+	StartTLS / Shutdown — the public surface — and dispatches into
+	these helpers.
 */
 package api
 
@@ -28,7 +29,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 )
 
-// wrapReliability stacks the Phase 14 reliability middleware in
+// wrapReliability stacks the  reliability middleware in
 // outer-to-inner order:
 //
 //	RateLimitGlobal → RequestTimeout → MaxBodyBytes → next
@@ -40,7 +41,7 @@ import (
 //
 // MaxBodyBytes is special: cfg.MaxBodyBytes == 0 applies the
 // production default (1 MiB) — the most common 0-value-vs-default
-// confusion across the Config struct. Operators that legitimately
+// confusion across the Config struct. Ledgers that legitimately
 // need oversized payloads set the field to -1 to disable.
 func wrapReliability(cfg Config, next http.Handler) http.Handler {
 	body := cfg.MaxBodyBytes
@@ -65,9 +66,9 @@ func wrapReliability(cfg Config, next http.Handler) http.Handler {
 
 // buildMTLSConfig reads the client-CA PEM file and returns a
 // *tls.Config that REQUIRES client certs verified against that CA.
-// The pre-Phase-5 mTLS contract: every authenticated request presents
+// The previous mTLS contract: every authenticated request presents
 // a client cert whose SAN contains the signer's DID; auth middleware
-// (Phase 5) extracts callerDID from the verified cert and threads it
+// extracts callerDID from the verified cert and threads it
 // into request context.
 func buildMTLSConfig(caFile string) (*tls.Config, error) {
 	caPEM, err := os.ReadFile(caFile)

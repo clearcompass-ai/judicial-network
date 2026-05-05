@@ -48,7 +48,7 @@ func main() {
 		root = flag.Arg(0)
 	}
 
-	// Phase 1: AST scan to find all call sites.
+	// : AST scan to find all call sites.
 	fset := token.NewFileSet()
 	var sites []site
 	skip := map[string]bool{".git": true, "vendor": true, "node_modules": true}
@@ -124,7 +124,7 @@ func main() {
 		return sites[i].firstField > sites[j].firstField // descending
 	})
 
-	// Phase 2: Group by file and apply insertions.
+	// : Group by file and apply insertions.
 	byFile := map[string][]site{}
 	for _, s := range sites {
 		byFile[s.file] = append(byFile[s.file], s)

@@ -2,9 +2,10 @@
 FILE PATH: api/middleware/reliability/transport_test.go
 
 DESCRIPTION:
-    Unit pin for the tuned http.Transport defaults. The hot
-    invariant is MaxIdleConnsPerHost — the stdlib default of 2
-    silently caps each replica to ~2 concurrent operator submits.
+
+	Unit pin for the tuned http.Transport defaults. The hot
+	invariant is MaxIdleConnsPerHost — the stdlib default of 2
+	silently caps each replica to ~2 concurrent ledger submits.
 */
 package reliability
 

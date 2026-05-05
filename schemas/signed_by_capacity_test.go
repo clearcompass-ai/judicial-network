@@ -2,13 +2,14 @@
 FILE PATH: schemas/signed_by_capacity_test.go
 
 DESCRIPTION:
-    Tests pinning the SignedByCapacity contract: structural
-    validation, JSON round-trip, ExtractSignedByCapacities behavior
-    across present / absent / malformed payloads, and per-DID lookup.
 
-    These tests are the writer-side mirror of capacity_test.go and
-    cement the v1.6 symmetric-payload guarantee: every cosigner
-    other than the primary signer is self-described in the payload.
+	Tests pinning the SignedByCapacity contract: structural
+	validation, JSON round-trip, ExtractSignedByCapacities behavior
+	across present / absent / malformed payloads, and per-DID lookup.
+
+	These tests are the writer-side mirror of capacity_test.go and
+	cement the v1.6 symmetric-payload guarantee: every cosigner
+	other than the primary signer is self-described in the payload.
 */
 package schemas
 

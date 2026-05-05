@@ -2,10 +2,11 @@
 FILE PATH: deployments/TEMPLATE/rules/prerequisites_test.go
 
 DESCRIPTION:
-    Tests for the TEMPLATE prerequisite skeleton. Pins:
-      - the skeleton validates,
-      - exactly 1 event (case_initiated) exists with no prereqs,
-      - a Walker check on case_initiated returns OK.
+
+	Tests for the TEMPLATE prerequisite skeleton. Pins:
+	  - the skeleton validates,
+	  - exactly 1 event (case_initiated) exists with no prereqs,
+	  - a Walker check on case_initiated returns OK.
 */
 package rules
 

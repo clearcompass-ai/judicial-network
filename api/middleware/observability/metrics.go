@@ -2,24 +2,25 @@
 FILE PATH: api/middleware/observability/metrics.go
 
 DESCRIPTION:
-    Prometheus metrics middleware. Emits the RED triad (Rate /
-    Errors / Duration) plus an in-flight gauge per route. Labels
-    are kept minimal + bounded:
 
-      route   — the matched mux pattern (low-cardinality; dozens)
-      method  — HTTP verb (small fixed set)
-      status  — class bucket "2xx" / "4xx" / "5xx" / etc.
-                Using the class instead of the raw code keeps
-                cardinality bounded against a handler that returns
-                arbitrary status codes.
+	Prometheus metrics middleware. Emits the RED triad (Rate /
+	Errors / Duration) plus an in-flight gauge per route. Labels
+	are kept minimal + bounded:
 
-    Caller DID is deliberately NOT a label — that would explode
-    cardinality at 10M/day across thousands of distinct callers.
-    Per-caller telemetry belongs in structured logs (logger.go).
+	  route   — the matched mux pattern (low-cardinality; dozens)
+	  method  — HTTP verb (small fixed set)
+	  status  — class bucket "2xx" / "4xx" / "5xx" / etc.
+	            Using the class instead of the raw code keeps
+	            cardinality bounded against a handler that returns
+	            arbitrary status codes.
 
-    /metrics is mounted by the composer outside the auth + rate-
-    limit + body-size wrappers so Prometheus scrapers can always
-    reach it (the same rationale as /healthz).
+	Caller DID is deliberately NOT a label — that would explode
+	cardinality at 10M/day across thousands of distinct callers.
+	Per-caller telemetry belongs in structured logs (logger.go).
+
+	/metrics is mounted by the composer outside the auth + rate-
+	limit + body-size wrappers so Prometheus scrapers can always
+	reach it (the same rationale as /healthz).
 */
 package observability
 

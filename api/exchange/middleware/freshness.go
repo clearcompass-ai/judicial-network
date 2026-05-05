@@ -2,44 +2,45 @@
 FILE PATH: api/exchange/middleware/freshness.go
 
 DESCRIPTION:
-    HTTP middleware that gates exchange endpoints on the signed entry's
-    freshness — the time between the entry's EventTime and the
-    server's wall-clock at admission. Uses the SDK's
-    exchange/policy.CheckFreshness primitive; this middleware adapts
-    it to net/http and lets each route declare which validity tempo it
-    accepts.
+
+	HTTP middleware that gates exchange endpoints on the signed entry's
+	freshness — the time between the entry's EventTime and the
+	server's wall-clock at admission. Uses the SDK's
+	exchange/policy.CheckFreshness primitive; this middleware adapts
+	it to net/http and lets each route declare which validity tempo it
+	accepts.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Three named tempos per ortholog-sdk/APPLY-destination-binding.md:
-        TempoAutomated   — 60s   (machine-to-machine, witnesses, anchors)
-        TempoInteractive — 5min  (clerks, administrators)
-        TempoDeliberative — 30min (deliberative judicial signings)
-      The SDK's hard 1-hour ceiling (MaxFreshnessTolerance) is
-      preserved by composition: this middleware only ever passes one
-      of the three named tempos to CheckFreshness, never an
-      arbitrary duration.
-    - The middleware is content-aware: it deserializes the request
-      body once via envelope.Deserialize, runs the freshness check,
-      and re-injects the bytes via a wrapping io.ReadCloser so the
-      downstream handler reads the same bytes verbatim. No payload
-      copy beyond what the framework already does.
-    - Fail-closed JSON 400 with a stable error code:
-        freshness_stale     — entry is older than the tempo allows
-        freshness_future    — entry's EventTime exceeds the
-                              CheckFreshness future-tolerance
-        freshness_malformed — body is not a deserializable entry
-        freshness_misconfig — programmer passed an out-of-band tempo
-    - Clock injection: NowFunc field defaults to time.Now().UTC().
-      Tests pin the clock; production never overrides.
-    - The middleware does NOT mutate Header.EventTime, NOT cache the
-      decision, and NOT silently downgrade. A rejected request never
-      reaches the wrapped handler.
+  - Three named tempos per attesta/APPLY-destination-binding.md:
+    TempoAutomated   — 60s   (machine-to-machine, witnesses, anchors)
+    TempoInteractive — 5min  (clerks, administrators)
+    TempoDeliberative — 30min (deliberative judicial signings)
+    The SDK's hard 1-hour ceiling (MaxFreshnessTolerance) is
+    preserved by composition: this middleware only ever passes one
+    of the three named tempos to CheckFreshness, never an
+    arbitrary duration.
+  - The middleware is content-aware: it deserializes the request
+    body once via envelope.Deserialize, runs the freshness check,
+    and re-injects the bytes via a wrapping io.ReadCloser so the
+    downstream handler reads the same bytes verbatim. No payload
+    copy beyond what the framework already does.
+  - Fail-closed JSON 400 with a stable error code:
+    freshness_stale     — entry is older than the tempo allows
+    freshness_future    — entry's EventTime exceeds the
+    CheckFreshness future-tolerance
+    freshness_malformed — body is not a deserializable entry
+    freshness_misconfig — programmer passed an out-of-band tempo
+  - Clock injection: NowFunc field defaults to time.Now().UTC().
+    Tests pin the clock; production never overrides.
+  - The middleware does NOT mutate Header.EventTime, NOT cache the
+    decision, and NOT silently downgrade. A rejected request never
+    reaches the wrapped handler.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/exchange/policy: CheckFreshness, FreshnessAutomated,
-      FreshnessInteractive, FreshnessDeliberative, MaxFreshnessTolerance,
-      and the typed errors.
-    - ortholog-sdk/core/envelope: Deserialize.
+  - attesta/exchange/policy: CheckFreshness, FreshnessAutomated,
+    FreshnessInteractive, FreshnessDeliberative, MaxFreshnessTolerance,
+    and the typed errors.
+  - attesta/core/envelope: Deserialize.
 */
 package middleware
 
@@ -52,8 +53,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/exchange/policy"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/exchange/policy"
 )
 
 // Tempo is a named-tier freshness window. The set is closed; new
@@ -123,10 +124,10 @@ const (
 // rejectionBody is the JSON shape returned on rejection. Stable
 // across releases; new fields are additive.
 type rejectionBody struct {
-	Error      string `json:"error"`
-	Code       string `json:"code"`
-	Tempo      string `json:"tempo,omitempty"`
-	Tolerance  string `json:"tolerance_seconds,omitempty"`
+	Error     string `json:"error"`
+	Code      string `json:"code"`
+	Tempo     string `json:"tempo,omitempty"`
+	Tolerance string `json:"tolerance_seconds,omitempty"`
 }
 
 // New returns an http.Handler that runs the freshness gate then
@@ -190,7 +191,7 @@ func New(cfg FreshnessConfig, next http.Handler) http.Handler {
 
 // classifyFreshnessError maps the SDK's typed errors to our stable
 // rejection-code enum. Anything we cannot classify becomes
-// codeMisconfig — surfacing to operators as a programmer bug rather
+// codeMisconfig — surfacing to ledgers as a programmer bug rather
 // than a request-side fault.
 func classifyFreshnessError(err error) rejectionCode {
 	switch {

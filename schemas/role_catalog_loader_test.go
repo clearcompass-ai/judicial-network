@@ -2,11 +2,12 @@
 FILE PATH: schemas/role_catalog_loader_test.go
 
 DESCRIPTION:
-    Tests for the JSON-backed catalog loader: file load, in-memory
-    parse, extended-duration syntax, hot-reload semantics. SIGHUP
-    integration is exercised by manual ReloadFromFile rather than
-    raising the actual signal — the watcher loop is a thin wrapper
-    over ReloadFromFile.
+
+	Tests for the JSON-backed catalog loader: file load, in-memory
+	parse, extended-duration syntax, hot-reload semantics. SIGHUP
+	integration is exercised by manual ReloadFromFile rather than
+	raising the actual signal — the watcher loop is a thin wrapper
+	over ReloadFromFile.
 */
 package schemas
 

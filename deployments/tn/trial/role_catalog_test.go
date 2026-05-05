@@ -2,14 +2,15 @@
 FILE PATH: deployments/tn/trial/role_catalog_test.go
 
 DESCRIPTION:
-    Tests pinning the TN trial role catalog after v1.8 actor
-    simplification. The catalog has exactly 3 roles:
-    judge, court_clerk, court_reporter. Tests verify:
-      - the closed set (count + names),
-      - non-v1.8 actor names are absent,
-      - the hierarchy chain is composable end-to-end,
-      - ValidateGrant rejects non-permitted granter/grantee
-        combinations, scope leaks, and excessive durations.
+
+	Tests pinning the TN trial role catalog after v1.8 actor
+	simplification. The catalog has exactly 3 roles:
+	judge, court_clerk, court_reporter. Tests verify:
+	  - the closed set (count + names),
+	  - non-v1.8 actor names are absent,
+	  - the hierarchy chain is composable end-to-end,
+	  - ValidateGrant rejects non-permitted granter/grantee
+	    combinations, scope leaks, and excessive durations.
 */
 package trial
 

@@ -2,13 +2,14 @@
 FILE PATH: tools/cmd/witness/cosigner_test.go
 
 DESCRIPTION:
-    Pins the cosigning loop's per-tick logic:
-      1. processLog skips when the head has not advanced.
-      2. processLog signs + posts when it has.
-      3. tickOnce processes every configured log; per-log failures
-         don't block subsequent logs.
-      4. Post-success advances the lastSize watermark so the
-         next tick's no-advance check sees it.
+
+	Pins the cosigning loop's per-tick logic:
+	  1. processLog skips when the head has not advanced.
+	  2. processLog signs + posts when it has.
+	  3. tickOnce processes every configured log; per-log failures
+	     don't block subsequent logs.
+	  4. Post-success advances the lastSize watermark so the
+	     next tick's no-advance check sees it.
 */
 package main
 
@@ -18,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/witness"
 )
 
 const testWitnessDID = "did:web:state:tn:witness:01"
@@ -55,7 +56,7 @@ func (p *postCounter) post(_ context.Context, _ string, _ CosignaturePost) error
 // processLog is tested via direct stub of lastSize behavior.
 func stubClient() *witness.TreeHeadClient {
 	return witness.NewTreeHeadClient(&witness.StaticEndpoints{
-		Operators: map[string]string{},
+		Ledgers: map[string]string{},
 	}, witness.DefaultTreeHeadClientConfig())
 }
 
@@ -65,15 +66,7 @@ func stubClient() *witness.TreeHeadClient {
 
 func TestProcessLog_FetchFailure_PropagatesError(t *testing.T) {
 	pc := &postCounter{}
-	loop := newCosignLoop(cosignLoopConfig{
-		LogDIDs:      []string{testLogDID},
-		Operators:    map[string]string{testLogDID: "http://missing.test"},
-		PollInterval: time.Second,
-		WitnessDID:   testWitnessDID,
-		Client:       stubClient(),
-		Signer:       sigStub(),
-		Post:         pc.post,
-	})
+	loop := newCosignLoop(cosignLoopConfig{LogDIDs: []string{testLogDID}, Ledgers: map[string]string{testLogDID: "http://missing.test"}, PollInterval: time.Second, WitnessDID: testWitnessDID, Client: stubClient(), Signer: sigStub(), Post: pc.post})
 	err := loop.processLog(context.Background(), testLogDID)
 	if err == nil {
 		t.Error("expected fetch-head error against unreachable endpoint")
@@ -92,18 +85,10 @@ func TestTickOnce_PerLogFailureDoesNotBlock(t *testing.T) {
 	// even though the first fails. The loop logs but doesn't
 	// propagate.
 	pc := &postCounter{}
-	loop := newCosignLoop(cosignLoopConfig{
-		LogDIDs:      []string{testLogDID, "did:web:state:tn:shelby:cases"},
-		Operators: map[string]string{
-			testLogDID: "http://missing-a.test",
-			"did:web:state:tn:shelby:cases": "http://missing-b.test",
-		},
-		PollInterval: time.Second,
-		WitnessDID:   testWitnessDID,
-		Client:       stubClient(),
-		Signer:       sigStub(),
-		Post:         pc.post,
-	})
+	loop := newCosignLoop(cosignLoopConfig{LogDIDs: []string{testLogDID, "did:web:state:tn:shelby:cases"}, Ledgers: map[string]string{
+		testLogDID:                      "http://missing-a.test",
+		"did:web:state:tn:shelby:cases": "http://missing-b.test",
+	}, PollInterval: time.Second, WitnessDID: testWitnessDID, Client: stubClient(), Signer: sigStub(), Post: pc.post})
 	// Should not panic / propagate.
 	loop.tickOnce(context.Background())
 	if pc.count != 0 {
@@ -116,15 +101,7 @@ func TestTickOnce_PerLogFailureDoesNotBlock(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 func TestRun_ContextCancellation(t *testing.T) {
-	loop := newCosignLoop(cosignLoopConfig{
-		LogDIDs:      []string{testLogDID},
-		Operators:    map[string]string{testLogDID: "http://missing.test"},
-		PollInterval: 10 * time.Millisecond,
-		WitnessDID:   testWitnessDID,
-		Client:       stubClient(),
-		Signer:       sigStub(),
-		Post:         (&postCounter{}).post,
-	})
+	loop := newCosignLoop(cosignLoopConfig{LogDIDs: []string{testLogDID}, Ledgers: map[string]string{testLogDID: "http://missing.test"}, PollInterval: 10 * time.Millisecond, WitnessDID: testWitnessDID, Client: stubClient(), Signer: sigStub(), Post: (&postCounter{}).post})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // pre-cancel so Run exits on the first ctx.Done() check
 	err := loop.Run(ctx)

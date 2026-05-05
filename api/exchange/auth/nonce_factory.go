@@ -2,47 +2,48 @@
 FILE PATH: api/exchange/auth/nonce_factory.go
 
 DESCRIPTION:
-    Deployment-time selector for the SDK strict-forever NonceStore
-    backend. Multi-tenant: a single process serves N destinations,
-    each addressed by its own destination DID. The factory constructs
-    one backend-bound *NonceStore per registered destination; the
-    composition root looks up the right one per request from
-    entry.Header.Destination.
 
-    Two backends:
+	Deployment-time selector for the SDK strict-forever NonceStore
+	backend. Multi-tenant: a single process serves N destinations,
+	each addressed by its own destination DID. The factory constructs
+	one backend-bound *NonceStore per registered destination; the
+	composition root looks up the right one per request from
+	entry.Header.Destination.
 
-      "memory" (default) → sdkauth.InMemoryNonceStore.
-                            Single-process, no replay protection
-                            across restarts. Fine for dev, CI, and
-                            single-replica deploys.
-      "redis"            → sdkauth.RedisNonceStore.
-                            Multi-replica safe, persistent, namespaced
-                            by destination DID. Required for production
-                            federations and any deployment with N>1
-                            replicas behind a load balancer.
+	Two backends:
+
+	  "memory" (default) → sdkauth.InMemoryNonceStore.
+	                        Single-process, no replay protection
+	                        across restarts. Fine for dev, CI, and
+	                        single-replica deploys.
+	  "redis"            → sdkauth.RedisNonceStore.
+	                        Multi-replica safe, persistent, namespaced
+	                        by destination DID. Required for production
+	                        federations and any deployment with N>1
+	                        replicas behind a load balancer.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Connection-vs-namespace split. NonceStoreConfig holds backend
-      selection + connection params (RedisAddr, RedisPassword, …).
-      Per-tenant namespacing lives on the per-destination BuildForExchange
-      call. One Redis connection, N stores keyed by destination DID.
-    - Strict-forever contract preserved by both backends. The factory
-      does NOT add TTL, eviction, or any other reservation-forgetting
-      behavior — the SDK contract requires reservations to be permanent.
-      Freshness handling is JN's responsibility (window in the wrapping
-      NonceStore) and is deliberately separate from replay protection.
-    - Memory backend's per-destination namespace is implicit (each
-      destination gets its own *InMemoryNonceStore instance). Redis
-      backend requires the destination DID at build time so the SDK's
-      RedisNonceStore can prefix every key with it.
-    - Cross-tenant collision protection: the SDK's RedisNonceStore
-      formats keys as "{prefix}{destination}:{nonce}" — two different
-      destinations sharing the same Redis instance never collide.
+  - Connection-vs-namespace split. NonceStoreConfig holds backend
+    selection + connection params (RedisAddr, RedisPassword, …).
+    Per-tenant namespacing lives on the per-destination BuildForExchange
+    call. One Redis connection, N stores keyed by destination DID.
+  - Strict-forever contract preserved by both backends. The factory
+    does NOT add TTL, eviction, or any other reservation-forgetting
+    behavior — the SDK contract requires reservations to be permanent.
+    Freshness handling is JN's responsibility (window in the wrapping
+    NonceStore) and is deliberately separate from replay protection.
+  - Memory backend's per-destination namespace is implicit (each
+    destination gets its own *InMemoryNonceStore instance). Redis
+    backend requires the destination DID at build time so the SDK's
+    RedisNonceStore can prefix every key with it.
+  - Cross-tenant collision protection: the SDK's RedisNonceStore
+    formats keys as "{prefix}{destination}:{nonce}" — two different
+    destinations sharing the same Redis instance never collide.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/exchange/auth: NonceStore interface +
-      InMemoryNonceStore + RedisNonceStore concrete impls.
-    - github.com/redis/go-redis/v9: Redis client (transitive).
+  - attesta/exchange/auth: NonceStore interface +
+    InMemoryNonceStore + RedisNonceStore concrete impls.
+  - github.com/redis/go-redis/v9: Redis client (transitive).
 */
 package auth
 
@@ -53,7 +54,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -116,7 +117,7 @@ type NonceStoreConfig struct {
 	// RedisDB selects the redis logical DB. Default 0.
 	RedisDB int
 
-	// RedisKeyPrefix overrides the SDK default ("ortholog:nonce:").
+	// RedisKeyPrefix overrides the SDK default ("attesta:nonce:").
 	// Empty uses the SDK default.
 	RedisKeyPrefix string
 }

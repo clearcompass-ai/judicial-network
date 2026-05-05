@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/appeals_test.go
 
 DESCRIPTION:
-    Validation contracts for the appellate handlers. Cross-log
-    handlers (file appeal, mandate reverse, transfer record) are
-    501 stubs until C5; this file pins their auth + 501 wire shape.
+
+	Validation contracts for the appellate handlers. Cross-log
+	handlers (file appeal, mandate reverse, transfer record) are
+	501 stubs until C5; this file pins their auth + 501 wire shape.
 */
 package judicial
 
@@ -17,8 +18,8 @@ import (
 )
 
 const (
-	testAppealLog   = "did:web:state:tn:coa:cases"
-	testCOADest     = "did:web:state:tn:coa"
+	testAppealLog = "did:web:state:tn:coa:cases"
+	testCOADest   = "did:web:state:tn:coa"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -76,11 +77,11 @@ func TestAppealDecision_BadOpinionBase64_400(t *testing.T) {
 func TestMandateAffirm_NoCaller_401(t *testing.T) {
 	h := newTestHandler(Dependencies{})
 	body := mustJSON(t, appealMandateAffirmRequest{
-		Destination:           testDestination,
-		LowerCourtCaseLogDID:  testCasesLog,
-		LowerCourtCaseSeq:     100,
-		LowerCourtScopeLogDID: testDestination,
-		LowerCourtScopeSeq:    1,
+		Destination:             testDestination,
+		LowerCourtCaseLogDID:    testCasesLog,
+		LowerCourtCaseSeq:       100,
+		LowerCourtScopeLogDID:   testDestination,
+		LowerCourtScopeSeq:      1,
 		AppellateDecisionLogDID: testAppealLog,
 		AppellateDecisionSeq:    99,
 	})
@@ -97,11 +98,11 @@ func TestMandateAffirm_HappyPath(t *testing.T) {
 	withCaller(t, testJudge)
 	h := newTestHandler(Dependencies{})
 	body := mustJSON(t, appealMandateAffirmRequest{
-		Destination:           testDestination,
-		LowerCourtCaseLogDID:  testCasesLog,
-		LowerCourtCaseSeq:     100,
-		LowerCourtScopeLogDID: testDestination,
-		LowerCourtScopeSeq:    1,
+		Destination:             testDestination,
+		LowerCourtCaseLogDID:    testCasesLog,
+		LowerCourtCaseSeq:       100,
+		LowerCourtScopeLogDID:   testDestination,
+		LowerCourtScopeSeq:      1,
 		AppellateDecisionLogDID: testAppealLog,
 		AppellateDecisionSeq:    99,
 	})

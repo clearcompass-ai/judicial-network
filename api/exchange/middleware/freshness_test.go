@@ -2,10 +2,11 @@
 FILE PATH: api/exchange/middleware/freshness_test.go
 
 COVERAGE:
-    Every code path in freshness.go: tempo→duration mapping, all
-    three named tempos, rejection classification (stale, future,
-    malformed, misconfig), body re-injection, downstream-handler
-    isolation, and the panic-on-misconfig contract.
+
+	Every code path in freshness.go: tempo→duration mapping, all
+	three named tempos, rejection classification (stale, future,
+	malformed, misconfig), body re-injection, downstream-handler
+	isolation, and the panic-on-misconfig contract.
 */
 package middleware
 
@@ -19,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/exchange/policy"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/exchange/policy"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -189,8 +190,8 @@ func TestNew_MalformedEntry_RejectedAsMalformed(t *testing.T) {
 
 type erroringReader struct{}
 
-func (erroringReader) Read([]byte) (int, error)    { return 0, io.ErrUnexpectedEOF }
-func (erroringReader) Close() error                { return nil }
+func (erroringReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+func (erroringReader) Close() error             { return nil }
 
 func TestNew_BodyReadError_RejectedAsMalformed(t *testing.T) {
 	h := New(FreshnessConfig{Tempo: TempoAutomated}, passThrough())

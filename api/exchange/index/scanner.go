@@ -2,21 +2,22 @@
 FILE PATH: exchange/index/scanner.go
 
 DESCRIPTION:
-    Sequential log scanner inspired by CT monitors. Reads entries
-    from the operator in order, parses Domain Payloads, and builds
-    local indexes (docket→position, DID→position, schema→position).
 
-    The operator is a transparency log. It serves entries by position.
-    It does NOT search. With 1B+ entries, search is the scanner's job,
-    not the log's job. The scanner reads everything, the index stores
-    the mappings, the business API queries the index.
+	Sequential log scanner inspired by CT monitors. Reads entries
+	from the ledger in order, parses Domain Payloads, and builds
+	local indexes (docket→position, DID→position, schema→position).
 
-    Runs as a background goroutine. Polls the operator for new entries
-    at a configurable interval. Resilient to restarts — persists the
-    last scanned position.
+	The ledger is a transparency log. It serves entries by position.
+	It does NOT search. With 1B+ entries, search is the scanner's job,
+	not the log's job. The scanner reads everything, the index stores
+	the mappings, the business API queries the index.
+
+	Runs as a background goroutine. Polls the ledger for new entries
+	at a configurable interval. Resilient to restarts — persists the
+	last scanned position.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/log: OperatorQueryAPI.ScanFromPosition (guide §27.3)
+  - attesta/log: LedgerQueryAPI.ScanFromPosition (guide §27.3)
 */
 package index
 
@@ -26,14 +27,14 @@ import (
 	"log"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdklog "github.com/clearcompass-ai/attesta/log"
 )
 
-// Scanner reads entries sequentially from an operator and feeds them
+// Scanner reads entries sequentially from an ledger and feeds them
 // to an IndexStore.
 type Scanner struct {
-	queryAPI  sdklog.OperatorQueryAPI
+	queryAPI  sdklog.LedgerQueryAPI
 	store     *IndexStore
 	logID     string
 	batchSize uint64
@@ -42,7 +43,7 @@ type Scanner struct {
 
 // ScannerConfig configures the scanner.
 type ScannerConfig struct {
-	QueryAPI  sdklog.OperatorQueryAPI
+	QueryAPI  sdklog.LedgerQueryAPI
 	Store     *IndexStore
 	LogID     string
 	BatchSize uint64        // entries per poll (default 1000)

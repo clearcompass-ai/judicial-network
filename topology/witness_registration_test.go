@@ -2,10 +2,11 @@
 FILE PATH: topology/witness_registration_test.go
 
 COVERAGE:
-    Every code path in witness_registration.go has at least one
-    assertion that fails for a distinct reason. Auditor invocations
-    are pinned at every state-changing transition so a future
-    refactor that drops audit emission breaks here, not in production.
+
+	Every code path in witness_registration.go has at least one
+	assertion that fails for a distinct reason. Auditor invocations
+	are pinned at every state-changing transition so a future
+	refactor that drops audit emission breaks here, not in production.
 */
 package topology
 
@@ -14,8 +15,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // ─── Test helpers ───────────────────────────────────────────────────

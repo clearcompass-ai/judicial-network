@@ -2,19 +2,20 @@
 FILE PATH: deployments/tn/trial/motions_test.go
 
 DESCRIPTION:
-    Tests for the motionSpec abstraction + helpers. Covers:
-      - allMotions() concatenation across §3A–§3I.
-      - motionCosigRule produces the canonical TN trial shape:
-          court_clerk-signed, intra-exchange, MinSignerCosigners=1,
-          RequiredCredentials defaulting to ["bpr_number"].
-      - Override of RequiredCredentials propagates.
-      - motionPrereqs prepends Hard case_initiated.
-      - AdditionalPrereqs append after the default.
-      - motionCosignatureRules / motionPrerequisiteRules build
-        consistent vocabularies (every motion appears in both).
-      - With empty section stubs (this commit), every helper
-        returns a zero-length slice / map.
-      - caseInitAncestor is the shared Hard prereq.
+
+	Tests for the motionSpec abstraction + helpers. Covers:
+	  - allMotions() concatenation across §3A–§3I.
+	  - motionCosigRule produces the canonical TN trial shape:
+	      court_clerk-signed, intra-exchange, MinSignerCosigners=1,
+	      RequiredCredentials defaulting to ["bpr_number"].
+	  - Override of RequiredCredentials propagates.
+	  - motionPrereqs prepends Hard case_initiated.
+	  - AdditionalPrereqs append after the default.
+	  - motionCosignatureRules / motionPrerequisiteRules build
+	    consistent vocabularies (every motion appears in both).
+	  - With empty section stubs (this commit), every helper
+	    returns a zero-length slice / map.
+	  - caseInitAncestor is the shared Hard prereq.
 */
 package trial
 

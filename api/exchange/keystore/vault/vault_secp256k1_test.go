@@ -2,8 +2,9 @@
 FILE PATH: api/exchange/keystore/vault/vault_secp256k1_test.go
 
 DESCRIPTION:
-    secp256k1 round-trip tests for the Vault Transit keystore. Mock
-    Vault server lives in vault_fakeserver_test.go.
+
+	secp256k1 round-trip tests for the Vault Transit keystore. Mock
+	Vault server lives in vault_fakeserver_test.go.
 */
 package vault
 

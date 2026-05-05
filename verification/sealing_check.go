@@ -2,21 +2,22 @@
 FILE PATH: verification/sealing_check.go
 DESCRIPTION: Authority_Tip → enforcement status via SDK verifier.EvaluateAuthority.
 KEY ARCHITECTURAL DECISIONS:
-    - SDK correction #3: Uses verifier.EvaluateAuthority (walks Prior_Authority
-      chain, handles snapshots, skip pointers). Not manual authority chain scan.
-    - SDK correction #7: Checks EvaluateContest for pending enforcements.
+  - SDK correction #3: Uses verifier.EvaluateAuthority (walks Prior_Authority
+    chain, handles snapshots, skip pointers). Not manual authority chain scan.
+  - SDK correction #7: Checks EvaluateContest for pending enforcements.
+
 OVERVIEW: CheckEnforcementStatus → active/pending constraints + contest status.
-KEY DEPENDENCIES: ortholog-sdk/verifier, ortholog-sdk/schema
+KEY DEPENDENCIES: attesta/verifier, attesta/schema
 */
 package verification
 
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 type EnforcementStatus struct {

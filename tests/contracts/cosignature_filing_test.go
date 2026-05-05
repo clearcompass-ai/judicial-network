@@ -2,34 +2,35 @@
 FILE PATH: tests/contracts/cosignature_filing_test.go
 
 DESCRIPTION:
-    End-to-end Phase 3C contract tests. Wires together the full
-    write+verify lifecycle for an attorney filing under the v1.4
-    Event Dictionary's Tier 2 cosignature requirement:
 
-      WRITE  : Clerk + Attorney call delegation.SignAndSubmitCosigned
-               with a payload that embeds filed_by_capacity. Two
-               signatures land on-log over the same SigningPayload
-               digest.
+	End-to-end  contract tests. Wires together the full
+	write+verify lifecycle for an attorney filing under the v1.4
+	Event Dictionary's Tier 2 cosignature requirement:
 
-      READ   : verification.CheckCosignature loads the resulting
-               envelope from the operator, parses event_type +
-               filed_by_capacity, looks up the policy rule, and
-               returns OK or a typed rejection.
+	  WRITE  : Clerk + Attorney call delegation.SignAndSubmitCosigned
+	           with a payload that embeds filed_by_capacity. Two
+	           signatures land on-log over the same SigningPayload
+	           digest.
 
-    Pins the round-trip:
-      - Happy path: written entry passes the verifier.
-      - Wrong event_type: verifier rejects (closed-set policy).
-      - Capacity DID not in cosigners: verifier rejects
-        (anti-impersonation).
-      - Cross-exchange filing under intra-exchange-only rule:
-        verifier rejects (Flag #2).
-      - Required credential missing: verifier rejects.
+	  READ   : verification.CheckCosignature loads the resulting
+	           envelope from the ledger, parses event_type +
+	           filed_by_capacity, looks up the policy rule, and
+	           returns OK or a typed rejection.
+
+	Pins the round-trip:
+	  - Happy path: written entry passes the verifier.
+	  - Wrong event_type: verifier rejects (closed-set policy).
+	  - Capacity DID not in cosigners: verifier rejects
+	    (anti-impersonation).
+	  - Cross-exchange filing under intra-exchange-only rule:
+	    verifier rejects (Flag #2).
+	  - Required credential missing: verifier rejects.
 
 KEY DEPENDENCIES:
-    - delegation.SignAndSubmitCosigned (write).
-    - verification.CheckCosignature    (read).
-    - verification.MapRoleResolver     (DID → role + exchange).
-    - policy.MustDavidsonPolicy        (rule fixture).
+  - delegation.SignAndSubmitCosigned (write).
+  - verification.CheckCosignature    (read).
+  - verification.MapRoleResolver     (DID → role + exchange).
+  - policy.MustDavidsonPolicy        (rule fixture).
 */
 package contracts
 
@@ -39,11 +40,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // ─── helpers ────────────────────────────────────────────────────────

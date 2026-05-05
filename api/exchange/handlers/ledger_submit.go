@@ -1,33 +1,34 @@
 /*
-FILE PATH: api/exchange/handlers/operator_submit.go
+FILE PATH: api/exchange/handlers/ledger_submit.go
 
 DESCRIPTION:
-    Operator-submit protection wrapper. Wraps submitToOperator (in
-    management.go) with two pieces of Phase 14/15 wiring:
 
-      1. reliability.Breaker (Phase 14) — fast-fails when the
-         operator is down. Without this, every queued submit
-         waits its full 30s timeout against an unresponsive
-         operator; at 1000 TPS that's an OOM in seconds.
+	Ledger-submit protection wrapper. Wraps submitToLedger (in
+	management.go) with two pieces of /15 wiring:
 
-      2. observability.OperatorSubmitMetrics (Phase 15) — records
-         per-submit latency, result class, and breaker state so
-         operator-side regressions are visible from the JN
-         binary's /metrics output.
+	  1. reliability.Breaker — fast-fails when the
+	     ledger is down. Without this, every queued submit
+	     waits its full 30s timeout against an unresponsive
+	     ledger; at 1000 TPS that's an OOM in seconds.
 
-    The wrapper is opt-in via Dependencies.OperatorBreaker +
-    .OperatorMetrics. Both nil → fall through to bare
-    submitToOperator (preserves the current single-tenant /
-    test-mode behavior).
+	  2. observability.LedgerSubmitMetrics — records
+	     per-submit latency, result class, and breaker state so
+	     ledger-side regressions are visible from the JN
+	     binary's /metrics output.
 
-    Wire shape preserved
-    ────────────────────
-    submitToOperator stays as-is (writes to ResponseWriter,
-    includes the SDK's RetryAfterRoundTripper for 503/Retry-After
-    handling). The protected wrapper drives it through a
-    capturingResponseWriter so the breaker can observe pass/fail
-    without losing the response body the underlying handler is
-    expected to relay back to the caller.
+	The wrapper is opt-in via Dependencies.LedgerBreaker +
+	.LedgerMetrics. Both nil → fall through to bare
+	submitToLedger (preserves the current single-tenant /
+	test-mode behavior).
+
+	Wire shape preserved
+	────────────────────
+	submitToLedger stays as-is (writes to ResponseWriter,
+	includes the SDK's RetryAfterRoundTripper for 503/Retry-After
+	handling). The protected wrapper drives it through a
+	capturingResponseWriter so the breaker can observe pass/fail
+	without losing the response body the underlying handler is
+	expected to relay back to the caller.
 */
 package handlers
 
@@ -41,44 +42,44 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 )
 
-// submitToOperatorProtected runs submitToOperator inside the
+// submitToLedgerProtected runs submitToLedger inside the
 // configured circuit breaker + records observability metrics.
-// When deps.OperatorBreaker is nil it falls through to bare
-// submitToOperator — preserving pre-Phase-3 behavior for tests +
+// When deps.LedgerBreaker is nil it falls through to bare
+// submitToLedger — preserving previous behavior for tests +
 // dev deploys that don't configure the breaker.
-func submitToOperatorProtected(w http.ResponseWriter, deps *Dependencies, signed []byte) {
-	if deps.OperatorBreaker == nil {
-		submitToOperator(w, deps.OperatorEndpoint, signed)
+func submitToLedgerProtected(w http.ResponseWriter, deps *Dependencies, signed []byte) {
+	if deps.LedgerBreaker == nil {
+		submitToLedger(w, deps.LedgerEndpoint, signed)
 		return
 	}
 
 	cap := newCapturingResponseWriter()
 	start := time.Now()
-	err := deps.OperatorBreaker.Call(func() error {
-		submitToOperator(cap, deps.OperatorEndpoint, signed)
-		// 5xx from the operator counts as a breaker-trippable
+	err := deps.LedgerBreaker.Call(func() error {
+		submitToLedger(cap, deps.LedgerEndpoint, signed)
+		// 5xx from the ledger counts as a breaker-trippable
 		// failure. 4xx is the caller's problem and does NOT
-		// trip the breaker (the operator is healthy; the request
+		// trip the breaker (the ledger is healthy; the request
 		// was bad).
 		if cap.status >= 500 {
-			return fmt.Errorf("operator returned %d", cap.status)
+			return fmt.Errorf("ledger returned %d", cap.status)
 		}
 		return nil
 	})
 
 	result := classifyResult(err)
-	if deps.OperatorMetrics != nil {
-		deps.OperatorMetrics.Observe(
+	if deps.LedgerMetrics != nil {
+		deps.LedgerMetrics.Observe(
 			time.Since(start).Seconds(),
 			result,
-			deps.OperatorBreaker.State(),
+			deps.LedgerBreaker.State(),
 		)
 	}
 
 	if errors.Is(err, reliability.ErrCircuitOpen) {
 		// Breaker is open — fast-fail with 503. Don't replay
 		// cap (it never ran the inner submit).
-		http.Error(w, `{"error":"operator circuit open; retry later"}`,
+		http.Error(w, `{"error":"ledger circuit open; retry later"}`,
 			http.StatusServiceUnavailable)
 		return
 	}
@@ -95,12 +96,12 @@ func classifyResult(err error) string {
 	return "error"
 }
 
-// capturingResponseWriter buffers everything submitToOperator
+// capturingResponseWriter buffers everything submitToLedger
 // writes so the protected wrapper can inspect status (for breaker
 // fail/pass classification) before replaying to the real
 // http.ResponseWriter. Implementation is deliberately small —
 // status + headers + body buffer. No chunked-encoding complexity
-// because submitToOperator's response is a single small JSON
+// because submitToLedger's response is a single small JSON
 // document.
 type capturingResponseWriter struct {
 	status  int

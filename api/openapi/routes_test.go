@@ -2,15 +2,16 @@
 FILE PATH: api/openapi/routes_test.go
 
 DESCRIPTION:
-    Canonical (method, path) table of every route the composer's
-    BuildHandler registers across api/judicial, api/exchange,
-    api/verification, and the composer itself. Lives in its own file
-    so spec_test.go stays focused on the validation harness.
 
-    Drift detection: TestSpec_DocumentedPathsMatchRegisteredRoutes
-    cross-checks this list against the spec. Any addition to the
-    composer's mux MUST land here AND in openapi.yaml in the same
-    change.
+	Canonical (method, path) table of every route the composer's
+	BuildHandler registers across api/judicial, api/exchange,
+	api/verification, and the composer itself. Lives in its own file
+	so spec_test.go stays focused on the validation harness.
+
+	Drift detection: TestSpec_DocumentedPathsMatchRegisteredRoutes
+	cross-checks this list against the spec. Any addition to the
+	composer's mux MUST land here AND in openapi.yaml in the same
+	change.
 */
 package openapi
 
@@ -106,7 +107,7 @@ var registeredRoutes = []routePattern{
 	{method: "POST", path: "/v1/judicial/topology/publish-anchor"},
 	{method: "GET", path: "/v1/judicial/topology/anchor-chain"},
 
-	// Escrow recovery (Phase 10)
+	// Escrow recovery
 	{method: "POST", path: "/v1/judicial/escrow/recovery/initiate"},
 	{method: "POST", path: "/v1/judicial/escrow/migration/record"},
 	{method: "POST", path: "/v1/judicial/escrow/recovery/collect-share"},

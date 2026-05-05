@@ -22,7 +22,7 @@ func SignerDIDFromContext(ctx context.Context) string {
 // Supports two modes:
 //
 //	mTLS: DID extracted from client certificate SAN (CMS systems like Tyler Odyssey)
-//	SSO:  DID resolved from Bearer token via court SSO (human operators)
+//	SSO:  DID resolved from Bearer token via court SSO (human ledgers)
 //
 // Downstream handlers receive the signer DID in context regardless of auth mode.
 func AuthMiddleware(cfg common.Config) func(http.Handler) http.Handler {

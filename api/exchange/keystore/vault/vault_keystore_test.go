@@ -2,11 +2,12 @@
 FILE PATH: api/exchange/keystore/vault/vault_keystore_test.go
 
 DESCRIPTION:
-    Constructor + lifecycle + helper tests for the Vault Transit
-    keystore. Curve-specific round-trips live in
-    vault_secp256k1_test.go and vault_ed25519_test.go; the
-    cross-backend conformance run lives in vault_conformance_test.go;
-    the in-process Vault mock lives in vault_fakeserver_test.go.
+
+	Constructor + lifecycle + helper tests for the Vault Transit
+	keystore. Curve-specific round-trips live in
+	vault_secp256k1_test.go and vault_ed25519_test.go; the
+	cross-backend conformance run lives in vault_conformance_test.go;
+	the in-process Vault mock lives in vault_fakeserver_test.go.
 */
 package vault
 

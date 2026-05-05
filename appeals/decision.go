@@ -2,13 +2,14 @@
 FILE PATH: appeals/decision.go
 DESCRIPTION: Appellate decision entry via Path B delegation chain.
 KEY ARCHITECTURAL DECISIONS:
-    - AssemblePathB resolves appellate judge's delegation chain.
-    - BuildPathBEntry for the decision entry.
-    - Attaches opinion document via PublishArtifact.
-    - Uses existing case schema (no dedicated appellate schema).
-    - Outcome field determines downstream effect (mandate.go).
+  - AssemblePathB resolves appellate judge's delegation chain.
+  - BuildPathBEntry for the decision entry.
+  - Attaches opinion document via PublishArtifact.
+  - Uses existing case schema (no dedicated appellate schema).
+  - Outcome field determines downstream effect (mandate.go).
+
 OVERVIEW: RecordDecision → Path B entry with opinion artifact.
-KEY DEPENDENCIES: ortholog-sdk/builder, cases/artifact
+KEY DEPENDENCIES: attesta/builder, cases/artifact
 */
 package appeals
 
@@ -16,20 +17,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )
 
 type DecisionConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination        string // DID of target exchange. Required.
 	JudgeDID           string
 	AppealCaseRootPos  types.LogPosition
 	CandidatePositions []types.LogPosition
@@ -41,7 +42,7 @@ type DecisionConfig struct {
 }
 
 type DecisionResult struct {
-	DecisionEntry *envelope.Entry
+	DecisionEntry   *envelope.Entry
 	OpinionArtifact *artifact.PublishedArtifact
 }
 
@@ -109,7 +110,7 @@ func RecordDecision(
 	}
 
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
-		Destination: cfg.Destination,
+		Destination:        cfg.Destination,
 		SignerDID:          cfg.JudgeDID,
 		TargetRoot:         cfg.AppealCaseRootPos,
 		DelegationPointers: assembly.DelegationPointers,

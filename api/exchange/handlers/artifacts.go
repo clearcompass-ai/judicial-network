@@ -2,19 +2,20 @@
 FILE PATH: exchange/handlers/artifacts.go
 
 DESCRIPTION:
-    Artifact lifecycle handlers. The exchange encrypts plaintext
-    locally, computes CID, pushes ciphertext to the artifact store,
-    and returns metadata for the caller to embed in entry Domain Payload.
 
-    POST /v1/artifacts/publish     → encrypt + push → { cid, digest, key }
-    POST /v1/artifacts/{cid}/grant → build + sign + submit grant entry
+	Artifact lifecycle handlers. The exchange encrypts plaintext
+	locally, computes CID, pushes ciphertext to the artifact store,
+	and returns metadata for the caller to embed in entry Domain Payload.
+
+	POST /v1/artifacts/publish     → encrypt + push → { cid, digest, key }
+	POST /v1/artifacts/{cid}/grant → build + sign + submit grant entry
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/crypto/artifact: Encrypt (guide §14)
-    - ortholog-sdk/storage: ComputeCID (guide §8.1)
-    - ortholog-sdk/crypto: SHA256 (guide §12)
-    - ortholog-sdk/lifecycle: GrantArtifactAccess, CheckGrantAuthorization
-      (guide §20.4)
+  - attesta/crypto/artifact: Encrypt (guide §14)
+  - attesta/storage: ComputeCID (guide §8.1)
+  - attesta/crypto: SHA256 (guide §12)
+  - attesta/lifecycle: GrantArtifactAccess, CheckGrantAuthorization
+    (guide §20.4)
 */
 package handlers
 
@@ -28,9 +29,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/storage"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 )
@@ -45,7 +46,7 @@ func NewArtifactPublishHandler(deps *Dependencies) *ArtifactPublishHandler {
 
 // maxArtifactPlaintextBytes caps the plaintext size accepted by
 // the publish endpoint. Sized for the largest expected court filing
-// PDF (16 MiB typical, 64 MiB ceiling). Mirrors operator BUG #3:
+// PDF (16 MiB typical, 64 MiB ceiling). Mirrors ledger BUG #3:
 // http.MaxBytesReader detects overflow as *http.MaxBytesError and
 // the handler returns 413, rather than silently truncating to a
 // downstream encryption / CID-mismatch error with no attribution.
@@ -85,7 +86,7 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	// Push ciphertext to artifact store via the SDK's
 	// storage.HTTPContentStore. Per the architecture spec, the
-	// judicial-network never imports ortholog-artifact-store/
+	// judicial-network never imports attesta-artifact-store/
 	// directly — every wire call to it goes through the SDK's
 	// ContentStore interface. The SDK owns:
 	//   - URL shape (POST /v1/artifacts)
@@ -174,8 +175,8 @@ func (h *ArtifactGrantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	signed := append(entryBytes, sig...)
 
-	// Submit to operator via shared SDK-tuned client (see
-	// management.go::operatorSubmitClient) plus Phase 14 breaker
-	// + Phase 15 metrics when wired.
-	submitToOperatorProtected(w, h.deps, signed)
+	// Submit to ledger via shared SDK-tuned client (see
+	// management.go::ledgerSubmitClient) plus  breaker
+	// +  metrics when wired.
+	submitToLedgerProtected(w, h.deps, signed)
 }

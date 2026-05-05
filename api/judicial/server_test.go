@@ -2,18 +2,19 @@
 FILE PATH: api/judicial/server_test.go
 
 DESCRIPTION:
-    Foundation tests for api/judicial. Pinned properties:
 
-      1. BuildHandler returns a non-nil http.Handler with the
-         expected stand-alone /v1/judicial/healthz route.
-      2. NewServer wraps BuildHandler with a configured http.Server;
-         Start / Shutdown round-trip works.
-      3. SetCallerDIDResolver wires + un-wires the auth lookup hook;
-         a nil resolver is a no-op (defaults to empty-string).
-      4. requireCaller / decodeJSON / writeJSON / writeError emit the
-         documented wire shapes (200/400/401 + JSON body).
-      5. buildResponse JSON shape is stable: signing_payload,
-         entry_bytes, header — exactly those keys, no more, no less.
+	Foundation tests for api/judicial. Pinned properties:
+
+	  1. BuildHandler returns a non-nil http.Handler with the
+	     expected stand-alone /v1/judicial/healthz route.
+	  2. NewServer wraps BuildHandler with a configured http.Server;
+	     Start / Shutdown round-trip works.
+	  3. SetCallerDIDResolver wires + un-wires the auth lookup hook;
+	     a nil resolver is a no-op (defaults to empty-string).
+	  4. requireCaller / decodeJSON / writeJSON / writeError emit the
+	     documented wire shapes (200/400/401 + JSON body).
+	  5. buildResponse JSON shape is stable: signing_payload,
+	     entry_bytes, header — exactly those keys, no more, no less.
 */
 package judicial
 

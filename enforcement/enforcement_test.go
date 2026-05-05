@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 const (
-	judgeDID   = "did:web:exchange:davidson:role:judge-mcclendon"
-	courtDID   = "did:web:courts.nashville.gov"
+	judgeDID    = "did:web:exchange:davidson:role:judge-mcclendon"
+	courtDID    = "did:web:courts.nashville.gov"
 	casesLogDID = "did:web:courts.nashville.gov:cases"
 )
 
@@ -36,7 +36,7 @@ func TestSealingOrder_PathC_Enforcement(t *testing.T) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos(),
 		ScopePointer: scopePos(),
@@ -93,7 +93,7 @@ func TestUnsealingOrder_PathC_Enforcement(t *testing.T) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos(),
 		ScopePointer: scopePos(),
@@ -120,7 +120,7 @@ func TestSealingOrder_WithEvidencePointers(t *testing.T) {
 	evidencePos := types.LogPosition{LogDID: casesLogDID, Sequence: 50}
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:      "did:web:exchange.test",
 		SignerDID:        judgeDID,
 		TargetRoot:       casePos(),
 		ScopePointer:     scopePos(),
@@ -145,7 +145,7 @@ func TestSealingOrder_WithPriorAuthority(t *testing.T) {
 	priorPos := types.LogPosition{LogDID: casesLogDID, Sequence: 80}
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:    "did:web:exchange.test",
 		SignerDID:      judgeDID,
 		TargetRoot:     casePos(),
 		ScopePointer:   scopePos(),
@@ -168,7 +168,7 @@ func TestSealingOrder_WithPriorAuthority(t *testing.T) {
 
 func TestEnforcement_MissingTargetRoot_Rejected(t *testing.T) {
 	_, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		ScopePointer: scopePos(),
 		Payload:      []byte("{}"),
@@ -183,9 +183,9 @@ func TestEnforcement_MissingTargetRoot_Rejected(t *testing.T) {
 func TestEnforcement_MissingScopePointer_Rejected(t *testing.T) {
 	_, err := builder.BuildEnforcement(builder.EnforcementParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  judgeDID,
-		TargetRoot: casePos(),
-		Payload:    []byte("{}"),
+		SignerDID:   judgeDID,
+		TargetRoot:  casePos(),
+		Payload:     []byte("{}"),
 	})
 	if err == nil {
 		t.Fatal("expected error for missing ScopePointer")
@@ -205,7 +205,7 @@ func TestExpungementOrder_EntryShape(t *testing.T) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos(),
 		ScopePointer: scopePos(),
@@ -237,7 +237,7 @@ func TestJuvenileAutoSeal_ImmediateActivation(t *testing.T) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos(),
 		ScopePointer: scopePos(),
@@ -261,7 +261,7 @@ func TestJuvenileAutoSeal_ImmediateActivation(t *testing.T) {
 
 func TestEnforcement_SerializeRoundtrip(t *testing.T) {
 	original, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   casePos(),
 		ScopePointer: scopePos(),

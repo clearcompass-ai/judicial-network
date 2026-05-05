@@ -2,14 +2,15 @@
 FILE PATH: jurisdiction/appellate_vocab_test.go
 
 DESCRIPTION:
-    Unit tests for AppellateVocab. Covers:
 
-      - EmptyAppellateVocab returns empty closed sets.
-      - Knows* predicates return correct membership for empty,
-        nil, and populated vocabs.
-      - The contains helper handles nil and empty inputs.
-      - A test stub (stubVocab) demonstrates the interface
-        contract for future per-jurisdiction implementations.
+	Unit tests for AppellateVocab. Covers:
+
+	  - EmptyAppellateVocab returns empty closed sets.
+	  - Knows* predicates return correct membership for empty,
+	    nil, and populated vocabs.
+	  - The contains helper handles nil and empty inputs.
+	  - A test stub (stubVocab) demonstrates the interface
+	    contract for future per-jurisdiction implementations.
 */
 package jurisdiction
 

@@ -2,19 +2,20 @@
 FILE PATH: deployments/tn/coa/bundle_test.go
 
 DESCRIPTION:
-    Tests pinning the TN COA Bundle composer:
-      - ExchangeDID matches the convention
-        (did:web:state:tn:coa).
-      - MustBundle does not panic and returns non-nil surfaces.
-      - jurisdiction.Validate accepts the shipped Bundle.
-      - The composer's surfaces match the underlying file fixtures
-        (proves zero drift).
-      - AppellateVocabulary is populated (v1.8 §7B).
-      - The placeholder AuthorityChainResolver fails closed.
-      - Registry round-trip works.
-      - BundleProvider returns the same Bundle.
-      - Side-by-side registration with Davidson works
-        (different ExchangeDIDs co-exist).
+
+	Tests pinning the TN COA Bundle composer:
+	  - ExchangeDID matches the convention
+	    (did:web:state:tn:coa).
+	  - MustBundle does not panic and returns non-nil surfaces.
+	  - jurisdiction.Validate accepts the shipped Bundle.
+	  - The composer's surfaces match the underlying file fixtures
+	    (proves zero drift).
+	  - AppellateVocabulary is populated (v1.8 §7B).
+	  - The placeholder AuthorityChainResolver fails closed.
+	  - Registry round-trip works.
+	  - BundleProvider returns the same Bundle.
+	  - Side-by-side registration with Davidson works
+	    (different ExchangeDIDs co-exist).
 */
 package coa
 

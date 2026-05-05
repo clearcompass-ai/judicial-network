@@ -18,7 +18,7 @@ Why a separate package, not more handlers in api/exchange:
     into api/exchange would break that.
 
   - Separation of concerns. api/exchange knows about envelope shape,
-    signing, and operator submission. api/judicial knows about
+    signing, and ledger submission. api/judicial knows about
     dockets, sealing orders, appellate mandates, sealed party
     bindings, and the cosignature mix per event type. Both layers
     plug in via their own ServerConfig; the composer (api/server.go)
@@ -31,25 +31,25 @@ Why a separate package, not more handlers in api/exchange:
 
 Wire model — every handler does the SAME three things:
 
-  1. Authenticate the caller via composer-level middleware (Phase 5
-     mTLS or JWT). The callerDID is read from
-     middleware.CallerDIDFromContext.
+ 1. Authenticate the caller via composer-level middleware (
+    mTLS or JWT). The callerDID is read from
+    middleware.CallerDIDFromContext.
 
-  2. Decode the JSON request body into the matching domain Config
-     struct (e.g., POST /v1/judicial/cases → cases.InitiationConfig).
-     Required fields are validated by the domain function itself; the
-     handler surfaces ErrInvalidRequest on JSON decode failure.
+ 2. Decode the JSON request body into the matching domain Config
+    struct (e.g., POST /v1/judicial/cases → cases.InitiationConfig).
+    Required fields are validated by the domain function itself; the
+    handler surfaces ErrInvalidRequest on JSON decode failure.
 
-  3. Call the domain function to BUILD the entry (the handler does
-     NOT sign or submit). Return the signing payload as JSON:
+ 3. Call the domain function to BUILD the entry (the handler does
+    NOT sign or submit). Return the signing payload as JSON:
 
-         { "entry_bytes": <base64>, "signing_payload": <base64>,
-           "header": { "destination": "...", "signer_did": "...",
-                       "schema_ref": ..., ... } }
+    { "entry_bytes": <base64>, "signing_payload": <base64>,
+    "header": { "destination": "...", "signer_did": "...",
+    "schema_ref": ..., ... } }
 
-     The caller takes signing_payload, hashes it with SHA-256,
-     signs the digest with their SCW (or external signer), then
-     POSTs to /v1/entries/submit with the signed envelope bytes.
+    The caller takes signing_payload, hashes it with SHA-256,
+    signs the digest with their SCW (or external signer), then
+    POSTs to /v1/entries/submit with the signed envelope bytes.
 
 This split is THE SCW-only flow:
 

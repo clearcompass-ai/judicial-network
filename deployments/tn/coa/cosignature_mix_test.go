@@ -2,18 +2,19 @@
 FILE PATH: deployments/tn/coa/cosignature_mix_test.go
 
 DESCRIPTION:
-    Tests for the TN COA cosignature-mix fixture. Pins:
-      - Every rule validates structurally.
-      - The vocabulary covers the v1.8 §7B appellate event
-        family.
-      - appellate_disposition requires ≥2 cosigners (panel
-        invariant).
-      - remand_affirmance is cross-exchange (cross-network ref
-        to trial root).
-      - No AllowedFilerRoles anywhere — appellate motions
-        originate at trial.
-      - Personnel events require ≥2 cosigners and are
-        intra-exchange.
+
+	Tests for the TN COA cosignature-mix fixture. Pins:
+	  - Every rule validates structurally.
+	  - The vocabulary covers the v1.8 §7B appellate event
+	    family.
+	  - appellate_disposition requires ≥2 cosigners (panel
+	    invariant).
+	  - remand_affirmance is cross-exchange (cross-network ref
+	    to trial root).
+	  - No AllowedFilerRoles anywhere — appellate motions
+	    originate at trial.
+	  - Personnel events require ≥2 cosigners and are
+	    intra-exchange.
 */
 package coa
 

@@ -2,14 +2,15 @@
 FILE PATH: api/exchange/keystore/vault/vault_ed25519.go
 
 DESCRIPTION:
-    Ed25519 surface for the Vault Transit backend. Ed25519 is the
-    legacy curve in the keystore.KeyStore contract; the protocol curve
-    is secp256k1. Ed25519 paths remain wired so the operator's
-    institutional bootstrap key (which historically uses Ed25519) keeps
-    working while the protocol path moves to secp256k1.
 
-    Vault Transit Ed25519 returns raw 64-byte signatures (no marshaling
-    flag) and accepts the input as base64.
+	Ed25519 surface for the Vault Transit backend. Ed25519 is the
+	legacy curve in the keystore.KeyStore contract; the protocol curve
+	is secp256k1. Ed25519 paths remain wired so the ledger's
+	institutional bootstrap key (which historically uses Ed25519) keeps
+	working while the protocol path moves to secp256k1.
+
+	Vault Transit Ed25519 returns raw 64-byte signatures (no marshaling
+	flag) and accepts the input as base64.
 */
 package vault
 

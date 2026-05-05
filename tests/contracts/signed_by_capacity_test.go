@@ -2,36 +2,37 @@
 FILE PATH: tests/contracts/signed_by_capacity_test.go
 
 DESCRIPTION:
-    Phase 3D.signed-by end-to-end contract tests. Pins the
-    payload-symmetry guarantee: a writer who embeds
-    `signed_by_capacities` alongside `filed_by_capacity` produces
-    an entry that the verifier can validate WITHOUT any external
-    role-lookup state — just PayloadRoleResolver reading the entry's
-    own bytes.
 
-    Why this matters: pre-3D.signed-by, the verifier needed an
-    off-log directory.OfficerRegistry (deleted in 3D.cleanup-1) or a
-    test-only MapRoleResolver to map cosigner DID → role + exchange.
-    With signed_by_capacities embedded in the payload, the on-log
-    bytes ARE the truth. No registry; no shared mutable state. The
-    aggregator (Phase 3E) reads it; the verifier reads it; both see
-    the same source.
+	.signed-by end-to-end contract tests. Pins the
+	payload-symmetry guarantee: a writer who embeds
+	`signed_by_capacities` alongside `filed_by_capacity` produces
+	an entry that the verifier can validate WITHOUT any external
+	role-lookup state — just PayloadRoleResolver reading the entry's
+	own bytes.
 
-    Pins the round-trip:
-      - Happy path: writer embeds signed_by_capacities; verifier
-        succeeds with PayloadRoleResolver as the only role source.
-      - Cosigner not declared in signed_by_capacities: verifier
-        rejects (InsufficientSigners — the unknown DID does not
-        count toward the threshold).
-      - Cosigner declared but from the wrong exchange under an
-        intra-exchange-only rule: verifier rejects with
-        ExchangeMismatch.
+	Why this matters: pre-3D.signed-by, the verifier needed an
+	off-log directory.OfficerRegistry (deleted in 3D.cleanup-1) or a
+	test-only MapRoleResolver to map cosigner DID → role + exchange.
+	With signed_by_capacities embedded in the payload, the on-log
+	bytes ARE the truth. No registry; no shared mutable state. The
+	aggregator reads it; the verifier reads it; both see
+	the same source.
+
+	Pins the round-trip:
+	  - Happy path: writer embeds signed_by_capacities; verifier
+	    succeeds with PayloadRoleResolver as the only role source.
+	  - Cosigner not declared in signed_by_capacities: verifier
+	    rejects (InsufficientSigners — the unknown DID does not
+	    count toward the threshold).
+	  - Cosigner declared but from the wrong exchange under an
+	    intra-exchange-only rule: verifier rejects with
+	    ExchangeMismatch.
 
 KEY DEPENDENCIES:
-    - delegation.SignAndSubmitCosigned (write).
-    - verification.PayloadRoleResolver  (production resolver).
-    - verification.CheckCosignature     (read).
-    - policy.MustDavidsonPolicy         (rule fixture).
+  - delegation.SignAndSubmitCosigned (write).
+  - verification.PayloadRoleResolver  (production resolver).
+  - verification.CheckCosignature     (read).
+  - policy.MustDavidsonPolicy         (rule fixture).
 */
 package contracts
 

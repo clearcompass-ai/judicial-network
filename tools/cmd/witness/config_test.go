@@ -2,12 +2,13 @@
 FILE PATH: tools/cmd/witness/config_test.go
 
 DESCRIPTION:
-    Pins LoadConfig + Validate:
-      1. Missing file path → clear error.
-      2. Malformed JSON → clear error.
-      3. Default poll interval applied when zero.
-      4. Validate enforces witness_did, witness_key_file, log_dids,
-         operators map populated, and operator-per-log coverage.
+
+	Pins LoadConfig + Validate:
+	  1. Missing file path → clear error.
+	  2. Malformed JSON → clear error.
+	  3. Default poll interval applied when zero.
+	  4. Validate enforces witness_did, witness_key_file, log_dids,
+	     ledgers map populated, and ledger-per-log coverage.
 */
 package main
 
@@ -49,7 +50,7 @@ func TestLoadConfig_AppliesDefaultPollInterval(t *testing.T) {
 		"witness_did":      "did:web:w",
 		"witness_key_file": "/etc/k",
 		"log_dids":         []string{"did:web:x"},
-		"operators":        map[string]string{"did:web:x": "http://op"},
+		"ledgers":          map[string]string{"did:web:x": "http://op"},
 	})
 	cfg, err := LoadConfig(path)
 	if err != nil {
@@ -69,7 +70,7 @@ func TestValidate_HappyPath(t *testing.T) {
 		WitnessDID:     "did:web:w",
 		WitnessKeyFile: "/etc/k",
 		LogDIDs:        []string{"did:web:x"},
-		Operators:      map[string]string{"did:web:x": "http://op"},
+		Ledgers:        map[string]string{"did:web:x": "http://op"},
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("Validate: %v", err)
@@ -81,7 +82,7 @@ func TestValidate_RejectsMissingFields(t *testing.T) {
 		WitnessDID:     "did:web:w",
 		WitnessKeyFile: "/etc/k",
 		LogDIDs:        []string{"did:web:x"},
-		Operators:      map[string]string{"did:web:x": "http://op"},
+		Ledgers:        map[string]string{"did:web:x": "http://op"},
 	}
 	cases := []struct {
 		mod  func(*Config)
@@ -90,7 +91,7 @@ func TestValidate_RejectsMissingFields(t *testing.T) {
 		{func(c *Config) { c.WitnessDID = "" }, "witness_did"},
 		{func(c *Config) { c.WitnessKeyFile = "" }, "witness_key_file"},
 		{func(c *Config) { c.LogDIDs = nil }, "log_did"},
-		{func(c *Config) { c.Operators = nil }, "operators"},
+		{func(c *Config) { c.Ledgers = nil }, "ledgers"},
 	}
 	for _, c := range cases {
 		cfg := base
@@ -102,12 +103,12 @@ func TestValidate_RejectsMissingFields(t *testing.T) {
 	}
 }
 
-func TestValidate_LogWithoutOperator(t *testing.T) {
+func TestValidate_LogWithoutLedger(t *testing.T) {
 	cfg := Config{
 		WitnessDID:     "did:web:w",
 		WitnessKeyFile: "/etc/k",
 		LogDIDs:        []string{"did:web:x", "did:web:y"},
-		Operators:      map[string]string{"did:web:x": "http://op"}, // y missing
+		Ledgers:        map[string]string{"did:web:x": "http://op"}, // y missing
 	}
 	if err := cfg.Validate(); err == nil ||
 		!strings.Contains(err.Error(), "did:web:y") {

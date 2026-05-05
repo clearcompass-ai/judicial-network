@@ -2,35 +2,36 @@
 FILE PATH: tests/contracts/davidson_scw_e2e_test.go
 
 DESCRIPTION:
-    Davidson County smart-contract-wallet end-to-end test. Pins the
-    production-validation contract for an SCW-identified caller
-    driving the daily-clerk flow against the **composed JN listener**
-    (api.NewServer):
 
-      1. Composer up; Davidson Bundle registered.
-      2. SCW caller (did:pkh:eip155:1:0x<scw-addr>) invokes
-         POST /v1/judicial/cases — composer routes to the judicial
-         handler which returns a BuildResponse carrying the unsigned
-         entry's signing payload.
-      3. Caller hashes signing_payload (SHA-256), signs with the
-         controlling EOA via the Phase 8b signer.Adapter (output
-         is 65-byte Ethereum-format r||s||v).
-      4. Caller wraps via signatures.PackMinimalSCWSignature → the
-         opaque contract-signature bytes for MinimalSCW.isValidSignature.
-      5. Caller rebuilds the unsigned entry locally (drift detector:
-         the API's signing_payload MUST equal what envelope.SigningPayload
-         produces from the same inputs).
-      6. Caller attaches an EIP-1271 envelope.Signature, validates
-         the entry, and runs it through did.DefaultVerifierRegistryWithRPC
-         with a stubbed eth_call binding to the canonical magic value
-         — the verifier registry MUST accept.
+	Davidson County smart-contract-wallet end-to-end test. Pins the
+	production-validation contract for an SCW-identified caller
+	driving the daily-clerk flow against the **composed JN listener**
+	(api.NewServer):
 
-    Negative paths pinned in this file:
-      - Wrong eth_call return → ErrEIP1271InvalidMagic.
-      - Empty caller DID → 401.
+	  1. Composer up; Davidson Bundle registered.
+	  2. SCW caller (did:pkh:eip155:1:0x<scw-addr>) invokes
+	     POST /v1/judicial/cases — composer routes to the judicial
+	     handler which returns a BuildResponse carrying the unsigned
+	     entry's signing payload.
+	  3. Caller hashes signing_payload (SHA-256), signs with the
+	     controlling EOA via the  signer.Adapter (output
+	     is 65-byte Ethereum-format r||s||v).
+	  4. Caller wraps via signatures.PackMinimalSCWSignature → the
+	     opaque contract-signature bytes for MinimalSCW.isValidSignature.
+	  5. Caller rebuilds the unsigned entry locally (drift detector:
+	     the API's signing_payload MUST equal what envelope.SigningPayload
+	     produces from the same inputs).
+	  6. Caller attaches an EIP-1271 envelope.Signature, validates
+	     the entry, and runs it through did.DefaultVerifierRegistryWithRPC
+	     with a stubbed eth_call binding to the canonical magic value
+	     — the verifier registry MUST accept.
 
-    Harness, helpers, and the rebuilder live in
-    davidson_scw_e2e_setup_test.go.
+	Negative paths pinned in this file:
+	  - Wrong eth_call return → ErrEIP1271InvalidMagic.
+	  - Empty caller DID → 401.
+
+	Harness, helpers, and the rebuilder live in
+	davidson_scw_e2e_setup_test.go.
 */
 package contracts
 
@@ -45,9 +46,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/did"
 
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 )
@@ -105,7 +106,7 @@ func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 			resp.Header.Destination, scwE2EDestination)
 	}
 
-	// 4. Hash signing_payload, sign with controlling EOA (Phase 8b),
+	// 4. Hash signing_payload, sign with controlling EOA,
 	// pack as MinimalSCW EIP-1271 contract-sig bytes.
 	digest := sha256.Sum256(signingPayload)
 	ownerSig, err := h.signer.Sign(digest)

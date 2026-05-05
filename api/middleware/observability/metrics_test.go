@@ -2,13 +2,14 @@
 FILE PATH: api/middleware/observability/metrics_test.go
 
 DESCRIPTION:
-    Pins the Prometheus metrics middleware:
-      1. A 200 response increments jn_http_requests_total{...,status="2xx"}.
-      2. A 500 response increments {...,status="5xx"}.
-      3. Duration histogram observes a sample per request.
-      4. In-flight gauge increments on entry and decrements on exit.
-      5. Handler() serves the registry as text/plain in
-         OpenMetrics format.
+
+	Pins the Prometheus metrics middleware:
+	  1. A 200 response increments jn_http_requests_total{...,status="2xx"}.
+	  2. A 500 response increments {...,status="5xx"}.
+	  3. Duration histogram observes a sample per request.
+	  4. In-flight gauge increments on entry and decrements on exit.
+	  5. Handler() serves the registry as text/plain in
+	     OpenMetrics format.
 */
 package observability
 

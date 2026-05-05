@@ -2,14 +2,15 @@
 FILE PATH: jurisdiction/authority_chain_resolver_test.go
 
 DESCRIPTION:
-    Unit tests for AuthorityChainResolver. Covers:
 
-      - DelegationRef.IsZero predicate.
-      - NoAuthorityChainResolver: returns non-nil; always rejects;
-        echoes SignerDID; uses the closed-set rejection token.
-      - A test stub (stubChainResolver) demonstrates the interface
-        contract for downstream package tests that need to inject
-        an OK or rejection without bringing in a real Bundle.
+	Unit tests for AuthorityChainResolver. Covers:
+
+	  - DelegationRef.IsZero predicate.
+	  - NoAuthorityChainResolver: returns non-nil; always rejects;
+	    echoes SignerDID; uses the closed-set rejection token.
+	  - A test stub (stubChainResolver) demonstrates the interface
+	    contract for downstream package tests that need to inject
+	    an OK or rejection without bringing in a real Bundle.
 */
 package jurisdiction
 

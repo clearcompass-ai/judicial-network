@@ -1,8 +1,10 @@
 /*
 FILE PATH: topology/network.go
 DESCRIPTION: Federal/state/county/municipal/tribal jurisdiction hierarchy.
-    Pure data model — no SDK calls. Defines the Tennessee judicial network
-    topology used by anchor_publisher.go and discovery.go.
+
+	Pure data model — no SDK calls. Defines the Tennessee judicial network
+	topology used by anchor_publisher.go and discovery.go.
+
 KEY ARCHITECTURAL DECISIONS: No SDK imports. Pure domain data types.
 OVERVIEW: JurisdictionLevel, JurisdictionNode, hierarchy traversal.
 KEY DEPENDENCIES: none (pure types)
@@ -13,7 +15,7 @@ package topology
 type JurisdictionLevel int
 
 const (
-	LevelFederal    JurisdictionLevel = iota
+	LevelFederal JurisdictionLevel = iota
 	LevelState
 	LevelCounty
 	LevelMunicipal
@@ -22,21 +24,21 @@ const (
 
 // JurisdictionNode represents one court or jurisdiction in the hierarchy.
 type JurisdictionNode struct {
-	DID        string            // DID of this jurisdiction's log
-	Name       string            // Human-readable name
-	Level      JurisdictionLevel // Position in hierarchy
-	ParentDID  string            // DID of parent jurisdiction (empty for root)
-	ChildDIDs  []string          // DIDs of child jurisdictions
-	AnchorDID  string            // DID of anchor log this court publishes to
-	Region     string            // Geographic region (e.g., "Middle Tennessee")
-	FIPSCode   string            // FIPS county code (for county level)
+	DID       string            // DID of this jurisdiction's log
+	Name      string            // Human-readable name
+	Level     JurisdictionLevel // Position in hierarchy
+	ParentDID string            // DID of parent jurisdiction (empty for root)
+	ChildDIDs []string          // DIDs of child jurisdictions
+	AnchorDID string            // DID of anchor log this court publishes to
+	Region    string            // Geographic region (e.g., "Middle Tennessee")
+	FIPSCode  string            // FIPS county code (for county level)
 }
 
 // Hierarchy is the complete jurisdiction tree rooted at the state level.
 type Hierarchy struct {
-	Root     *JurisdictionNode
-	ByDID    map[string]*JurisdictionNode
-	ByLevel  map[JurisdictionLevel][]*JurisdictionNode
+	Root    *JurisdictionNode
+	ByDID   map[string]*JurisdictionNode
+	ByLevel map[JurisdictionLevel][]*JurisdictionNode
 }
 
 // NewHierarchy creates an empty hierarchy.

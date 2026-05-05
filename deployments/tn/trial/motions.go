@@ -2,37 +2,39 @@
 FILE PATH: deployments/tn/trial/motions.go
 
 DESCRIPTION:
-    motionSpec — concise per-motion declaration that drives both
-    the cosignature mix AND the prerequisite policy from a single
-    source of truth. Each §3A–§3I file exposes one section's
-    motions as a slice of motionSpec; allMotions() concatenates
-    them so CosignatureRules() / PrerequisiteRules() can append
-    motion entries without per-motion boilerplate.
 
-    Defaults applied by the helpers:
-      - Cosig: court_clerk-signed, intra-exchange, MinSignerCosigners=1.
-      - Cosig RequiredCredentials: ["bpr_number"] unless overridden.
-      - Prereq: Hard case_initiated ancestor + every spec.AdditionalPrereqs.
+	motionSpec — concise per-motion declaration that drives both
+	the cosignature mix AND the prerequisite policy from a single
+	source of truth. Each §3A–§3I file exposes one section's
+	motions as a slice of motionSpec; allMotions() concatenates
+	them so CosignatureRules() / PrerequisiteRules() can append
+	motion entries without per-motion boilerplate.
 
-    The §3 catch-all motions (motion_pleading_general,
-    motion_dispositive_general, etc.) carry CustomTitleRequired=true
-    so the writer-side validator can reject empty custom_title fields
-    before the entry reaches the operator. The aggregator surfaces the
-    custom_title for read-side queries.
+	Defaults applied by the helpers:
+	  - Cosig: court_clerk-signed, intra-exchange, MinSignerCosigners=1.
+	  - Cosig RequiredCredentials: ["bpr_number"] unless overridden.
+	  - Prereq: Hard case_initiated ancestor + every spec.AdditionalPrereqs.
+
+	The §3 catch-all motions (motion_pleading_general,
+	motion_dispositive_general, etc.) carry CustomTitleRequired=true
+	so the writer-side validator can reject empty custom_title fields
+	before the entry reaches the ledger. The aggregator surfaces the
+	custom_title for read-side queries.
 
 OVERVIEW:
-    motionSpec                   per-motion declaration shape.
-    caseInitAncestor             shared Hard prereq.
-    allMotions                   union of every §3A–§3I file.
-    motionCosigRule              motionSpec → policy.CosignatureRule.
-    motionPrereqs                motionSpec → []prerequisites.Prereq.
-    motionCosignatureRules       allMotions → []policy.CosignatureRule.
-    motionPrerequisiteRules      allMotions → map[evt][]prerequisites.Prereq.
+
+	motionSpec                   per-motion declaration shape.
+	caseInitAncestor             shared Hard prereq.
+	allMotions                   union of every §3A–§3I file.
+	motionCosigRule              motionSpec → policy.CosignatureRule.
+	motionPrereqs                motionSpec → []prerequisites.Prereq.
+	motionCosignatureRules       allMotions → []policy.CosignatureRule.
+	motionPrerequisiteRules      allMotions → map[evt][]prerequisites.Prereq.
 
 KEY DEPENDENCIES:
-    - policy.CosignatureRule
-    - prerequisites.Prereq
-    - schemas.FilerRole
+  - policy.CosignatureRule
+  - prerequisites.Prereq
+  - schemas.FilerRole
 */
 package trial
 

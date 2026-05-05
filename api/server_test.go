@@ -2,20 +2,21 @@
 FILE PATH: api/server_test.go
 
 DESCRIPTION:
-    Coverage for the composer in server.go. Pinned properties:
 
-      1. Config validation: empty Addr, mTLS-without-TLS-material rejected.
-      2. Routing: /v1/verify/* → verification, /v1/* (non-verify) →
-         exchange, /healthz → composer-owned, unrecognized → 404.
-      3. Healthz returns 200 + body "ok".
-      4. Composer-owned /healthz wins over constituent /healthz under
-         composition (stand-alone constituents still serve theirs).
-      5. mTLS config: empty ClientCAFile is plain HTTPS (or HTTP);
-         non-empty enforces client-cert verification with TLS 1.3 min.
-      6. StartTLS without TLS material errors before listening.
-      7. Default timeouts apply when caller leaves them zero.
-      8. Handler() returns the composed handler tree (httptest-friendly).
-      9. Per-route delegation under -race is safe (no shared state).
+	Coverage for the composer in server.go. Pinned properties:
+
+	  1. Config validation: empty Addr, mTLS-without-TLS-material rejected.
+	  2. Routing: /v1/verify/* → verification, /v1/* (non-verify) →
+	     exchange, /healthz → composer-owned, unrecognized → 404.
+	  3. Healthz returns 200 + body "ok".
+	  4. Composer-owned /healthz wins over constituent /healthz under
+	     composition (stand-alone constituents still serve theirs).
+	  5. mTLS config: empty ClientCAFile is plain HTTPS (or HTTP);
+	     non-empty enforces client-cert verification with TLS 1.3 min.
+	  6. StartTLS without TLS material errors before listening.
+	  7. Default timeouts apply when caller leaves them zero.
+	  8. Handler() returns the composed handler tree (httptest-friendly).
+	  9. Per-route delegation under -race is safe (no shared state).
 */
 package api
 
@@ -393,7 +394,7 @@ func TestNewServer_CustomTimeouts_Honored(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
-// Auth wiring (Phase 5)
+// Auth wiring
 // ─────────────────────────────────────────────────────────────────────
 
 // stubAuth is a deterministic Authenticator: when did != "", every
@@ -593,11 +594,11 @@ func writeTempPEM(t *testing.T, label string) string {
 		t.Fatalf("generate key: %v", err)
 	}
 	tmpl := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: label},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(24 * time.Hour),
-		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: label},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}

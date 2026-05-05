@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/parties_sealed_test.go
 
 DESCRIPTION:
-    Validation contracts for the sealed-binding handler. The
-    artifact-bearing happy path lands in C4 alongside the artifact
-    stack fixtures.
+
+	Validation contracts for the sealed-binding handler. The
+	artifact-bearing happy path lands in C4 alongside the artifact
+	stack fixtures.
 */
 package judicial
 

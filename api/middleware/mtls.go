@@ -2,37 +2,38 @@
 FILE PATH: api/middleware/mtls.go
 
 DESCRIPTION:
-    mTLS Authenticator. Reads the verified peer certificate from the
-    TLS connection and extracts the callerDID from a SAN URI of the
-    form did:*. The TLS handshake (already enforced by the listener
-    when ClientCAFile is configured at the composer) proves control
-    of the cert's private key; this middleware just lifts the proven
-    identity into the request context.
 
-    Wire format pinned: cert MUST have at least one URI SAN whose
-    string starts with "did:". The first did:-prefixed URI wins. No
-    other SAN type (DNS, email, IP) is consulted — DIDs are
-    URI-shaped and the cert MUST encode them in the URI SAN per
-    RFC 5280 §4.2.1.6.
+	mTLS Authenticator. Reads the verified peer certificate from the
+	TLS connection and extracts the callerDID from a SAN URI of the
+	form did:*. The TLS handshake (already enforced by the listener
+	when ClientCAFile is configured at the composer) proves control
+	of the cert's private key; this middleware just lifts the proven
+	identity into the request context.
 
-    Failure modes (all → 401, no body):
-      - No TLS connection (running plain HTTP behind a TLS-terminating
-        proxy without forwarded cert headers)
-      - No verified peer cert (handshake didn't complete or
-        ClientAuth is not RequireAndVerifyClientCert)
-      - Verified cert has no DID-shaped URI SAN
+	Wire format pinned: cert MUST have at least one URI SAN whose
+	string starts with "did:". The first did:-prefixed URI wins. No
+	other SAN type (DNS, email, IP) is consulted — DIDs are
+	URI-shaped and the cert MUST encode them in the URI SAN per
+	RFC 5280 §4.2.1.6.
 
-    Composer responsibility: the listener MUST be TLS-enabled with
-    tls.RequireAndVerifyClientCert. api/server.go's NewServer takes
-    care of this when ClientCAFile is set on Config. Middleware here
-    assumes the TLS layer already verified the cert chain.
+	Failure modes (all → 401, no body):
+	  - No TLS connection (running plain HTTP behind a TLS-terminating
+	    proxy without forwarded cert headers)
+	  - No verified peer cert (handshake didn't complete or
+	    ClientAuth is not RequireAndVerifyClientCert)
+	  - Verified cert has no DID-shaped URI SAN
 
-    Today this middleware shares semantics with
-    api/exchange/auth/mtls.ExtractDIDFromCert. We keep the two
-    distinct because the existing function lives in a per-handler
-    auth package whose lifecycle is tied to api/exchange specifically;
-    Phase 5 here is composer-level. They can converge in a future
-    cleanup once api/exchange/auth.SignerAuth is fully retired.
+	Composer responsibility: the listener MUST be TLS-enabled with
+	tls.RequireAndVerifyClientCert. api/server.go's NewServer takes
+	care of this when ClientCAFile is set on Config. Middleware here
+	assumes the TLS layer already verified the cert chain.
+
+	Today this middleware shares semantics with
+	api/exchange/auth/mtls.ExtractDIDFromCert. We keep the two
+	distinct because the existing function lives in a per-handler
+	auth package whose lifecycle is tied to api/exchange specifically;
+	 here is composer-level. They can converge in a future
+	cleanup once api/exchange/auth.SignerAuth is fully retired.
 */
 package middleware
 

@@ -2,20 +2,22 @@
 FILE PATH: tools/aggregator/parties_filings.go
 
 DESCRIPTION:
-    parties_filings indexer extension (3E.5). Walks every entry's
-    payload for filed_by_capacity (single block) and
-    signed_by_capacities (list) blocks and produces one row per
-    capacity for the parties_filings table.
 
-    The row-builder is a PURE FUNCTION over ClassifiedEntry —
-    testable without Postgres. The SQL writer is a thin wrapper
-    that takes the rows and INSERTs them, with ON CONFLICT
-    DO NOTHING for rescan idempotency.
+	parties_filings indexer extension (3E.5). Walks every entry's
+	payload for filed_by_capacity (single block) and
+	signed_by_capacities (list) blocks and produces one row per
+	capacity for the parties_filings table.
+
+	The row-builder is a PURE FUNCTION over ClassifiedEntry —
+	testable without Postgres. The SQL writer is a thin wrapper
+	that takes the rows and INSERTs them, with ON CONFLICT
+	DO NOTHING for rescan idempotency.
 
 OVERVIEW:
-    PartiesFilingRow            row shape produced by extraction.
-    BuildPartiesFilingRows      pure extractor.
-    Indexer.indexPartiesFilings SQL writer (calls extractor + db).
+
+	PartiesFilingRow            row shape produced by extraction.
+	BuildPartiesFilingRows      pure extractor.
+	Indexer.indexPartiesFilings SQL writer (calls extractor + db).
 */
 package aggregator
 

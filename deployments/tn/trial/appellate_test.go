@@ -2,13 +2,14 @@
 FILE PATH: deployments/tn/trial/appellate_test.go
 
 DESCRIPTION:
-    Tests for the TN trial AppellateVocabulary. Pins:
-      - Returns a non-nil AppellateVocab.
-      - All four closed sets (OpinionTypes, ParticipationRoles,
-        DispositionOutcomes, ReviewTypes) are empty — trial
-        courts never accept appellate_* payloads.
-      - The returned vocab agrees with the canonical
-        jurisdiction.EmptyAppellateVocab() factory.
+
+	Tests for the TN trial AppellateVocabulary. Pins:
+	  - Returns a non-nil AppellateVocab.
+	  - All four closed sets (OpinionTypes, ParticipationRoles,
+	    DispositionOutcomes, ReviewTypes) are empty — trial
+	    courts never accept appellate_* payloads.
+	  - The returned vocab agrees with the canonical
+	    jurisdiction.EmptyAppellateVocab() factory.
 */
 package trial
 

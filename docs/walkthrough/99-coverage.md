@@ -36,7 +36,7 @@ below with a one-paragraph "how to add" each.
 | Real `did:pkh:eip155` (web3) DIDs minted via `--method pkh-eip155` | §02 |
 | Mixed-method entries (did:key + did:pkh on the same log) | Case 1 trial step 4 |
 | EIP-191 wallet signing (`SigAlgoEIP191`, 65-byte r\|\|s\|\|v) | Case 1 trial step 4 |
-| Real two-operator topology (`make dev-up`) | §01 |
+| Real two-ledger topology (`make dev-up`) | §01 |
 | **Real** Google Cloud Storage bytestore (your own buckets) | §01 |
 | Sequence-number monotonicity per log | observable in `tree/head` after each step |
 
@@ -82,7 +82,7 @@ participation entries.
 
 ### Other natural extensions
 
-- **A third operator** — e.g., the TN Supreme Court (`$SUPCT`,
+- **A third ledger** — e.g., the TN Supreme Court (`$SUPCT`,
   port 8082). Adds a *second* cross-exchange hop: COA's opinion
   cited from a Sup Ct certiorari disposition. The
   `docker-compose.dev.yml` would gain one more service block;
@@ -93,7 +93,7 @@ participation entries.
 - **A multi-signer cosigned filing past 2 signers** — e.g., a
   joint-custody settlement signed by both parents' attorneys plus
   the judge plus the GAL. The `cosigner_keys` array supports
-  arbitrary count up to operator's per-entry signature limit.
+  arbitrary count up to ledger's per-entry signature limit.
 
 ## How to keep this matrix current
 
@@ -136,7 +136,7 @@ That's the whole story:
 - **Two real cases**, each told as a coherent narrative pairing the
   legal context with the technical action.
 - **Five real DIDs** minted from real secp256k1 keys.
-- **Two real operators** running on your laptop, talking to each
+- **Two real ledgers** running on your laptop, talking to each
   other through a public cross-pointer.
 - **Eleven of seventeen** payload schemas exercised, with the
   remaining six listed as one-spec extensions.
@@ -147,7 +147,7 @@ That's the whole story:
 Stop the topology when you're done:
 
 ```bash
-cd ~/ortholog/operator
+cd ~/attesta/ledger
 make dev-down
 ```
 

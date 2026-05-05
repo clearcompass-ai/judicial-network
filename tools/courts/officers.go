@@ -69,7 +69,7 @@ func (s *Server) RevokeOfficer(w http.ResponseWriter, r *http.Request) {
 	result, err := s.exchange.SubmitRevocation(
 		signerDID, s.cfg.OfficersLogDID, delegPos,
 		map[string]any{
-			"reason":     req.Reason,
+			"reason":      req.Reason,
 			"officer_did": officerDID,
 		},
 	)

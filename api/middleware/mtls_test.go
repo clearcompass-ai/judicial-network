@@ -2,18 +2,19 @@
 FILE PATH: api/middleware/mtls_test.go
 
 DESCRIPTION:
-    Coverage for MTLSAuth. Pinned properties:
 
-      1. Request without TLS connection -> 401, downstream NOT called.
-      2. TLS connection with no peer cert -> 401.
-      3. Verified cert with NO DID-shaped URI SAN -> 401.
-      4. Verified cert with DID URI SAN -> 200, callerDID injected,
-         downstream sees it via CallerDIDFromContext.
-      5. Multiple URI SANs: the first did:*-prefixed one wins (wire
-         contract is deterministic).
-      6. URI SAN that is NOT did:*-prefixed is skipped.
-      7. nil cert in slot 0 of PeerCertificates -> 401.
-      8. ExtractDIDFromCert on nil pointer -> "" (defensive).
+	Coverage for MTLSAuth. Pinned properties:
+
+	  1. Request without TLS connection -> 401, downstream NOT called.
+	  2. TLS connection with no peer cert -> 401.
+	  3. Verified cert with NO DID-shaped URI SAN -> 401.
+	  4. Verified cert with DID URI SAN -> 200, callerDID injected,
+	     downstream sees it via CallerDIDFromContext.
+	  5. Multiple URI SANs: the first did:*-prefixed one wins (wire
+	     contract is deterministic).
+	  6. URI SAN that is NOT did:*-prefixed is skipped.
+	  7. nil cert in slot 0 of PeerCertificates -> 401.
+	  8. ExtractDIDFromCert on nil pointer -> "" (defensive).
 */
 package middleware
 

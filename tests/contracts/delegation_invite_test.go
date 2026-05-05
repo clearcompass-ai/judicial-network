@@ -2,18 +2,19 @@
 FILE PATH: tests/contracts/delegation_invite_test.go
 
 DESCRIPTION:
-    Pins the hierarchical-invite-control invariants the role catalog
-    encodes for the Davidson deployment:
 
-      - Only chief_justice may grant judge.
-      - chief_justice or judge may grant court_clerk.
-      - Only judge may grant deputy_judge.
-      - Only court_clerk may grant court_staff.
-      - court_staff and deputy_judge may grant nothing.
+	Pins the hierarchical-invite-control invariants the role catalog
+	encodes for the Davidson deployment:
 
-    Each test drives a real delegation.Issue call and asserts either
-    success or ErrCatalogRejection — proves the on-write gate
-    matches the catalog's DelegableBy table.
+	  - Only chief_justice may grant judge.
+	  - chief_justice or judge may grant court_clerk.
+	  - Only judge may grant deputy_judge.
+	  - Only court_clerk may grant court_staff.
+	  - court_staff and deputy_judge may grant nothing.
+
+	Each test drives a real delegation.Issue call and asserts either
+	success or ErrCatalogRejection — proves the on-write gate
+	matches the catalog's DelegableBy table.
 */
 package contracts
 
@@ -141,7 +142,7 @@ func TestDelegationInvite_DeputyCannotGrantAnything(t *testing.T) {
 	deputyPos := f.issue(t, delegation.IssueRequest{
 		GranterDID: judgeDID, GranterRole: "judge", GranterDelegationRef: &judgePos,
 		GranteeDID: deputyDID, GranteeRole: "deputy_judge",
-		Scope:      []string{"case_filing", "docket_management"},
+		Scope: []string{"case_filing", "docket_management"},
 	})
 
 	// deputy_judge has DelegableScope=nil and is not in any role's

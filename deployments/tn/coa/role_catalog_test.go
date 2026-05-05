@@ -2,11 +2,12 @@
 FILE PATH: deployments/tn/coa/role_catalog_test.go
 
 DESCRIPTION:
-    Tests pinning the TN Court of Appeals role catalog. Pins
-    the v1.8 Authority Summary's appellate-Signer surface:
-    Adjudicator (chief_judge / judge), Clerk (court_clerk),
-    Deputy Clerk. NO chancellor / magistrate / court_staff —
-    those are trial-court constructs.
+
+	Tests pinning the TN Court of Appeals role catalog. Pins
+	the v1.8 Authority Summary's appellate-Signer surface:
+	Adjudicator (chief_judge / judge), Clerk (court_clerk),
+	Deputy Clerk. NO chancellor / magistrate / court_staff —
+	those are trial-court constructs.
 */
 package coa
 

@@ -2,29 +2,31 @@
 FILE PATH: parties/binding.go
 
 DESCRIPTION:
-    Party-case binding creation on the parties log. Per the v1.6
-    Event Dictionary (Phase 3D.cleanup-3): parties have NO DIDs.
-    The party_binding event mints a case-local `binding_id` as the
-    only public reference; the party's name (when public) is in
-    the payload's PartyName field.
+
+	Party-case binding creation on the parties log. Per the v1.6
+	Event Dictionary (.cleanup-3): parties have NO DIDs.
+	The party_binding event mints a case-local `binding_id` as the
+	only public reference; the party's name (when public) is in
+	the payload's PartyName field.
 
 KEY ARCHITECTURAL DECISIONS:
-    - BuildRootEntity for new bindings (creates SMT leaf on the
-      parties log).
-    - BuildAmendment for status changes (active → withdrawn →
-      dismissed).
-    - Domain Payload carries binding_id, party_class, party_name,
-      case_ref, status — all routed through the typed
-      schemas.PartyBindingPayload.
-    - Each binding is a root entity — not a sub-entity of the case.
+  - BuildRootEntity for new bindings (creates SMT leaf on the
+    parties log).
+  - BuildAmendment for status changes (active → withdrawn →
+    dismissed).
+  - Domain Payload carries binding_id, party_class, party_name,
+    case_ref, status — all routed through the typed
+    schemas.PartyBindingPayload.
+  - Each binding is a root entity — not a sub-entity of the case.
 
 OVERVIEW:
-    BindingConfig + CreateBinding → root entity.
-    UpdateBindingConfig + UpdateBinding → status amendment.
+
+	BindingConfig + CreateBinding → root entity.
+	UpdateBindingConfig + UpdateBinding → status amendment.
 
 KEY DEPENDENCIES:
-    - schemas.PartyBindingPayload (typed v1.6 shape).
-    - ortholog-sdk/builder (BuildRootEntity, BuildAmendment).
+  - schemas.PartyBindingPayload (typed v1.6 shape).
+  - attesta/builder (BuildRootEntity, BuildAmendment).
 */
 package parties
 
@@ -32,10 +34,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // BindingConfig configures a new party-case binding.
@@ -44,7 +46,7 @@ type BindingConfig struct {
 	SignerDID   string // Court clerk or authorized officer (Signer). Required.
 
 	// BindingID is the case-local mint (e.g., "p-001", "d-001").
-	// Required, unique per CaseRef. The aggregator (Phase 3E)
+	// Required, unique per CaseRef. The aggregator
 	// enforces case-local uniqueness; the writer is responsible
 	// for generating a non-colliding value.
 	BindingID string
@@ -57,9 +59,9 @@ type BindingConfig struct {
 	// empty otherwise. Optional.
 	PartyName string
 
-	CaseRef   string // Docket number. Required.
-	CaseDID   string // Cases log DID (cross-log reference). Optional.
-	CaseSeq   uint64 // Case root sequence on the cases log. Optional.
+	CaseRef string // Docket number. Required.
+	CaseDID string // Cases log DID (cross-log reference). Optional.
+	CaseSeq uint64 // Case root sequence on the cases log. Optional.
 
 	SchemaRef *types.LogPosition
 	EventTime int64

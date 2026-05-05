@@ -2,37 +2,39 @@
 FILE PATH: schemas/counsel_appearance.go
 
 DESCRIPTION:
-    tn-counsel-appearance-v1 — attorney goes on record as
-    representing one or more parties on a case root. Mints a
-    case-local `appearance_id`. Per v1.8 §1:
 
-      - The attorney has a network DID (recorded as
-        attorney_did); the represented parties are referenced
-        by their case-local binding_id values minted by prior
-        party_binding events on this case root.
-      - Withdrawals (counsel_withdrawal, motion_withdraw_counsel)
-        reference this event's appearance_id.
-      - The cosignature mix at the bundle requires court_clerk
-        cosignature; the attorney is a Filer (no signing key).
+	tn-counsel-appearance-v1 — attorney goes on record as
+	representing one or more parties on a case root. Mints a
+	case-local `appearance_id`. Per v1.8 §1:
+
+	  - The attorney has a network DID (recorded as
+	    attorney_did); the represented parties are referenced
+	    by their case-local binding_id values minted by prior
+	    party_binding events on this case root.
+	  - Withdrawals (counsel_withdrawal, motion_withdraw_counsel)
+	    reference this event's appearance_id.
+	  - The cosignature mix at the bundle requires court_clerk
+	    cosignature; the attorney is a Filer (no signing key).
 
 KEY ARCHITECTURAL DECISIONS:
-    - appearance_id is opaque to the log — the writer chooses
-      its shape (e.g. "ap-001"). Uniqueness is per case_ref;
-      the aggregator enforces case-local uniqueness.
-    - represents is a list of binding_id strings. The order is
-      preserved so the aggregator can reconstruct
-      attorney→party associations exactly.
-    - Per v1.8 prereq policy: case_initiated is Hard ancestor;
-      every binding_id in represents is Advisory ancestor
-      (legitimate cross-ordering occurs in real filings).
+  - appearance_id is opaque to the log — the writer chooses
+    its shape (e.g. "ap-001"). Uniqueness is per case_ref;
+    the aggregator enforces case-local uniqueness.
+  - represents is a list of binding_id strings. The order is
+    preserved so the aggregator can reconstruct
+    attorney→party associations exactly.
+  - Per v1.8 prereq policy: case_initiated is Hard ancestor;
+    every binding_id in represents is Advisory ancestor
+    (legitimate cross-ordering occurs in real filings).
 
 OVERVIEW:
-    CounselAppearancePayload  — v1.8 schema.
-    Validate                  — structural sanity.
-    Serialize / Deserialize   — JSON round-trip.
+
+	CounselAppearancePayload  — v1.8 schema.
+	Validate                  — structural sanity.
+	Serialize / Deserialize   — JSON round-trip.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go (registration).
+  - schemas/registry.go (registration).
 */
 package schemas
 

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // =========================================================================
@@ -335,7 +335,7 @@ func TestAnchorFreshnessConfig_Fields(t *testing.T) {
 		AnchorIntervalTarget: time.Hour,
 		WarningThreshold:     90 * time.Minute,
 		CriticalThreshold:    3 * time.Hour,
-		OperatorSignerDID:    "did:web:operator",
+		LedgerSignerDID:      "did:web:ledger",
 	}
 	if cfg.LocalLogDID == "" {
 		t.Error("LocalLogDID required")

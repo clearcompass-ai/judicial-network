@@ -1,7 +1,9 @@
 /*
 FILE PATH: topology/spoke_config.go
 DESCRIPTION: Three-log convention: officers, cases, parties. Maps log purpose
-    to DID. Consumed by onboarding/provision.go and delegation/.
+
+	to DID. Consumed by onboarding/provision.go and delegation/.
+
 KEY ARCHITECTURAL DECISIONS: Pure data. No SDK imports.
 OVERVIEW: SpokeConfig struct, LogPurpose enum, NewSpokeConfig constructor.
 KEY DEPENDENCIES: none
@@ -23,7 +25,7 @@ type SpokeConfig struct {
 	OfficersDID string
 	CasesDID    string
 	PartiesDID  string
-	OperatorURL string
+	LedgerURL   string
 	ArtifactURL string
 }
 

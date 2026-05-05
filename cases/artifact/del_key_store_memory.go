@@ -2,14 +2,15 @@
 FILE PATH: cases/artifact/del_key_store_memory.go
 
 DESCRIPTION:
-    In-memory DelegationKeyStore for development and tests. Maps
-    artifact CID to ECIES-wrapped PRE delegation key bytes. Production
-    deployments swap this for a database- or KMS-backed implementation
-    via dependency injection — same interface, different backend.
 
-    The store is goroutine-safe so the test harness and dev binary
-    can hand a single instance to both publish and grant flows
-    without locking concerns at the call site.
+	In-memory DelegationKeyStore for development and tests. Maps
+	artifact CID to ECIES-wrapped PRE delegation key bytes. Production
+	deployments swap this for a database- or KMS-backed implementation
+	via dependency injection — same interface, different backend.
+
+	The store is goroutine-safe so the test harness and dev binary
+	can hand a single instance to both publish and grant flows
+	without locking concerns at the call site.
 */
 package artifact
 
@@ -17,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // InMemoryDelegationKeyStore is the reference DelegationKeyStore for

@@ -2,15 +2,16 @@
 FILE PATH: deployments/tn/trial/motions_3i_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3I appellate-bridge motions. Pins:
-      - 3 motion types (no catch-all per v1.8).
-      - motion_interlocutory_appeal — Hard interlocutory_order.
-      - motion_stay_of_execution_pending_appeal — Hard notice_of_appeal.
-      - motion_extraordinary_appeal — default only.
-      - All open to every advocate.
-      - Walker accept/reject around prereqs.
 
-    With §3I, every v1.8 §3 section is now populated.
+	Tests for v1.8 §3I appellate-bridge motions. Pins:
+	  - 3 motion types (no catch-all per v1.8).
+	  - motion_interlocutory_appeal — Hard interlocutory_order.
+	  - motion_stay_of_execution_pending_appeal — Hard notice_of_appeal.
+	  - motion_extraordinary_appeal — default only.
+	  - All open to every advocate.
+	  - Walker accept/reject around prereqs.
+
+	With §3I, every v1.8 §3 section is now populated.
 */
 package trial
 

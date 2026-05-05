@@ -2,10 +2,11 @@
 FILE PATH: api/judicial/artifacts_test.go
 
 DESCRIPTION:
-    Validation contracts for artifact publish + retrieve. The full
-    happy-path round-trip exercises the in-memory ContentStore +
-    KeyStore stack — pinning what production deployments rely on:
-    publish → retrieve → grant-result-decryptable shape.
+
+	Validation contracts for artifact publish + retrieve. The full
+	happy-path round-trip exercises the in-memory ContentStore +
+	KeyStore stack — pinning what production deployments rely on:
+	publish → retrieve → grant-result-decryptable shape.
 */
 package judicial
 
