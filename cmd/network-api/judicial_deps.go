@@ -45,6 +45,7 @@ import (
 
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/did"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/storage"
@@ -68,13 +69,14 @@ import (
 // dependent handlers return 500 with a clear error.
 func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) (judicial.Dependencies, error) {
 	deps := judicial.Dependencies{
-		Registry:      registry,
-		Extractor:     schemas.NewRegistry(),
-		ContentStore:  newContentStore(cfg.ArtifactStoreEndpoint),
-		KeyStore:      lifecycleartifact.NewInMemoryKeyStore(),
-		DelKeyStore:   artifact.NewInMemoryDelegationKeyStore(),
-		WitnessKeys:   map[string][]types.WitnessPublicKey{},
-		WitnessQuorum: map[string]int{},
+		Registry:       registry,
+		Extractor:      schemas.NewRegistry(),
+		ContentStore:   newContentStore(cfg.ArtifactStoreEndpoint),
+		KeyStore:       lifecycleartifact.NewInMemoryKeyStore(),
+		DelKeyStore:    artifact.NewInMemoryDelegationKeyStore(),
+		WitnessKeys:    map[string][]types.WitnessPublicKey{},
+		WitnessQuorum:  map[string]int{},
+		WitnessNetwork: map[string]cosign.NetworkID{},
 	}
 
 	if cfg.LedgerEndpoint == "" {

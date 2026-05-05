@@ -10,6 +10,19 @@ when the gears actually turn — what the entries *mean* legally, why
 each signature is required, what the log permits and forbids — paired
 with the exact commands that produce each step on your laptop.
 
+## Version compatibility
+
+| Component | Version | Source |
+|---|---|---|
+| `judicial-network` (this repo) | `0.0.1` | `make version` |
+| `attesta` (SDK Go module) | `0.1.0` | `go.mod` require line |
+| `ledger` (HTTP service binary) | `0.1.0` | `clearcompass-ai/ledger` repo |
+
+The walkthrough's commands assume those three components match. If
+you're on a fork or branch that bumps any of them, expect minor
+drift in the response shapes (the wire format itself is stable
+within a major).
+
 ## What you'll do
 
 | | Case | Court(s) | Actors | Why this case is in the walkthrough |

@@ -66,11 +66,19 @@ func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.
 			"destination and source_log_did required")
 		return
 	}
+	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
+	if networkID.IsZero() {
+		writeError(w, http.StatusServiceUnavailable,
+			"topology.publish-anchor requires a NetworkID for source_log_did; "+
+				"populate Dependencies.WitnessNetwork at boot + restart")
+		return
+	}
 	res, err := topology.PublishAnchor(topology.AnchorConfig{
 		Destination:  req.Destination,
 		SignerDID:    signer,
 		SourceLogDID: req.SourceLogDID,
 		EventTime:    req.EventTime,
+		NetworkID:    networkID,
 	}, h.deps.TreeHeadClient)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

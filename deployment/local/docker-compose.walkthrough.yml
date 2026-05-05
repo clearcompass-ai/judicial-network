@@ -1,0 +1,68 @@
+# judicial-network — walkthrough topology (JN-side tools layer)
+#
+# This compose runs the JN-side tools that the walkthrough at
+# docs/walkthrough/ references:
+#
+#   - court-tools     :8090   internal court-side audit + admin surface
+#   - provider-tools  :8091   provider-side party / KYC surface
+#
+# It does NOT run the ledgers. Boot those first via the LEDGER repo's
+# `make dev-up`, which puts a Davidson trial ledger on :8080 and
+# a TN COA ledger on :8081. The judicial-cli (built into ./bin/ via
+# `make install-bins`) drives both layers.
+#
+# Required developer setup:
+#
+#   1. From the LEDGER repo:
+#        make dev-up              # boots :8080 + :8081 + Postgres
+#
+#   2. From this repo:
+#        make install-bins        # builds 6 binaries into ./bin/
+#        make walkthrough-up      # boots :8090 + :8091 (this compose)
+#
+#   3. Continue with docs/walkthrough/03-tools.md.
+#
+# The court_tools database the JN tools read is on the same Postgres
+# instance the ledger booted; this compose does NOT spin up its own
+# Postgres. The connection string is the standard local-dev one
+# (attesta:attestapassword@host.docker.internal:5432/court_tools).
+
+services:
+  court-tools:
+    build:
+      context: ../..
+      dockerfile: deployment/local/Dockerfile.court-tools
+    container_name: jn-court-tools
+    ports:
+      - "8090:8090"
+    environment:
+      TOOLS_LEDGER_URL: "http://host.docker.internal:8080"
+      TOOLS_DATABASE_URL: "postgres://attesta:attestapassword@host.docker.internal:5432/court_tools?sslmode=disable"
+      TOOLS_COURT_DID: "did:web:state:tn:davidson"
+      TOOLS_COURT_TOOLS_ADDR: ":8090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8090/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  provider-tools:
+    build:
+      context: ../..
+      dockerfile: deployment/local/Dockerfile.provider-tools
+    container_name: jn-provider-tools
+    ports:
+      - "8091:8091"
+    environment:
+      TOOLS_LEDGER_URL: "http://host.docker.internal:8080"
+      TOOLS_DATABASE_URL: "postgres://attesta:attestapassword@host.docker.internal:5432/court_tools?sslmode=disable"
+      TOOLS_PROVIDER_TOOLS_ADDR: ":8091"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8091/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12

@@ -123,16 +123,33 @@ $ curl -fsS http://localhost:8080/v1/tree/head
 {"size":0,"root_hash":"","cosignatures":[],...}
 ```
 
-## 5. Build the `judicial-cli`
+## 5. Build the JN binaries
 
 ```bash
 cd ~/attesta/jn
-go build -o ~/.local/bin/judicial-cli ./cmd/judicial-cli
-judicial-cli version
+make install-bins
 ```
 
-`~/.local/bin` is conventional; substitute whatever's on your
-`$PATH`. The binary is ~10 MB and self-contained.
+That writes 6 binaries into `./bin/`. The walkthrough uses:
+- `bin/judicial-cli`     — the per-actor CLI you'll drive every step with
+- `bin/court-tools`      — the court-side admin / audit surface (boots in §03)
+- `bin/provider-tools`   — the provider-side party / KYC surface (boots in §03)
+- `bin/network-api`      — the binary that mounts `/v1/judicial/*` HTTP routes
+
+Sanity:
+
+```bash
+$ ./bin/judicial-cli version
+0.0.1
+$ make version
+judicial-network    0.0.1
+attesta (Go module) v0.1.0
+ledger (HTTP)       v0.1.0  (run via 'make walkthrough-up')
+```
+
+Add `./bin` to your `$PATH` (or copy `judicial-cli` to
+`~/.local/bin`) so the rest of the walkthrough's `judicial-cli`
+references work without the relative prefix.
 
 ## 6. Set the two ledger URLs as shell variables
 

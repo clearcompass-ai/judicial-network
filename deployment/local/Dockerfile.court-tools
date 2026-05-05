@@ -1,0 +1,24 @@
+# Multi-stage Dockerfile for tools/cmd/court-tools.
+# Built from the JN repo root (context: ../..).
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags "-X main.Version=0.0.1" \
+    -o /court-tools ./tools/cmd/court-tools
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates tzdata wget
+
+WORKDIR /
+COPY --from=builder /court-tools /court-tools
+
+EXPOSE 8090
+ENTRYPOINT ["/court-tools"]
