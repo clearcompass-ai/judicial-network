@@ -39,8 +39,10 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/clearcompass-ai/attesta/builder"
@@ -96,6 +98,27 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	deps.SchemaResolver = newSchemaResolverShim()
 	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
 	return deps, nil
+}
+
+// loadNetworkID reads the bootstrap document from disk, parses it,
+// and derives the 32-byte cosign NetworkID. Boot fails fast on any
+// error — a misconfigured bootstrap document means cross-component
+// cosignature verification cannot succeed, and every dependent
+// handler would return 500 at runtime.
+func loadNetworkID(path string) (cosign.NetworkID, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return cosign.NetworkID{}, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc sdknetwork.BootstrapDocument
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return cosign.NetworkID{}, fmt.Errorf("parse %s: %w", path, err)
+	}
+	ids, err := doc.IDs()
+	if err != nil {
+		return cosign.NetworkID{}, fmt.Errorf("derive network identity from %s: %w", path, err)
+	}
+	return ids.NetworkID, nil
 }
 
 // buildTreeHeadClient constructs the witness.TreeHeadClient from

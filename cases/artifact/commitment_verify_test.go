@@ -242,7 +242,7 @@ func TestVerifyArtifactCommitmentOnLog_Equivocation_Surfaces(t *testing.T) {
 			},
 		},
 	}
-	err := VerifyArtifactCommitmentOnLog(fetcher, "did:web:g", "did:web:r", cid)
+	err = VerifyArtifactCommitmentOnLog(fetcher, "did:web:g", "did:web:r", cid)
 	if err == nil {
 		t.Error("equivocation must surface as error")
 	}

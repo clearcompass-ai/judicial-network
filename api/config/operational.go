@@ -114,6 +114,22 @@ type Operational struct {
 	NonceStore NonceStoreOpConfig `json:"nonce_store"`
 	Auth       AuthConfig         `json:"auth"`
 	Witness    WitnessConfig      `json:"witness"`
+
+	// NetworkBootstrapFile is the path to a JSON file containing the
+	// network's bootstrap document (network.BootstrapDocument). The
+	// 32-byte cosign NetworkID is derived from this document at boot
+	// and threaded through every cosign.Sign / cosign.Verify call site.
+	//
+	// Required when the binary participates in cosignature production
+	// or verification (the cosign canonical-message preamble rejects
+	// a zero NetworkID). Dev / test deployments that don't exercise
+	// the verification surface may leave this empty.
+	//
+	// The same document MUST be loaded by every component participating
+	// in the network (operator, JN composer, every witness); cross-
+	// component signature verification depends on byte-identical
+	// bootstrap inputs.
+	NetworkBootstrapFile string `json:"network_bootstrap_file"`
 }
 
 // ─────────────────────────────────────────────────────────────────────

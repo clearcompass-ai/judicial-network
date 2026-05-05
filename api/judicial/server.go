@@ -67,6 +67,12 @@ type Dependencies struct {
 	WitnessQuorum  map[string]int
 	WitnessNetwork map[string]cosign.NetworkID // logDID → NetworkID
 
+	// NetworkID is the deployment's 32-byte cosign-domain identifier
+	// derived from the network bootstrap document. Threaded into
+	// every cosign.Verify / cosign.TreeHeadDigest call site that
+	// runs through the judicial verification surface.
+	NetworkID cosign.NetworkID
+
 	// Storage / artifact stores. Used by handlers that publish or
 	// retrieve documents.
 	ContentStore storage.ContentStore
