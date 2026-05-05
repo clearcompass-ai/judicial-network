@@ -2,21 +2,22 @@
 FILE PATH: tools/cmd/witness/probes.go
 
 DESCRIPTION:
-    Probe HTTP handlers for the witness daemon. Mirrors the
-    aggregator binary's probe surface (same Phase 15 observability
-    primitives) so cluster operators scrape uniformly.
 
-      GET /healthz   — liveness, always 200.
-      GET /readyz    — 200 only when at least one configured
-                       operator endpoint is reachable. Returns 503
-                       when ALL configured operators are down so
-                       k8s removes the daemon from service when it
-                       can't fulfill any cosigning work.
-      GET /metrics   — Prometheus, jn_http_* names match the rest
-                       of the JN binaries.
+	Probe HTTP handlers for the witness daemon. Mirrors the
+	aggregator binary's probe surface (same  observability
+	primitives) so cluster ledgers scrape uniformly.
 
-    No /v1/* routes — the witness daemon is write-only against
-    operator endpoints; it serves no domain queries.
+	  GET /healthz   — liveness, always 200.
+	  GET /readyz    — 200 only when at least one configured
+	                   ledger endpoint is reachable. Returns 503
+	                   when ALL configured ledgers are down so
+	                   k8s removes the daemon from service when it
+	                   can't fulfill any cosigning work.
+	  GET /metrics   — Prometheus, jn_http_* names match the rest
+	                   of the JN binaries.
+
+	No /v1/* routes — the witness daemon is write-only against
+	ledger endpoints; it serves no domain queries.
 */
 package main
 
@@ -55,14 +56,14 @@ func (p *probeHandlers) healthz(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("ok"))
 }
 
-// readyz returns 200 when ANY configured operator is reachable.
-// At least one operator must be alive for the daemon to do useful
+// readyz returns 200 when ANY configured ledger is reachable.
+// At least one ledger must be alive for the daemon to do useful
 // work; if all are down the daemon is dead-weight and k8s should
 // remove it from service.
 func (p *probeHandlers) readyz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	for _, base := range p.cfg.Operators {
+	for _, base := range p.cfg.Ledgers {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, base+"/healthz", nil)
 		resp, err := p.httpClient.Do(req)
 		if err == nil {
@@ -74,5 +75,5 @@ func (p *probeHandlers) readyz(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	http.Error(w, "no configured operator reachable", http.StatusServiceUnavailable)
+	http.Error(w, "no configured ledger reachable", http.StatusServiceUnavailable)
 }

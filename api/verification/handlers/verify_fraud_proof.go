@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // VerifyFraudProofHandler handles POST /v1/verify/fraud-proof.

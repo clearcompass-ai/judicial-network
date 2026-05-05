@@ -2,32 +2,33 @@
 FILE PATH: tests/contracts/delegation_cosigned_filing_test.go
 
 DESCRIPTION:
-    End-to-end contract tests for the inline two-actor signing
-    pipeline (Phase 3B), reworked per the v1.4 design decision:
-    NO attorney registry. The on-log payload IS the credentials
-    claim. The cosigner DID IS the attestation.
 
-    Filing model the dictionary describes:
-      - The Clerk (ActorSigner) is Header.SignerDID and Signatures[0].
-        In the v1.4 dictionary's words: "every motion or brief is
-        manually hashed and signed to the ledger by a Clerk."
-      - The attorney (ActorFiler) holds their OWN DID (e.g., a
-        Privy embedded wallet). They cosign — Signatures[1].
-      - The payload carries a `filed_by_capacity` block that
-        declares the attorney's role and credentials (BPR number,
-        jurisdiction, firm). The cosigner DID matches
-        filed_by_capacity.did, so the attestation is bound to the
-        identity making the credential claim.
-      - No off-log registry is consulted. The aggregator (Phase 3E)
-        surfaces the capacity claim verbatim from the log.
+	End-to-end contract tests for the inline two-actor signing
+	pipeline, reworked per the v1.4 design decision:
+	NO attorney registry. The on-log payload IS the credentials
+	claim. The cosigner DID IS the attestation.
 
-    Pins:
-      - 2-signature envelope round-trips through envelope.Deserialize.
-      - Signatures[0] = Clerk (== Header.SignerDID).
-      - Signatures[1] = Attorney (== payload.filed_by_capacity.did).
-      - payload.filed_by_capacity preserves role + credentials.
-      - 1-of-N cosigner rejection blocks submission entirely.
-      - SigningPayload digest stable across sign-and-serialize.
+	Filing model the dictionary describes:
+	  - The Clerk (ActorSigner) is Header.SignerDID and Signatures[0].
+	    In the v1.4 dictionary's words: "every motion or brief is
+	    manually hashed and signed to the ledger by a Clerk."
+	  - The attorney (ActorFiler) holds their OWN DID (e.g., a
+	    Privy embedded wallet). They cosign — Signatures[1].
+	  - The payload carries a `filed_by_capacity` block that
+	    declares the attorney's role and credentials (BPR number,
+	    jurisdiction, firm). The cosigner DID matches
+	    filed_by_capacity.did, so the attestation is bound to the
+	    identity making the credential claim.
+	  - No off-log registry is consulted. The aggregator
+	    surfaces the capacity claim verbatim from the log.
+
+	Pins:
+	  - 2-signature envelope round-trips through envelope.Deserialize.
+	  - Signatures[0] = Clerk (== Header.SignerDID).
+	  - Signatures[1] = Attorney (== payload.filed_by_capacity.did).
+	  - payload.filed_by_capacity preserves role + credentials.
+	  - 1-of-N cosigner rejection blocks submission entirely.
+	  - SigningPayload digest stable across sign-and-serialize.
 */
 package contracts
 
@@ -37,9 +38,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/delegation"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
@@ -164,7 +165,7 @@ func TestCosignedFiling_AttorneyMotion_TwoSignatures(t *testing.T) {
 		}
 	}
 
-	// Payload preserves filed_by_capacity exactly; Phase 3E
+	// Payload preserves filed_by_capacity exactly; 
 	// aggregator reads the whole block verbatim.
 	var payload map[string]any
 	if err := json.Unmarshal(got.DomainPayload, &payload); err != nil {
@@ -193,7 +194,7 @@ func TestCosignedFiling_AttorneyMotion_TwoSignatures(t *testing.T) {
 }
 
 // TestCosignedFiling_CapacityDIDMatchesCosigner pins the design
-// invariant the Phase 3D verifier will enforce: the DID claimed in
+// invariant the  verifier will enforce: the DID claimed in
 // payload.filed_by_capacity.did MUST appear in entry.Signatures.
 // Without this, an attorney could be impersonated — anyone could
 // claim "this filing is by Jane Smith Esq." in the payload.
@@ -217,7 +218,7 @@ func TestCosignedFiling_CapacityDIDMatchesCosigner(t *testing.T) {
 	claimedDID, _ := cap["did"].(string)
 
 	// Walk Signatures looking for the claimed DID. (This is the
-	// shape the Phase 3D verifier will codify.)
+	// shape the  verifier will codify.)
 	found := false
 	for _, s := range got.Signatures {
 		if s.SignerDID == claimedDID {
@@ -232,7 +233,7 @@ func TestCosignedFiling_CapacityDIDMatchesCosigner(t *testing.T) {
 }
 
 // TestCosignedFiling_RejectionBlocksSubmission pins that if any
-// signer (Clerk OR Attorney) declines, the operator never sees the
+// signer (Clerk OR Attorney) declines, the ledger never sees the
 // entry — the wallet's reject is end-to-end.
 func TestCosignedFiling_RejectionBlocksSubmission(t *testing.T) {
 	f := newFixture(t)
@@ -255,8 +256,8 @@ func TestCosignedFiling_RejectionBlocksSubmission(t *testing.T) {
 	if !errors.Is(err, identity.ErrSignRejected) {
 		t.Errorf("error must wrap identity.ErrSignRejected: %v", err)
 	}
-	if got := len(f.operator.bySeq); got != 0 {
-		t.Errorf("operator must not have any entries; got %d", got)
+	if got := len(f.ledger.bySeq); got != 0 {
+		t.Errorf("ledger must not have any entries; got %d", got)
 	}
 }
 

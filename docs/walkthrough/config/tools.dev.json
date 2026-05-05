@@ -1,5 +1,5 @@
 {
-  "operator_url":             "http://localhost:8080",
+  "ledger_url":             "http://localhost:8080",
   "exchange_url":             "http://localhost:8080",
   "verification_url":         "http://localhost:8080",
   "artifact_store_url":       "http://localhost:8002",
@@ -9,7 +9,7 @@
   "cases_log":                "did:web:state:tn:davidson",
   "parties_log":              "did:web:state:tn:davidson",
 
-  "database_url":             "postgres://ortholog:orthologpassword@localhost:5432/court_tools?sslmode=disable",
+  "database_url":             "postgres://attesta:attestapassword@localhost:5432/court_tools?sslmode=disable",
 
   "court_tools_addr":         ":8090",
   "provider_tools_addr":      ":8091",

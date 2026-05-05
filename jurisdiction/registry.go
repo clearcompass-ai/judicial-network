@@ -2,33 +2,35 @@
 FILE PATH: jurisdiction/registry.go
 
 DESCRIPTION:
-    Registry — the per-process map from ExchangeDID to Bundle.
-    Multi-exchange networks register one Bundle per court system at
-    boot; the verifier and aggregator resolve the right Bundle from
-    the entry's destination DID before evaluating any rules.
 
-    Why a registry, not a single global Bundle: per the v1.6
-    invariant a network may host multiple exchanges (Davidson,
-    Shelby, etc.). Each ships its own catalog + policies. The
-    registry is the single seam at which a request "this entry
-    targets exchange X" turns into "use Bundle X's vocabulary."
+	Registry — the per-process map from ExchangeDID to Bundle.
+	Multi-exchange networks register one Bundle per court system at
+	boot; the verifier and aggregator resolve the right Bundle from
+	the entry's destination DID before evaluating any rules.
 
-    The registry is NOT thread-mutable after Freeze. Production
-    callers register Bundles at startup, call Freeze, and then
-    handle requests concurrently. Tests can omit Freeze.
+	Why a registry, not a single global Bundle: per the v1.6
+	invariant a network may host multiple exchanges (Davidson,
+	Shelby, etc.). Each ships its own catalog + policies. The
+	registry is the single seam at which a request "this entry
+	targets exchange X" turns into "use Bundle X's vocabulary."
+
+	The registry is NOT thread-mutable after Freeze. Production
+	callers register Bundles at startup, call Freeze, and then
+	handle requests concurrently. Tests can omit Freeze.
 
 OVERVIEW:
-    Registry      — mutex-protected map[ExchangeDID]Bundle.
-    NewRegistry   — empty registry.
-    Register      — add Bundle (validates first).
-    Bundle        — lookup by ExchangeDID.
-    ExchangeDIDs  — sorted list of registered DIDs.
-    Freeze        — disables further mutation; subsequent Register
-                    calls return ErrRegistryFrozen.
-    Sentinels.
+
+	Registry      — mutex-protected map[ExchangeDID]Bundle.
+	NewRegistry   — empty registry.
+	Register      — add Bundle (validates first).
+	Bundle        — lookup by ExchangeDID.
+	ExchangeDIDs  — sorted list of registered DIDs.
+	Freeze        — disables further mutation; subsequent Register
+	                calls return ErrRegistryFrozen.
+	Sentinels.
 
 KEY DEPENDENCIES:
-    - jurisdiction/bundle.go (Bundle, Validate).
+  - jurisdiction/bundle.go (Bundle, Validate).
 */
 package jurisdiction
 

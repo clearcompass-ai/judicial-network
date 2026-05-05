@@ -27,7 +27,7 @@ func (s *Server) GetRecord(w http.ResponseWriter, r *http.Request) {
 	`, docket).Scan(
 		&c.ID, &c.DocketNumber, &c.CaseType, &c.Division, &c.Status,
 		&filedDate, &c.CourtDID, &c.LogDID, &c.LogPosition,
-		&c.SignerDID, &c.Sealed, &c.Expunged,  &c.AssignedJudge,
+		&c.SignerDID, &c.Sealed, &c.Expunged, &c.AssignedJudge,
 	)
 	if err != nil {
 		writeProviderError(w, http.StatusNotFound, "case not found")
@@ -106,7 +106,7 @@ func (s *Server) VerifyEntry(w http.ResponseWriter, r *http.Request) {
 	writeProviderJSON(w, http.StatusOK, map[string]any{
 		"origin_evaluation":    origin,
 		"authority_evaluation": authority,
-		"human_summary": fmt.Sprintf("Entry at %s position %d verified", logID, pos),
+		"human_summary":        fmt.Sprintf("Entry at %s position %d verified", logID, pos),
 	})
 }
 

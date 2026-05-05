@@ -2,36 +2,38 @@
 FILE PATH: deployments/tn/coa/cosignature_mix.go
 
 DESCRIPTION:
-    Tennessee Court of Appeals — cosignature-mix policy. The
-    COA exchange handles a different vocabulary from trial
-    courts. Per v1.8 §7B, the appellate event family is:
 
-      appellate_case_initiation        clerk-signed; mints
-                                       appellate case root
-      appellate_opinion_publication    judge-signed; mints
-                                       opinion_id
-      appellate_opinion_participation  judge-signed; per-judge
-                                       role on an opinion
-      appellate_disposition            ≥2 judge cosignatures;
-                                       three-judge panel outcome
-      remand_affirmance                clerk-signed; flows back
-                                       to trial root via cross-
-                                       network reference
+	Tennessee Court of Appeals — cosignature-mix policy. The
+	COA exchange handles a different vocabulary from trial
+	courts. Per v1.8 §7B, the appellate event family is:
 
-    Plus standard personnel events for COA Signers
-    (judicial_appointment, clerk_appointment, succession, etc.).
+	  appellate_case_initiation        clerk-signed; mints
+	                                   appellate case root
+	  appellate_opinion_publication    judge-signed; mints
+	                                   opinion_id
+	  appellate_opinion_participation  judge-signed; per-judge
+	                                   role on an opinion
+	  appellate_disposition            ≥2 judge cosignatures;
+	                                   three-judge panel outcome
+	  remand_affirmance                clerk-signed; flows back
+	                                   to trial root via cross-
+	                                   network reference
 
-    No filer-driven motions arrive at the COA — appellate motions
-    (motion_interlocutory_appeal, etc.) originate at trial and
-    travel via cross-network reference. The COA's filer-events
-    list is therefore empty; AllowedFilerRoles never appears.
+	Plus standard personnel events for COA Signers
+	(judicial_appointment, clerk_appointment, succession, etc.).
+
+	No filer-driven motions arrive at the COA — appellate motions
+	(motion_interlocutory_appeal, etc.) originate at trial and
+	travel via cross-network reference. The COA's filer-events
+	list is therefore empty; AllowedFilerRoles never appears.
 
 OVERVIEW:
-    CosignatureRules         — slice of CosignatureRule.
-    MustCosignaturePolicy    — convenience constructor (panics).
+
+	CosignatureRules         — slice of CosignatureRule.
+	MustCosignaturePolicy    — convenience constructor (panics).
 
 KEY DEPENDENCIES:
-    - policy.CosignatureRule / policy.NewInMemoryPolicy.
+  - policy.CosignatureRule / policy.NewInMemoryPolicy.
 */
 package coa
 

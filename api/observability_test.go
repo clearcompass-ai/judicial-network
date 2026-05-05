@@ -2,20 +2,21 @@
 FILE PATH: api/observability_test.go
 
 DESCRIPTION:
-    Composer-side smoke tests for Phase 15 observability wiring.
-    The middleware primitives have unit tests in
-    api/middleware/observability/; tests here pin that NewServer
-    actually mounts /metrics + applies the wrapper stack to /v1/*.
 
-    Pinned:
-      1. /metrics endpoint is reachable, unauthenticated, and emits
-         the canonical jn_http_* metric names.
-      2. A /v1/* request increments the matching counter.
-      3. Every response carries an X-Request-ID header even when
-         the underlying handler short-circuits (e.g., 401 on no
-         auth wired).
-      4. The metrics endpoint stays reachable when the global rate
-         limiter is exhausted on /v1/* — same rationale as /healthz.
+	Composer-side smoke tests for  observability wiring.
+	The middleware primitives have unit tests in
+	api/middleware/observability/; tests here pin that NewServer
+	actually mounts /metrics + applies the wrapper stack to /v1/*.
+
+	Pinned:
+	  1. /metrics endpoint is reachable, unauthenticated, and emits
+	     the canonical jn_http_* metric names.
+	  2. A /v1/* request increments the matching counter.
+	  3. Every response carries an X-Request-ID header even when
+	     the underlying handler short-circuits (e.g., 401 on no
+	     auth wired).
+	  4. The metrics endpoint stays reachable when the global rate
+	     limiter is exhausted on /v1/* — same rationale as /healthz.
 */
 package api
 
@@ -132,7 +133,7 @@ func TestReadyz_AllPass_200(t *testing.T) {
 	srv, err := NewServer(Config{
 		Addr: ":0",
 		ReadyzChecks: []observability.ReadyCheck{
-			observability.CheckHTTPGet("operator", upstream.URL),
+			observability.CheckHTTPGet("ledger", upstream.URL),
 		},
 	})
 	if err != nil {
@@ -143,8 +144,8 @@ func TestReadyz_AllPass_200(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), `"operator":"ok"`) {
-		t.Errorf("body should mention operator:ok; got %s", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `"ledger":"ok"`) {
+		t.Errorf("body should mention ledger:ok; got %s", rec.Body.String())
 	}
 }
 
@@ -157,7 +158,7 @@ func TestReadyz_OneFails_503(t *testing.T) {
 	srv, err := NewServer(Config{
 		Addr: ":0",
 		ReadyzChecks: []observability.ReadyCheck{
-			observability.CheckHTTPGet("operator", upstream.URL),
+			observability.CheckHTTPGet("ledger", upstream.URL),
 		},
 	})
 	if err != nil {
@@ -166,6 +167,6 @@ func TestReadyz_OneFails_503(t *testing.T) {
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("status = %d, want 503 (operator unhealthy)", rec.Code)
+		t.Errorf("status = %d, want 503 (ledger unhealthy)", rec.Code)
 	}
 }

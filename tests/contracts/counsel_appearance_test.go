@@ -2,31 +2,32 @@
 FILE PATH: tests/contracts/counsel_appearance_test.go
 
 DESCRIPTION:
-    End-to-end functional contract tests for the v1.8 §1
-    counsel_appearance event. Wires together the full
-    write+verify lifecycle:
 
-      WRITE  : Clerk + Attorney call delegation.SignAndSubmitCosigned
-               with the payload schemas/counsel_appearance encodes.
+	End-to-end functional contract tests for the v1.8 §1
+	counsel_appearance event. Wires together the full
+	write+verify lifecycle:
 
-      READ   : verification.CheckCosignature loads the envelope,
-               extracts filed_by_capacity, looks up the cosig
-               rule in the TN trial fixture (via tn/counties/
-               davidson composer), and returns OK or a typed
-               rejection.
+	  WRITE  : Clerk + Attorney call delegation.SignAndSubmitCosigned
+	           with the payload schemas/counsel_appearance encodes.
 
-    Pins the round-trip:
-      - Defense counsel files; clerk cosigns; verifier passes.
-      - Civil attorney files; clerk cosigns; verifier passes.
-      - Prosecutor files (e.g., notice of substitution); verifier
-        passes.
-      - Fiduciary cannot file counsel_appearance (closed Filer set).
-      - bpr_number missing → verifier rejects.
+	  READ   : verification.CheckCosignature loads the envelope,
+	           extracts filed_by_capacity, looks up the cosig
+	           rule in the TN trial fixture (via tn/counties/
+	           davidson composer), and returns OK or a typed
+	           rejection.
+
+	Pins the round-trip:
+	  - Defense counsel files; clerk cosigns; verifier passes.
+	  - Civil attorney files; clerk cosigns; verifier passes.
+	  - Prosecutor files (e.g., notice of substitution); verifier
+	    passes.
+	  - Fiduciary cannot file counsel_appearance (closed Filer set).
+	  - bpr_number missing → verifier rejects.
 
 KEY DEPENDENCIES:
-    - delegation.SignAndSubmitCosigned (write).
-    - verification.CheckCosignature    (read).
-    - tn/trial.MustCosignaturePolicy   (rule fixture).
+  - delegation.SignAndSubmitCosigned (write).
+  - verification.CheckCosignature    (read).
+  - tn/trial.MustCosignaturePolicy   (rule fixture).
 */
 package contracts
 
@@ -36,12 +37,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // ─── helpers ────────────────────────────────────────────────────────

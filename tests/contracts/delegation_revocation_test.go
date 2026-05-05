@@ -2,16 +2,17 @@
 FILE PATH: tests/contracts/delegation_revocation_test.go
 
 DESCRIPTION:
-    Revocation propagation, end-to-end. Builds chains and revokes
-    a delegation entry; pins the resolver's behavior:
 
-      - When a leaf's OriginTip points to a revocation entry, the
-        resolver returns RejectRevoked for any signer whose chain
-        passes through that hop.
-      - The resolver also returns RejectRevoked when the chain tip
-        IS the revocation entry (no LeafReader needed).
-      - Revoking does NOT retroactively invalidate other independent
-        chains — only the descendants of the revoked node.
+	Revocation propagation, end-to-end. Builds chains and revokes
+	a delegation entry; pins the resolver's behavior:
+
+	  - When a leaf's OriginTip points to a revocation entry, the
+	    resolver returns RejectRevoked for any signer whose chain
+	    passes through that hop.
+	  - The resolver also returns RejectRevoked when the chain tip
+	    IS the revocation entry (no LeafReader needed).
+	  - Revoking does NOT retroactively invalidate other independent
+	    chains — only the descendants of the revoked node.
 */
 package contracts
 
@@ -19,10 +20,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/verification"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 func TestDelegationRevocation_PropagatesViaOriginTip(t *testing.T) {

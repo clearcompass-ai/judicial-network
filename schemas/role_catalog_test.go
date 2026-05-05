@@ -2,11 +2,12 @@
 FILE PATH: schemas/role_catalog_test.go
 
 DESCRIPTION:
-    Tests pinning the RoleCatalog contract: Lookup, List,
-    ValidateGrant, hot reload. Jurisdiction-specific assertions
-    (Davidson, etc.) live under deployments/<county>/rules/; this
-    file uses a small inline fixture so the schemas package stays
-    jurisdiction-agnostic.
+
+	Tests pinning the RoleCatalog contract: Lookup, List,
+	ValidateGrant, hot reload. Jurisdiction-specific assertions
+	(Davidson, etc.) live under deployments/<county>/rules/; this
+	file uses a small inline fixture so the schemas package stays
+	jurisdiction-agnostic.
 */
 package schemas
 

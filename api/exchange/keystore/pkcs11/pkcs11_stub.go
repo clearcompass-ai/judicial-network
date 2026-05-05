@@ -4,14 +4,15 @@
 FILE PATH: api/exchange/keystore/pkcs11/pkcs11_stub.go
 
 DESCRIPTION:
-    No-cgo build target. Compiles when the `pkcs11` build tag is
-    absent. Returns a clear "not built" error from New so the
-    composer can surface a useful message to operators who configure
-    `keystore.backend = softhsm` without rebuilding with `-tags pkcs11`.
 
-    The exported surface (Config, LoadPINFile, KeyStore type, New,
-    Close) mirrors the real implementation exactly so callers compile
-    against either build target without changes.
+	No-cgo build target. Compiles when the `pkcs11` build tag is
+	absent. Returns a clear "not built" error from New so the
+	composer can surface a useful message to ledgers who configure
+	`keystore.backend = softhsm` without rebuilding with `-tags pkcs11`.
+
+	The exported surface (Config, LoadPINFile, KeyStore type, New,
+	Close) mirrors the real implementation exactly so callers compile
+	against either build target without changes.
 */
 package pkcs11
 
@@ -71,7 +72,7 @@ func (k *KeyStore) GenerateSecp256k1(_ string, _ string) (*keystore.KeyInfo, err
 func (k *KeyStore) SignSecp256k1(_ string, _ [32]byte) ([]byte, error) { return nil, ErrNotBuilt }
 func (k *KeyStore) PublicKeySecp256k1(_ string) ([]byte, error)        { return nil, ErrNotBuilt }
 
-func (k *KeyStore) List() []*keystore.KeyInfo                          { return nil }
+func (k *KeyStore) List() []*keystore.KeyInfo                         { return nil }
 func (k *KeyStore) Rotate(_ string, _ int) (*keystore.KeyInfo, error) { return nil, ErrNotBuilt }
 func (k *KeyStore) Destroy(_ string) error                            { return ErrNotBuilt }
 func (k *KeyStore) ExportForEscrow(_ string) (ed25519.PrivateKey, error) {

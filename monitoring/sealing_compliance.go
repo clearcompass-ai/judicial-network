@@ -1,16 +1,21 @@
 /*
 FILE PATH: monitoring/sealing_compliance.go
 DESCRIPTION: Monitors sealing orders for premature activation (activation entry
-    published before activation delay elapsed) and overdue activation (conditions
-    met but no activation entry seen within a slack window).
+
+	published before activation delay elapsed) and overdue activation (conditions
+	met but no activation entry seen within a slack window).
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses verifier.EvaluateConditions (with Now + Cosignatures, required by
-      SDK v1.3.3) to determine per-entry readiness.
-    - Uses enforcement.ScanComplianceRange for range iteration.
-    - Premature activation is Critical (protocol violation). Overdue is Warning.
+  - Uses verifier.EvaluateConditions (with Now + Cosignatures, required by
+    SDK v1.3.3) to determine per-entry readiness.
+  - Uses enforcement.ScanComplianceRange for range iteration.
+  - Premature activation is Critical (protocol violation). Overdue is Warning.
+
 OVERVIEW: CheckSealingCompliance scans Path C entries in a range and checks
-    their condition timing against current state.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier, ortholog-sdk/log
+
+	their condition timing against current state.
+
+KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/log
 */
 package monitoring
 
@@ -18,23 +23,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 const MonitorSealingCompliance monitoring.MonitorID = "judicial.sealing_compliance"
 
 // SealingComplianceConfig configures the sealing compliance monitor.
 type SealingComplianceConfig struct {
-	LocalLogDID     string
-	ScanStartSeq    uint64
-	ScanCount       int
+	LocalLogDID  string
+	ScanStartSeq uint64
+	ScanCount    int
 	// OverdueSlack allows some buffer after conditions become met before
 	// flagging an activation as overdue. Typical: 1 hour.
 	OverdueSlack time.Duration
@@ -46,7 +51,7 @@ type SealingComplianceConfig struct {
 //     at activation time (premature; protocol violation).
 func CheckSealingCompliance(
 	cfg SealingComplianceConfig,
-	queryAPI sdklog.OperatorQueryAPI,
+	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	extractor schema.SchemaParameterExtractor,
@@ -125,7 +130,7 @@ func CheckSealingCompliance(
 		}
 
 		// Premature detection: if an entry's conditions weren't met at its
-		// OWN log-time but it's in the authority chain anyway, the operator
+		// OWN log-time but it's in the authority chain anyway, the ledger
 		// admitted it prematurely. This is detected by re-evaluating at
 		// meta.LogTime.
 		earlyCheck, _ := verifier.EvaluateConditions(verifier.EvaluateConditionsParams{

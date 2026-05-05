@@ -10,22 +10,22 @@ canonical example).
 This package separates two concerns that production code must NEVER
 mix:
 
-  DEFINITION (compiled-in Go code; immutable per release):
-    - Destination DIDs (e.g., "did:web:state:tn:davidson")
-    - Role catalogs, cosignature policies, prerequisite policies
-    - Per-jurisdiction authority chain resolvers
-    - Appellate vocabularies
-    These live in deployments/.../bundle.go. Loaded once at boot via
-    jurisdiction.Registry.Register and frozen.
+	DEFINITION (compiled-in Go code; immutable per release):
+	  - Destination DIDs (e.g., "did:web:state:tn:davidson")
+	  - Role catalogs, cosignature policies, prerequisite policies
+	  - Per-jurisdiction authority chain resolvers
+	  - Appellate vocabularies
+	  These live in deployments/.../bundle.go. Loaded once at boot via
+	  jurisdiction.Registry.Register and frozen.
 
-  OPERATIONAL CONFIG (env / JSON; varies per environment):
-    - Listen address, upstream endpoints (operator, artifact store,
-      verification service, EIP-1271 RPC)
-    - KeyStore backend selection (memory / softhsm / vault)
-    - Nonce-store backend (memory / redis) and connection params
-    - Auth selection (mTLS, JWT) and trust material
-    - Telemetry endpoints
-    These live in this struct.
+	OPERATIONAL CONFIG (env / JSON; varies per environment):
+	  - Listen address, upstream endpoints (ledger, artifact store,
+	    verification service, EIP-1271 RPC)
+	  - KeyStore backend selection (memory / softhsm / vault)
+	  - Nonce-store backend (memory / redis) and connection params
+	  - Auth selection (mTLS, JWT) and trust material
+	  - Telemetry endpoints
+	  These live in this struct.
 
 The hard rule: Operational MUST NOT carry any DID. Identity comes from
 imported deployment packages — never from JSON. A typo in operational
@@ -35,13 +35,13 @@ catches loudly.
 
 Loading model:
 
-  1. Defaults() returns the zero-config baseline (every field has a
-     sane in-memory dev value).
-  2. LoadFromFile(path) reads JSON and applies overrides on top.
-  3. ApplyEnvOverrides reads a fixed set of env vars (precedence:
-     env > file > defaults).
-  4. Validate() runs Boot-time consistency checks; returns
-     ErrInvalidConfig with a descriptive message on failure.
+ 1. Defaults() returns the zero-config baseline (every field has a
+    sane in-memory dev value).
+ 2. LoadFromFile(path) reads JSON and applies overrides on top.
+ 3. ApplyEnvOverrides reads a fixed set of env vars (precedence:
+    env > file > defaults).
+ 4. Validate() runs Boot-time consistency checks; returns
+    ErrInvalidConfig with a descriptive message on failure.
 
 Production deployments call all four in order; tests skip 2-3.
 */
@@ -69,7 +69,7 @@ func Defaults() Operational {
 	return Operational{
 		ListenAddr: ":8443",
 
-		OperatorEndpoint:      "http://localhost:8001",
+		LedgerEndpoint:        "http://localhost:8001",
 		ArtifactStoreEndpoint: "http://localhost:8002",
 		VerificationEndpoint:  "http://localhost:8080",
 		EthRPCEndpoint:        "http://localhost:8545",
@@ -101,7 +101,7 @@ type Operational struct {
 
 	// Upstream service endpoints. All required for a production
 	// deploy; tests may stub-substitute.
-	OperatorEndpoint      string `json:"operator_endpoint"`
+	LedgerEndpoint        string `json:"ledger_endpoint"`
 	ArtifactStoreEndpoint string `json:"artifact_store_endpoint"`
 	VerificationEndpoint  string `json:"verification_endpoint"`
 
@@ -138,24 +138,24 @@ type Operational struct {
 
 // WitnessConfig configures the binary's witness wiring:
 //
-//   - Per-destination operator endpoint overrides for tree-head
+//   - Per-destination ledger endpoint overrides for tree-head
 //     fetches. When the per-destination map is empty, every log
-//     falls back to the top-level OperatorEndpoint.
+//     falls back to the top-level LedgerEndpoint.
 //   - Per-destination witness fallback endpoints (used when the
-//     operator's tree head is stale).
+//     ledger's tree head is stale).
 //   - TreeHeadClient cache TTL + HTTP timeout.
 //
 // nil / zero-valued WitnessConfig leaves Dependencies.TreeHeadClient
 // at nil — the anchor / topology / monitoring handlers that need it
 // will surface 503 with a clear message.
 type WitnessConfig struct {
-	// OperatorEndpoints maps log DID → operator base URL. Empty
-	// fall back to top-level Operational.OperatorEndpoint.
-	OperatorEndpoints map[string]string `json:"operator_endpoints,omitempty"`
+	// LedgerEndpoints maps log DID → ledger base URL. Empty
+	// fall back to top-level Operational.LedgerEndpoint.
+	LedgerEndpoints map[string]string `json:"ledger_endpoints,omitempty"`
 
 	// WitnessEndpoints maps log DID → list of witness fallback URLs.
 	// Empty disables the witness-fallback path; tree-head fetches
-	// then go to the operator only.
+	// then go to the ledger only.
 	WitnessEndpoints map[string][]string `json:"witness_endpoints,omitempty"`
 
 	// CacheTTL is how long a fetched tree head is cached before a
@@ -315,7 +315,7 @@ func LoadFromFile(path string) (Operational, error) {
 // The recognized env vars are:
 //
 //	API_LISTEN_ADDR
-//	API_OPERATOR_ENDPOINT
+//	API_LEDGER_ENDPOINT
 //	API_ARTIFACT_STORE_ENDPOINT
 //	API_VERIFICATION_ENDPOINT
 //	API_ETH_RPC_ENDPOINT
@@ -330,8 +330,8 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	if v := os.Getenv("API_LISTEN_ADDR"); v != "" {
 		cfg.ListenAddr = v
 	}
-	if v := os.Getenv("API_OPERATOR_ENDPOINT"); v != "" {
-		cfg.OperatorEndpoint = v
+	if v := os.Getenv("API_LEDGER_ENDPOINT"); v != "" {
+		cfg.LedgerEndpoint = v
 	}
 	if v := os.Getenv("API_ARTIFACT_STORE_ENDPOINT"); v != "" {
 		cfg.ArtifactStoreEndpoint = v
@@ -378,6 +378,7 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 //  7. NonceStore.RedisAddr non-empty when Backend = redis.
 //  8. NonceStore.FreshnessWindow > 0.
 //  9. Auth.Mode is one of the known constants.
+//
 // 10. Auth-mode-specific fields populated as required.
 //
 // Validate does NOT touch the filesystem (e.g., to verify PINFile
@@ -387,8 +388,8 @@ func (cfg Operational) Validate() error {
 	if cfg.ListenAddr == "" {
 		return fmt.Errorf("%w: ListenAddr required", ErrInvalidConfig)
 	}
-	if cfg.OperatorEndpoint == "" {
-		return fmt.Errorf("%w: OperatorEndpoint required", ErrInvalidConfig)
+	if cfg.LedgerEndpoint == "" {
+		return fmt.Errorf("%w: LedgerEndpoint required", ErrInvalidConfig)
 	}
 	if cfg.ArtifactStoreEndpoint == "" {
 		return fmt.Errorf("%w: ArtifactStoreEndpoint required", ErrInvalidConfig)

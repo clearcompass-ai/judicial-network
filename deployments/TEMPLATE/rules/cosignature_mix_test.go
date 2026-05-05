@@ -2,10 +2,11 @@
 FILE PATH: deployments/TEMPLATE/rules/cosignature_mix_test.go
 
 DESCRIPTION:
-    Tests for the TEMPLATE cosignature-mix skeleton. Pins:
-      - the skeleton compiles and validates,
-      - exactly 1 rule (case_initiated) exists,
-      - the rule is intra-exchange and judge-signed.
+
+	Tests for the TEMPLATE cosignature-mix skeleton. Pins:
+	  - the skeleton compiles and validates,
+	  - exactly 1 rule (case_initiated) exists,
+	  - the rule is intra-exchange and judge-signed.
 */
 package rules
 

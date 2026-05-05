@@ -2,11 +2,12 @@
 FILE PATH: verification/evidence_chain.go
 DESCRIPTION: Chain of custody reconstruction for evidence artifacts.
 KEY ARCHITECTURAL DECISIONS:
-    - Uses ScanFromPosition + ClassifyEntry for entry discovery.
-    - Uses artifact.PRE_VerifyCFrag for per-cfrag verification (no private key).
-    - Reconstructs: publish → grant → re-encrypt → expunge timeline.
+  - Uses ScanFromPosition + ClassifyEntry for entry discovery.
+  - Uses artifact.PRE_VerifyCFrag for per-cfrag verification (no private key).
+  - Reconstructs: publish → grant → re-encrypt → expunge timeline.
+
 OVERVIEW: ReconstructCustodyChain → ordered custody events.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/log
+KEY DEPENDENCIES: attesta/builder, attesta/log
 */
 package verification
 
@@ -14,10 +15,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 type CustodyEvent struct {

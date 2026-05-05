@@ -7,19 +7,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
 // ═════════════════════════════════════════════════════════════════════
-// Mock OperatorQueryAPI
+// Mock LedgerQueryAPI
 // ═════════════════════════════════════════════════════════════════════
 
-// mockQueryAPI satisfies sdklog.OperatorQueryAPI.
+// mockQueryAPI satisfies sdklog.LedgerQueryAPI.
 type mockQueryAPI struct {
 	entries map[uint64]types.EntryWithMetadata
 }
@@ -49,7 +49,7 @@ func (m *mockQueryAPI) QueryBySchemaRef(pos types.LogPosition) ([]types.EntryWit
 }
 
 // Compile-time check.
-var _ sdklog.OperatorQueryAPI = (*mockQueryAPI)(nil)
+var _ sdklog.LedgerQueryAPI = (*mockQueryAPI)(nil)
 
 // ═════════════════════════════════════════════════════════════════════
 // Test helpers
@@ -59,8 +59,8 @@ func buildTestEntry(t *testing.T) []byte {
 	t.Helper()
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:courts.test.gov",
-		Payload:   []byte(`{"docket":"2027-CR-0001"}`),
+		SignerDID:   "did:web:courts.test.gov",
+		Payload:     []byte(`{"docket":"2027-CR-0001"}`),
 	})
 	if err != nil {
 		t.Fatalf("build test entry: %v", err)
@@ -71,23 +71,23 @@ func buildTestEntry(t *testing.T) []byte {
 
 func emptyDeps() *Dependencies {
 	return &Dependencies{
-		LogQueries: map[string]sdklog.OperatorQueryAPI{},
+		LogQueries: map[string]sdklog.LedgerQueryAPI{},
 	}
 }
 
 func depsWithLog(logID string, entries map[uint64]types.EntryWithMetadata) *Dependencies {
 	return &Dependencies{
-		LogQueries: map[string]sdklog.OperatorQueryAPI{
+		LogQueries: map[string]sdklog.LedgerQueryAPI{
 			logID: &mockQueryAPI{entries: entries},
 		},
 	}
 }
 
 // ═════════════════════════════════════════════════════════════════════
-// operatorFetcher adapter
+// ledgerFetcher adapter
 // ═════════════════════════════════════════════════════════════════════
 
-func TestOperatorFetcher_Fetch_Success(t *testing.T) {
+func TestLedgerFetcher_Fetch_Success(t *testing.T) {
 	raw := buildTestEntry(t)
 	pos := types.LogPosition{LogDID: "test", Sequence: 42}
 
@@ -97,7 +97,7 @@ func TestOperatorFetcher_Fetch_Success(t *testing.T) {
 		},
 	}
 
-	fetcher := &operatorFetcher{query: mock, logDID: "test"}
+	fetcher := &ledgerFetcher{query: mock, logDID: "test"}
 	result, err := fetcher.Fetch(pos)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
@@ -110,9 +110,9 @@ func TestOperatorFetcher_Fetch_Success(t *testing.T) {
 	}
 }
 
-func TestOperatorFetcher_Fetch_NotFound(t *testing.T) {
+func TestLedgerFetcher_Fetch_NotFound(t *testing.T) {
 	mock := &mockQueryAPI{entries: map[uint64]types.EntryWithMetadata{}}
-	fetcher := &operatorFetcher{query: mock, logDID: "test"}
+	fetcher := &ledgerFetcher{query: mock, logDID: "test"}
 
 	_, err := fetcher.Fetch(types.LogPosition{LogDID: "test", Sequence: 999})
 	if err == nil {

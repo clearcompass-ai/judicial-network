@@ -2,12 +2,13 @@
 FILE PATH: appeals/initiation.go
 DESCRIPTION: Notice of appeal → root entity on appellate court's cases log.
 KEY ARCHITECTURAL DECISIONS:
-    - BuildRootEntity on appellate log (separate from lower court log).
-    - BuildCrossLogProof proves lower court case exists and is final.
-    - Domain Payload: lower_court_did, lower_court_case_pos, appeal_grounds.
-    - References lower court's case schema (no dedicated appellate schema).
+  - BuildRootEntity on appellate log (separate from lower court log).
+  - BuildCrossLogProof proves lower court case exists and is final.
+  - Domain Payload: lower_court_did, lower_court_case_pos, appeal_grounds.
+  - References lower court's case schema (no dedicated appellate schema).
+
 OVERVIEW: FileAppeal → root entity + cross-log proof.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier
+KEY DEPENDENCIES: attesta/builder, attesta/verifier
 */
 package appeals
 
@@ -15,21 +16,21 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 type AppealInitiationConfig struct {
-	Destination string // DID of target exchange. Required.
-	SignerDID          string
-	LowerCourtCasePos  types.LogPosition
-	LowerCourtDID      string
-	AppealNumber       string
-	AppealGrounds      string
-	SchemaRef          *types.LogPosition
-	EventTime          int64
+	Destination       string // DID of target exchange. Required.
+	SignerDID         string
+	LowerCourtCasePos types.LogPosition
+	LowerCourtDID     string
+	AppealNumber      string
+	AppealGrounds     string
+	SchemaRef         *types.LogPosition
+	EventTime         int64
 }
 
 type AppealInitiationResult struct {
@@ -62,19 +63,19 @@ func FileAppeal(
 	}
 
 	payload, _ := json.Marshal(map[string]interface{}{
-		"appeal_number":         cfg.AppealNumber,
-		"appeal_grounds":        cfg.AppealGrounds,
-		"lower_court_did":       cfg.LowerCourtDID,
-		"lower_court_case_seq":  cfg.LowerCourtCasePos.Sequence,
-		"status":                "pending",
+		"appeal_number":        cfg.AppealNumber,
+		"appeal_grounds":       cfg.AppealGrounds,
+		"lower_court_did":      cfg.LowerCourtDID,
+		"lower_court_case_seq": cfg.LowerCourtCasePos.Sequence,
+		"status":               "pending",
 	})
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: cfg.Destination,
-		SignerDID: cfg.SignerDID,
-		Payload:   payload,
-		SchemaRef: cfg.SchemaRef,
-		EventTime: cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		Payload:     payload,
+		SchemaRef:   cfg.SchemaRef,
+		EventTime:   cfg.EventTime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("appeals/initiation: build root entity: %w", err)

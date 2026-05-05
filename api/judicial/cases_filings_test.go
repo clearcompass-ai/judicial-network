@@ -2,10 +2,11 @@
 FILE PATH: api/judicial/cases_filings_test.go
 
 DESCRIPTION:
-    Coverage for caseFilingHandler and caseActionHandler — the
-    artifact-bearing cases.* handlers. Validation contracts pinned
-    here; full happy-path tests through the artifact stack land in
-    C4 alongside the artifact handlers themselves.
+
+	Coverage for caseFilingHandler and caseActionHandler — the
+	artifact-bearing cases.* handlers. Validation contracts pinned
+	here; full happy-path tests through the artifact stack land in
+	C4 alongside the artifact handlers themselves.
 */
 package judicial
 

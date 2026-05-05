@@ -23,7 +23,7 @@ Custody of their 9-year-old child is contested. Three months in,
 allegations surface that require juvenile-court oversight. The
 family-court judge moves the juvenile portion of the case to a
 juvenile-division magistrate via a `JudicialSuccessionPayload` —
-the same Davidson operator's log records that authority over the
+the same Davidson ledger's log records that authority over the
 juvenile portion has shifted, with a *narrowed* scope so the
 divorce/property aspects stay with the family judge. Mediation
 fails six weeks later; the mediator delegation is revoked.
@@ -56,7 +56,7 @@ with 4 actors for clarity; adding more is one extra spec each.
 (Assumes you have `clerk-brown.key.json` from §02.)
 
 ```bash
-cd ~/ortholog/keys
+cd ~/attesta/keys
 judicial-cli keygen --out judge-lewis.key.json
 judicial-cli keygen --out magistrate-owens.key.json
 judicial-cli keygen --out atty-murphy.key.json
@@ -87,7 +87,7 @@ the sequence numbers):
 By the end of Case 2 you'll have observed:
 
 1. A child's identity on the log **sealed** — not visible to the
-   operator, not visible to public log readers, but cited by
+   ledger, not visible to public log readers, but cited by
    subsequent custody orders by binding ID.
 2. A **scoped judicial succession** moving authority for one docket
    while leaving authority for a sibling docket intact — both the

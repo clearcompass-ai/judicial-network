@@ -2,37 +2,39 @@
 FILE PATH: jurisdiction/authority_chain_resolver.go
 
 DESCRIPTION:
-    AuthorityChainResolver — per-jurisdiction delegation chain
-    walker interface. Each Bundle returns its own resolver from
-    Bundle.AuthorityChainResolver(); the resolver evaluates a
-    Signer's delegation chain against THAT jurisdiction's
-    RoleCatalog only.
 
-    Per-jurisdiction scoping is the v0.5.0 invariant: a Davidson
-    Adjudicator's chain is validated against Davidson's catalog;
-    a Shelby Adjudicator's chain against Shelby's. Cross-
-    jurisdiction events (case transfers, relay attestations)
-    resolve both bundles explicitly via the registry.
+	AuthorityChainResolver — per-jurisdiction delegation chain
+	walker interface. Each Bundle returns its own resolver from
+	Bundle.AuthorityChainResolver(); the resolver evaluates a
+	Signer's delegation chain against THAT jurisdiction's
+	RoleCatalog only.
 
-    Why an interface here, not the concrete verification.
-    AuthorityResolver: keeping the type in jurisdiction lets
-    Bundle expose chain resolution without a circular import
-    (verification depends on jurisdiction; the inverse cannot
-    hold). The verification package provides the concrete
-    implementation.
+	Per-jurisdiction scoping is the v0.5.0 invariant: a Davidson
+	Adjudicator's chain is validated against Davidson's catalog;
+	a Shelby Adjudicator's chain against Shelby's. Cross-
+	jurisdiction events (case transfers, relay attestations)
+	resolve both bundles explicitly via the registry.
 
-    The minimal interface — one Resolve method — covers what
-    every caller needs: the cosignature verifier, the
-    prerequisites walker, the submit-time admission gate.
-    Audit-rich detail flows through AuthorityVerdict.
+	Why an interface here, not the concrete verification.
+	AuthorityResolver: keeping the type in jurisdiction lets
+	Bundle expose chain resolution without a circular import
+	(verification depends on jurisdiction; the inverse cannot
+	hold). The verification package provides the concrete
+	implementation.
+
+	The minimal interface — one Resolve method — covers what
+	every caller needs: the cosignature verifier, the
+	prerequisites walker, the submit-time admission gate.
+	Audit-rich detail flows through AuthorityVerdict.
 
 OVERVIEW:
-    AuthorityChainResolver       — interface (1 method).
-    AuthorityRequest             — input to Resolve.
-    DelegationRef                — log pointer to a delegation entry.
-    AuthorityVerdict             — output of Resolve.
-    NoAuthorityChainResolver     — closed-by-default factory for
-                                   TEMPLATE bundles and tests.
+
+	AuthorityChainResolver       — interface (1 method).
+	AuthorityRequest             — input to Resolve.
+	DelegationRef                — log pointer to a delegation entry.
+	AuthorityVerdict             — output of Resolve.
+	NoAuthorityChainResolver     — closed-by-default factory for
+	                               TEMPLATE bundles and tests.
 
 KEY DEPENDENCIES: context (for cancellation only).
 */

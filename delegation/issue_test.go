@@ -2,14 +2,15 @@
 FILE PATH: delegation/issue_test.go
 
 DESCRIPTION:
-    Tests for delegation.Issue. Wires StubProvider + a fake operator
-    submitter and pins:
-      - happy path institutional → CJ → judge issuance with a real
-        sign-and-submit round trip;
-      - request validation (missing fields, self-delegation);
-      - catalog rejection (unauthorized delegator, scope outside
-        AllowedScope, excessive duration);
-      - identity rejection (user declined sign).
+
+	Tests for delegation.Issue. Wires StubProvider + a fake ledger
+	submitter and pins:
+	  - happy path institutional → CJ → judge issuance with a real
+	    sign-and-submit round trip;
+	  - request validation (missing fields, self-delegation);
+	  - catalog rejection (unauthorized delegator, scope outside
+	    AllowedScope, excessive duration);
+	  - identity rejection (user declined sign).
 */
 package delegation
 
@@ -19,23 +20,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
 // ─── fakes ──────────────────────────────────────────────────────────
 
-type fakeOperator struct {
+type fakeLedger struct {
 	mu       sync.Mutex
 	captured [][]byte
 	err      error
 	nextSeq  uint64
 }
 
-func (f *fakeOperator) SubmitCanonical(ctx context.Context, canonical []byte) (schemas.LogPositionRef, error) {
+func (f *fakeLedger) SubmitCanonical(ctx context.Context, canonical []byte) (schemas.LogPositionRef, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.err != nil {
@@ -58,7 +59,7 @@ func stubBoundProvider(t *testing.T, did string) *identity.StubProvider {
 	return sp
 }
 
-func newBuildContext(t *testing.T, sp *identity.StubProvider, op *fakeOperator) *BuildContext {
+func newBuildContext(t *testing.T, sp *identity.StubProvider, op *fakeLedger) *BuildContext {
 	t.Helper()
 	return &BuildContext{
 		Identity:         sp,
@@ -76,7 +77,7 @@ func TestIssue_HappyPath_InstitutionalGrantsCJ(t *testing.T) {
 	cjDID := "did:key:zQ3shCJ"
 
 	sp := stubBoundProvider(t, institutional)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	res, err := Issue(context.Background(), bc, IssueRequest{
@@ -105,7 +106,7 @@ func TestIssue_HappyPath_InstitutionalGrantsCJ(t *testing.T) {
 	}
 	entry, err := envelope.Deserialize(op.captured[0])
 	if err != nil {
-		t.Fatalf("operator received malformed bytes: %v", err)
+		t.Fatalf("ledger received malformed bytes: %v", err)
 	}
 	if entry.Header.SignerDID != institutional {
 		t.Errorf("entry signer drift: %q", entry.Header.SignerDID)
@@ -121,7 +122,7 @@ func TestIssue_HappyPath_CJ_GrantsJudge(t *testing.T) {
 	parentRef := schemas.LogPositionRef{LogDID: "did:web:state:tn:davidson", Sequence: 1}
 
 	sp := stubBoundProvider(t, cjDID)
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	res, err := Issue(context.Background(), bc, IssueRequest{

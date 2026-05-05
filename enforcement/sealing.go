@@ -2,28 +2,28 @@
 FILE PATH: enforcement/sealing.go
 DESCRIPTION: Path C sealing order via SDK BuildEnforcement.
 KEY ARCHITECTURAL DECISIONS:
-    - Judge signer must be in scope authority set (Path C requirement).
-    - Advances AuthorityTip on case entity leaf → retrieve.go blocks access.
-    - Activation pattern: discover cosignatures → EvaluateConditions (now +
-      cosigs threaded through) → EvaluateContest → if unblocked → activate.
-    - Also handles protective orders (same Path C mechanism).
+  - Judge signer must be in scope authority set (Path C requirement).
+  - Advances AuthorityTip on case entity leaf → retrieve.go blocks access.
+  - Activation pattern: discover cosignatures → EvaluateConditions (now +
+    cosigs threaded through) → EvaluateContest → if unblocked → activate.
+  - Also handles protective orders (same Path C mechanism).
 
 BUGFIX NOTES (§5.1, §5.10):
-    - Prior version accepted a duck-typed clock type
-        now interface{ UTC() interface{ UnixMicro() int64 } }
-      that was never forwarded to verifier.CheckActivationReady. Result:
-      every activation-delay check resolved to ConditionPending forever,
-      and every cosignature-threshold check resolved to 0/N because no
-      cosignatures were ever passed in.
-    - CheckSealingActivation now takes plain time.Time plus an explicit
-      []types.EntryWithMetadata cosignatures slice (or a CosignatureQuerier
-      to discover them), and threads both into EvaluateConditionsParams.
-    - CosignatureQuerier is exposed so callers can pass log.OperatorQueryAPI
-      directly (structural typing — QueryByCosignatureOf is the one method
-      we need).
+  - Prior version accepted a duck-typed clock type
+    now interface{ UTC() interface{ UnixMicro() int64 } }
+    that was never forwarded to verifier.CheckActivationReady. Result:
+    every activation-delay check resolved to ConditionPending forever,
+    and every cosignature-threshold check resolved to 0/N because no
+    cosignatures were ever passed in.
+  - CheckSealingActivation now takes plain time.Time plus an explicit
+    []types.EntryWithMetadata cosignatures slice (or a CosignatureQuerier
+    to discover them), and threads both into EvaluateConditionsParams.
+  - CosignatureQuerier is exposed so callers can pass log.LedgerQueryAPI
+    directly (structural typing — QueryByCosignatureOf is the one method
+    we need).
 
 OVERVIEW: SealCase → enforcement entry. CheckSealingActivation → activation gate.
-KEY DEPENDENCIES: ortholog-sdk/builder, ortholog-sdk/verifier, ortholog-sdk/schema
+KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/schema
 */
 package enforcement
 
@@ -32,23 +32,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // CosignatureQuerier discovers cosignature entries referencing a given
-// pending position. Satisfied by log.OperatorQueryAPI via structural typing.
+// pending position. Satisfied by log.LedgerQueryAPI via structural typing.
 type CosignatureQuerier interface {
 	QueryByCosignatureOf(pos types.LogPosition) ([]types.EntryWithMetadata, error)
 }
 
 // SealingConfig configures a sealing order.
 type SealingConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination    string // DID of target exchange. Required.
 	JudgeDID       string
 	CaseRootPos    types.LogPosition
 	ScopePos       types.LogPosition
@@ -89,7 +89,7 @@ func SealCase(cfg SealingConfig) (*SealingResult, error) {
 	})
 
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: cfg.Destination,
+		Destination:    cfg.Destination,
 		SignerDID:      cfg.JudgeDID,
 		TargetRoot:     cfg.CaseRootPos,
 		ScopePointer:   cfg.ScopePos,

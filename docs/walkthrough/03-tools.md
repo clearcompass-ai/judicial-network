@@ -1,18 +1,18 @@
 # §03 · Boot the JN tools (court-tools + provider-tools)
 
-So far the walkthrough's "running app" is two operators + a CLI. The
-operator is the protocol layer; `judicial-cli` is one client. The
+So far the walkthrough's "running app" is two ledgers + a CLI. The
+ledger is the protocol layer; `judicial-cli` is one client. The
 **JN tools** are the application-layer HTTP services every real
-courthouse deployment runs alongside the operator:
+courthouse deployment runs alongside the ledger:
 
 | Binary | Port | Purpose |
 |---|---|---|
-| `court-tools` | `:8090` | Authenticated REST API used by court personnel (clerks, judges) for case lookup, filings, sealing/unsealing, officer roster. Also runs an in-process **aggregator** goroutine that polls the operator and caches sequenced entries into Postgres. |
+| `court-tools` | `:8090` | Authenticated REST API used by court personnel (clerks, judges) for case lookup, filings, sealing/unsealing, officer roster. Also runs an in-process **aggregator** goroutine that polls the ledger and caches sequenced entries into Postgres. |
 | `provider-tools` | `:8091` | Public-records read-only REST API. Background-check, document-list, search-by-docket. Reads the same Postgres cache court-tools' aggregator populates. **Never touches the exchange** — read-only by design. |
 
 Booting both is a one-time setup step. After that, you can re-run
 the walkthrough cases (§01–§02 → cases) and watch the aggregator
-populate `court_tools.cases` etc. as entries land on the operator.
+populate `court_tools.cases` etc. as entries land on the ledger.
 
 ## What's in scope here vs. what isn't
 
@@ -20,7 +20,7 @@ In scope:
 - **court-tools + provider-tools binaries** — real Go HTTP servers,
   same code path as a production deployment.
 - **The third Postgres database** (`court_tools`) — already
-  created by the operator's `make dev-up` (see
+  created by the ledger's `make dev-up` (see
   `deployment/local/postgres-init.sh`). The aggregator's schema
   (`tools/aggregator/schema.sql`) lands on first connect via
   `CREATE TABLE IF NOT EXISTS`.
@@ -35,36 +35,36 @@ Out of scope for v1 of this walkthrough:
   don't run an exchange binary in the dev topology, so write
   endpoints will surface a 502 from court-tools. Reads work fully
   via the aggregator. Use `judicial-cli submit` for entry writes
-  in the meantime — `judicial-cli` talks directly to the operator,
+  in the meantime — `judicial-cli` talks directly to the ledger,
   bypassing the exchange.
 
 The walkthrough's two cases ([Case 1](cases/01-acme-v-beta.md),
 [Case 2](cases/02-in-re-anderson.md)) submit through
 `judicial-cli` (no exchange dependency) and then the aggregator
-inside court-tools picks them up from the operator.
+inside court-tools picks them up from the ledger.
 
 ## 1. Confirm the `court_tools` database exists
 
-This was created by the operator's `make dev-up` (the
+This was created by the ledger's `make dev-up` (the
 `postgres-init.sh` mounted at first boot of the postgres
 container). Verify:
 
 ```bash
-$ docker exec ortholog-dev-postgres \
-    psql -U ortholog -l | grep court_tools
- court_tools | ortholog | UTF8 | ...
+$ docker exec attesta-dev-postgres \
+    psql -U attesta -l | grep court_tools
+ court_tools | attesta | UTF8 | ...
 ```
 
 If `court_tools` is missing — typically because you brought up
 the topology before this walkthrough section landed — run
-`make dev-down && make dev-up` from the operator repo to
+`make dev-down && make dev-up` from the ledger repo to
 re-trigger the init script. (`dev-down` deletes Postgres
 volumes; `dev-up` re-runs the init.)
 
 ## 2. Build the two binaries
 
 ```bash
-cd ~/ortholog/jn
+cd ~/attesta/jn
 go build -o ~/.local/bin/court-tools     ./tools/cmd/court-tools
 go build -o ~/.local/bin/provider-tools  ./tools/cmd/provider-tools
 
@@ -75,11 +75,11 @@ provider-tools  -h    # prints flags
 ## 3. Use the walkthrough's pre-built config
 
 The walkthrough ships a config tuned for our topology:
-operator on `:8080`, court_did = `did:web:state:tn:davidson`,
+ledger on `:8080`, court_did = `did:web:state:tn:davidson`,
 the right Postgres URL, no exchange:
 
 ```bash
-cat ~/ortholog/jn/docs/walkthrough/config/tools.dev.json
+cat ~/attesta/jn/docs/walkthrough/config/tools.dev.json
 ```
 
 That file is what `-config` accepts. (Env-var overrides via
@@ -90,7 +90,7 @@ That file is what `-config` accepts. (Env-var overrides via
 In one terminal:
 
 ```bash
-cd ~/ortholog/jn
+cd ~/attesta/jn
 court-tools -config docs/walkthrough/config/tools.dev.json
 ```
 
@@ -110,7 +110,7 @@ ok
 
 The aggregator is now polling Davidson on `:8080` every 5 seconds
 and inserting any newly-sequenced entries into `court_tools` →
-`cases`, `case_events`, `officers`, etc. With the operator
+`cases`, `case_events`, `officers`, etc. With the ledger
 currently empty (or full of walkthrough entries from a prior
 run), it'll either be a no-op or backfill the existing log.
 
@@ -119,7 +119,7 @@ run), it'll either be a no-op or backfill the existing log.
 In a third terminal:
 
 ```bash
-cd ~/ortholog/jn
+cd ~/attesta/jn
 provider-tools -config docs/walkthrough/config/tools.dev.json
 ```
 
@@ -177,9 +177,9 @@ After §03 you have **five processes** running:
 
 | Process | Port | Repo |
 |---|---|---|
-| `operator-davidson` | `:8080` | ortholog-operator (docker) |
-| `operator-coa` | `:8081` | ortholog-operator (docker) |
-| `postgres` | `:5432` | ortholog-operator (docker) |
+| `ledger-davidson` | `:8080` | ledger (docker) |
+| `ledger-coa` | `:8081` | ledger (docker) |
+| `postgres` | `:5432` | ledger (docker) |
 | `court-tools` | `:8090` | judicial-network (host) |
 | `provider-tools` | `:8091` | judicial-network (host) |
 
@@ -194,9 +194,9 @@ separately as future walkthrough additions.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `database unavailable: dial tcp ...` | court_tools DB doesn't exist | `make dev-down && make dev-up` in operator repo |
+| `database unavailable: dial tcp ...` | court_tools DB doesn't exist | `make dev-down && make dev-up` in ledger repo |
 | court-tools runs but `/v1/cases` returns 503 | DB connection failed at startup | Check the WARN line in court-tools output; likely your DATABASE_URL is wrong |
-| Aggregator logs `operator: 404 not found` | OperatorURL is misconfigured | Either your `tools.dev.json` points elsewhere or the operator isn't running |
+| Aggregator logs `ledger: 404 not found` | LedgerURL is misconfigured | Either your `tools.dev.json` points elsewhere or the ledger isn't running |
 | `502 Bad Gateway` on POST /v1/cases | exchange service not running (expected) | Use `judicial-cli submit` instead — see §02 onward |
 | `502 Bad Gateway` on GET /v1/records/{docket}/documents/{cid} | artifact-store not running (expected) | Out of scope for this walkthrough |
 
@@ -206,4 +206,4 @@ Cases unchanged from the previous version — start with
 [Case 1: ACME v. Beta](cases/01-acme-v-beta.md). The cases now
 have an extra layer of observability: every entry the cases
 submit will appear in `court-tools` and `provider-tools` queries
-within ~5 seconds of landing on the operator.
+within ~5 seconds of landing on the ledger.

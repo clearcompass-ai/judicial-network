@@ -2,19 +2,20 @@
 FILE PATH: schemas/counsel_appearance_functional_test.go
 
 DESCRIPTION:
-    Functional-emulation tests for tn-counsel-appearance-v1.
-    These walk the schema through real attorney-filing scenarios
-    end-to-end (build → validate → serialize → deserialize) so
-    the test failures map to user-visible regressions:
 
-      - "Defense counsel files appearance for one defendant."
-      - "Defense counsel represents two co-defendants."
-      - "Civil attorney represents the plaintiff."
-      - "Counsel withdraws by amending status to withdrawn."
-      - "Pro se case: no counsel_appearance, only party_binding."
+	Functional-emulation tests for tn-counsel-appearance-v1.
+	These walk the schema through real attorney-filing scenarios
+	end-to-end (build → validate → serialize → deserialize) so
+	the test failures map to user-visible regressions:
 
-    Unit-level tests (Validate happy/rejection, serialize round-
-    trip, registry lookup) live in counsel_appearance_test.go.
+	  - "Defense counsel files appearance for one defendant."
+	  - "Defense counsel represents two co-defendants."
+	  - "Civil attorney represents the plaintiff."
+	  - "Counsel withdraws by amending status to withdrawn."
+	  - "Pro se case: no counsel_appearance, only party_binding."
+
+	Unit-level tests (Validate happy/rejection, serialize round-
+	trip, registry lookup) live in counsel_appearance_test.go.
 */
 package schemas
 

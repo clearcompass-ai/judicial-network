@@ -2,26 +2,27 @@
 FILE PATH: api/judicial/topology.go
 
 DESCRIPTION:
-    Topology handlers — wired with the witness.TreeHeadClient that
-    Phase 7-C6 stubbed as 501. The two endpoints:
 
-      POST /v1/judicial/topology/publish-anchor
-        Builds the anchor commentary entry the operator submits to
-        a parent (state) log. Wraps topology.PublishAnchor which
-        fetches the latest cosigned tree head from the source log
-        via deps.TreeHeadClient.
+	Topology handlers — wired with the witness.TreeHeadClient that
+	-C6 stubbed as 501. The two endpoints:
 
-      GET  /v1/judicial/topology/anchor-chain
-        Walks the anchor hierarchy from the supplied court DID up
-        to the state root. Wraps topology.DiscoverAnchorChain which
-        consults deps.Resolver for DID Documents and deps.TreeHeadClient
-        for cached tree heads at each hop.
+	  POST /v1/judicial/topology/publish-anchor
+	    Builds the anchor commentary entry the ledger submits to
+	    a parent (state) log. Wraps topology.PublishAnchor which
+	    fetches the latest cosigned tree head from the source log
+	    via deps.TreeHeadClient.
 
-    Both handlers return 503 with a clear reason when their
-    required deps are nil — the binary boots cleanly without
-    witness configuration but the routes refuse traffic until
-    operational config wires the TreeHeadClient + (for anchor-
-    chain) the Hierarchy.
+	  GET  /v1/judicial/topology/anchor-chain
+	    Walks the anchor hierarchy from the supplied court DID up
+	    to the state root. Wraps topology.DiscoverAnchorChain which
+	    consults deps.Resolver for DID Documents and deps.TreeHeadClient
+	    for cached tree heads at each hop.
+
+	Both handlers return 503 with a clear reason when their
+	required deps are nil — the binary boots cleanly without
+	witness configuration but the routes refuse traffic until
+	operational config wires the TreeHeadClient + (for anchor-
+	chain) the Hierarchy.
 */
 package judicial
 

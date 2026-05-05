@@ -2,9 +2,10 @@
 FILE PATH: internal/testfixtures/davidsonlegacy/cosignature_mix_test.go
 
 DESCRIPTION:
-    Tests for the legacy v1.6 Davidson cosignature-mix fixture.
-    Mirrors the original deployments/davidson_county/rules/
-    cosignature_mix_test.go invariants.
+
+	Tests for the legacy v1.6 Davidson cosignature-mix fixture.
+	Mirrors the original deployments/davidson_county/rules/
+	cosignature_mix_test.go invariants.
 */
 package davidsonlegacy
 

@@ -2,31 +2,32 @@
 FILE PATH: api/judicial/escrow.go
 
 DESCRIPTION:
-    Escrow recovery (Phase 10) — HTTP handlers for the M-of-N
-    recovery vocabulary. Wraps escrow/event_builder.go which itself
-    wraps migration/ungraceful.go + the SDK's lifecycle/recovery.go
-    primitives.
 
-    Wired routes (return BuildResponse / verdict JSON):
-      POST /v1/judicial/escrow/recovery/initiate
-        → BuildRecoveryRequest (commentary entry; caller signs +
-          submits via /v1/entries/submit)
-      POST /v1/judicial/escrow/migration/record
-        → BuildMigrationRecord (post-recovery audit commentary)
+	Escrow recovery — HTTP handlers for the M-of-N
+	recovery vocabulary. Wraps escrow/event_builder.go which itself
+	wraps migration/ungraceful.go + the SDK's lifecycle/recovery.go
+	primitives.
 
-    501 stubs with explicit operational reasoning:
-      POST /v1/judicial/escrow/recovery/collect-share
-        Multi-request server-side state (shares accumulate across N
-        escrow nodes). Operator-tooling drives this — the JN binary
-        does not hold per-recovery share state.
-      POST /v1/judicial/escrow/recovery/execute
-        Reconstructs the 32-byte MasterKey. Returning that material
-        in an HTTP response body crosses the SDK identity boundary;
-        operator tooling runs the reconstruction in-process.
-      POST /v1/judicial/escrow/arbitration/evaluate
-        Requires resolved EntryWithMetadata fixtures (escrow
-        approvals + witness cosig) AND scope SchemaParameters; both
-        are operator-tooling concerns. Stub surfaces the reasoning.
+	Wired routes (return BuildResponse / verdict JSON):
+	  POST /v1/judicial/escrow/recovery/initiate
+	    → BuildRecoveryRequest (commentary entry; caller signs +
+	      submits via /v1/entries/submit)
+	  POST /v1/judicial/escrow/migration/record
+	    → BuildMigrationRecord (post-recovery audit commentary)
+
+	501 stubs with explicit operational reasoning:
+	  POST /v1/judicial/escrow/recovery/collect-share
+	    Multi-request server-side state (shares accumulate across N
+	    escrow nodes). Ledger-tooling drives this — the JN binary
+	    does not hold per-recovery share state.
+	  POST /v1/judicial/escrow/recovery/execute
+	    Reconstructs the 32-byte MasterKey. Returning that material
+	    in an HTTP response body crosses the SDK identity boundary;
+	    ledger tooling runs the reconstruction in-process.
+	  POST /v1/judicial/escrow/arbitration/evaluate
+	    Requires resolved EntryWithMetadata fixtures (escrow
+	    approvals + witness cosig) AND scope SchemaParameters; both
+	    are ledger-tooling concerns. Stub surfaces the reasoning.
 */
 package judicial
 
@@ -135,7 +136,7 @@ func (h *escrowMigrationRecordHandler) ServeHTTP(w http.ResponseWriter, r *http.
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 501 stubs — operator-tooling territory
+// 501 stubs — ledger-tooling territory
 // ─────────────────────────────────────────────────────────────────────
 
 type escrowCollectShareHandler struct{ deps *Dependencies }
@@ -146,7 +147,7 @@ func (h *escrowCollectShareHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	writeError(w, http.StatusNotImplemented,
 		"escrow.CollectShares accumulates per-recovery state across N share submissions; "+
-			"operator-tooling holds that state, not the JN HTTP surface")
+			"ledger-tooling holds that state, not the JN HTTP surface")
 }
 
 type escrowExecuteHandler struct{ deps *Dependencies }
@@ -157,7 +158,7 @@ func (h *escrowExecuteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	writeError(w, http.StatusNotImplemented,
 		"escrow.ExecuteRecovery returns 32-byte MasterKey material; that material MUST NOT cross "+
-			"the HTTP boundary — operator-tooling runs reconstruction in-process and emits the "+
+			"the HTTP boundary — ledger-tooling runs reconstruction in-process and emits the "+
 			"signed Succession Entry directly to /v1/entries/submit")
 }
 

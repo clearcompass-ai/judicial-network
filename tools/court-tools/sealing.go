@@ -75,11 +75,11 @@ func (s *Server) UnsealCase(w http.ResponseWriter, r *http.Request) {
 
 	signerDID := SignerDIDFromContext(r.Context())
 	result, err := s.exchange.SubmitEntry(map[string]any{
-		"builder":        "enforcement",
-		"signer_did":     signerDID,
-		"log_did":        s.cfg.CasesLogDID,
-		"target_root":    casePos,
-		"scope_pointer":  scopePos,
+		"builder":         "enforcement",
+		"signer_did":      signerDID,
+		"log_did":         s.cfg.CasesLogDID,
+		"target_root":     casePos,
+		"scope_pointer":   scopePos,
 		"prior_authority": req.PriorSealPosition,
 		"domain_payload": map[string]any{
 			"order_type": "unsealing_order",

@@ -2,28 +2,29 @@
 FILE PATH: tests/contracts/artifact_store_contract_test.go
 
 DESCRIPTION:
-    Wire-format contract tests pinning judicial-network's HTTP
-    interactions with the artifact-store service via the SDK's
-    storage.HTTPContentStore. Per the architecture spec, JN never
-    imports ortholog-artifact-store/ directly — every wire call
-    flows through the SDK's ContentStore interface.
 
-    Coverage:
-      1. POST /v1/artifacts: header X-Artifact-CID + octet-stream
-         body. CID equality is the artifact-store's gate
-         (sha256 of body must equal CID digest).
-      2. GET /v1/artifacts/{cid}: returns raw ciphertext with 200,
-         404 → ErrContentNotFound surfaces typed sentinel.
-      3. SDK CID + storage.Compute determinism — JN's caller and
-         the artifact-store's verifier compute byte-identical CIDs
-         for identical inputs.
-      4. 503 + Retry-After honored transparently (operator/artifact-
-         store cd44329 contract): JN→artifact-store burst pressure
-         absorbed locally.
+	Wire-format contract tests pinning judicial-network's HTTP
+	interactions with the artifact-store service via the SDK's
+	storage.HTTPContentStore. Per the architecture spec, JN never
+	imports attesta-artifact-store/ directly — every wire call
+	flows through the SDK's ContentStore interface.
 
-    Each test uses an httptest.Server fake reproducing the artifact-
-    store's wire shape. If the SDK ContentStore can drive the fake,
-    a real artifact-store at the same wire contract works.
+	Coverage:
+	  1. POST /v1/artifacts: header X-Artifact-CID + octet-stream
+	     body. CID equality is the artifact-store's gate
+	     (sha256 of body must equal CID digest).
+	  2. GET /v1/artifacts/{cid}: returns raw ciphertext with 200,
+	     404 → ErrContentNotFound surfaces typed sentinel.
+	  3. SDK CID + storage.Compute determinism — JN's caller and
+	     the artifact-store's verifier compute byte-identical CIDs
+	     for identical inputs.
+	  4. 503 + Retry-After honored transparently (ledger/artifact-
+	     store cd44329 contract): JN→artifact-store burst pressure
+	     absorbed locally.
+
+	Each test uses an httptest.Server fake reproducing the artifact-
+	store's wire shape. If the SDK ContentStore can drive the fake,
+	a real artifact-store at the same wire contract works.
 */
 package contracts
 
@@ -35,7 +36,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -46,10 +47,10 @@ import (
 // JN's exchange handlers (artifacts.go ArtifactPublishHandler) and
 // tools (filings.go pushToArtifactStore) emit:
 //
-//   POST /v1/artifacts
-//   X-Artifact-CID:  <CID string>
-//   Content-Type:    application/octet-stream
-//   <body: raw ciphertext>
+//	POST /v1/artifacts
+//	X-Artifact-CID:  <CID string>
+//	Content-Type:    application/octet-stream
+//	<body: raw ciphertext>
 //
 // The artifact-store gates push integrity with sha256(body) ==
 // CID.Digest; we assert the body bytes match the CID input.
@@ -153,7 +154,7 @@ func TestArtifactStoreContract_Fetch_HappyPath(t *testing.T) {
 
 // TestArtifactStoreContract_Fetch_404_ReturnsErrContentNotFound pins
 // the SDK's 404 → typed sentinel mapping. JN's tools/providers/
-// documents.go Phase-1D path errors.Is on this sentinel to
+// documents.go  path errors.Is on this sentinel to
 // distinguish "artifact missing" from "artifact-store unreachable."
 func TestArtifactStoreContract_Fetch_404_ReturnsErrContentNotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -189,8 +190,8 @@ func TestArtifactStoreContract_CIDDeterministic_RoundTrip(t *testing.T) {
 		[]byte(""),
 		[]byte("a"),
 		[]byte("court filing PDF bytes — deterministic CID input"),
-		make([]byte, 1<<10),  // 1 KiB
-		make([]byte, 1<<20),  // 1 MiB
+		make([]byte, 1<<10), // 1 KiB
+		make([]byte, 1<<20), // 1 MiB
 	}
 	for _, data := range cases {
 		a := storage.Compute(data)
@@ -217,7 +218,7 @@ func TestArtifactStoreContract_CIDDeterministic_RoundTrip(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 // TestArtifactStoreContract_Push_RetriesOn503 pins the SDK ContentStore
-// + RetryAfterRoundTripper integration. ortholog-artifact-store
+// + RetryAfterRoundTripper integration. attesta-artifact-store
 // commit cd44329 added 503-Retry-After honoring on GCS/RustFS bursts;
 // JN's HTTPContentStore must read that signal transparently. Pre-
 // regression check: a 503 on first attempt + 200 on second attempt
@@ -241,7 +242,7 @@ func TestArtifactStoreContract_Push_RetriesOn503(t *testing.T) {
 		BaseURL: srv.URL,
 	})
 	// SDK's HTTPContentStore uses its own bare http.Client by default.
-	// The 503-retry honoring lives at the operator artifact-store
+	// The 503-retry honoring lives at the ledger artifact-store
 	// integration boundary (storage backend, not the consumer-side
 	// ContentStore). This test documents the current state: JN's
 	// ContentStore swap + a future SDK enhancement to wire

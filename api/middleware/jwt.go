@@ -2,50 +2,51 @@
 FILE PATH: api/middleware/jwt.go
 
 DESCRIPTION:
-    JWT Authenticator. Verifies Bearer tokens against a JWKS endpoint
-    and lifts the verified `sub` claim into the request context as
-    callerDID.
 
-    Wire format pinned:
+	JWT Authenticator. Verifies Bearer tokens against a JWKS endpoint
+	and lifts the verified `sub` claim into the request context as
+	callerDID.
 
-      Authorization: Bearer <jwt>
+	Wire format pinned:
 
-      <jwt> = base64url(header) "." base64url(payload) "." base64url(sig)
+	  Authorization: Bearer <jwt>
 
-      Header MUST carry: { "alg": "RS256"|"ES256", "kid": "..." }
-      Payload MUST carry: { "iss": <expected issuer>, "sub": <DID>,
-                            "exp": <unix sec>, [optional "nbf"] }
+	  <jwt> = base64url(header) "." base64url(payload) "." base64url(sig)
 
-    Verification steps (every step's failure → 401, no body):
+	  Header MUST carry: { "alg": "RS256"|"ES256", "kid": "..." }
+	  Payload MUST carry: { "iss": <expected issuer>, "sub": <DID>,
+	                        "exp": <unix sec>, [optional "nbf"] }
 
-      1. Header parses + alg ∈ {RS256, ES256}.
-      2. Header carries a kid.
-      3. JWKS cache has a key with that kid; refresh once on miss.
-      4. Signature verifies against that key over header.payload.
-      5. iss == cfg.Issuer.
-      6. exp > now (with cfg.Leeway tolerance).
-      7. nbf <= now (when present, with cfg.Leeway tolerance).
-      8. sub != "".
+	Verification steps (every step's failure → 401, no body):
 
-    Stdlib-only by design — no external JWT library, no JWKS client
-    library. The verifier is ~250 lines of explicit Go; the JWKS
-    cache holds the JWK set in memory and refreshes on kid miss
-    (cooldown-gated to prevent denial via crafted-kid spam).
+	  1. Header parses + alg ∈ {RS256, ES256}.
+	  2. Header carries a kid.
+	  3. JWKS cache has a key with that kid; refresh once on miss.
+	  4. Signature verifies against that key over header.payload.
+	  5. iss == cfg.Issuer.
+	  6. exp > now (with cfg.Leeway tolerance).
+	  7. nbf <= now (when present, with cfg.Leeway tolerance).
+	  8. sub != "".
 
-    Algorithms supported:
+	Stdlib-only by design — no external JWT library, no JWKS client
+	library. The verifier is ~250 lines of explicit Go; the JWKS
+	cache holds the JWK set in memory and refreshes on kid miss
+	(cooldown-gated to prevent denial via crafted-kid spam).
 
-      RS256: RSA-PKCS#1 v1.5 over SHA-256 (RFC 7518 §3.3)
-      ES256: ECDSA P-256 over SHA-256 (RFC 7518 §3.4) — IETF-canonical
-             r || s concatenation (raw 64 bytes), NOT DER-encoded
+	Algorithms supported:
 
-    Adding HS256 (HMAC) is intentionally NOT supported: HS256 requires
-    the verifier and signer to share a symmetric secret, which
-    contradicts "verify against a public JWKS." Only asymmetric
-    signing fits the deployment model.
+	  RS256: RSA-PKCS#1 v1.5 over SHA-256 (RFC 7518 §3.3)
+	  ES256: ECDSA P-256 over SHA-256 (RFC 7518 §3.4) — IETF-canonical
+	         r || s concatenation (raw 64 bytes), NOT DER-encoded
 
-    Concurrency: jwksCache is safe for concurrent Get + Refresh.
-    Multiple in-flight requests during a refresh share one network
-    fetch (sync.Once-protected per refresh window).
+	Adding HS256 (HMAC) is intentionally NOT supported: HS256 requires
+	the verifier and signer to share a symmetric secret, which
+	contradicts "verify against a public JWKS." Only asymmetric
+	signing fits the deployment model.
+
+	Concurrency: jwksCache is safe for concurrent Get + Refresh.
+	Multiple in-flight requests during a refresh share one network
+	fetch (sync.Once-protected per refresh window).
 */
 package middleware
 

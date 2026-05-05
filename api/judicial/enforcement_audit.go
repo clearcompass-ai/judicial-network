@@ -2,17 +2,18 @@
 FILE PATH: api/judicial/enforcement_audit.go
 
 DESCRIPTION:
-    The audit / compliance side of enforcement: expungement (full
-    cryptographic erasure), sealed-evidence access grants, and
-    compliance reports. These are lower-volume than sealing but more
-    consequential.
 
-      POST /v1/judicial/enforcement/expunge          → ExpungeCase
-      POST /v1/judicial/enforcement/evidence-access  → GrantEvidenceAccess
-      GET  /v1/judicial/enforcement/compliance       → RunComplianceCheck
+	The audit / compliance side of enforcement: expungement (full
+	cryptographic erasure), sealed-evidence access grants, and
+	compliance reports. These are lower-volume than sealing but more
+	consequential.
 
-    Co-located here because they share the artifact-stack +
-    authority-chain dependencies on the Dependencies struct.
+	  POST /v1/judicial/enforcement/expunge          → ExpungeCase
+	  POST /v1/judicial/enforcement/evidence-access  → GrantEvidenceAccess
+	  GET  /v1/judicial/enforcement/compliance       → RunComplianceCheck
+
+	Co-located here because they share the artifact-stack +
+	authority-chain dependencies on the Dependencies struct.
 */
 package judicial
 
@@ -21,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/enforcement"
 )
@@ -77,13 +78,13 @@ func (h *expungeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		cids = append(cids, c)
 	}
 	cfg := enforcement.ExpungementConfig{
-		Destination:    req.Destination,
-		JudgeDID:       judge,
-		CaseRootPos:    types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: req.CaseRootSeq},
-		ScopePos:       types.LogPosition{LogDID: req.ScopeLogDID, Sequence: req.ScopeSeq},
-		Authority:      req.Authority,
-		ArtifactCIDs:   cids,
-		EventTime:      req.EventTime,
+		Destination:  req.Destination,
+		JudgeDID:     judge,
+		CaseRootPos:  types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: req.CaseRootSeq},
+		ScopePos:     types.LogPosition{LogDID: req.ScopeLogDID, Sequence: req.ScopeSeq},
+		Authority:    req.Authority,
+		ArtifactCIDs: cids,
+		EventTime:    req.EventTime,
 	}
 	if req.PriorAuthority != nil {
 		pa := req.PriorAuthority.toLogPosition()
@@ -124,18 +125,18 @@ func (h *expungeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // requests access, this handler builds a SDK sealed-mode grant that
 // the caller's wallet can decrypt under their key.
 type evidenceAccessRequest struct {
-	Destination       string          `json:"destination"`
-	ArtifactCID       string          `json:"artifact_cid"`
-	ContentDigest     string          `json:"content_digest"`
-	FilingEntry       logPositionRef  `json:"filing_entry"`
-	CaseRoot          logPositionRef  `json:"case_root"`
-	Scope             logPositionRef  `json:"scope"`
-	RequesterDID      string          `json:"requester_did"`
+	Destination        string         `json:"destination"`
+	ArtifactCID        string         `json:"artifact_cid"`
+	ContentDigest      string         `json:"content_digest"`
+	FilingEntry        logPositionRef `json:"filing_entry"`
+	CaseRoot           logPositionRef `json:"case_root"`
+	Scope              logPositionRef `json:"scope"`
+	RequesterDID       string         `json:"requester_did"`
 	RequesterPubKeyB64 string         `json:"requester_pub_key_b64,omitempty"`
-	GranterDID        string          `json:"granter_did"`
-	SchemaRef         logPositionRef  `json:"schema_ref"`
-	OwnerMasterKeyB64 string          `json:"owner_master_key_b64,omitempty"`
-	PkDelB64          string          `json:"pk_del_b64,omitempty"`
+	GranterDID         string         `json:"granter_did"`
+	SchemaRef          logPositionRef `json:"schema_ref"`
+	OwnerMasterKeyB64  string         `json:"owner_master_key_b64,omitempty"`
+	PkDelB64           string         `json:"pk_del_b64,omitempty"`
 }
 
 type evidenceAccessHandler struct{ deps *Dependencies }

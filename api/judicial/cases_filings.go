@@ -2,28 +2,29 @@
 FILE PATH: api/judicial/cases_filings.go
 
 DESCRIPTION:
-    The artifact-bearing cases.* handlers: filings (every motion,
-    sworn document, evidence) and judicial actions (rulings, orders,
-    sentences, dispositions when accompanied by a written opinion).
 
-    Both flows share the same artifact-stack dependencies on the
-    Dependencies struct (ContentStore + KeyStore + DelegationKeyStore
-    + Extractor + Fetcher + Resolver). Co-locating them keeps the
-    file's responsibility tight: "all cases.* handlers that touch
-    the artifact pipeline."
+	The artifact-bearing cases.* handlers: filings (every motion,
+	sworn document, evidence) and judicial actions (rulings, orders,
+	sentences, dispositions when accompanied by a written opinion).
 
-    Daily reality:
-      - Filings are the highest-volume write path.
-      - Judicial actions optionally carry a written opinion as a
-        Plaintext attachment which is encrypted on the way through.
+	Both flows share the same artifact-stack dependencies on the
+	Dependencies struct (ContentStore + KeyStore + DelegationKeyStore
+	+ Extractor + Fetcher + Resolver). Co-locating them keeps the
+	file's responsibility tight: "all cases.* handlers that touch
+	the artifact pipeline."
+
+	Daily reality:
+	  - Filings are the highest-volume write path.
+	  - Judicial actions optionally carry a written opinion as a
+	    Plaintext attachment which is encrypted on the way through.
 */
 package judicial
 
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases"
 )

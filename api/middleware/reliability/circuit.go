@@ -2,24 +2,25 @@
 FILE PATH: api/middleware/reliability/circuit.go
 
 DESCRIPTION:
-    Minimal three-state circuit breaker for outbound HTTP calls
-    (operator submit, artifact-store push, etc.). Pattern is the
-    standard circuit-breaker:
 
-      Closed    — calls pass through, failures counted.
-      Open      — failures exceeded threshold; calls fast-fail with
-                  ErrCircuitOpen until cooldown elapses.
-      HalfOpen  — cooldown elapsed; limited probe traffic allowed.
-                  ProbeWindow successes → Closed; first failure → Open.
+	Minimal three-state circuit breaker for outbound HTTP calls
+	(ledger submit, artifact-store push, etc.). Pattern is the
+	standard circuit-breaker:
 
-    The implementation is intentionally tiny — gobreaker is
-    well-tested but pulls a transitive that the JN binary doesn't
-    otherwise need; the failure-counting + state machine here are
-    ~80 LoC and unit-testable in isolation.
+	  Closed    — calls pass through, failures counted.
+	  Open      — failures exceeded threshold; calls fast-fail with
+	              ErrCircuitOpen until cooldown elapses.
+	  HalfOpen  — cooldown elapsed; limited probe traffic allowed.
+	              ProbeWindow successes → Closed; first failure → Open.
 
-    Defaults are conservative for the JN→operator path: 5 failures
-    in a row → open; 30s cooldown; 3 consecutive probe successes →
-    close. Override per call site.
+	The implementation is intentionally tiny — gobreaker is
+	well-tested but pulls a transitive that the JN binary doesn't
+	otherwise need; the failure-counting + state machine here are
+	~80 LoC and unit-testable in isolation.
+
+	Defaults are conservative for the JN→ledger path: 5 failures
+	in a row → open; 30s cooldown; 3 consecutive probe successes →
+	close. Override per call site.
 */
 package reliability
 
@@ -164,7 +165,7 @@ func (b *Breaker) openCircuit() {
 }
 
 // State returns the current state as a stable string. Useful for
-// metrics + observability (Phase 15) without exposing the int
+// metrics + observability without exposing the int
 // constants externally.
 func (b *Breaker) State() string {
 	b.mu.Lock()

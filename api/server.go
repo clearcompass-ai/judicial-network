@@ -5,8 +5,8 @@ A single api/ binary serves N destinations on ONE listener. The
 binary mounts:
 
   - api/exchange     → all write paths (POST /v1/entries/...,
-                       /v1/artifacts/..., /v1/delegations,
-                       /v1/keys/..., /v1/dids, /v1/scope/...)
+    /v1/artifacts/..., /v1/delegations,
+    /v1/keys/..., /v1/dids, /v1/scope/...)
   - api/verification → all read paths (GET /v1/verify/...)
   - GET /healthz     → composer-owned aggregated health
 
@@ -104,7 +104,7 @@ type Config struct {
 	// applies. /healthz, /metrics, /v1/openapi.yaml are NEVER wrapped.
 	Auth middleware.Authenticator
 
-	// Reliability knobs (Phase 14). MaxBodyBytes: 0 = 1 MiB default,
+	// Reliability knobs. MaxBodyBytes: 0 = 1 MiB default,
 	// -1 disables. PerRequestTimeout: 0 = no wrapper. GlobalRPS /
 	// GlobalBurst: both 0 disables the global rate limiter.
 	MaxBodyBytes      int64
@@ -112,13 +112,13 @@ type Config struct {
 	GlobalRPS         float64
 	GlobalBurst       int
 
-	// Observability bundle (Phase 15). nil → NewObservability().
+	// Observability bundle. nil → NewObservability().
 	Observability *Observability
 
 	// ReadyzChecks (Priority 3) populates the composer's /readyz
-	// endpoint with operator + artifact-store reachability checks.
+	// endpoint with ledger + artifact-store reachability checks.
 	// Empty slice → /readyz always returns 200 ("nothing to check,
-	// process is up"). Operators wire CheckHTTPGet helpers from
+	// process is up"). Ledgers wire CheckHTTPGet helpers from
 	// the observability package per-deployment.
 	ReadyzChecks []observability.ReadyCheck
 
@@ -181,14 +181,14 @@ func NewServer(cfg Config) (*Server, error) {
 		judicialHandler = cfg.Auth.Wrap(judicialHandler)
 	}
 
-	// Reliability middleware (Phase 14). Outer→inner: RateLimitGlobal
+	// Reliability middleware. Outer→inner: RateLimitGlobal
 	// → RequestTimeout → MaxBodyBytes → Auth → handler. /healthz +
 	// /metrics + /readyz + /v1/openapi.yaml are NOT wrapped.
 	exchHandler = wrapReliability(cfg, exchHandler)
 	verifyHandler = wrapReliability(cfg, verifyHandler)
 	judicialHandler = wrapReliability(cfg, judicialHandler)
 
-	// Observability middleware (Phase 15). Outermost wrap so
+	// Observability middleware. Outermost wrap so
 	// request_id + metrics + logs see auth + reliability outcomes.
 	if cfg.Observability == nil {
 		cfg.Observability = NewObservability()
@@ -208,7 +208,7 @@ func NewServer(cfg Config) (*Server, error) {
 	// Composer-owned health probe. Returns 200 unconditionally; the
 	// constituent /healthz endpoints are shadowed under composition.
 	// Future expansion: aggregate liveness from constituents (e.g.,
-	// keystore reachable, operator reachable). Ship the simple form
+	// keystore reachable, ledger reachable). Ship the simple form
 	// first; instrument later.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -253,7 +253,7 @@ func NewServer(cfg Config) (*Server, error) {
 
 	// mTLS configuration when a ClientCAFile is supplied. The composer
 	// does NOT enforce a single auth mode — JWT is layered as
-	// middleware on top in Phase 5. Today: TLS material is wired and
+	// middleware on top . Today: TLS material is wired and
 	// client-cert verification is on; absent ClientCAFile the listener
 	// runs plain HTTPS with optional auth handled by middleware.
 	if cfg.ClientCAFile != "" {
@@ -297,4 +297,3 @@ func (s *Server) StartTLS() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
-

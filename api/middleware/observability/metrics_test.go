@@ -2,22 +2,14 @@
 FILE PATH: api/middleware/observability/metrics_test.go
 
 DESCRIPTION:
-    Wire-format verification for the OTel-backed HTTP metrics
-    middleware. Every assertion is performed against the literal
-    /metrics scrape body — the bytes a Prometheus scraper actually
-    consumes — rather than against the in-memory instruments. That
-    coverage shape catches:
 
-      1. OTel-native instrument names ("jn_http_requests" without
-         "_total") rendering correctly with the "_total" suffix
-         applied by the OTel→Prometheus exporter convention.
-      2. The "_seconds" / "_bucket" / "_count" / "_sum" suffixes on
-         the duration histogram.
-      3. Status-class label bucketing.
-      4. Inc/Dec balance on the in-flight gauge.
-      5. # HELP and # TYPE descriptor lines.
-      6. The wire-format-compat invariants from the SDK's primitive:
-         no target_info, no otel_scope_info.
+	Pins the Prometheus metrics middleware:
+	  1. A 200 response increments jn_http_requests_total{...,status="2xx"}.
+	  2. A 500 response increments {...,status="5xx"}.
+	  3. Duration histogram observes a sample per request.
+	  4. In-flight gauge increments on entry and decrements on exit.
+	  5. Handler() serves the registry as text/plain in
+	     OpenMetrics format.
 */
 package observability
 

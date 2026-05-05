@@ -2,18 +2,19 @@
 FILE PATH: api/exchange/keystore/vault/vault_fakeserver_test.go
 
 DESCRIPTION:
-    Mock Vault Transit server for unit tests. Implements the subset
-    of /v1/transit endpoints the keystore exercises (create / read /
-    sign / rotate / delete) with REAL secp256k1 + Ed25519 keys so
-    SignSecp256k1 round-trips through actual ASN.1 marshal/unmarshal
-    + recovery-byte selection.
+
+	Mock Vault Transit server for unit tests. Implements the subset
+	of /v1/transit endpoints the keystore exercises (create / read /
+	sign / rotate / delete) with REAL secp256k1 + Ed25519 keys so
+	SignSecp256k1 round-trips through actual ASN.1 marshal/unmarshal
+	+ recovery-byte selection.
 */
 package vault
 
 import (
-	stdliberand "crypto/rand"
 	stdlibecdsa "crypto/ecdsa"
 	"crypto/ed25519"
+	stdliberand "crypto/rand"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"

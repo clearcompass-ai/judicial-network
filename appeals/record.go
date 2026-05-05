@@ -2,27 +2,27 @@
 FILE PATH: appeals/record.go
 DESCRIPTION: Record on appeal — certified copy of lower court entries.
 KEY ARCHITECTURAL DECISIONS:
-    - Queries lower court operator via QueryByTargetRoot for all entries.
-    - Decrypts source artifacts via caller-supplied SourceDecryptor.
-    - Re-encrypts under appellate owner DID via artifact.PublishArtifact.
-    - Produces manifest commentary listing all transferred CIDs.
+  - Queries lower court ledger via QueryByTargetRoot for all entries.
+  - Decrypts source artifacts via caller-supplied SourceDecryptor.
+  - Re-encrypts under appellate owner DID via artifact.PublishArtifact.
+  - Produces manifest commentary listing all transferred CIDs.
 
 BUGFIX NOTES (§5.2):
-    - Prior version set Plaintext: []byte(payload.ArtifactCID) — it
-      re-encrypted the source CID's string bytes rather than the artifact
-      content. Appellate artifacts were garbage.
-    - This version performs real retrieve-then-publish. The trust-boundary
-      reality is that either the appellate court runs this on the source
-      operator's trust side (clerks with direct key-store access), OR
-      the source operator issues a grant and the appellate side unwraps
-      with its recipient private key. Both are valid operational modes;
-      neither fits inside one helper without a caller hook.
-    - SourceDecryptor is that hook. TransferRecord handles ortholog
-      plumbing; the caller supplies the crypto boundary. A reference
-      DirectKeySourceDecryptor handles in-trust-boundary deployments.
+  - Prior version set Plaintext: []byte(payload.ArtifactCID) — it
+    re-encrypted the source CID's string bytes rather than the artifact
+    content. Appellate artifacts were garbage.
+  - This version performs real retrieve-then-publish. The trust-boundary
+    reality is that either the appellate court runs this on the source
+    ledger's trust side (clerks with direct key-store access), OR
+    the source ledger issues a grant and the appellate side unwraps
+    with its recipient private key. Both are valid operational modes;
+    neither fits inside one helper without a caller hook.
+  - SourceDecryptor is that hook. TransferRecord handles attesta
+    plumbing; the caller supplies the crypto boundary. A reference
+    DirectKeySourceDecryptor handles in-trust-boundary deployments.
 
 OVERVIEW: TransferRecord → re-encrypted artifacts + manifest commentary.
-KEY DEPENDENCIES: ortholog-sdk/builder, log.OperatorQueryAPI, cases/artifact
+KEY DEPENDENCIES: attesta/builder, log.LedgerQueryAPI, cases/artifact
 */
 package appeals
 
@@ -30,20 +30,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )
 
 // RecordQuerier discovers entries by target root on the lower court log.
-// Satisfied by log.OperatorQueryAPI (structural typing).
+// Satisfied by log.LedgerQueryAPI (structural typing).
 type RecordQuerier interface {
 	QueryByTargetRoot(pos types.LogPosition) ([]types.EntryWithMetadata, error)
 }
@@ -75,7 +75,7 @@ type AppellateDeps struct {
 
 // RecordTransferConfig configures a record-on-appeal transfer.
 type RecordTransferConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination        string // DID of target exchange. Required.
 	SignerDID          string
 	LowerCourtCasePos  types.LogPosition
 	AppellateSchemaRef types.LogPosition
@@ -212,9 +212,9 @@ func TransferRecord(
 
 	manifest, err := builder.BuildCommentary(builder.CommentaryParams{
 		Destination: cfg.Destination,
-		SignerDID: cfg.SignerDID,
-		Payload:   manifestPayload,
-		EventTime: cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		Payload:     manifestPayload,
+		EventTime:   cfg.EventTime,
 	})
 	if err != nil {
 		return result, fmt.Errorf("appeals/record: build manifest: %w", err)
@@ -224,7 +224,7 @@ func TransferRecord(
 }
 
 // DirectKeySourceDecryptor implements SourceDecryptor for deployments
-// where the transfer runs on the source operator's trust boundary
+// where the transfer runs on the source ledger's trust boundary
 // (clerks with direct key-store access). AES-GCM artifacts only.
 type DirectKeySourceDecryptor struct {
 	ContentStore storage.ContentStore

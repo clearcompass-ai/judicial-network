@@ -4,11 +4,11 @@ openapi: 3.1.0
 # Info
 # ─────────────────────────────────────────────────────────────────────
 info:
-  title: Ortholog Judicial Network API
+  title: Attesta Judicial Network API
   version: 0.1.0
   summary: Multi-court federation API for judicial log entries, artifacts, and cross-court verification.
   description: |
-    The Judicial Network (JN) API is the HTTP surface for an Ortholog
+    The Judicial Network (JN) API is the HTTP surface for an Attesta
     deployment serving one or more courts on a single listener. The
     composer mounts three sub-surfaces:
 
@@ -16,7 +16,7 @@ info:
         enforcement, parties, onboarding, artifacts, verification,
         monitoring, consortium federation, delegation, topology).
       - `/v1/entries/*`, `/v1/artifacts/*`, `/v1/delegations/*`,
-        `/v1/keys/*`, `/v1/dids`, `/v1/scope/*` — generic Ortholog
+        `/v1/keys/*`, `/v1/dids`, `/v1/scope/*` — generic Attesta
         protocol surface (build/sign/submit, key custody, scope
         amendment).
       - `/v1/verify/*` — read-side verification (origin, authority,
@@ -36,7 +36,7 @@ info:
     signed entry to `/v1/entries/submit`. Endpoints that require
     state mutation beyond a single entry (cross-log proofs, lifecycle
     amendments) are explicitly `501 Not Implemented` with operational
-    reasoning attached — those flows are operator-tooling driven.
+    reasoning attached — those flows are ledger-tooling driven.
 
     ### Authentication
 
@@ -306,7 +306,7 @@ paths:
       description: |
         501 Not Implemented. Cross-court transfer requires composing a
         source-side amendment + N delegation mirrors + an anchor
-        commitment chain. Operator-tooling driven — the JN binary
+        commitment chain. Ledger-tooling driven — the JN binary
         composes the bundle, not the HTTP surface.
       operationId: caseTransferCounty
       parameters:
@@ -352,7 +352,7 @@ paths:
       summary: Initiate an appeal (cross-log).
       description: |
         501 Not Implemented. Cross-log initiation requires composing a
-        source-court reference + appeals-log notice — operator-tooling
+        source-court reference + appeals-log notice — ledger-tooling
         driven.
       operationId: appealInitiate
       responses:
@@ -362,7 +362,7 @@ paths:
     post:
       tags: [Appeals]
       summary: Issue a reverse-mandate (cross-log; remands the case-root entry).
-      description: 501 Not Implemented. Cross-log; operator-tooling composes.
+      description: 501 Not Implemented. Cross-log; ledger-tooling composes.
       operationId: appealMandateReverse
       responses:
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -371,7 +371,7 @@ paths:
     post:
       tags: [Appeals]
       summary: Transfer the appellate record back to the trial court.
-      description: 501 Not Implemented. Cross-log; operator-tooling composes.
+      description: 501 Not Implemented. Cross-log; ledger-tooling composes.
       operationId: appealRecordTransfer
       responses:
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -659,7 +659,7 @@ paths:
     post:
       tags: [Onboarding]
       summary: Migrate legacy records into the JN.
-      description: 501 Not Implemented. Bulk-import operator tooling.
+      description: 501 Not Implemented. Bulk-import ledger tooling.
       operationId: onboardingMigrateRecords
       responses:
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -882,7 +882,7 @@ paths:
     get:
       tags: [Verification]
       summary: Verify a key attestation (C6 carve-out).
-      description: 501 Not Implemented. C6 carve-out — operator-tooling.
+      description: 501 Not Implemented. C6 carve-out — ledger-tooling.
       operationId: verifyKeyAttestation
       responses:
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -960,7 +960,7 @@ paths:
           in: query
           required: true
           schema: { type: string }
-        - name: operator_signer_did
+        - name: ledger_signer_did
           in: query
           required: true
           schema: { type: string }
@@ -1147,7 +1147,7 @@ paths:
     post:
       tags: [Consortium]
       summary: Execute a fully-approved member-addition amendment.
-      description: 501 Not Implemented. `lifecycle.ExecuteAmendmentParams` — operator-tooling.
+      description: 501 Not Implemented. `lifecycle.ExecuteAmendmentParams` — ledger-tooling.
       operationId: consortiumExecuteAddition
       responses:
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1156,7 +1156,7 @@ paths:
     post:
       tags: [Consortium]
       summary: Execute a fully-approved member-removal amendment (starts time-lock).
-      description: 501 Not Implemented. `lifecycle.RemovalParams` — operator-tooling.
+      description: 501 Not Implemented. `lifecycle.RemovalParams` — ledger-tooling.
       operationId: consortiumExecuteRemoval
       responses:
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1165,7 +1165,7 @@ paths:
     post:
       tags: [Consortium]
       summary: Activate a member-removal after the time-lock expires.
-      description: 501 Not Implemented. `lifecycle.ActivateRemovalParams` — operator-tooling.
+      description: 501 Not Implemented. `lifecycle.ActivateRemovalParams` — ledger-tooling.
       operationId: consortiumActivateRemoval
       responses:
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1276,7 +1276,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/InternalError' }
 
-  # ── Escrow recovery (Phase 10) ───────────────────────────────────
+  # ── Escrow recovery ───────────────────────────────────
   /v1/judicial/escrow/recovery/initiate:
     post:
       tags: [Escrow]
@@ -1320,7 +1320,7 @@ paths:
       summary: Submit one decrypted share toward an in-flight recovery.
       description: |
         501 Not Implemented. `lifecycle.CollectShares` accumulates
-        per-recovery state across N share submissions; the operator
+        per-recovery state across N share submissions; the ledger
         tooling holds that state, not the JN HTTP surface.
       operationId: escrowCollectShare
       responses:
@@ -1333,7 +1333,7 @@ paths:
       description: |
         501 Not Implemented. `lifecycle.ExecuteRecovery` returns
         32-byte MasterKey material; that material MUST NOT cross
-        the HTTP boundary. Operator-tooling runs reconstruction
+        the HTTP boundary. Ledger-tooling runs reconstruction
         in-process and emits the signed Succession Entry directly
         to `/v1/entries/submit`.
       operationId: escrowExecute
@@ -1387,7 +1387,7 @@ paths:
   /v1/entries/submit:
     post:
       tags: [Entries]
-      summary: Submit a signed entry to the operator.
+      summary: Submit a signed entry to the ledger.
       operationId: entrySubmit
       requestBody:
         required: true
@@ -1607,7 +1607,7 @@ paths:
   /v1/scope/propose:
     post:
       tags: [Scope]
-      summary: Propose a scope amendment (Phase 1).
+      summary: Propose a scope amendment.
       operationId: scopePropose
       requestBody:
         required: true
@@ -1643,7 +1643,7 @@ paths:
   /v1/scope/execute/{pos}:
     post:
       tags: [Scope]
-      summary: Execute a fully-approved scope amendment (Phase 3).
+      summary: Execute a fully-approved scope amendment.
       operationId: scopeExecute
       parameters:
         - name: pos
@@ -1762,7 +1762,7 @@ paths:
   /v1/verify/fraud-proof:
     post:
       tags: [Verify]
-      summary: Verify a fraud proof (e.g., split-view by an operator).
+      summary: Verify a fraud proof (e.g., split-view by an ledger).
       operationId: verifyFraudProof
       requestBody:
         required: true
@@ -1819,7 +1819,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/SignedEntry' }
     SubmittedEntry:
-      description: Submitted entry; carries the operator-assigned position.
+      description: Submitted entry; carries the ledger-assigned position.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/SubmittedEntry' }
@@ -1846,7 +1846,7 @@ components:
     NotImplemented:
       description: |
         Endpoint is reachable but the underlying operation requires
-        operator tooling (process-scoped BuildContext, witness
+        ledger tooling (process-scoped BuildContext, witness
         TreeHeadClient, lifecycle Params, etc.). The body's `error`
         field carries the operational reasoning.
       content:
@@ -2541,7 +2541,7 @@ components:
       required: [method]
       properties:
         method: { type: string, enum: [web, key, peer] }
-        operator_endpoint: { type: string }
+        ledger_endpoint: { type: string }
 
     DIDDocument:
       type: object

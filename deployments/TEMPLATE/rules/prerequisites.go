@@ -2,23 +2,25 @@
 FILE PATH: deployments/TEMPLATE/rules/prerequisites.go
 
 DESCRIPTION:
-    TEMPLATE deployment — prerequisite policy skeleton. The
-    skeleton ships ONE event_type (`case_initiated`) — the
-    universal bootstrap event with no prereqs — to satisfy
-    jurisdiction.Validate's vocabulary cross-check against the
-    cosignature mix.
 
-    Real deployments expand to cover their full vocabulary:
-    motions (with case_initiated ancestor), judicial outcomes
-    (with merits-posture rules), personnel events (with
-    authority-scope rules), etc. See deployments/tn/trial/
-    prerequisites.go for an 18-event TN trial reference and
-    deployments/tn/coa/prerequisites.go for a 10-event TN COA
-    reference.
+	TEMPLATE deployment — prerequisite policy skeleton. The
+	skeleton ships ONE event_type (`case_initiated`) — the
+	universal bootstrap event with no prereqs — to satisfy
+	jurisdiction.Validate's vocabulary cross-check against the
+	cosignature mix.
+
+	Real deployments expand to cover their full vocabulary:
+	motions (with case_initiated ancestor), judicial outcomes
+	(with merits-posture rules), personnel events (with
+	authority-scope rules), etc. See deployments/tn/trial/
+	prerequisites.go for an 18-event TN trial reference and
+	deployments/tn/coa/prerequisites.go for a 10-event TN COA
+	reference.
 
 OVERVIEW:
-    PrerequisiteRules        — map[event_type][]Prereq.
-    MustPrerequisitePolicy   — convenience constructor (panics).
+
+	PrerequisiteRules        — map[event_type][]Prereq.
+	MustPrerequisitePolicy   — convenience constructor (panics).
 */
 package rules
 

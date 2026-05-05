@@ -2,19 +2,21 @@
 FILE PATH: tools/witness/cmd/witness/cosigner.go
 
 DESCRIPTION:
-    Per-log cosigning loop. For each registered log DID:
 
-      1. Fetch latest tree head via *witness.TreeHeadClient.
-      2. Skip if the head has not advanced since the last cosig
-         (no-op cosignature is wasted bandwidth).
-      3. Sign the cosign-canonical tree-head message with the
-         daemon's BLS key (cosign.SignBLS, PurposeTreeHead).
-      4. POST the cosignature to <operator>/v1/cosignatures.
+	Per-log cosigning loop. For each registered log DID:
 
-    Sign + post are pluggable (SignerFunc / CosigPostFunc) so tests
-    inject deterministic stubs instead of real BLS material +
-    real HTTP. The default implementations call cosign.SignBLS and
-    a plain http.Client respectively.
+	  1. Fetch latest tree head via *witness.TreeHeadClient.
+	  2. Skip if the head has not advanced since the last cosig
+	     (no-op cosignature is wasted bandwidth).
+	  3. Sign the canonical 40-byte WitnessCosignMessage with the
+	     daemon's BLS key.
+	  4. POST the cosignature to <ledger>/v1/cosignatures.
+
+	Sign + post are pluggable (SignerFunc / CosigPostFunc) so tests
+	inject deterministic stubs instead of real BLS material +
+	real HTTP. The default implementations (defaultSignerFunc /
+	defaultPostFunc) call the SDK's SignBLSCosignature and a
+	plain http.Client respectively.
 */
 package main
 
@@ -27,19 +29,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/witness"
 )
 
 // SignerFunc produces a cosignature over the supplied tree head.
 // Returns the raw signature bytes; the daemon wraps them in a
-// types.WitnessSignature when posting to the operator.
+// types.WitnessSignature when posting to the ledger.
 type SignerFunc func(head types.TreeHead) ([]byte, error)
 
-// CosignaturePost is the JSON shape posted to the operator's
-// witness-accept endpoint. The operator's exact wire shape lives
-// in the operator repo; this is the conservative shape: log DID
-// + witness DID + signature bytes, with the operator filling in
+// CosignaturePost is the JSON shape posted to the ledger's
+// witness-accept endpoint. The ledger's exact wire shape lives
+// in the ledger repo; this is the conservative shape: log DID
+// + witness DID + signature bytes, with the ledger filling in
 // the PubKeyID + SchemeTag from its accepted-witness registry.
 type CosignaturePost struct {
 	LogDID     string `json:"log_did"`
@@ -47,16 +49,16 @@ type CosignaturePost struct {
 	Signature  []byte `json:"signature"`
 }
 
-// CosigPostFunc posts a cosignature to the operator's accept
+// CosigPostFunc posts a cosignature to the ledger's accept
 // endpoint. Returns nil on 2xx; non-nil propagates upstream
 // failures so the loop can log + retry on the next tick.
-type CosigPostFunc func(ctx context.Context, operatorBase string, post CosignaturePost) error
+type CosigPostFunc func(ctx context.Context, ledgerBase string, post CosignaturePost) error
 
 // cosignLoopConfig configures the cosigning loop. All fields are
 // required.
 type cosignLoopConfig struct {
 	LogDIDs      []string
-	Operators    map[string]string
+	Ledgers      map[string]string
 	PollInterval time.Duration
 	WitnessDID   string
 	Client       *witness.TreeHeadClient
@@ -132,9 +134,9 @@ func (l *cosignLoop) processLog(ctx context.Context, logDID string) error {
 		return fmt.Errorf("sign: %w", err)
 	}
 
-	op, ok := l.cfg.Operators[logDID]
+	op, ok := l.cfg.Ledgers[logDID]
 	if !ok {
-		return fmt.Errorf("no operator endpoint for %s", logDID)
+		return fmt.Errorf("no ledger endpoint for %s", logDID)
 	}
 	if err := l.cfg.Post(ctx, op, CosignaturePost{
 		LogDID:     logDID,
@@ -161,13 +163,13 @@ var defaultSignerFunc SignerFunc = func(_ types.TreeHead) ([]byte, error) {
 }
 
 // defaultPostFunc posts a cosignature as JSON to
-// <operator>/v1/cosignatures. The endpoint shape is the
-// operator-side accepts-cosignature contract; production
-// deploys swap for whatever the operator actually exposes.
-var defaultPostFunc CosigPostFunc = func(ctx context.Context, operatorBase string, post CosignaturePost) error {
+// <ledger>/v1/cosignatures. The endpoint shape is the
+// ledger-side accepts-cosignature contract; production
+// deploys swap for whatever the ledger actually exposes.
+var defaultPostFunc CosigPostFunc = func(ctx context.Context, ledgerBase string, post CosignaturePost) error {
 	buf, _ := json.Marshal(post)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		operatorBase+"/v1/cosignatures", bytes.NewReader(buf))
+		ledgerBase+"/v1/cosignatures", bytes.NewReader(buf))
 	if err != nil {
 		return err
 	}
@@ -178,7 +180,7 @@ var defaultPostFunc CosigPostFunc = func(ctx context.Context, operatorBase strin
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
-		return fmt.Errorf("operator returned %d", resp.StatusCode)
+		return fmt.Errorf("ledger returned %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -194,6 +196,6 @@ var defaultStderrSink = &_stderrWriter{}
 func (_stderrWriter) Write(p []byte) (int, error) {
 	// Keep the writer dependency-free; main.go's log package
 	// already covers structured logging at boot. Per-tick errors
-	// are diagnostic noise that operators read via stderr.
+	// are diagnostic noise that ledgers read via stderr.
 	return len(p), nil
 }

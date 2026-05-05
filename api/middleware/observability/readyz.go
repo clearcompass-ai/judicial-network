@@ -2,23 +2,24 @@
 FILE PATH: api/middleware/observability/readyz.go
 
 DESCRIPTION:
-    Generic /readyz handler. Aggregates a list of named checks
-    and serves the result over HTTP. Each check is a closure
-    returning an error; nil means the dependency is healthy.
 
-    Two contracts:
+	Generic /readyz handler. Aggregates a list of named checks
+	and serves the result over HTTP. Each check is a closure
+	returning an error; nil means the dependency is healthy.
 
-      ReadyCheck.Run takes a context with a soft-cap timeout so a
-      single slow upstream doesn't pin the readyz handler. Each
-      check should respect ctx and return promptly on cancellation.
+	Two contracts:
 
-      Handler returns 200 with a JSON map of {check_name: "ok"}
-      when ALL checks pass. Returns 503 with {check_name: "<error>"}
-      including every check's outcome — operators see at a glance
-      which dependency is unhealthy.
+	  ReadyCheck.Run takes a context with a soft-cap timeout so a
+	  single slow upstream doesn't pin the readyz handler. Each
+	  check should respect ctx and return promptly on cancellation.
 
-    Mounted unauthenticated by the composer alongside /healthz +
-    /metrics so k8s + load balancers reach it without credentials.
+	  Handler returns 200 with a JSON map of {check_name: "ok"}
+	  when ALL checks pass. Returns 503 with {check_name: "<error>"}
+	  including every check's outcome — ledgers see at a glance
+	  which dependency is unhealthy.
+
+	Mounted unauthenticated by the composer alongside /healthz +
+	/metrics so k8s + load balancers reach it without credentials.
 */
 package observability
 
@@ -96,7 +97,7 @@ func ReadyzHandler(cfg ReadyzConfig) http.Handler {
 
 // CheckHTTPGet returns a ReadyCheck that fetches the supplied URL
 // and considers the dependency healthy iff the response is 2xx.
-// Used for operator + artifact-store reachability checks from the
+// Used for ledger + artifact-store reachability checks from the
 // composer / aggregator / witness binaries.
 func CheckHTTPGet(name, url string) ReadyCheck {
 	client := &http.Client{Timeout: 3 * time.Second}

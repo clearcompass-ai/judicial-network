@@ -4,10 +4,11 @@
 FILE PATH: api/exchange/keystore/pkcs11/pkcs11_stub_test.go
 
 DESCRIPTION:
-    Default-build tests. Pin the no-cgo stub contract: every entry
-    point returns ErrNotBuilt, LoadPINFile still validates filesystem
-    existence so config validation paths stay testable without the
-    cgo build.
+
+	Default-build tests. Pin the no-cgo stub contract: every entry
+	point returns ErrNotBuilt, LoadPINFile still validates filesystem
+	existence so config validation paths stay testable without the
+	cgo build.
 */
 package pkcs11
 

@@ -2,19 +2,20 @@
 FILE PATH: delegation/cosigned_test.go
 
 DESCRIPTION:
-    Tests for the inline cosignature pipeline. Pins:
-      - happy path: 1 primary + 1 cosigner produces a 2-sig envelope
-        whose canonical bytes round-trip through envelope.Deserialize;
-      - N-cosigner case (Authority_Set 2-of-3 + primary = 3 sigs);
-      - structural validation (empty list, duplicate, primary in list,
-        too many, nil ctx fields);
-      - sign rejection (primary or any cosigner declines → no submit);
-      - unknown signer (cosigner not bound on the IdentityProvider);
-      - all signatures share the same SigningPayload digest (envelope
-        round-trip + recover identity from each signature).
 
-    Helpers (fakeOperator, stubBoundProvider, newBuildContext) come
-    from issue_test.go; both files are in the delegation_test package.
+	Tests for the inline cosignature pipeline. Pins:
+	  - happy path: 1 primary + 1 cosigner produces a 2-sig envelope
+	    whose canonical bytes round-trip through envelope.Deserialize;
+	  - N-cosigner case (Authority_Set 2-of-3 + primary = 3 sigs);
+	  - structural validation (empty list, duplicate, primary in list,
+	    too many, nil ctx fields);
+	  - sign rejection (primary or any cosigner declines → no submit);
+	  - unknown signer (cosigner not bound on the IdentityProvider);
+	  - all signatures share the same SigningPayload digest (envelope
+	    round-trip + recover identity from each signature).
+
+	Helpers (fakeLedger, stubBoundProvider, newBuildContext) come
+	from issue_test.go; both files are in the delegation_test package.
 */
 package delegation
 
@@ -23,8 +24,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	dcrecdsa "github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 )
@@ -75,7 +76,7 @@ func TestSignAndSubmitCosigned_HappyPath_OneCosigner(t *testing.T) {
 	priv2, _ := secp256k1.GeneratePrivateKey()
 	sp.BindKey(cj, priv2)
 
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	entry := unsignedEntryFor(t, primary)
@@ -126,7 +127,7 @@ func TestSignAndSubmitCosigned_AuthoritySet_TwoCosigners(t *testing.T) {
 		priv, _ := secp256k1.GeneratePrivateKey()
 		sp.BindKey(did, priv)
 	}
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	entry := unsignedEntryFor(t, institutional)
@@ -160,7 +161,7 @@ func TestSignAndSubmitCosigned_AllSignaturesShareDigest(t *testing.T) {
 	sp.BindKey(primary, primPriv)
 	sp.BindKey(cosigner, cosPriv)
 
-	op := &fakeOperator{}
+	op := &fakeLedger{}
 	bc := newBuildContext(t, sp, op)
 
 	entry := unsignedEntryFor(t, primary)

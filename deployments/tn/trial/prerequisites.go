@@ -2,40 +2,42 @@
 FILE PATH: deployments/tn/trial/prerequisites.go
 
 DESCRIPTION:
-    TN trial-court framework — prerequisite policy shared by
-    every Tennessee county exchange. Lifted from
-    internal/testfixtures/davidsonlegacy/prerequisites.go.
 
-    The 18 event_types match the cosignature policy's vocabulary
-    plus two structural anchors (case_initiated, hearing) that
-    are not subject to Filer cosignature.
+	TN trial-court framework — prerequisite policy shared by
+	every Tennessee county exchange. Lifted from
+	internal/testfixtures/davidsonlegacy/prerequisites.go.
 
-    Categories:
-      - case-lifecycle filings (motions, pleadings, accountings):
-        require a case_initiated ancestor in the subtree.
-      - judicial outcomes (verdict, final_judgment): require a
-        responsive_pleading, motion_state_dismissal, or
-        motion_summary_judgment in the subtree (some merits
-        posture before judgment).
-      - personnel events (judicial_appointment, clerk_appointment,
-        court_reporter_appointment): require the primary signer
-        to hold the matching authority scope.
-      - cross-exchange events (case_transfer_*, relay_attestation):
-        no prereqs — transfers are bootstrap-friendly.
-      - transcript_publication: ADVISORY ancestor (the dictionary
-        recommends but does not require a hearing event).
+	The 18 event_types match the cosignature policy's vocabulary
+	plus two structural anchors (case_initiated, hearing) that
+	are not subject to Filer cosignature.
 
-    NOTE: v1.8 vocabulary expansion (the ~50 §3A-§3I motion event
-    types and the §11–§16 lifecycle events) lands in a follow-on
-    commit. This file pins the current closed set; the cleanup
-    pass adds the full v1.8 dictionary.
+	Categories:
+	  - case-lifecycle filings (motions, pleadings, accountings):
+	    require a case_initiated ancestor in the subtree.
+	  - judicial outcomes (verdict, final_judgment): require a
+	    responsive_pleading, motion_state_dismissal, or
+	    motion_summary_judgment in the subtree (some merits
+	    posture before judgment).
+	  - personnel events (judicial_appointment, clerk_appointment,
+	    court_reporter_appointment): require the primary signer
+	    to hold the matching authority scope.
+	  - cross-exchange events (case_transfer_*, relay_attestation):
+	    no prereqs — transfers are bootstrap-friendly.
+	  - transcript_publication: ADVISORY ancestor (the dictionary
+	    recommends but does not require a hearing event).
+
+	NOTE: v1.8 vocabulary expansion (the ~50 §3A-§3I motion event
+	types and the §11–§16 lifecycle events) lands in a follow-on
+	commit. This file pins the current closed set; the cleanup
+	pass adds the full v1.8 dictionary.
 
 OVERVIEW:
-    PrerequisiteRules        — map[event_type][]Prereq.
-    MustPrerequisitePolicy   — convenience constructor (panics).
+
+	PrerequisiteRules        — map[event_type][]Prereq.
+	MustPrerequisitePolicy   — convenience constructor (panics).
 
 KEY DEPENDENCIES:
-    - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
+  - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
 */
 package trial
 

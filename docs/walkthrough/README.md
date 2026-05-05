@@ -1,9 +1,9 @@
 # Judicial Network — Developer Walkthrough
 
 A curl-and-CLI walkthrough of two real Tennessee judicial cases that
-exercises the system end-to-end: two running operators, real
+exercises the system end-to-end: two running ledgers, real
 secp256k1 DIDs, and a cross-exchange appeal that physically moves a
-signed entry from one operator to another.
+signed entry from one ledger to another.
 
 This is not a tour of API surface. It's a story about what happens
 when the gears actually turn — what the entries *mean* legally, why
@@ -14,7 +14,7 @@ with the exact commands that produce each step on your laptop.
 
 | | Case | Court(s) | Actors | Why this case is in the walkthrough |
 |---|---|---|---|---|
-| 1 | ***ACME Industries v. Beta Corp*** | Davidson Trial → TN COA | 5 | A civil contract dispute that gets appealed. **The appeal physically crosses operators.** The COA's appellate-disposition entry carries an `EvidencePointers` reference back to the trial-court entry, demonstrating cross-exchange composition end-to-end. |
+| 1 | ***ACME Industries v. Beta Corp*** | Davidson Trial → TN COA | 5 | A civil contract dispute that gets appealed. **The appeal physically crosses ledgers.** The COA's appellate-disposition entry carries an `EvidencePointers` reference back to the trial-court entry, demonstrating cross-exchange composition end-to-end. |
 | 2 | ***In re Anderson*** | Davidson Family → Davidson Juvenile (judicial succession) | 4 | A custody case where a sealed minor binding, a cross-division judicial succession, and a delegation revocation all land on the same log. Single exchange, but exercises the most complex authority-graph operations. |
 
 5 unique actors total (the clerk appears in both cases). Every DID is
@@ -44,7 +44,7 @@ DID dispatcher.
                     │  Your laptop                                    │
                     │                                                 │
                     │   ┌────────────────────┐  ┌────────────────────┐│
-                    │   │  operator-davidson │  │   operator-coa     ││
+                    │   │  ledger-davidson │  │   ledger-coa     ││
        judicial-cli ────►   :8080            │  │   :8081            ││
                     │   │  did:web:state:tn: │  │  did:web:state:tn: ││
                     │   │  davidson          │  │  coa               ││
@@ -59,7 +59,7 @@ DID dispatcher.
                     │   │  court-tools     :8090        │                │
                     │   │  provider-tools  :8091        │                │
                     │   │  (HTTP services that read     │                │
-                    │   │   the operator and surface    │                │
+                    │   │   the ledger and surface    │                │
                     │   │   case-workflow + public-     │                │
                     │   │   records APIs)               │                │
                     │   └───────────────────────────────┘                │
@@ -77,10 +77,10 @@ no-cloud topology there's a separate
 `docker-compose.integration.yml` with `fake-gcs-server`; the
 walkthrough doesn't use that path.
 
-Both operators are stock Ortholog operators — domain-agnostic
+Both ledgers are stock Attesta ledgers — domain-agnostic
 "dumb writes" that admit signed canonical bytes, sequence them, and
 serve them over HTTP. All judicial vocabulary lives in
-`judicial-cli` and the JN schemas. **The operators don't know
+`judicial-cli` and the JN schemas. **The ledgers don't know
 what a `civil_case` is**, and that's the point.
 
 ## Folder layout
@@ -88,7 +88,7 @@ what a `civil_case` is**, and that's the point.
 ```
 docs/walkthrough/
 ├── README.md                          ← you are here
-├── 01-environment.md                  ← `make dev-up`: operators + Postgres + GCS
+├── 01-environment.md                  ← `make dev-up`: ledgers + Postgres + GCS
 ├── 02-real-dids.md                    ← mint 5 did:key + 2 did:pkh DIDs
 ├── 03-tools.md                        ← boot court-tools + provider-tools
 ├── config/
@@ -102,7 +102,7 @@ docs/walkthrough/
 ## Read in order
 
 The first four sections (README + 01 + 02 + 03) bring the **whole
-judicial-network app** up: two operators, Postgres, real GCS,
+judicial-network app** up: two ledgers, Postgres, real GCS,
 court-tools and provider-tools. After that, both case files are
 independently runnable — start with whichever interests you.
 
@@ -115,7 +115,7 @@ them; reads + `judicial-cli submit` work fully.)
 
 | Stage | Time |
 |---|---|
-| `make dev-up` (cold, builds the operator image) | 3–5 min |
+| `make dev-up` (cold, builds the ledger image) | 3–5 min |
 | §01 environment verification | 1 min |
 | §02 mint 5 + 2 DIDs | 1 min |
 | §03 boot court-tools + provider-tools | 2 min |
@@ -136,7 +136,7 @@ This walkthrough is not a wall of `curl` commands. Every step has:
 - **The exact command** to produce it (one line, copy-paste).
 - **The expected response** so you know whether it worked.
 - **A "what just happened" pointer** at the file:line of the schema
-  or the operator code that defines the contract you just exercised.
+  or the ledger code that defines the contract you just exercised.
 
 If at any point the technical noise overwhelms the narrative, you've
 hit a documentation bug — open an issue and it gets fixed.
@@ -145,7 +145,7 @@ hit a documentation bug — open an issue and it gets fixed.
 
 - Docker + Docker Compose v2 (`docker compose`, not `docker-compose`)
 - Go 1.25+ (to build `judicial-cli` from source)
-- About 1 GiB of free disk for Postgres + the operator image (GCS storage lives in your GCP project, not on disk)
+- About 1 GiB of free disk for Postgres + the ledger image (GCS storage lives in your GCP project, not on disk)
 - A Google Cloud project + `gcloud` CLI installed, where you can create two buckets
 - Ports 5432, 8080, 8081 free on your laptop
 
@@ -159,7 +159,7 @@ locally.
   keys you mint via `judicial-cli keygen`. The Privy code path is
   identical at the SDK seam (`identity.IdentityProvider`); swapping
   is a config change, not a rewrite.
-- **Witness cosignatures on the tree head.** Each operator
+- **Witness cosignatures on the tree head.** Each ledger
   self-signs checkpoints unwitnessed in dev mode.
 - **Production sealing of artifacts.** The walkthrough surfaces
   `PartyBindingSealedPayload` shapes but uses placeholder
@@ -171,8 +171,8 @@ when those paths are ready to be exercised.
 ## Status
 
 - SDK: `v0.8.0` (EIP-1271 supported but not exercised here)
-- Operator topology: `deployment/local/docker-compose.dev.yml` in
-  the operator repo
+- Ledger topology: `deployment/local/docker-compose.dev.yml` in
+  the ledger repo
 - CLI: `judicial-network/cmd/judicial-cli/`
 - Branch: `claude/notice-of-appearance-event-rsEGt` (all three repos)
 

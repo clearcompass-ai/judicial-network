@@ -2,10 +2,11 @@
 FILE PATH: api/exchange/keystore/vault/vault_conformance_test.go
 
 DESCRIPTION:
-    Drives the cross-backend conformance suite (defined in
-    api/exchange/keystore/conformance.go) against the Vault Transit
-    backend. Identical assertions as the MemoryKeyStore run, so wire
-    shapes are guaranteed interchangeable.
+
+	Drives the cross-backend conformance suite (defined in
+	api/exchange/keystore/conformance.go) against the Vault Transit
+	backend. Identical assertions as the MemoryKeyStore run, so wire
+	shapes are guaranteed interchangeable.
 */
 package vault
 

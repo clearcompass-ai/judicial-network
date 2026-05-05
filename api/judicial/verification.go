@@ -2,24 +2,25 @@
 FILE PATH: api/judicial/verification.go
 
 DESCRIPTION:
-    Read-side verification handlers — daily clerk / counsel / appellate
-    activities checking the on-log state.
 
-      GET  /v1/judicial/verification/case-status         → GetCaseStatus
-      GET  /v1/judicial/verification/enforcement-status  → CheckEnforcementStatus
-      POST /v1/judicial/verification/filing-delegation   → VerifyFilingDelegation
-      GET  /v1/judicial/verification/custody-chain       → ReconstructCustodyChain
+	Read-side verification handlers — daily clerk / counsel / appellate
+	activities checking the on-log state.
 
-    Read-only — no auth context required, but auth IS enforced (no
-    anonymous reads on a court log).
+	  GET  /v1/judicial/verification/case-status         → GetCaseStatus
+	  GET  /v1/judicial/verification/enforcement-status  → CheckEnforcementStatus
+	  POST /v1/judicial/verification/filing-delegation   → VerifyFilingDelegation
+	  GET  /v1/judicial/verification/custody-chain       → ReconstructCustodyChain
+
+	Read-only — no auth context required, but auth IS enforced (no
+	anonymous reads on a court log).
 */
 package judicial
 
 import (
 	"net/http"
 
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
@@ -104,9 +105,9 @@ func (h *verifyFilingDelegationHandler) ServeHTTP(w http.ResponseWriter, r *http
 		writeError(w, http.StatusBadRequest, "delegation_pointers required")
 		return
 	}
-	// Phase 7 doesn't expose ScopeEnforcer / target Entry — those
+	//  doesn't expose ScopeEnforcer / target Entry — those
 	// are constructed at submit time. The handler runs the
-	// pre-Phase-1 chain validity portion (cycle detection, signer
+	// previous chain validity portion (cycle detection, signer
 	// match) without scope enforcement.
 	result, err := verification.VerifyFilingDelegation(
 		toLogPositions(req.DelegationPointers), h.deps.Fetcher, h.deps.LeafReader, nil, nil,
@@ -167,7 +168,7 @@ func (h *verifyCustodyChainHandler) scannerFor(logDID string) (verification.Cust
 	return custodyScannerAdapter{api: q}, true
 }
 
-type custodyScannerAdapter struct{ api sdklog.OperatorQueryAPI }
+type custodyScannerAdapter struct{ api sdklog.LedgerQueryAPI }
 
 func (a custodyScannerAdapter) ScanFromPosition(start uint64, count int) ([]types.EntryWithMetadata, error) {
 	return a.api.ScanFromPosition(start, count)

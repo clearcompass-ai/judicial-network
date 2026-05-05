@@ -2,37 +2,39 @@
 FILE PATH: schemas/role_catalog_loader.go
 
 DESCRIPTION:
-    File-backed loader for the RoleCatalog. Reads a JSON catalog
-    from disk; optionally subscribes to SIGHUP for hot-reload.
 
-    Format: a top-level JSON object with a single key "roles" whose
-    value is an array of Role objects. Durations may be passed either
-    as a Go duration string ("8760h", "4y") or as nanoseconds.
+	File-backed loader for the RoleCatalog. Reads a JSON catalog
+	from disk; optionally subscribes to SIGHUP for hot-reload.
 
-    The user's original spec called this "court-controlled YAML."
-    The catalog file format is mechanical; using JSON keeps the
-    schemas package free of external dependencies. Operators wanting
-    YAML can render YAML → JSON in their deployment pipeline, or
-    drop in a side-loader that calls Replace().
+	Format: a top-level JSON object with a single key "roles" whose
+	value is an array of Role objects. Durations may be passed either
+	as a Go duration string ("8760h", "4y") or as nanoseconds.
+
+	The user's original spec called this "court-controlled YAML."
+	The catalog file format is mechanical; using JSON keeps the
+	schemas package free of external dependencies. Ledgers wanting
+	YAML can render YAML → JSON in their deployment pipeline, or
+	drop in a side-loader that calls Replace().
 
 KEY ARCHITECTURAL DECISIONS:
-    - The on-disk file is the source of truth at boot. Reload
-      replaces the entire catalog atomically; partial reload is
-      not supported (every role is re-validated together so a typo
-      cannot accidentally widen scope on one role and not another).
-    - SIGHUP reload is optional and opt-in via WatchSignal. By
-      default the catalog is loaded once at boot. Operators who
-      want runtime reload call WatchSignal in main().
-    - Failed reload (file missing, parse error, validation error)
-      logs and keeps the *previous* catalog. The system never goes
-      catalog-less at runtime.
+  - The on-disk file is the source of truth at boot. Reload
+    replaces the entire catalog atomically; partial reload is
+    not supported (every role is re-validated together so a typo
+    cannot accidentally widen scope on one role and not another).
+  - SIGHUP reload is optional and opt-in via WatchSignal. By
+    default the catalog is loaded once at boot. Ledgers who
+    want runtime reload call WatchSignal in main().
+  - Failed reload (file missing, parse error, validation error)
+    logs and keeps the *previous* catalog. The system never goes
+    catalog-less at runtime.
 
 OVERVIEW:
-    LoadCatalogFile         — boot-time load.
-    (*InMemoryCatalog).WatchSignal — opt-in SIGHUP reload loop.
+
+	LoadCatalogFile         — boot-time load.
+	(*InMemoryCatalog).WatchSignal — opt-in SIGHUP reload loop.
 
 KEY DEPENDENCIES:
-    - schemas/role_catalog.go (Role, InMemoryCatalog).
+  - schemas/role_catalog.go (Role, InMemoryCatalog).
 */
 package schemas
 
@@ -52,7 +54,7 @@ type catalogFile struct {
 }
 
 // roleJSON mirrors Role but uses durationJSON for the time fields so
-// operators can write "4y" / "8760h" without computing nanoseconds.
+// ledgers can write "4y" / "8760h" without computing nanoseconds.
 // Actor is loaded as a plain integer; the catalog's own validateRole
 // rejects out-of-set values.
 type roleJSON struct {
@@ -142,7 +144,7 @@ func LoadCatalogFile(path string) (*InMemoryCatalog, error) {
 }
 
 // ParseCatalogJSON parses an in-memory JSON blob into a catalog.
-// Exposed for tests and for operators piping content from their own
+// Exposed for tests and for ledgers piping content from their own
 // secret store / config service.
 func ParseCatalogJSON(data []byte) (*InMemoryCatalog, error) {
 	var f catalogFile

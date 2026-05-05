@@ -2,33 +2,34 @@
 FILE PATH: cmd/network-api/davidson_scw_e2e_test.go
 
 DESCRIPTION:
-    Binary-level Davidson SCW end-to-end test.
 
-    Distinct from tests/contracts/davidson_scw_e2e_test.go (which
-    drives api.NewServer directly via httptest), this test boots
-    cmd/network-api.run() as a real HTTP listener — every layer of
-    the binary boot path is exercised:
+	Binary-level Davidson SCW end-to-end test.
 
-      loadConfig → registerProductionBundles → buildKeyStore →
-      buildAuthenticator → buildNonceStores (per-destination map) →
-      buildJudicialDeps → api.NewServer → http.ListenAndServe.
+	Distinct from tests/contracts/davidson_scw_e2e_test.go (which
+	drives api.NewServer directly via httptest), this test boots
+	cmd/network-api.run() as a real HTTP listener — every layer of
+	the binary boot path is exercised:
 
-    The flow itself mirrors the composer-level test:
-      1. Stub operator (httptest.Server returning 202 SCT) is wired
-         as OperatorEndpoint.
-      2. Stub authenticator (injectingAuth) injects a fixed SCW DID
-         into request context — stands in for production mTLS / JWT.
-      3. Test POSTs to http://<binary-addr>/v1/judicial/cases.
-      4. BuildResponse signing_payload is verified to match an
-         independent envelope rebuild (drift detector).
-      5. Test SHA-256 hashes the payload, signs via Phase 8b
-         signer.Adapter, packs MinimalSCW, runs through the SDK
-         verifier registry with stub eth_call.
-      6. SIGINT triggers graceful shutdown; test confirms run()
-         exits cleanly.
+	  loadConfig → registerProductionBundles → buildKeyStore →
+	  buildAuthenticator → buildNonceStores (per-destination map) →
+	  buildJudicialDeps → api.NewServer → http.ListenAndServe.
 
-    Helpers (stub operator, fixtures, injecting auth) live in
-    davidson_scw_e2e_setup_test.go.
+	The flow itself mirrors the composer-level test:
+	  1. Stub ledger (httptest.Server returning 202 SCT) is wired
+	     as LedgerEndpoint.
+	  2. Stub authenticator (injectingAuth) injects a fixed SCW DID
+	     into request context — stands in for production mTLS / JWT.
+	  3. Test POSTs to http://<binary-addr>/v1/judicial/cases.
+	  4. BuildResponse signing_payload is verified to match an
+	     independent envelope rebuild (drift detector).
+	  5. Test SHA-256 hashes the payload, signs via 
+	     signer.Adapter, packs MinimalSCW, runs through the SDK
+	     verifier registry with stub eth_call.
+	  6. SIGINT triggers graceful shutdown; test confirms run()
+	     exits cleanly.
+
+	Helpers (stub ledger, fixtures, injecting auth) live in
+	davidson_scw_e2e_setup_test.go.
 */
 package main
 
@@ -45,9 +46,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/did"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
@@ -58,8 +59,8 @@ import (
 )
 
 func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
-	// 1. Stub operator + free port for the binary.
-	op := stubOperator(t)
+	// 1. Stub ledger + free port for the binary.
+	op := stubLedger(t)
 	defer op.Close()
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -69,7 +70,7 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	addr := ln.Addr().String()
 	ln.Close()
 
-	// 2. Pre-allocate the keystore so the test can wire a Phase 8b
+	// 2. Pre-allocate the keystore so the test can wire a 
 	// signer.Adapter against the same keystore the binary holds.
 	ks := keystore.NewMemoryKeyStore()
 	if _, err := ks.GenerateSecp256k1(binE2EOwnerDID, "signing"); err != nil {
@@ -84,7 +85,7 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	// stub authenticator below replaces JWT semantics for the test.
 	cfgPath := writeJSON(t, map[string]any{
 		"listen_addr":             addr,
-		"operator_endpoint":       op.URL,
+		"ledger_endpoint":         op.URL,
 		"artifact_store_endpoint": "http://art.test",
 		"verification_endpoint":   "http://verify.test",
 		"eth_rpc_endpoint":        "http://rpc.test",

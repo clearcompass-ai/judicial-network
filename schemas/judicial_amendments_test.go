@@ -2,15 +2,16 @@
 FILE PATH: schemas/judicial_amendments_test.go
 
 DESCRIPTION:
-    Validation and round-trip tests for the two amendment payloads:
-    JudicialRevocationPayload and JudicialSuccessionPayload. Split out
-    of judicial_delegation_test.go to keep that file under the source-
-    file line cap.
 
-    Helpers makeValidRevocation/makeValidSuccession are defined here
-    and re-used by the registry-integration tests in
-    judicial_delegation_test.go (same test package, so unexported
-    helpers are shared).
+	Validation and round-trip tests for the two amendment payloads:
+	JudicialRevocationPayload and JudicialSuccessionPayload. Split out
+	of judicial_delegation_test.go to keep that file under the source-
+	file line cap.
+
+	Helpers makeValidRevocation/makeValidSuccession are defined here
+	and re-used by the registry-integration tests in
+	judicial_delegation_test.go (same test package, so unexported
+	helpers are shared).
 */
 package schemas
 

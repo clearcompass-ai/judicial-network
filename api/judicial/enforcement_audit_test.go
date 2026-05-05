@@ -2,10 +2,11 @@
 FILE PATH: api/judicial/enforcement_audit_test.go
 
 DESCRIPTION:
-    Validation contracts for the audit / compliance enforcement
-    handlers (expunge, evidence-access, compliance). Full happy-path
-    coverage on artifact-bearing routes (expunge, evidence-access)
-    lands in C4 alongside the artifact stack fixtures.
+
+	Validation contracts for the audit / compliance enforcement
+	handlers (expunge, evidence-access, compliance). Full happy-path
+	coverage on artifact-bearing routes (expunge, evidence-access)
+	lands in C4 alongside the artifact stack fixtures.
 */
 package judicial
 

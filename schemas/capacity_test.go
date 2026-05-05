@@ -2,9 +2,10 @@
 FILE PATH: schemas/capacity_test.go
 
 DESCRIPTION:
-    Tests pinning the FiledByCapacity contract: closed-set roles,
-    structural validation, JSON round-trip, and ExtractFiledByCapacity
-    behavior across present / absent / malformed payloads.
+
+	Tests pinning the FiledByCapacity contract: closed-set roles,
+	structural validation, JSON round-trip, and ExtractFiledByCapacity
+	behavior across present / absent / malformed payloads.
 */
 package schemas
 

@@ -2,17 +2,18 @@
 FILE PATH: api/judicial/appeals_crosslog.go
 
 DESCRIPTION:
-    Cross-log appellate handlers behind 501 stubs. Each requires
-    composing a CrossLogProof from raw HTTP inputs (source/local
-    Merkle provers, source/local cosigned tree heads, anchor refs,
-    fetcher) — that subsystem lands in C5 alongside the
-    CrossLogProofBuilder helper that all cross-log routes share.
 
-    Routes ARE registered (so callers get a clear 501 "wired in
-    C5" instead of a 404), and the request bodies are NOT parsed
-    yet (the eventual handlers will define their own request
-    types). Each carries the auth check so the 401 contract holds
-    even pre-implementation.
+	Cross-log appellate handlers behind 501 stubs. Each requires
+	composing a CrossLogProof from raw HTTP inputs (source/local
+	Merkle provers, source/local cosigned tree heads, anchor refs,
+	fetcher) — that subsystem lands in C5 alongside the
+	CrossLogProofBuilder helper that all cross-log routes share.
+
+	Routes ARE registered (so callers get a clear 501 "wired in
+	C5" instead of a 404), and the request bodies are NOT parsed
+	yet (the eventual handlers will define their own request
+	types). Each carries the auth check so the 401 contract holds
+	even pre-implementation.
 */
 package judicial
 

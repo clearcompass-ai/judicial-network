@@ -2,20 +2,21 @@
 FILE PATH: consortium/load_accounting/aggregator.go
 
 DESCRIPTION:
-    Computes deterministic settlement between two cosigned tree head
-    boundaries. Uses ScanFromPosition (guide §27.3) to iterate entries
-    in the bounded range and ClassifyEntry (guide §11.1) to identify
-    entry types. Counts per-county contributions for settlement.
 
-    The aggregator is deterministic: given the same tree head boundaries,
-    every node computes the same settlement ledger. This is critical
-    for dispute resolution — any party can independently verify the
-    aggregation.
+	Computes deterministic settlement between two cosigned tree head
+	boundaries. Uses ScanFromPosition (guide §27.3) to iterate entries
+	in the bounded range and ClassifyEntry (guide §11.1) to identify
+	entry types. Counts per-county contributions for settlement.
+
+	The aggregator is deterministic: given the same tree head boundaries,
+	every node computes the same settlement ledger. This is critical
+	for dispute resolution — any party can independently verify the
+	aggregation.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/log: OperatorQueryAPI.ScanFromPosition (guide §27.3)
-    - ortholog-sdk/builder: ClassifyEntry (guide §11.1)
-    - ortholog-sdk/types: EntryWithMetadata, CosignedTreeHead
+  - attesta/log: LedgerQueryAPI.ScanFromPosition (guide §27.3)
+  - attesta/builder: ClassifyEntry (guide §11.1)
+  - attesta/types: EntryWithMetadata, CosignedTreeHead
 */
 package load_accounting
 
@@ -23,9 +24,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // SettlementLedger records per-member usage between two tree head
@@ -57,11 +58,11 @@ type MemberUsage struct {
 
 // Aggregator computes settlement ledgers from log scans.
 type Aggregator struct {
-	queryAPI log.OperatorQueryAPI
+	queryAPI log.LedgerQueryAPI
 }
 
 // NewAggregator creates an aggregator bound to a specific log's query API.
-func NewAggregator(queryAPI log.OperatorQueryAPI) *Aggregator {
+func NewAggregator(queryAPI log.LedgerQueryAPI) *Aggregator {
 	return &Aggregator{queryAPI: queryAPI}
 }
 

@@ -2,17 +2,19 @@
 FILE PATH: cmd/judicial-cli/read.go
 
 DESCRIPTION:
-    Read-side subcommands. All four are thin wrappers over the
-    operator's pure-JSON endpoints (no binary wire format on the
-    wire), so a developer can also just `curl` them — these are
-    here for ergonomic flag handling and consistent error paths.
 
-ENDPOINTS WRAPPED (all under operator/api/server.go:19-49):
-    GET /v1/entries/{seq}                 → JSON metadata
-    GET /v1/entries/{seq}/raw             → wire bytes (hex)
-    GET /v1/tree/head                     → cosigned tree head
-    GET /v1/tree/inclusion/{seq}          → Merkle inclusion proof
-    GET /v1/entries-hash/{hashHex}        → hash-keyed lookup w/ WAL state
+	Read-side subcommands. All four are thin wrappers over the
+	ledger's pure-JSON endpoints (no binary wire format on the
+	wire), so a developer can also just `curl` them — these are
+	here for ergonomic flag handling and consistent error paths.
+
+ENDPOINTS WRAPPED (all under ledger/api/server.go:19-49):
+
+	GET /v1/entries/{seq}                 → JSON metadata
+	GET /v1/entries/{seq}/raw             → wire bytes (hex)
+	GET /v1/tree/head                     → cosigned tree head
+	GET /v1/tree/inclusion/{seq}          → Merkle inclusion proof
+	GET /v1/entries-hash/{hashHex}        → hash-keyed lookup w/ WAL state
 */
 package main
 
@@ -30,7 +32,7 @@ import (
 
 func runGet(args []string) error {
 	fs := flagSet("get")
-	endpoint := fs.String("endpoint", "", "operator base URL")
+	endpoint := fs.String("endpoint", "", "ledger base URL")
 	seq := fs.Uint64("seq", 0, "entry sequence number (required)")
 	raw := fs.Bool("raw", false, "fetch /raw wire bytes instead of metadata JSON")
 	if err := fs.Parse(args); err != nil {
@@ -55,7 +57,7 @@ func runGet(args []string) error {
 
 func runHead(args []string) error {
 	fs := flagSet("head")
-	endpoint := fs.String("endpoint", "", "operator base URL")
+	endpoint := fs.String("endpoint", "", "ledger base URL")
 	size := fs.Int("size", 0, "optional tree size (defaults to current)")
 	if err := fs.Parse(args); err != nil {
 		return argsErr("parsing flags: %w", err)
@@ -79,7 +81,7 @@ func runHead(args []string) error {
 
 func runInclusion(args []string) error {
 	fs := flagSet("inclusion")
-	endpoint := fs.String("endpoint", "", "operator base URL")
+	endpoint := fs.String("endpoint", "", "ledger base URL")
 	seq := fs.Uint64("seq", 0, "entry sequence number (required)")
 	if err := fs.Parse(args); err != nil {
 		return argsErr("parsing flags: %w", err)
@@ -96,13 +98,13 @@ func runInclusion(args []string) error {
 
 // ─── wait ──────────────────────────────────────────────────────
 
-// runWait polls /v1/entries-hash/{hex} until the operator reports
+// runWait polls /v1/entries-hash/{hex} until the ledger reports
 // a sequenced (or shipped) state. Useful immediately after submit
 // to bridge the SCT → Sequencer → entry-index window (typically <1s
 // against an in-process tessera).
 func runWait(args []string) error {
 	fs := flagSet("wait")
-	endpoint := fs.String("endpoint", "", "operator base URL")
+	endpoint := fs.String("endpoint", "", "ledger base URL")
 	hash := fs.String("hash", "", "canonical hash hex (64 chars) from `submit`")
 	timeout := fs.Duration("timeout", 30*time.Second, "give up after this long")
 	pollEvery := fs.Duration("poll", 250*time.Millisecond, "poll interval")

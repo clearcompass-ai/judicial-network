@@ -2,9 +2,10 @@
 FILE PATH: cases/artifact/del_key_store_memory_test.go
 
 DESCRIPTION:
-    Contract pinning for the in-memory DelegationKeyStore reference
-    impl. Asserts the store/get/delete invariants every backend
-    must honor.
+
+	Contract pinning for the in-memory DelegationKeyStore reference
+	impl. Asserts the store/get/delete invariants every backend
+	must honor.
 */
 package artifact
 
@@ -13,7 +14,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 func testCID(t *testing.T, b byte) storage.CID {

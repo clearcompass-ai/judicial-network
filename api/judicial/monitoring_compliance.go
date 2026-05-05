@@ -2,14 +2,15 @@
 FILE PATH: api/judicial/monitoring_compliance.go
 
 DESCRIPTION:
-    Compliance-side monitoring handlers — multi-log integrity checks
-    for ops dashboards.
 
-      POST /v1/judicial/monitoring/dual-attestation     → CheckDualAttestation
-      POST /v1/judicial/monitoring/mirror-consistency   → CheckMirrorConsistency
-      POST /v1/judicial/monitoring/sealing-compliance   → CheckSealingCompliance
-      POST /v1/judicial/monitoring/grant-compliance     → CheckGrantCompliance
-      POST /v1/judicial/monitoring/dashboard            → BuildDashboard
+	Compliance-side monitoring handlers — multi-log integrity checks
+	for ops dashboards.
+
+	  POST /v1/judicial/monitoring/dual-attestation     → CheckDualAttestation
+	  POST /v1/judicial/monitoring/mirror-consistency   → CheckMirrorConsistency
+	  POST /v1/judicial/monitoring/sealing-compliance   → CheckSealingCompliance
+	  POST /v1/judicial/monitoring/grant-compliance     → CheckGrantCompliance
+	  POST /v1/judicial/monitoring/dashboard            → BuildDashboard
 */
 package judicial
 
@@ -119,10 +120,10 @@ func (h *monMirrorConsistencyHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 // ─────────────────────────────────────────────────────────────────────
 
 type monSealingComplianceRequest struct {
-	LocalLogDID  string `json:"local_log_did"`
-	ScanStartSeq uint64 `json:"scan_start_seq"`
-	ScanCount    int    `json:"scan_count"`
-	OverdueSlackSeconds int64 `json:"overdue_slack_seconds,omitempty"`
+	LocalLogDID         string `json:"local_log_did"`
+	ScanStartSeq        uint64 `json:"scan_start_seq"`
+	ScanCount           int    `json:"scan_count"`
+	OverdueSlackSeconds int64  `json:"overdue_slack_seconds,omitempty"`
 }
 
 type monSealingComplianceHandler struct{ deps *Dependencies }

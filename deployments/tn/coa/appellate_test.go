@@ -2,13 +2,14 @@
 FILE PATH: deployments/tn/coa/appellate_test.go
 
 DESCRIPTION:
-    Tests for the TN COA AppellateVocabulary. Pins the v1.8 §7B
-    closed sets:
-      - 11 opinion types (no seriatim, no in_chambers)
-      - 6 participation roles (no authored)
-      - 6 disposition outcomes (no cert_*)
-      - 3 review types (no certiorari)
-      - 4 merits-level opinion types (subset of 11)
+
+	Tests for the TN COA AppellateVocabulary. Pins the v1.8 §7B
+	closed sets:
+	  - 11 opinion types (no seriatim, no in_chambers)
+	  - 6 participation roles (no authored)
+	  - 6 disposition outcomes (no cert_*)
+	  - 3 review types (no certiorari)
+	  - 4 merits-level opinion types (subset of 11)
 */
 package coa
 

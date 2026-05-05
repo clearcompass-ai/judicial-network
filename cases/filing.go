@@ -1,16 +1,19 @@
 /*
 FILE PATH: cases/filing.go
 DESCRIPTION: Handles subsequent filings on an existing case. Supports BOTH
-    Path A (same-signer amendments) and Path B (delegated filings).
+
+	Path A (same-signer amendments) and Path B (delegated filings).
+
 KEY ARCHITECTURAL DECISIONS:
-    - Path A: BuildAmendment when SignerDID matches case root entity signer
-      and no DelegationPointers are provided. Attorney files motion then exhibit.
-    - Path B: BuildPathBEntry when DelegationPointers are provided. Delegated
-      filings from attorneys with delegation chains.
-    - Both paths use same artifact.PublishArtifact pipeline.
-    - Decision between A/B: if DelegationPointers empty → Path A, else Path B.
+  - Path A: BuildAmendment when SignerDID matches case root entity signer
+    and no DelegationPointers are provided. Attorney files motion then exhibit.
+  - Path B: BuildPathBEntry when DelegationPointers are provided. Delegated
+    filings from attorneys with delegation chains.
+  - Both paths use same artifact.PublishArtifact pipeline.
+  - Decision between A/B: if DelegationPointers empty → Path A, else Path B.
+
 OVERVIEW: File → artifact encryption + Path A or Path B entry.
-KEY DEPENDENCIES: ortholog-sdk/builder, cases/artifact
+KEY DEPENDENCIES: attesta/builder, cases/artifact
 */
 package cases
 
@@ -18,19 +21,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )
 
 type FilingConfig struct {
-	Destination string // DID of target exchange. Required.
+	Destination        string // DID of target exchange. Required.
 	SignerDID          string
 	CaseRootPos        types.LogPosition
 	SchemaRef          types.LogPosition
@@ -113,11 +116,11 @@ func File(
 		// Path A: same-signer amendment. Signer must match case root entity signer.
 		entry, bErr := builder.BuildAmendment(builder.AmendmentParams{
 			Destination: cfg.Destination,
-			SignerDID:  cfg.SignerDID,
-			TargetRoot: cfg.CaseRootPos,
-			Payload:    payloadBytes,
-			SchemaRef:  schemaRefPtr,
-			EventTime:  cfg.EventTime,
+			SignerDID:   cfg.SignerDID,
+			TargetRoot:  cfg.CaseRootPos,
+			Payload:     payloadBytes,
+			SchemaRef:   schemaRefPtr,
+			EventTime:   cfg.EventTime,
 		})
 		if bErr != nil {
 			return nil, fmt.Errorf("cases/filing: build Path A amendment: %w", bErr)
@@ -127,7 +130,7 @@ func File(
 	} else {
 		// Path B: delegated filing via delegation chain.
 		entry, bErr := builder.BuildPathBEntry(builder.PathBParams{
-			Destination: cfg.Destination,
+			Destination:        cfg.Destination,
 			SignerDID:          cfg.SignerDID,
 			TargetRoot:         cfg.CaseRootPos,
 			DelegationPointers: cfg.DelegationPointers,

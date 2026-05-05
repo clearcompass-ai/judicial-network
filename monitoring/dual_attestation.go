@@ -1,16 +1,19 @@
 /*
 FILE PATH: monitoring/dual_attestation.go
 DESCRIPTION: Verifies that each active officer has at least two independent
-    identity attestations on the log (typically AOC + bar association, or
-    court + identity witness). Mitigates single-authority compromise.
+
+	identity attestations on the log (typically AOC + bar association, or
+	court + identity witness). Mitigates single-authority compromise.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Queries entries by each officer's DID, filters for attestation-shaped
-      Domain Payloads (attestation_type field).
-    - Counts distinct ATTESTER DIDs, not entry count — one attester publishing
-      multiple attestations is still one attester.
-    - Configurable minimum count (default 2).
+  - Queries entries by each officer's DID, filters for attestation-shaped
+    Domain Payloads (attestation_type field).
+  - Counts distinct ATTESTER DIDs, not entry count — one attester publishing
+    multiple attestations is still one attester.
+  - Configurable minimum count (default 2).
+
 OVERVIEW: CheckDualAttestation walks the officer roster and reports shortfalls.
-KEY DEPENDENCIES: ortholog-sdk/log, ortholog-sdk/verifier
+KEY DEPENDENCIES: attesta/log, attesta/verifier
 */
 package monitoring
 
@@ -19,12 +22,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 const MonitorDualAttestation monitoring.MonitorID = "judicial.dual_attestation"
@@ -41,7 +44,7 @@ type DualAttestationConfig struct {
 // CheckDualAttestation walks live delegations and verifies attestation coverage.
 func CheckDualAttestation(
 	cfg DualAttestationConfig,
-	queryAPI sdklog.OperatorQueryAPI,
+	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	now time.Time,
@@ -82,11 +85,11 @@ func CheckDualAttestation(
 					node.DelegateDID, len(attesters), minAttesters,
 				),
 				Details: map[string]any{
-					"officer":           node.DelegateDID,
-					"attester_count":    len(attesters),
-					"minimum_required":  minAttesters,
-					"attesters":         attesterList,
-					"delegation_depth":  node.Depth,
+					"officer":          node.DelegateDID,
+					"attester_count":   len(attesters),
+					"minimum_required": minAttesters,
+					"attesters":        attesterList,
+					"delegation_depth": node.Depth,
 				},
 				EmittedAt: now,
 			})
@@ -103,11 +106,11 @@ func CheckDualAttestation(
 // with Domain Payload containing {"attestation_type": "...", "subject_did": "<target>"}.
 func countAttestersFor(
 	targetDID string,
-	queryAPI sdklog.OperatorQueryAPI,
+	queryAPI sdklog.LedgerQueryAPI,
 ) (map[string]bool, error) {
-	// We query by subject-referencing commentary. The operator's
+	// We query by subject-referencing commentary. The ledger's
 	// QueryBySignerDID index isn't keyed on subject_did, so we scan
-	// broadly and filter. In production, an operator-side index on
+	// broadly and filter. In production, an ledger-side index on
 	// attestation subject would replace this.
 	//
 	// For the monitor's purposes, we use the pragmatic pattern: scan

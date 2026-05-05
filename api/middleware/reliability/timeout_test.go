@@ -2,12 +2,13 @@
 FILE PATH: api/middleware/reliability/timeout_test.go
 
 DESCRIPTION:
-    Pins the per-handler timeout:
-      1. A handler that returns within the deadline passes through.
-      2. A handler that blocks past the deadline gets a 503 and
-         the downstream goroutine is allowed to finish (but its
-         response is not used).
-      3. timeout <= 0 disables the wrapper.
+
+	Pins the per-handler timeout:
+	  1. A handler that returns within the deadline passes through.
+	  2. A handler that blocks past the deadline gets a 503 and
+	     the downstream goroutine is allowed to finish (but its
+	     response is not used).
+	  3. timeout <= 0 disables the wrapper.
 */
 package reliability
 

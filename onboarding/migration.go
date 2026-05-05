@@ -1,15 +1,18 @@
 /*
 FILE PATH: onboarding/migration.go
 DESCRIPTION: Wraps cases/artifact/bulk_import.go for legacy CMS import at
-    court onboarding. Adds a roster-driven staging step that groups records
-    by case root and sequences them to preserve causal ordering (case root
-    before filings before amendments).
+
+	court onboarding. Adds a roster-driven staging step that groups records
+	by case root and sequences them to preserve causal ordering (case root
+	before filings before amendments).
+
 KEY ARCHITECTURAL DECISIONS:
-    - Input: LegacyRecord stream (caller's adapter; Tyler Odyssey, C-Track, etc).
-    - Output: three phases — case roots (BuildRootEntity via cases/initiation),
-      filings (BuildAmendment/BuildPathBEntry via cases/filing), artifacts
-      (artifact.BulkImport).
-    - Rate-limited by BulkImport internally.
+  - Input: LegacyRecord stream (caller's adapter; Tyler Odyssey, C-Track, etc).
+  - Output: three phases — case roots (BuildRootEntity via cases/initiation),
+    filings (BuildAmendment/BuildPathBEntry via cases/filing), artifacts
+    (artifact.BulkImport).
+  - Rate-limited by BulkImport internally.
+
 OVERVIEW: MigrateLegacyRecords → MigrationResult with per-phase counts.
 KEY DEPENDENCIES: cases/artifact, cases, judicial-network/schemas
 */
@@ -21,12 +24,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
@@ -92,9 +95,9 @@ type MigrationResult struct {
 }
 
 // MigrateLegacyRecords runs the three-phase migration.
-// Phase 1: create case root entities in docket-sorted order.
-// Phase 2: create filing entries (Path A, same signer).
-// Phase 3: bulk-import artifacts via rate-limited loop.
+// : create case root entities in docket-sorted order.
+// : create filing entries (Path A, same signer).
+// : bulk-import artifacts via rate-limited loop.
 func MigrateLegacyRecords(
 	cfg MigrationConfig,
 	contentStore storage.ContentStore,
@@ -118,7 +121,7 @@ func MigrateLegacyRecords(
 		return records[i].DocketNumber < records[j].DocketNumber
 	})
 
-	// Phase 1: case roots.
+	// : case roots.
 	var importRecords []artifact.ImportRecord
 
 	for i, rec := range records {
@@ -134,7 +137,7 @@ func MigrateLegacyRecords(
 		}
 		result.CaseRootEntries = append(result.CaseRootEntries, rootEntry)
 
-		// Phase 2: filing entries for this record.
+		// : filing entries for this record.
 		// Note: the caller submits the case root first, then has its
 		// position to use as TargetRoot for filings. For this bootstrap
 		// pass, we produce filings WITHOUT TargetRoot — they'll need to
@@ -173,7 +176,7 @@ func MigrateLegacyRecords(
 		}
 	}
 
-	// Phase 3: artifact bulk import.
+	// : artifact bulk import.
 	if len(importRecords) > 0 {
 		bulkResult, bErr := artifact.BulkImport(
 			artifact.BulkImportConfig{

@@ -2,46 +2,47 @@
 FILE PATH: api/exchange/identity/identity.go
 
 DESCRIPTION:
-    The IdentityProvider interface — the single seam between JN and
-    whichever Web2→Web3 IdP the deployment uses (in our case, Privy).
 
-    Two responsibilities:
+	The IdentityProvider interface — the single seam between JN and
+	whichever Web2→Web3 IdP the deployment uses (in our case, Privy).
 
-      1. Token verification. The user signs into the dApp via the
-         IdP; the IdP issues a JWT that travels with subsequent HTTP
-         requests. JN verifies the JWT against the IdP's keys and
-         extracts Claims (subject did:key, expiration, email).
+	Two responsibilities:
 
-      2. Wallet signing. When JN needs to publish an on-log entry on
-         a user's behalf — a delegation, a revocation, a filing —
-         it computes the entry's typed-data digest and asks the IdP
-         to have the user's wallet sign it. The IdP shows a UX
-         confirmation; the user approves or rejects. JN never holds
-         the private key.
+	  1. Token verification. The user signs into the dApp via the
+	     IdP; the IdP issues a JWT that travels with subsequent HTTP
+	     requests. JN verifies the JWT against the IdP's keys and
+	     extracts Claims (subject did:key, expiration, email).
 
-    Why this is a JN-side seam (not a direct Privy SDK import):
+	  2. Wallet signing. When JN needs to publish an on-log entry on
+	     a user's behalf — a delegation, a revocation, a filing —
+	     it computes the entry's typed-data digest and asks the IdP
+	     to have the user's wallet sign it. The IdP shows a UX
+	     confirmation; the user approves or rejects. JN never holds
+	     the private key.
 
-      - Privy's API surface evolves; pinning JN to a single SDK
-        version creates upgrade risk.
-      - Test deployments need a deterministic stub that doesn't talk
-        to a real IdP. The interface lets us swap a stub in.
-      - A second deployment may want a different IdP (an enterprise
-        SSO+wallet bridge, an on-prem custody provider). The
-        interface is stable; only the implementation changes.
+	Why this is a JN-side seam (not a direct Privy SDK import):
 
-    Sign-time digest framing:
-      Inputs to SignDigest are 32-byte digests. The SDK's signing
-      contract (and EIP-712 typed-data convention) means JN computes
-      keccak256(domain_separator || keccak256(typed_struct)) and
-      passes the result. The provider does NOT hash again; it signs
-      the bytes given. This keeps the wallet UX accurate (the wallet
-      displays the typed structure to the user) and the protocol
-      framing (the domain separator binds the signature to a specific
-      court + schema version, preventing cross-court replay).
+	  - Privy's API surface evolves; pinning JN to a single SDK
+	    version creates upgrade risk.
+	  - Test deployments need a deterministic stub that doesn't talk
+	    to a real IdP. The interface lets us swap a stub in.
+	  - A second deployment may want a different IdP (an enterprise
+	    SSO+wallet bridge, an on-prem custody provider). The
+	    interface is stable; only the implementation changes.
+
+	Sign-time digest framing:
+	  Inputs to SignDigest are 32-byte digests. The SDK's signing
+	  contract (and EIP-712 typed-data convention) means JN computes
+	  keccak256(domain_separator || keccak256(typed_struct)) and
+	  passes the result. The provider does NOT hash again; it signs
+	  the bytes given. This keeps the wallet UX accurate (the wallet
+	  displays the typed structure to the user) and the protocol
+	  framing (the domain separator binds the signature to a specific
+	  court + schema version, preventing cross-court replay).
 
 KEY DEPENDENCIES:
-    - api/exchange/identity/identity_signing.go (SignRequest,
-      SignResponse, TypedDataDisplay).
+  - api/exchange/identity/identity_signing.go (SignRequest,
+    SignResponse, TypedDataDisplay).
 */
 package identity
 

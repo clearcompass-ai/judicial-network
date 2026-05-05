@@ -2,20 +2,21 @@
 FILE PATH: api/config/operational_test.go
 
 DESCRIPTION:
-    Exhaustive coverage of api/config.Operational. Pinned properties:
 
-      1. Defaults are sane and Validate-clean for an in-memory dev
-         deployment (after auth material is supplied).
-      2. JSON round-trip preserves every field.
-      3. LoadFromFile overlays JSON onto Defaults; missing path is
-         treated as "no overlay" (returns Defaults unchanged).
-      4. ApplyEnvOverrides honors the documented allowlist; empty
-         env values do NOT override.
-      5. Validate fires on every documented failure mode and stays
-         silent on every documented success mode.
-      6. Operational holds zero DIDs. (Compile-time + literal probe.)
-      7. Secret fields (PINFile, TokenFile) hold paths, never raw
-         secrets — verified by JSON round-trip preserving the path.
+	Exhaustive coverage of api/config.Operational. Pinned properties:
+
+	  1. Defaults are sane and Validate-clean for an in-memory dev
+	     deployment (after auth material is supplied).
+	  2. JSON round-trip preserves every field.
+	  3. LoadFromFile overlays JSON onto Defaults; missing path is
+	     treated as "no overlay" (returns Defaults unchanged).
+	  4. ApplyEnvOverrides honors the documented allowlist; empty
+	     env values do NOT override.
+	  5. Validate fires on every documented failure mode and stays
+	     silent on every documented success mode.
+	  6. Operational holds zero DIDs. (Compile-time + literal probe.)
+	  7. Secret fields (PINFile, TokenFile) hold paths, never raw
+	     secrets — verified by JSON round-trip preserving the path.
 */
 package config
 
@@ -39,7 +40,7 @@ func TestDefaults_Memorable(t *testing.T) {
 	if d.ListenAddr != ":8443" {
 		t.Errorf("ListenAddr = %q, want :8443", d.ListenAddr)
 	}
-	if d.OperatorEndpoint == "" || d.ArtifactStoreEndpoint == "" {
+	if d.LedgerEndpoint == "" || d.ArtifactStoreEndpoint == "" {
 		t.Error("upstream endpoints must default to localhost values")
 	}
 	if d.KeyStore.Backend != KeyStoreBackendMemory {
@@ -87,7 +88,7 @@ func TestDefaults_HoldsNoDIDs(t *testing.T) {
 func TestJSONRoundTrip_PreservesEveryField(t *testing.T) {
 	original := Operational{
 		ListenAddr:            ":9999",
-		OperatorEndpoint:      "https://op.example",
+		LedgerEndpoint:        "https://op.example",
 		ArtifactStoreEndpoint: "https://blobs.example",
 		VerificationEndpoint:  "https://verify.example",
 		EthRPCEndpoint:        "https://rpc.example",
@@ -159,8 +160,8 @@ func TestLoadFromFile_OverlaysOnDefaults(t *testing.T) {
 		t.Errorf("KeyStore.Backend override missed: %q", cfg.KeyStore.Backend)
 	}
 	// Fields the JSON didn't mention must come from Defaults.
-	if cfg.OperatorEndpoint != Defaults().OperatorEndpoint {
-		t.Errorf("OperatorEndpoint should default: %q", cfg.OperatorEndpoint)
+	if cfg.LedgerEndpoint != Defaults().LedgerEndpoint {
+		t.Errorf("LedgerEndpoint should default: %q", cfg.LedgerEndpoint)
 	}
 }
 
@@ -214,7 +215,7 @@ func TestApplyEnvOverrides_EmptyEnv_DoesNotOverride(t *testing.T) {
 func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	clearAPIEnv(t)
 	t.Setenv("API_LISTEN_ADDR", ":1234")
-	t.Setenv("API_OPERATOR_ENDPOINT", "https://op.via.env")
+	t.Setenv("API_LEDGER_ENDPOINT", "https://op.via.env")
 	t.Setenv("API_ARTIFACT_STORE_ENDPOINT", "https://art.via.env")
 	t.Setenv("API_VERIFICATION_ENDPOINT", "https://vfy.via.env")
 	t.Setenv("API_ETH_RPC_ENDPOINT", "https://rpc.via.env")
@@ -229,8 +230,8 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	if got.ListenAddr != wantListen {
 		t.Errorf("ListenAddr = %q, want %q", got.ListenAddr, wantListen)
 	}
-	if got.OperatorEndpoint != "https://op.via.env" {
-		t.Errorf("OperatorEndpoint = %q", got.OperatorEndpoint)
+	if got.LedgerEndpoint != "https://op.via.env" {
+		t.Errorf("LedgerEndpoint = %q", got.LedgerEndpoint)
 	}
 	if got.ArtifactStoreEndpoint != "https://art.via.env" {
 		t.Errorf("ArtifactStoreEndpoint = %q", got.ArtifactStoreEndpoint)
@@ -278,8 +279,8 @@ func TestApplyEnvOverrides_LowercasesBackendStrings(t *testing.T) {
 func TestApplyEnvOverrides_PrecedenceEnvBeatsFile(t *testing.T) {
 	clearAPIEnv(t)
 	tmp := writeJSON(t, map[string]any{
-		"listen_addr":       ":8888",
-		"operator_endpoint": "https://op.from.file",
+		"listen_addr":     ":8888",
+		"ledger_endpoint": "https://op.from.file",
 	})
 	t.Setenv("API_LISTEN_ADDR", ":9999") // env should win
 
@@ -292,8 +293,8 @@ func TestApplyEnvOverrides_PrecedenceEnvBeatsFile(t *testing.T) {
 	if cfg.ListenAddr != ":9999" {
 		t.Errorf("env should beat file; ListenAddr = %q want :9999", cfg.ListenAddr)
 	}
-	if cfg.OperatorEndpoint != "https://op.from.file" {
-		t.Errorf("file value (no env override) should win over default: %q", cfg.OperatorEndpoint)
+	if cfg.LedgerEndpoint != "https://op.from.file" {
+		t.Errorf("file value (no env override) should win over default: %q", cfg.LedgerEndpoint)
 	}
 }
 
@@ -376,10 +377,10 @@ func TestValidate_RejectsEmptyListenAddr(t *testing.T) {
 	expectInvalid(t, cfg, "ListenAddr required")
 }
 
-func TestValidate_RejectsEmptyOperatorEndpoint(t *testing.T) {
+func TestValidate_RejectsEmptyLedgerEndpoint(t *testing.T) {
 	cfg := validBase(t)
-	cfg.OperatorEndpoint = ""
-	expectInvalid(t, cfg, "OperatorEndpoint required")
+	cfg.LedgerEndpoint = ""
+	expectInvalid(t, cfg, "LedgerEndpoint required")
 }
 
 func TestValidate_RejectsEmptyArtifactStoreEndpoint(t *testing.T) {
@@ -452,7 +453,7 @@ func TestValidate_RejectsSoftHSMMissingLibraryPath(t *testing.T) {
 	cfg := validBase(t)
 	cfg.KeyStore = KeyStoreConfig{
 		Backend: KeyStoreBackendSoftHSM,
-		PKCS11: &PKCS11Config{PINFile: "p", TokenLabel: "t"},
+		PKCS11:  &PKCS11Config{PINFile: "p", TokenLabel: "t"},
 	}
 	expectInvalid(t, cfg, "PKCS11.LibraryPath required")
 }
@@ -461,7 +462,7 @@ func TestValidate_RejectsSoftHSMMissingPINFile(t *testing.T) {
 	cfg := validBase(t)
 	cfg.KeyStore = KeyStoreConfig{
 		Backend: KeyStoreBackendSoftHSM,
-		PKCS11: &PKCS11Config{LibraryPath: "x.so", TokenLabel: "t"},
+		PKCS11:  &PKCS11Config{LibraryPath: "x.so", TokenLabel: "t"},
 	}
 	expectInvalid(t, cfg, "PKCS11.PINFile required")
 }
@@ -470,7 +471,7 @@ func TestValidate_RejectsSoftHSMMissingTokenLabel(t *testing.T) {
 	cfg := validBase(t)
 	cfg.KeyStore = KeyStoreConfig{
 		Backend: KeyStoreBackendSoftHSM,
-		PKCS11: &PKCS11Config{LibraryPath: "x.so", PINFile: "p"},
+		PKCS11:  &PKCS11Config{LibraryPath: "x.so", PINFile: "p"},
 	}
 	expectInvalid(t, cfg, "PKCS11.TokenLabel required")
 }
@@ -518,7 +519,7 @@ func TestValidate_RejectsVaultMissingFields(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			v := &VaultConfig{
-				Address: "https://vault.example:8200",
+				Address:   "https://vault.example:8200",
 				TokenFile: "/tok", Mount: "transit", KeyName: "k",
 			}
 			tc.mut(v)
@@ -657,7 +658,7 @@ func clearAPIEnv(t *testing.T) {
 	t.Helper()
 	for _, v := range []string{
 		"API_LISTEN_ADDR",
-		"API_OPERATOR_ENDPOINT",
+		"API_LEDGER_ENDPOINT",
 		"API_ARTIFACT_STORE_ENDPOINT",
 		"API_VERIFICATION_ENDPOINT",
 		"API_ETH_RPC_ENDPOINT",

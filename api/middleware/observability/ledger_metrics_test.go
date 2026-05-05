@@ -1,19 +1,14 @@
 /*
-FILE PATH: api/middleware/observability/operator_metrics_test.go
+FILE PATH: api/middleware/observability/ledger_metrics_test.go
 
 DESCRIPTION:
-    Wire-format verification for the OTel-backed operator-submit
-    metrics. Same coverage shape as metrics_test.go: every
-    assertion lands against the literal /metrics scrape body.
 
-    Pinned invariants:
-      1. Counter increments per result label.
-      2. Histogram observes per call (_count, _sum, _bucket present).
-      3. Breaker gauge is exclusive — when state="open" is current,
-         "closed" + "half_open" are 0.
-      4. Initial state is "closed" with gauge=1, others=0.
-      5. # HELP / # TYPE descriptors land per instrument.
-      6. _total suffix on the counter wire form (OTel→Prom rule).
+	Pins the ledger-submit metrics:
+	  1. Counter increments per result.
+	  2. Duration histogram observes per call.
+	  3. Breaker gauge is exclusive — when state="open", the
+	     "closed" + "half_open" gauges are 0.
+	  4. Initial state is "closed" with gauge=1, others=0.
 */
 package observability
 
@@ -23,15 +18,9 @@ import (
 	"testing"
 )
 
-// ─────────────────────────────────────────────────────────────────────
-// jn_operator_submit_total — counter
-// ─────────────────────────────────────────────────────────────────────
-
-func TestOperatorSubmit_CounterByResult(t *testing.T) {
+func TestLedgerSubmitMetrics_CounterByResult(t *testing.T) {
 	r := NewMetricsRegistry()
-	defer func() { _ = r.Shutdown(t.Context()) }()
-
-	m := NewOperatorSubmitMetrics(r)
+	m := NewLedgerSubmitMetrics(r)
 	m.Observe(0.05, "ok", "closed")
 	m.Observe(0.05, "ok", "closed")
 	m.Observe(0.10, "error", "closed")
@@ -63,15 +52,9 @@ func TestOperatorSubmit_CounterByResult(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// jn_operator_submit_duration_seconds — histogram
-// ─────────────────────────────────────────────────────────────────────
-
-func TestOperatorSubmit_DurationHistogram(t *testing.T) {
+func TestLedgerSubmitMetrics_DurationObserved(t *testing.T) {
 	r := NewMetricsRegistry()
-	defer func() { _ = r.Shutdown(t.Context()) }()
-
-	m := NewOperatorSubmitMetrics(r)
+	m := NewLedgerSubmitMetrics(r)
 	m.Observe(0.10, "ok", "closed")
 	m.Observe(0.50, "ok", "closed")
 
@@ -107,15 +90,9 @@ func TestOperatorSubmit_DurationHistogram(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// jn_operator_submit_breaker_state — observable gauge
-// ─────────────────────────────────────────────────────────────────────
-
-func TestOperatorSubmit_BreakerGauge_Exclusive(t *testing.T) {
+func TestLedgerSubmitMetrics_BreakerGauge_Exclusive(t *testing.T) {
 	r := NewMetricsRegistry()
-	defer func() { _ = r.Shutdown(t.Context()) }()
-
-	m := NewOperatorSubmitMetrics(r)
+	m := NewLedgerSubmitMetrics(r)
 	m.Observe(0.10, "circuit_open", "open")
 
 	body := scrape(t, r)
@@ -140,24 +117,11 @@ func TestOperatorSubmit_BreakerGauge_Exclusive(t *testing.T) {
 	}
 }
 
-func TestOperatorSubmit_InitialState_Closed(t *testing.T) {
+func TestLedgerSubmitMetrics_InitialState_Closed(t *testing.T) {
 	r := NewMetricsRegistry()
-	defer func() { _ = r.Shutdown(t.Context()) }()
-
-	// No Observe calls — registry just constructed. The
-	// observable gauge callback emits the initial state on
-	// first scrape.
-	_ = NewOperatorSubmitMetrics(r)
-
-	body := scrape(t, r)
-
-	cases := []struct {
-		state string
-		want  float64
-	}{
-		{"closed", 1},
-		{"open", 0},
-		{"half_open", 0},
+	m := NewLedgerSubmitMetrics(r)
+	if got := testutil.ToFloat64(m.breaker.WithLabelValues("closed")); got != 1 {
+		t.Errorf("initial closed gauge = %v, want 1", got)
 	}
 	for _, tc := range cases {
 		pat := regexp.MustCompile(`state="` + regexp.QuoteMeta(tc.state) + `"`)

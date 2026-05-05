@@ -2,14 +2,15 @@
 FILE PATH: schemas/judicial_delegation_test.go
 
 DESCRIPTION:
-    Validation and round-trip tests for the unified delegation schema:
-    JudicialDelegationPayload, JudicialRevocationPayload,
-    JudicialSuccessionPayload.
 
-    The on-log truth is the JSON byte sequence; these tests pin the
-    field set, the validation rules, and the deterministic
-    serialization. Any drift here is a compatibility break: existing
-    log entries would fail to round-trip through the new code.
+	Validation and round-trip tests for the unified delegation schema:
+	JudicialDelegationPayload, JudicialRevocationPayload,
+	JudicialSuccessionPayload.
+
+	The on-log truth is the JSON byte sequence; these tests pin the
+	field set, the validation rules, and the deterministic
+	serialization. Any drift here is a compatibility break: existing
+	log entries would fail to round-trip through the new code.
 */
 package schemas
 

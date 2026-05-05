@@ -2,9 +2,10 @@
 FILE PATH: api/judicial/monitoring_compliance_test.go
 
 DESCRIPTION:
-    Validation contracts for the compliance-side monitoring handlers
-    (dual-attestation, mirror-consistency, sealing-compliance,
-    grant-compliance, dashboard).
+
+	Validation contracts for the compliance-side monitoring handlers
+	(dual-attestation, mirror-consistency, sealing-compliance,
+	grant-compliance, dashboard).
 */
 package judicial
 

@@ -2,27 +2,28 @@
 FILE PATH: tools/cmd/aggregator/probes.go
 
 DESCRIPTION:
-    Probe HTTP handlers for the aggregator binary. Three endpoints,
-    each unauthenticated so k8s liveness + Prometheus scrapers can
-    always reach them:
 
-      GET /healthz
-        200 ok unconditionally. Liveness — process is up.
+	Probe HTTP handlers for the aggregator binary. Three endpoints,
+	each unauthenticated so k8s liveness + Prometheus scrapers can
+	always reach them:
 
-      GET /readyz
-        200 ok when both the operator endpoint AND Postgres are
-        reachable; 503 otherwise. Used for k8s readiness so a
-        replica that can't fulfill its job stops receiving traffic.
+	  GET /healthz
+	    200 ok unconditionally. Liveness — process is up.
 
-      GET /metrics
-        Prometheus scrape endpoint. Reuses the Phase 15
-        api/middleware/observability.MetricsRegistry so the metric
-        name conventions match cmd/network-api (jn_http_*).
+	  GET /readyz
+	    200 ok when both the ledger endpoint AND Postgres are
+	    reachable; 503 otherwise. Used for k8s readiness so a
+	    replica that can't fulfill its job stops receiving traffic.
 
-    No /v1/* routes — the aggregator is write-only against its own
-    database. Read traffic for the aggregator's Postgres state
-    belongs in court-tools / provider-tools, which run as separate
-    binaries.
+	  GET /metrics
+	    Prometheus scrape endpoint. Reuses the 
+	    api/middleware/observability.MetricsRegistry so the metric
+	    name conventions match cmd/network-api (jn_http_*).
+
+	No /v1/* routes — the aggregator is write-only against its own
+	database. Read traffic for the aggregator's Postgres state
+	belongs in court-tools / provider-tools, which run as separate
+	binaries.
 */
 package main
 
@@ -37,11 +38,11 @@ import (
 	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
-// errMissingDB / errMissingOperator are surfaced from run() when
+// errMissingDB / errMissingLedger are surfaced from run() when
 // boot config is incomplete.
 var (
 	errMissingDB       = errors.New("aggregator: cfg.database_url required")
-	errMissingOperator = errors.New("aggregator: cfg.operator_url required")
+	errMissingLedger = errors.New("aggregator: cfg.ledger_url required")
 )
 
 // dbProber is the minimal *common.DB-shaped surface the readyz
@@ -51,13 +52,13 @@ type dbProber interface {
 }
 
 // probeHandlers groups the three probe endpoints. Holds the metrics
-// registry + the readyz dependencies (db + operator URL) so the
+// registry + the readyz dependencies (db + ledger URL) so the
 // handlers can fail-fast when an upstream is unreachable.
 type probeHandlers struct {
-	metrics     *observability.MetricsRegistry
-	db          dbProber
-	operatorURL string
-	httpClient  *http.Client
+	metrics    *observability.MetricsRegistry
+	db         dbProber
+	ledgerURL  string
+	httpClient *http.Client
 
 	// readyState caches the last computed readiness so /readyz is
 	// O(1) when called frequently. Refreshed on a 5-second cadence
@@ -66,14 +67,14 @@ type probeHandlers struct {
 }
 
 // newProbeHandlers constructs the probe surface. The supplied db
-// and operatorURL are used for the readyz check; pass them from
+// and ledgerURL are used for the readyz check; pass them from
 // run() once both have been validated.
-func newProbeHandlers(db dbProber, operatorURL string) *probeHandlers {
+func newProbeHandlers(db dbProber, ledgerURL string) *probeHandlers {
 	return &probeHandlers{
-		metrics:     observability.NewMetricsRegistry(),
-		db:          db,
-		operatorURL: operatorURL,
-		httpClient:  &http.Client{Timeout: 3 * time.Second},
+		metrics:    observability.NewMetricsRegistry(),
+		db:         db,
+		ledgerURL:  ledgerURL,
+		httpClient: &http.Client{Timeout: 3 * time.Second},
 	}
 }
 
@@ -96,7 +97,7 @@ func (p *probeHandlers) healthz(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("ok"))
 }
 
-// readyz returns 200 only when both Postgres and the operator
+// readyz returns 200 only when both Postgres and the ledger
 // endpoint are reachable. Used for k8s readiness so a replica that
 // can't fulfill its job stops receiving traffic. 5s budget for the
 // full check.
@@ -108,15 +109,15 @@ func (p *probeHandlers) readyz(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "database unreachable: "+err.Error(), http.StatusServiceUnavailable)
 		return
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, p.operatorURL+"/healthz", nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, p.ledgerURL+"/healthz", nil)
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
-		http.Error(w, "operator unreachable: "+err.Error(), http.StatusServiceUnavailable)
+		http.Error(w, "ledger unreachable: "+err.Error(), http.StatusServiceUnavailable)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
-		http.Error(w, "operator unhealthy", http.StatusServiceUnavailable)
+		http.Error(w, "ledger unhealthy", http.StatusServiceUnavailable)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

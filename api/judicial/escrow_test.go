@@ -2,21 +2,22 @@
 FILE PATH: api/judicial/escrow_test.go
 
 DESCRIPTION:
-    Validation contracts for the escrow recovery handlers. Pinned:
 
-      Wired routes:
-        - 401 on no caller
-        - 400 on missing required fields
-        - 200 on happy path; BuildResponse shape returned
+	Validation contracts for the escrow recovery handlers. Pinned:
 
-      501 stubs:
-        - 401 on no caller (the auth gate runs first)
-        - 501 with operational-reasoning substring on authenticated
-          calls (table-driven, mirrors the C6 stub harness)
+	  Wired routes:
+	    - 401 on no caller
+	    - 400 on missing required fields
+	    - 200 on happy path; BuildResponse shape returned
 
-    The full happy-path correctness (the SDK actually building a
-    valid recovery-request entry) is pinned by SDK and migration
-    tests; this file proves the HTTP wiring + auth gating only.
+	  501 stubs:
+	    - 401 on no caller (the auth gate runs first)
+	    - 501 with operational-reasoning substring on authenticated
+	      calls (table-driven, mirrors the C6 stub harness)
+
+	The full happy-path correctness (the SDK actually building a
+	valid recovery-request entry) is pinned by SDK and migration
+	tests; this file proves the HTTP wiring + auth gating only.
 */
 package judicial
 

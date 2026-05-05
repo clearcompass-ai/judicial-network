@@ -75,7 +75,7 @@ func replaceInFile(file, oldStr, newStr string) {
 }
 
 func main() {
-	fmt.Println("=== Phase 1: Add Destination field to config structs ===")
+	fmt.Println("=== : Add Destination field to config structs ===")
 	fmt.Println()
 
 	// ── appeals/ ──
@@ -134,7 +134,7 @@ func main() {
 	addFieldToStruct("topology/anchor_publisher.go", "AnchorConfig")
 
 	fmt.Println()
-	fmt.Println("=== Phase 2: Fix variable name mismatches ===")
+	fmt.Println("=== : Fix variable name mismatches ===")
 	fmt.Println()
 
 	// api/exchange/handlers — these functions don't have `cfg`, they use
@@ -163,7 +163,7 @@ func main() {
 	// that don't have a cfg variable.
 
 	fmt.Println()
-	fmt.Println("=== Phase 3: Fix BuildApprovalCosignature call ===")
+	fmt.Println("=== : Fix BuildApprovalCosignature call ===")
 	fmt.Println()
 
 	// lifecycle.BuildApprovalCosignature now takes destination as 2nd param.

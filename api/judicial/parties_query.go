@@ -2,16 +2,17 @@
 FILE PATH: api/judicial/parties_query.go
 
 DESCRIPTION:
-    Read-side party-binding queries.
 
-      GET /v1/judicial/parties/bindings?signer_did=...
-                                                 → ListCaseParties
-      GET /v1/judicial/parties/bindings/by-id/{bindingID}?signer_did=...
-                                                 → FindPartyByBindingID
+	Read-side party-binding queries.
 
-    Both require an X-Parties-Log-DID header — same pattern as
-    cases/lookup. Production deployments may auto-derive in a
-    future patch.
+	  GET /v1/judicial/parties/bindings?signer_did=...
+	                                             → ListCaseParties
+	  GET /v1/judicial/parties/bindings/by-id/{bindingID}?signer_did=...
+	                                             → FindPartyByBindingID
+
+	Both require an X-Parties-Log-DID header — same pattern as
+	cases/lookup. Production deployments may auto-derive in a
+	future patch.
 */
 package judicial
 
@@ -19,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/parties"
 )
@@ -106,7 +107,7 @@ func (h *partyBindingFindHandler) partiesQuerier(r *http.Request) (parties.Parti
 }
 
 // partiesQuerierAdapter satisfies parties.PartiesQuerier on top of an
-// sdklog.OperatorQueryAPI (structural typing — same shape).
+// sdklog.LedgerQueryAPI (structural typing — same shape).
 type partiesQuerierAdapter struct {
 	api interface {
 		QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)

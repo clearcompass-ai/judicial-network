@@ -1,18 +1,18 @@
 # witness — standalone cosigning daemon
 
-Closes the "operator self-signs unwitnessed in dev" gap from the
+Closes the "ledger self-signs unwitnessed in dev" gap from the
 walkthrough. Runs an independent cosignature loop:
 
 1. Periodically fetch the latest cosigned tree head from each
-   configured operator endpoint via `*witness.TreeHeadClient`.
+   configured ledger endpoint via `*witness.TreeHeadClient`.
 2. Skip if the head has not advanced since the last cosig
    (no-op cosignature suppression).
 3. Sign the canonical 40-byte `WitnessCosignMessage` with the
    daemon's BLS witness key (`signFn` injected via deps).
-4. POST the cosignature to `<operator>/v1/cosignatures`.
+4. POST the cosignature to `<ledger>/v1/cosignatures`.
 
 Probes (`/healthz`, `/readyz`, `/metrics`) follow the same shape
-as the aggregator binary so cluster operators can scrape +
+as the aggregator binary so cluster ledgers can scrape +
 monitor uniformly across `cmd/network-api`,
 `tools/cmd/aggregator`, and this binary.
 
@@ -31,7 +31,7 @@ monitor uniformly across `cmd/network-api`,
   outside this binary's scope. Future commit.
 - **Does not register the witness key on-chain.** Witness key
   registration is governance-driven; the daemon assumes its
-  public key is already in the operator's accepted-witness set.
+  public key is already in the ledger's accepted-witness set.
 
 ## Running
 
@@ -54,23 +54,23 @@ go build -o ./bin/witness ./tools/cmd/witness
     "did:web:state:tn:davidson:cases",
     "did:web:state:tn:davidson:officers"
   ],
-  "operators": {
-    "did:web:state:tn:davidson:cases":    "https://operator.davidson",
-    "did:web:state:tn:davidson:officers": "https://operator.davidson"
+  "ledgers": {
+    "did:web:state:tn:davidson:cases":    "https://ledger.davidson",
+    "did:web:state:tn:davidson:officers": "https://ledger.davidson"
   }
 }
 ```
 
 `Validate()` enforces:
-- `witness_did`, `witness_key_file`, `log_dids`, `operators` all populated
-- every `log_did` has a matching entry in `operators`
+- `witness_did`, `witness_key_file`, `log_dids`, `ledgers` all populated
+- every `log_did` has a matching entry in `ledgers`
 
 ## Probes
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /healthz` | Liveness. Always 200. k8s restarts on failure. |
-| `GET /readyz`  | Readiness. 200 when ANY configured operator is reachable; 503 when all are down. |
+| `GET /readyz`  | Readiness. 200 when ANY configured ledger is reachable; 503 when all are down. |
 | `GET /metrics` | Prometheus scrape. `jn_http_*` metric names match `cmd/network-api`. |
 
 ## Tests

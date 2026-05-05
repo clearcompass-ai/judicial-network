@@ -4,14 +4,15 @@
 FILE PATH: api/exchange/keystore/pkcs11/pkcs11_secp256k1.go
 
 DESCRIPTION:
-    secp256k1 surface for the PKCS#11 backend. PKCS#11 returns raw
-    R||S from CKM_ECDSA — no recovery byte. We follow the same recipe
-    as the Vault backend: canonicalize S to low form (BIP-62) then
-    try both v values against the known public key.
 
-    CKA_EC_PARAMS is the secp256k1 OID (1.3.132.0.10) DER-encoded;
-    CKA_EXTRACTABLE is forced false on the private key so escrow
-    paths cannot bypass the token.
+	secp256k1 surface for the PKCS#11 backend. PKCS#11 returns raw
+	R||S from CKM_ECDSA — no recovery byte. We follow the same recipe
+	as the Vault backend: canonicalize S to low form (BIP-62) then
+	try both v values against the known public key.
+
+	CKA_EC_PARAMS is the secp256k1 OID (1.3.132.0.10) DER-encoded;
+	CKA_EXTRACTABLE is forced false on the private key so escrow
+	paths cannot bypass the token.
 */
 package pkcs11
 

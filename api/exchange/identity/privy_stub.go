@@ -2,32 +2,33 @@
 FILE PATH: api/exchange/identity/privy_stub.go
 
 DESCRIPTION:
-    Deterministic in-memory IdentityProvider implementation for tests
-    and local development. Satisfies the full IdentityProvider
-    interface without any network I/O.
 
-    A real PrivyProvider lives in a later phase (privy.go) and talks
-    to Privy's REST API for token verification (JWKS) and wallet
-    signing (walletApi.rawSign). The interface is shared; only the
-    implementation is different. Test code constructs a StubProvider;
-    production code constructs a PrivyProvider.
+	Deterministic in-memory IdentityProvider implementation for tests
+	and local development. Satisfies the full IdentityProvider
+	interface without any network I/O.
 
-    The stub:
-      - Maps token strings to Claims (BindToken).
-      - Maps DIDs to secp256k1 private keys (BindKey).
-      - Signs digests with the bound key via secp256k1.SignCompact
-        (the same wire format Privy returns: 65-byte recoverable).
-      - Optionally injects ErrSignRejected per DID (RejectSigning).
-      - Optionally injects ErrSignTimeout per DID (TimeoutSigning).
+	A real PrivyProvider lives in a later phase (privy.go) and talks
+	to Privy's REST API for token verification (JWKS) and wallet
+	signing (walletApi.rawSign). The interface is shared; only the
+	implementation is different. Test code constructs a StubProvider;
+	production code constructs a PrivyProvider.
 
-    Invariant: the stub never holds plaintext that a real Privy
-    provider wouldn't see. The only state is (DID → privKey) bindings
-    that the test wired up, plus the (token → Claims) registrations.
+	The stub:
+	  - Maps token strings to Claims (BindToken).
+	  - Maps DIDs to secp256k1 private keys (BindKey).
+	  - Signs digests with the bound key via secp256k1.SignCompact
+	    (the same wire format Privy returns: 65-byte recoverable).
+	  - Optionally injects ErrSignRejected per DID (RejectSigning).
+	  - Optionally injects ErrSignTimeout per DID (TimeoutSigning).
+
+	Invariant: the stub never holds plaintext that a real Privy
+	provider wouldn't see. The only state is (DID → privKey) bindings
+	that the test wired up, plus the (token → Claims) registrations.
 
 KEY DEPENDENCIES:
-    - api/exchange/identity/identity.go (IdentityProvider, Claims).
-    - api/exchange/identity/identity_signing.go (SignRequest/Response).
-    - github.com/decred/dcrd/dcrec/secp256k1/v4 (curve operations).
+  - api/exchange/identity/identity.go (IdentityProvider, Claims).
+  - api/exchange/identity/identity_signing.go (SignRequest/Response).
+  - github.com/decred/dcrd/dcrec/secp256k1/v4 (curve operations).
 */
 package identity
 

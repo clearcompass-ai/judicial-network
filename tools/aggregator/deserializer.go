@@ -6,19 +6,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // ClassifiedEntry is the result of deserializing and classifying a raw entry.
 type ClassifiedEntry struct {
-	LogDID        string
-	Sequence      uint64
-	LogTime       time.Time
-	SignerDID     string
-	EntryType     string         // "new_case", "amendment", "delegation", "revocation",
-	                              // "enforcement", "path_b_order", "cosignature",
-	                              // "commentary", "scope_creation", "schema"
+	LogDID    string
+	Sequence  uint64
+	LogTime   time.Time
+	SignerDID string
+	EntryType string // "new_case", "amendment", "delegation", "revocation",
+	// "enforcement", "path_b_order", "cosignature",
+	// "commentary", "scope_creation", "schema"
 	AuthorityPath string         // "same_signer", "delegation", "scope_authority", ""
 	TargetRootSeq *uint64        // nil for root entities and commentary
 	DelegateDID   *string        // set for delegation entries
@@ -26,7 +26,7 @@ type ClassifiedEntry struct {
 	Entry         *envelope.Entry
 }
 
-// Deserializer converts raw operator entries into classified domain events.
+// Deserializer converts raw ledger entries into classified domain events.
 type Deserializer struct{}
 
 // NewDeserializer creates a new deserializer.

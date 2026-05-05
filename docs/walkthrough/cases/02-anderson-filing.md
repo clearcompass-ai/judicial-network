@@ -18,7 +18,7 @@ case both parties would file separately.
 **Schema:** `jn/schemas/family_case.go:31` / `:79`.
 
 ```bash
-cd ~/ortholog/keys
+cd ~/attesta/keys
 cat > family-filing.spec.json <<EOF
 {
   "schema":      "family_case",
@@ -186,7 +186,7 @@ $ curl -fsS $DAVIDSON/v1/tree/head | jq '.size'
 ## What just happened
 
 You opened a family-court case with a sealed minor binding. The
-operator never decrypted anything — the encrypted mapping CID is
+ledger never decrypted anything — the encrypted mapping CID is
 just an opaque string in the entry payload, treated as bytes by
 the wire layer. The judicial authority for sealing is encoded
 **structurally** in the entry: which DID cosigned. An automated

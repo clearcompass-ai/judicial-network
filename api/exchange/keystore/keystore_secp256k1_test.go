@@ -2,11 +2,12 @@
 FILE PATH: exchange/keystore/keystore_secp256k1_test.go
 
 DESCRIPTION:
-    Contract tests for the secp256k1 surface of MemoryKeyStore.
-    Pin the wire format (65-byte SignCompact, 65-byte uncompressed
-    pubkey), the recoverability invariant (recovery from sig+digest
-    yields the bound pubkey), and the keystore's interaction with
-    Destroy/List across both curves.
+
+	Contract tests for the secp256k1 surface of MemoryKeyStore.
+	Pin the wire format (65-byte SignCompact, 65-byte uncompressed
+	pubkey), the recoverability invariant (recovery from sig+digest
+	yields the bound pubkey), and the keystore's interaction with
+	Destroy/List across both curves.
 */
 package keystore
 

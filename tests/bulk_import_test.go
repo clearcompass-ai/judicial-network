@@ -144,7 +144,7 @@ func TestE2E_CMSFiling_WithDelegationAuth(t *testing.T) {
 	// 4. CMS files document → exchange builds/signs/submits
 	// 5. Verify filing via verification API
 
-	// Assert: full chain from CMS → business → exchange → operator → verify.
+	// Assert: full chain from CMS → business → exchange → ledger → verify.
 }
 
 func TestE2E_CMSFiling_RevokedDelegation(t *testing.T) {

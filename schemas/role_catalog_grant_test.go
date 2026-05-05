@@ -2,15 +2,16 @@
 FILE PATH: schemas/role_catalog_grant_test.go
 
 DESCRIPTION:
-    ValidateGrant tests — the bulk of the catalog's enforcement
-    surface. Uses an inline 4-role fixture (chief, mid, leaf,
-    delegating_leaf) to exercise hierarchy, scope-narrowing,
-    duration caps, and wildcard delegable_by.
 
-    Jurisdiction-specific assertions (Davidson hierarchy, every
-    role tagged ActorSigner, etc.) live under
-    deployments/<county>/rules/role_catalog_test.go. The schemas
-    package stays jurisdiction-agnostic.
+	ValidateGrant tests — the bulk of the catalog's enforcement
+	surface. Uses an inline 4-role fixture (chief, mid, leaf,
+	delegating_leaf) to exercise hierarchy, scope-narrowing,
+	duration caps, and wildcard delegable_by.
+
+	Jurisdiction-specific assertions (Davidson hierarchy, every
+	role tagged ActorSigner, etc.) live under
+	deployments/<county>/rules/role_catalog_test.go. The schemas
+	package stays jurisdiction-agnostic.
 */
 package schemas
 

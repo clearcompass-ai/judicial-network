@@ -1,33 +1,36 @@
 /*
 FILE PATH:
-    schemas/evidence_artifact.go
+
+	schemas/evidence_artifact.go
 
 DESCRIPTION:
-    Defines tn-evidence-artifact-v1 — the ONLY judicial schema that uses
-    Umbral PRE encryption and sealed grant authorization mode.
+
+	Defines tn-evidence-artifact-v1 — the ONLY judicial schema that uses
+	Umbral PRE encryption and sealed grant authorization mode.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Sealed grant mode: recipient must be on the authorized recipients
-      list. This list is assembled by retrieve.go from filing entry +
-      disclosure orders, then passed to the SDK as []string.
-    - Umbral PRE with delegation keys: publish.go calls GenerateDelegationKey
-      to produce a per-artifact keypair. PRE_Encrypt uses pk_del (NOT
-      pk_owner). The wrapped delegation secret key is stored in the
-      ArtifactKeyStore. Master identity key NEVER enters PRE operations.
-    - PkDel field: the per-artifact delegation public key (base64) is stored
-      in the Domain Payload. retrieve.go reads it and passes it as
-      OwnerPubKey to GrantArtifactAccess. This is NOT the owner's identity
-      public key — it is the ephemeral per-artifact key.
+  - Sealed grant mode: recipient must be on the authorized recipients
+    list. This list is assembled by retrieve.go from filing entry +
+    disclosure orders, then passed to the SDK as []string.
+  - Umbral PRE with delegation keys: publish.go calls GenerateDelegationKey
+    to produce a per-artifact keypair. PRE_Encrypt uses pk_del (NOT
+    pk_owner). The wrapped delegation secret key is stored in the
+    ArtifactKeyStore. Master identity key NEVER enters PRE operations.
+  - PkDel field: the per-artifact delegation public key (base64) is stored
+    in the Domain Payload. retrieve.go reads it and passes it as
+    OwnerPubKey to GrantArtifactAccess. This is NOT the owner's identity
+    public key — it is the ephemeral per-artifact key.
 
 OVERVIEW:
-    Schema parameters: artifact_encryption=umbral_pre, grant_authorization_mode=sealed,
-    grant_entry_required=true, grant_requires_audit_entry=true,
-    re_encryption_threshold={m:3,n:5}. Evidence types: exhibit,
-    victim_statement, sealed_doc, forensic_report, surveillance,
-    juvenile_record. Classifications: public, restricted, sealed, expungeable.
+
+	Schema parameters: artifact_encryption=umbral_pre, grant_authorization_mode=sealed,
+	grant_entry_required=true, grant_requires_audit_entry=true,
+	re_encryption_threshold={m:3,n:5}. Evidence types: exhibit,
+	victim_statement, sealed_doc, forensic_report, surveillance,
+	juvenile_record. Classifications: public, restricted, sealed, expungeable.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go: ThresholdConfig, SchemaPosition, DisclosureScopeType shared types
+  - schemas/registry.go: ThresholdConfig, SchemaPosition, DisclosureScopeType shared types
 */
 package schemas
 

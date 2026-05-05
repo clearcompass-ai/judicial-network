@@ -2,9 +2,10 @@
 FILE PATH: api/exchange/identity/privy_stub_signing_test.go
 
 DESCRIPTION:
-    SignDigest contract tests against StubProvider. Helpers newKey
-    and nonZeroDigest are defined in privy_stub_test.go and shared
-    across this same package.
+
+	SignDigest contract tests against StubProvider. Helpers newKey
+	and nonZeroDigest are defined in privy_stub_test.go and shared
+	across this same package.
 */
 package identity
 

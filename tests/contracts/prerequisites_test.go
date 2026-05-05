@@ -2,30 +2,31 @@
 FILE PATH: tests/contracts/prerequisites_test.go
 
 DESCRIPTION:
-    Phase 3D.preqs end-to-end contract tests. Wires the v1.6
-    closed-set vocabulary + prerequisite policy into the existing
-    write/verify pipeline:
 
-      WRITE  : SignAndSubmitCosigned lands a motion entry with
-               filed_by_capacity + signed_by_capacities.
-      READ   : verification.CheckCosignature passes (Phase 3C/3D
-               surfaces).
-      PREREQ : prerequisites.Walker.Check(eventType, ctx) gates the
-               entry against the case-root subtree state. CaseContext
-               is hand-built from "what the aggregator would observe"
-               so the gate is independent of the SMT walk.
+	.preqs end-to-end contract tests. Wires the v1.6
+	closed-set vocabulary + prerequisite policy into the existing
+	write/verify pipeline:
 
-    Pins:
-      - Round-trip: motion_continuance with case_initiated ancestor
-        passes BOTH the cosignature check AND the prereq walk.
-      - Vocabulary: an unknown event_type is rejected at the prereq
-        gate even when the cosignature check happens to allow it.
-      - Hard ancestor missing: motion_continuance without
-        case_initiated is rejected with WalkRejectMissingAncestor.
-      - Authority gate: judicial_appointment requires the right
-        scope; missing scope rejects with WalkRejectMissingAuthority.
-      - Advisory rule: transcript_publication without a hearing
-        ancestor surfaces an Advisory violation but still PASSES.
+	  WRITE  : SignAndSubmitCosigned lands a motion entry with
+	           filed_by_capacity + signed_by_capacities.
+	  READ   : verification.CheckCosignature passes (/3D
+	           surfaces).
+	  PREREQ : prerequisites.Walker.Check(eventType, ctx) gates the
+	           entry against the case-root subtree state. CaseContext
+	           is hand-built from "what the aggregator would observe"
+	           so the gate is independent of the SMT walk.
+
+	Pins:
+	  - Round-trip: motion_continuance with case_initiated ancestor
+	    passes BOTH the cosignature check AND the prereq walk.
+	  - Vocabulary: an unknown event_type is rejected at the prereq
+	    gate even when the cosignature check happens to allow it.
+	  - Hard ancestor missing: motion_continuance without
+	    case_initiated is rejected with WalkRejectMissingAncestor.
+	  - Authority gate: judicial_appointment requires the right
+	    scope; missing scope rejects with WalkRejectMissingAuthority.
+	  - Advisory rule: transcript_publication without a hearing
+	    ancestor surfaces an Advisory violation but still PASSES.
 */
 package contracts
 

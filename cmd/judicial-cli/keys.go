@@ -2,33 +2,34 @@
 FILE PATH: cmd/judicial-cli/keys.go
 
 DESCRIPTION:
-    `keygen` subcommand and the on-disk key-file format that every
-    other subcommand reads. Mints two flavors of real DID:
 
-      --method key           (default)
-        did:key:zQ3sh… via sdkdid.GenerateDIDKeySecp256k1.
-        Same primitive the operator's loadOrGenerateOperatorSigner
-        uses (cmd/operator/main.go:189-200). Used by court personnel
-        whose identity isn't tied to an Ethereum wallet.
+	`keygen` subcommand and the on-disk key-file format that every
+	other subcommand reads. Mints two flavors of real DID:
 
-      --method pkh-eip155 [--chain-id 1]
-        did:pkh:eip155:<chainId>:0x<addr> per CAIP-10.
-        20-byte Ethereum address derived as Keccak256(uncompressed
-        pubkey[1:])[12:]. Used by parties (plaintiffs, defendants,
-        outside witnesses) whose primary identity lives in an
-        Ethereum-compatible wallet (MetaMask, Coinbase Wallet,
-        Privy embedded wallet, etc.). Verifies through PKHVerifier.
+	  --method key           (default)
+	    did:key:zQ3sh… via sdkdid.GenerateDIDKeySecp256k1.
+	    Same primitive the ledger's loadOrGenerateLedgerSigner
+	    uses (cmd/ledger/main.go:189-200). Used by court personnel
+	    whose identity isn't tied to an Ethereum wallet.
 
-    The key file's `did_method` field tells the submitter which
-    signing path to use:
-      - did:key  -> SignEntry (64-byte r||s) + SigAlgoECDSA
-      - did:pkh  -> SignEthereumRecoverable (65-byte r||s||v) +
-                    SigAlgoEIP191 (with EIP-191 prefix digest)
+	  --method pkh-eip155 [--chain-id 1]
+	    did:pkh:eip155:<chainId>:0x<addr> per CAIP-10.
+	    20-byte Ethereum address derived as Keccak256(uncompressed
+	    pubkey[1:])[12:]. Used by parties (plaintiffs, defendants,
+	    outside witnesses) whose primary identity lives in an
+	    Ethereum-compatible wallet (MetaMask, Coinbase Wallet,
+	    Privy embedded wallet, etc.). Verifies through PKHVerifier.
 
-    Key file is plaintext JSON for walkthrough simplicity.
-    Production consumers swap this layer for a signing service
-    backed by an HSM or Privy's IdentityProvider — same shape over
-    the wire either way.
+	The key file's `did_method` field tells the submitter which
+	signing path to use:
+	  - did:key  -> SignEntry (64-byte r||s) + SigAlgoECDSA
+	  - did:pkh  -> SignEthereumRecoverable (65-byte r||s||v) +
+	                SigAlgoEIP191 (with EIP-191 prefix digest)
+
+	Key file is plaintext JSON for walkthrough simplicity.
+	Production consumers swap this layer for a signing service
+	backed by an HSM or Privy's IdentityProvider — same shape over
+	the wire either way.
 
 KEY DEPENDENCIES:
   - sdkdid.GenerateDIDKeySecp256k1
@@ -46,8 +47,8 @@ import (
 
 	secp256k1ec "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	sdkdid "github.com/clearcompass-ai/ortholog-sdk/did"
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	sdkdid "github.com/clearcompass-ai/attesta/did"
 )
 
 // DID method names recognized by the CLI.
@@ -62,8 +63,8 @@ const (
 // and default to "key" for backwards compatibility.
 type KeyFile struct {
 	DID                    string `json:"did"`
-	DIDMethod              string `json:"did_method,omitempty"`     // "key" or "pkh-eip155"
-	ChainID                int64  `json:"chain_id,omitempty"`       // pkh-eip155 only
+	DIDMethod              string `json:"did_method,omitempty"`           // "key" or "pkh-eip155"
+	ChainID                int64  `json:"chain_id,omitempty"`             // pkh-eip155 only
 	EthereumAddressHex     string `json:"ethereum_address_hex,omitempty"` // pkh-eip155 only
 	PrivateKeyHex          string `json:"private_key_hex"`
 	PublicKeyCompressedHex string `json:"public_key_compressed_hex"`

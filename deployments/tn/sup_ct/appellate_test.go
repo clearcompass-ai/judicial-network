@@ -2,9 +2,10 @@
 FILE PATH: deployments/tn/sup_ct/appellate_test.go
 
 DESCRIPTION:
-    Tests for the TN Sup Ct AppellateVocabulary. Same closed
-    sets as TN COA per v0.7.0 baseline; the file exists
-    separately so future Sup-Ct-only additions can land here.
+
+	Tests for the TN Sup Ct AppellateVocabulary. Same closed
+	sets as TN COA per v0.7.0 baseline; the file exists
+	separately so future Sup-Ct-only additions can land here.
 */
 package sup_ct
 

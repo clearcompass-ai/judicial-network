@@ -2,16 +2,17 @@
 FILE PATH: deployments/tn/coa/prerequisites_test.go
 
 DESCRIPTION:
-    Tests for the TN COA prerequisite fixture. Pins:
-      - Construction validates.
-      - Vocabulary matches the cosignature policy (10 events).
-      - Each appellate event has the right prereq shape:
-          * appellate_case_initiation — Advisory notice_of_appeal
-          * publication / participation — Hard appellate_root
-          * disposition — Hard root + Hard merits opinion
-          * remand_affirmance — Advisory notice_of_appeal
-      - Personnel events require authority scopes.
-      - Topology events have no prereqs.
+
+	Tests for the TN COA prerequisite fixture. Pins:
+	  - Construction validates.
+	  - Vocabulary matches the cosignature policy (10 events).
+	  - Each appellate event has the right prereq shape:
+	      * appellate_case_initiation — Advisory notice_of_appeal
+	      * publication / participation — Hard appellate_root
+	      * disposition — Hard root + Hard merits opinion
+	      * remand_affirmance — Advisory notice_of_appeal
+	  - Personnel events require authority scopes.
+	  - Topology events have no prereqs.
 */
 package coa
 

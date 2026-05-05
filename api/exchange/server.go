@@ -2,25 +2,26 @@
 FILE PATH: exchange/server.go
 
 DESCRIPTION:
-    Exchange service — the write path. Holds signer keys, builds entries
-    via SDK, signs them, submits to the operator, encrypts artifacts,
-    pushes to the artifact store, creates grants.
 
-    Auth model:
-      Exchange → Operator:   mTLS (exchange DID in cert SAN)
-      Signer → Exchange:     Signed request envelope (Ed25519) or
-                             mTLS (signer DID in cert SAN) for
-                             non-custodial pre-signed submissions
+	Exchange service — the write path. Holds signer keys, builds entries
+	via SDK, signs them, submits to the ledger, encrypts artifacts,
+	pushes to the artifact store, creates grants.
 
-    This service is domain-agnostic. A court exchange, a hospital
-    exchange, a land registry exchange — all expose these endpoints.
-    The domain_payload is opaque bytes flowing through.
+	Auth model:
+	  Exchange → Ledger:   mTLS (exchange DID in cert SAN)
+	  Signer → Exchange:     Signed request envelope (Ed25519) or
+	                         mTLS (signer DID in cert SAN) for
+	                         non-custodial pre-signed submissions
+
+	This service is domain-agnostic. A court exchange, a hospital
+	exchange, a land registry exchange — all expose these endpoints.
+	The domain_payload is opaque bytes flowing through.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/builder (guide §11.3)
-    - ortholog-sdk/crypto/artifact (guide §14)
-    - ortholog-sdk/lifecycle (guide §20)
-    - ortholog-sdk/storage (guide §8)
+  - attesta/builder (guide §11.3)
+  - attesta/crypto/artifact (guide §14)
+  - attesta/lifecycle (guide §20)
+  - attesta/storage (guide §8)
 */
 package exchange
 
@@ -46,15 +47,15 @@ type ServerConfig struct {
 	Addr string // ":8443"
 
 	// TLS for signer→exchange mTLS.
-	TLSCert    string // server cert
-	TLSKey     string // server key
-	SignerCA   string // CA that issued signer certs
+	TLSCert  string // server cert
+	TLSKey   string // server key
+	SignerCA string // CA that issued signer certs
 
-	// Operator connection (exchange→operator mTLS).
-	OperatorEndpoint string
-	OperatorCert     string // exchange's client cert for operator
-	OperatorKey      string // exchange's client key for operator
-	OperatorCA       string // operator's CA cert
+	// Ledger connection (exchange→ledger mTLS).
+	LedgerEndpoint string
+	LedgerCert     string // exchange's client cert for ledger
+	LedgerKey      string // exchange's client key for ledger
+	LedgerCA       string // ledger's CA cert
 
 	// Artifact store connection.
 	ArtifactStoreEndpoint string
@@ -75,13 +76,13 @@ type ServerConfig struct {
 	// store; nil keeps the single-tenant fallback path.
 	NonceStores map[string]*auth.NonceStore
 
-	// OperatorBreaker fast-fails operator submits when the operator
-	// is down. Phase 14 reliability primitive. nil → no breaker.
-	OperatorBreaker *reliability.Breaker
+	// LedgerBreaker fast-fails ledger submits when the ledger
+	// is down.  reliability primitive. nil → no breaker.
+	LedgerBreaker *reliability.Breaker
 
-	// OperatorMetrics records per-submit metrics. Phase 15
+	// LedgerMetrics records per-submit metrics. 
 	// observability primitive. nil → no metrics observed.
-	OperatorMetrics *observability.OperatorSubmitMetrics
+	LedgerMetrics *observability.LedgerSubmitMetrics
 }
 
 // Server is the exchange HTTP server.
@@ -100,13 +101,13 @@ type Server struct {
 // enabled http.Server. BuildHandler is the testable, composable seam.
 func BuildHandler(cfg ServerConfig) http.Handler {
 	deps := &handlers.Dependencies{
-		OperatorEndpoint:      cfg.OperatorEndpoint,
+		LedgerEndpoint:        cfg.LedgerEndpoint,
 		ArtifactStoreEndpoint: cfg.ArtifactStoreEndpoint,
 		VerificationEndpoint:  cfg.VerificationEndpoint,
 		KeyStore:              cfg.KeyStore,
 		Index:                 cfg.Index,
-		OperatorBreaker:       cfg.OperatorBreaker,
-		OperatorMetrics:       cfg.OperatorMetrics,
+		LedgerBreaker:         cfg.LedgerBreaker,
+		LedgerMetrics:         cfg.LedgerMetrics,
 	}
 
 	mux := http.NewServeMux()

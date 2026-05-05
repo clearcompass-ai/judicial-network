@@ -2,11 +2,12 @@
 FILE PATH: schemas/appellate_opinion_participation_test.go
 
 DESCRIPTION:
-    Tests for tn-appellate-opinion-participation-v1. Covers
-    Validate happy + every rejection, serialize round-trip,
-    registry round-trip, and a functional emulation of a
-    3-judge panel (one judge dissents, one joins, one
-    joined_in_part).
+
+	Tests for tn-appellate-opinion-participation-v1. Covers
+	Validate happy + every rejection, serialize round-trip,
+	registry round-trip, and a functional emulation of a
+	3-judge panel (one judge dissents, one joins, one
+	joined_in_part).
 */
 package schemas
 

@@ -2,26 +2,27 @@
 FILE PATH: exchange/auth/signed_request.go
 
 DESCRIPTION:
-    Verifies signed request envelopes from signers. Two auth modes:
 
-    Mode A (mTLS): DID extracted from client cert SAN.
-    Mode B (signed envelope): request body includes a signature
-    over the canonical request bytes, verifiable against the
-    signer DID's public key.
+	Verifies signed request envelopes from signers. Two auth modes:
 
-    Anti-replay: nonce + timestamp window.
-    Anti-relay: request is bound to the specific action.
+	Mode A (mTLS): DID extracted from client cert SAN.
+	Mode B (signed envelope): request body includes a signature
+	over the canonical request bytes, verifiable against the
+	signer DID's public key.
 
-    The middleware also checks on-log delegation liveness by calling
-    the verification API. A signer whose delegation has been revoked
-    on-log cannot authenticate even with a valid cert or signature.
+	Anti-replay: nonce + timestamp window.
+	Anti-relay: request is bound to the specific action.
 
-    This is the MetaMask model: the signer proves identity by
-    demonstrating control of their DID key. The exchange (wallet)
-    won't sign until the key holder approves.
+	The middleware also checks on-log delegation liveness by calling
+	the verification API. A signer whose delegation has been revoked
+	on-log cannot authenticate even with a valid cert or signature.
+
+	This is the MetaMask model: the signer proves identity by
+	demonstrating control of their DID key. The exchange (wallet)
+	won't sign until the key holder approves.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/crypto/signatures: entry_verify (guide §13)
+  - attesta/crypto/signatures: entry_verify (guide §13)
 */
 package auth
 
@@ -33,7 +34,7 @@ import (
 	"fmt"
 	"time"
 
-	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 )
 
 // SignedRequest is the envelope a signer sends when not using mTLS.
@@ -162,6 +163,7 @@ func VerifySignedRequest(req *SignedRequest, publicKey ed25519.PublicKey) error 
 	}
 	return nil
 }
+
 // Context key for authenticated signer DID.
 type signerDIDKey struct{}
 

@@ -1,16 +1,19 @@
 /*
 FILE PATH: monitoring/blob_availability.go
 DESCRIPTION: Periodically checks that structural blobs (not expunged ones)
-    remain retrievable from the content store. Flags unexpected disappearance.
+
+	remain retrievable from the content store. Flags unexpected disappearance.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses storage.ContentStore.Exists (HEAD request) — cheap, no decrypt.
-    - CIDs to check are provided by the caller (typically a periodic sampler
-      over recent filings + all unexpired evidence).
-    - Expungement is NOT a failure: the caller supplies a set of
-      known-expunged CIDs that should NOT exist, and this monitor flags
-      them only if they DO exist (defense-in-depth erasure failure).
+  - Uses storage.ContentStore.Exists (HEAD request) — cheap, no decrypt.
+  - CIDs to check are provided by the caller (typically a periodic sampler
+    over recent filings + all unexpired evidence).
+  - Expungement is NOT a failure: the caller supplies a set of
+    known-expunged CIDs that should NOT exist, and this monitor flags
+    them only if they DO exist (defense-in-depth erasure failure).
+
 OVERVIEW: CheckBlobAvailability partitions CIDs into three groups and reports.
-KEY DEPENDENCIES: ortholog-sdk/storage, ortholog-sdk/monitoring
+KEY DEPENDENCIES: attesta/storage, attesta/monitoring
 */
 package monitoring
 
@@ -18,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 const MonitorBlobAvailability monitoring.MonitorID = "judicial.blob_availability"

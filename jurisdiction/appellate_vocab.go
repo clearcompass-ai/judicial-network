@@ -2,30 +2,32 @@
 FILE PATH: jurisdiction/appellate_vocab.go
 
 DESCRIPTION:
-    AppellateVocab — per-jurisdiction closed-set vocabulary for
-    appellate event payload enums. Each appellate exchange (TN
-    Court of Appeals, future TN Supreme Court, future SCOTUS,
-    federal circuits) defines its own enum values for opinion
-    types, participation roles, disposition outcomes, and review
-    types. Trial-only exchanges (TN counties, federal districts)
-    return EmptyAppellateVocab().
 
-    Why per-Bundle, not global: TN COA accepts {majority,
-    plurality, per_curiam, memorandum, concurrence, ..., dissent,
-    ...}; SCOTUS additionally accepts {seriatim, in_chambers,
-    cert_*}; the federal circuit accepts panel-vs-en-banc
-    distinctions. None of these enum sets belong in shared
-    verifier code — they are jurisdictional facts owned by the
-    Bundle.
+	AppellateVocab — per-jurisdiction closed-set vocabulary for
+	appellate event payload enums. Each appellate exchange (TN
+	Court of Appeals, future TN Supreme Court, future SCOTUS,
+	federal circuits) defines its own enum values for opinion
+	types, participation roles, disposition outcomes, and review
+	types. Trial-only exchanges (TN counties, federal districts)
+	return EmptyAppellateVocab().
 
-    The Bundle.AppellateVocabulary() method returns the current
-    jurisdiction's vocabulary. The verifier consults it when
-    validating appellate_* event payloads.
+	Why per-Bundle, not global: TN COA accepts {majority,
+	plurality, per_curiam, memorandum, concurrence, ..., dissent,
+	...}; SCOTUS additionally accepts {seriatim, in_chambers,
+	cert_*}; the federal circuit accepts panel-vs-en-banc
+	distinctions. None of these enum sets belong in shared
+	verifier code — they are jurisdictional facts owned by the
+	Bundle.
+
+	The Bundle.AppellateVocabulary() method returns the current
+	jurisdiction's vocabulary. The verifier consults it when
+	validating appellate_* event payloads.
 
 OVERVIEW:
-    AppellateVocab           — interface (4 lookup methods).
-    EmptyAppellateVocab      — factory for trial-only exchanges.
-    Knows{Opinion,Participation,Disposition,Review}Type — predicates.
+
+	AppellateVocab           — interface (4 lookup methods).
+	EmptyAppellateVocab      — factory for trial-only exchanges.
+	Knows{Opinion,Participation,Disposition,Review}Type — predicates.
 
 KEY DEPENDENCIES: none (pure data structure).
 */

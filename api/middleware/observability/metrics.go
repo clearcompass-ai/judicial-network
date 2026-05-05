@@ -2,41 +2,25 @@
 FILE PATH: api/middleware/observability/metrics.go
 
 DESCRIPTION:
-    HTTP metrics middleware. Emits the RED triad (Rate / Errors /
-    Duration) plus an in-flight gauge per route. Backed by the SDK's
-    OpenTelemetry MeterProvider primitive (log.NewMeterProvider) with
-    the Prometheus exporter pre-wired, so /metrics serves the same
-    wire format Prometheus scrapers have been consuming since Phase 15.
 
-    Labels are kept minimal + bounded:
+	Prometheus metrics middleware. Emits the RED triad (Rate /
+	Errors / Duration) plus an in-flight gauge per route. Labels
+	are kept minimal + bounded:
 
-      route   — the matched mux pattern (low-cardinality; dozens)
-      method  — HTTP verb (small fixed set)
-      status  — class bucket "2xx" / "4xx" / "5xx" / etc.
-                Using the class instead of the raw code keeps
-                cardinality bounded against a handler that returns
-                arbitrary status codes.
+	  route   — the matched mux pattern (low-cardinality; dozens)
+	  method  — HTTP verb (small fixed set)
+	  status  — class bucket "2xx" / "4xx" / "5xx" / etc.
+	            Using the class instead of the raw code keeps
+	            cardinality bounded against a handler that returns
+	            arbitrary status codes.
 
-    Caller DID is deliberately NOT a label — that would explode
-    cardinality at 10M/day across thousands of distinct callers.
-    Per-caller telemetry belongs in structured logs (logger.go).
+	Caller DID is deliberately NOT a label — that would explode
+	cardinality at 10M/day across thousands of distinct callers.
+	Per-caller telemetry belongs in structured logs (logger.go).
 
-    /metrics is mounted by the composer outside the auth + rate-
-    limit + body-size wrappers so Prometheus scrapers can always
-    reach it (the same rationale as /healthz).
-
-# WIRE-FORMAT COMPATIBILITY
-
-The SDK's Prometheus exporter is configured with target_info and
-scope_info disabled, so /metrics output stays byte-compatible with
-the pre-OTel jn_http_* surface. OTel applies a "_total" suffix to
-counter wire output automatically — instrument names registered
-WITHOUT "_total" surface AS "<name>_total" in scrape output.
-
-Names in Go code intentionally omit "_total" so the OTel→Prom
-suffix logic produces the canonical wire form. The SDK has a
-golden-file wire test pinning this convention; anything that drifts
-fails there before it reaches the JN tests.
+	/metrics is mounted by the composer outside the auth + rate-
+	limit + body-size wrappers so Prometheus scrapers can always
+	reach it (the same rationale as /healthz).
 */
 package observability
 

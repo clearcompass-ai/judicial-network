@@ -11,13 +11,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/escrow"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/escrow"
+	"github.com/clearcompass-ai/attesta/did"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 
@@ -466,7 +466,7 @@ func (h *ScopeExecuteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 // ─── Shared ─────────────────────────────────────────────────────────
 
-// signAndSubmit serializes an entry, signs it, and forwards to the operator.
+// signAndSubmit serializes an entry, signs it, and forwards to the ledger.
 func signAndSubmit(w http.ResponseWriter, deps *Dependencies, signerDID string, entry *envelope.Entry) {
 	entryBytes := envelope.Serialize(entry)
 
@@ -477,7 +477,7 @@ func signAndSubmit(w http.ResponseWriter, deps *Dependencies, signerDID string, 
 	}
 
 	signed := append(entryBytes, sig...)
-	submitToOperatorProtected(w, deps, signed)
+	submitToLedgerProtected(w, deps, signed)
 }
 
 // proposalTypeFromString maps a string label to the SDK's ProposalType enum.
@@ -495,34 +495,34 @@ func proposalTypeFromString(s string) lifecycle.ProposalType {
 	}
 }
 
-// operatorSubmitClient is package-level so all 4 submit-to-operator
+// ledgerSubmitClient is package-level so all 4 submit-to-ledger
 // sites share the SDK's tuned transport: MaxIdleConnsPerHost=100
 // (vs stdlib 2) plus the RetryAfterRoundTripper that honors the
-// operator's WAL-pressure 503 + Retry-After responses transparently.
+// ledger's WAL-pressure 503 + Retry-After responses transparently.
 // One client, one conn pool, one retry policy — no behavior drift
 // across the 4 sites.
 //
-// Phase 14 ships api/middleware/reliability.NewTunedClient as a
+//  ships api/middleware/reliability.NewTunedClient as a
 // MaxConnsPerHost-capped alternative (256 idle / 1024 max). Wiring
 // it here requires composing it with sdklog.RetryAfterRoundTripper
-// so operator-backpressure handling is preserved; deferred until
+// so ledger-backpressure handling is preserved; deferred until
 // the SDK exposes the round-tripper as a RoundTripper-compatible
 // wrapper around an arbitrary inner Transport.
-var operatorSubmitClient = sdklog.DefaultClient(30 * time.Second)
+var ledgerSubmitClient = sdklog.DefaultClient(30 * time.Second)
 
-// submitToOperator posts signed canonical wire bytes to the
-// operator's /v1/entries endpoint via the SDK-tuned client. Every
-// submit-to-operator site in api/exchange/handlers routes through
+// submitToLedger posts signed canonical wire bytes to the
+// ledger's /v1/entries endpoint via the SDK-tuned client. Every
+// submit-to-ledger site in api/exchange/handlers routes through
 // here so the wire shape, retry policy, and timeout are owned in
 // one place.
-func submitToOperator(w http.ResponseWriter, endpoint string, signed []byte) {
-	resp, err := operatorSubmitClient.Post(
+func submitToLedger(w http.ResponseWriter, endpoint string, signed []byte) {
+	resp, err := ledgerSubmitClient.Post(
 		endpoint+"/v1/entries",
 		"application/octet-stream",
 		bytes.NewReader(signed),
 	)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "operator unreachable")
+		writeError(w, http.StatusBadGateway, "ledger unreachable")
 		return
 	}
 	defer resp.Body.Close()

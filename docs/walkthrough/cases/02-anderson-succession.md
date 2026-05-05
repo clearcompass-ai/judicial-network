@@ -174,9 +174,9 @@ the log, they're typed and verifiable.
 ## Walkthrough complete
 
 You've run two real Tennessee judicial cases against a real
-two-operator topology, with five real DIDs you minted yourself,
+two-ledger topology, with five real DIDs you minted yourself,
 including one that crossed exchanges with a public cross-pointer
-audit-followable in two operators that don't share state.
+audit-followable in two ledgers that don't share state.
 
 Final stop: **[../99-coverage.md](../99-coverage.md)** for the
 schema-coverage matrix and natural extensions.

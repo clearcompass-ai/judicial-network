@@ -3,9 +3,11 @@ FILE PATH: schemas/registry.go
 DESCRIPTION: Central schema registry — 15 schemas (12 case/officer + 3 delegation).
 KEY ARCHITECTURAL DECISIONS: Thread-safe. SDK JSONParameterExtractor.
 OVERVIEW: NewRegistry() → 15 schemas. Appellate decisions use existing case
-          schemas. judicial-delegation-v1, judicial-revocation-v1, and
-          judicial-succession-v1 are the canonical authority-grant entries.
-KEY DEPENDENCIES: ortholog-sdk/schema, ortholog-sdk/core/envelope, ortholog-sdk/types
+
+	schemas. judicial-delegation-v1, judicial-revocation-v1, and
+	judicial-succession-v1 are the canonical authority-grant entries.
+
+KEY DEPENDENCIES: attesta/schema, attesta/core/envelope, attesta/types
 */
 package schemas
 
@@ -15,9 +17,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdkschema "github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdkschema "github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 type ThresholdConfig struct {
@@ -120,7 +122,9 @@ func (r *Registry) Lookup(uri string) (*SchemaRegistration, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	reg, ok := r.schemas[uri]
-	if !ok { return nil, fmt.Errorf("%w: %s", ErrSchemaNotRegistered, uri) }
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrSchemaNotRegistered, uri)
+	}
 	return reg, nil
 }
 
@@ -135,19 +139,25 @@ func (r *Registry) URIs() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	uris := make([]string, 0, len(r.schemas))
-	for uri := range r.schemas { uris = append(uris, uri) }
+	for uri := range r.schemas {
+		uris = append(uris, uri)
+	}
 	return uris
 }
 
 func (r *Registry) SerializePayload(uri string, payload interface{}) ([]byte, error) {
 	reg, err := r.Lookup(uri)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return reg.Serialize(payload)
 }
 
 func (r *Registry) DeserializePayload(uri string, data []byte) (interface{}, error) {
 	reg, err := r.Lookup(uri)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return reg.Deserialize(data)
 }
 

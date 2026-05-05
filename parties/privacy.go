@@ -2,14 +2,15 @@
 FILE PATH: parties/privacy.go
 DESCRIPTION: Vendor-specific DID generation and mapping for sealed parties.
 KEY ARCHITECTURAL DECISIONS:
-    - Issue 1 fix: Uses did.NewWebDID (opaque) NOT did.GenerateDIDKey
-      (embeds public key in DID string, decodable by anyone).
-    - Vendor DIDs are did:web:<exchangeDomain>:holder:<uuid>.
-    - Exchange resolves the DID via its HTTP endpoint, enforcing access control.
-    - Local in-memory mapping table (Postgres-backed in production).
-    - GenerateDIDKey remains correct for test fixtures and operator bootstrap.
+  - Issue 1 fix: Uses did.NewWebDID (opaque) NOT did.GenerateDIDKey
+    (embeds public key in DID string, decodable by anyone).
+  - Vendor DIDs are did:web:<exchangeDomain>:holder:<uuid>.
+  - Exchange resolves the DID via its HTTP endpoint, enforcing access control.
+  - Local in-memory mapping table (Postgres-backed in production).
+  - GenerateDIDKey remains correct for test fixtures and ledger bootstrap.
+
 OVERVIEW: GenerateVendorDID → opaque DID. ResolveVendorDID → real DID lookup.
-KEY DEPENDENCIES: ortholog-sdk/did (NewWebDID only)
+KEY DEPENDENCIES: attesta/did (NewWebDID only)
 */
 package parties
 
@@ -20,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/ortholog-sdk/did"
+	"github.com/clearcompass-ai/attesta/did"
 )
 
 var ErrVendorDIDNotFound = errors.New("parties/privacy: vendor DID not found")
@@ -28,7 +29,7 @@ var ErrVendorDIDNotFound = errors.New("parties/privacy: vendor DID not found")
 // VendorDIDStore maps vendor-specific DIDs to real DIDs.
 // In-memory for SDK testing. Production: Postgres or KMS-backed.
 type VendorDIDStore struct {
-	mu    sync.RWMutex
+	mu       sync.RWMutex
 	byVendor map[string]string // vendor DID → real DID
 	byReal   map[string]string // real DID → vendor DID
 }

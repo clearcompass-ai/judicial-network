@@ -2,26 +2,27 @@
 FILE PATH: deployments/tn/sup_ct/cosignature_mix.go
 
 DESCRIPTION:
-    Tennessee Supreme Court — cosignature-mix policy. Same
-    appellate event family as TN COA, plus a CROSS-EXCHANGE rule
-    that demonstrates v1.8 §12C's authority_revocation_disciplinary
-    can flow from TN Sup Ct → a TN trial county exchange (e.g.,
-    Davidson) when a sitting trial judge must be removed for cause.
 
-    Cross-exchange revocation rule shape (v0.7.0 production:
-    item L from the v0.5.0 closure deferral):
+	Tennessee Supreme Court — cosignature-mix policy. Same
+	appellate event family as TN COA, plus a CROSS-EXCHANGE rule
+	that demonstrates v1.8 §12C's authority_revocation_disciplinary
+	can flow from TN Sup Ct → a TN trial county exchange (e.g.,
+	Davidson) when a sitting trial judge must be removed for cause.
 
-      authority_revocation_disciplinary:
-        RequiredSignerRoles: [justice]
-        MinSignerCosigners:  3              (5 sitting Justices;
-                                              majority=3)
-        IntraExchangeOnly:   FALSE          (the revoked Signer's
-                                              ExchangeDID points
-                                              to a trial county)
+	Cross-exchange revocation rule shape (v0.7.0 production:
+	item L from the v0.5.0 closure deferral):
 
-    The rule references the closed-set v1.8 §12C event_type so
-    the verifier accepts a TN trial-court Signer-revocation entry
-    cosigned by ≥3 TN Sup Ct Justices.
+	  authority_revocation_disciplinary:
+	    RequiredSignerRoles: [justice]
+	    MinSignerCosigners:  3              (5 sitting Justices;
+	                                          majority=3)
+	    IntraExchangeOnly:   FALSE          (the revoked Signer's
+	                                          ExchangeDID points
+	                                          to a trial county)
+
+	The rule references the closed-set v1.8 §12C event_type so
+	the verifier accepts a TN trial-court Signer-revocation entry
+	cosigned by ≥3 TN Sup Ct Justices.
 */
 package sup_ct
 

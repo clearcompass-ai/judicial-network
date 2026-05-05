@@ -2,30 +2,31 @@
 FILE PATH: tests/contracts/sdk_contract_test.go
 
 DESCRIPTION:
-    Contract validation tests pinning judicial-network's assumptions
-    about the SDK at v0.7.75. Per the architecture spec ("If any file
-    in judicial-network/ reimplements a pattern below, the SDK is
-    missing an interface"), every SDK primitive JN consumes is
-    asserted here. Drift in any pinned signature/value/round-trip
-    behavior fails the build.
 
-    Coverage matrix (ABOUT.md interface rules):
-      Rule 1  Entry construction          → 18 builders dispatchable
-      Rule 7  Entry classification        → ClassifyEntry signature
-      Rule 8  Condition evaluation        → EvaluateConditions surface
-      Rule 9  Delegation tree walking     → WalkDelegationTree surface
-      Rule 10 Log_Time extraction         → EntryWithMetadata fields
-      Rule 11 Signature wire format       → envelope.Serialize round-trip
-      Rule 13 Schema parameter extraction → SchemaParameterExtractor iface
-      Rule 14 Artifact access grants      → GrantArtifactAccess existence
+	Contract validation tests pinning judicial-network's assumptions
+	about the SDK at v0.7.75. Per the architecture spec ("If any file
+	in judicial-network/ reimplements a pattern below, the SDK is
+	missing an interface"), every SDK primitive JN consumes is
+	asserted here. Drift in any pinned signature/value/round-trip
+	behavior fails the build.
 
-    Plus the SDK's HTTP client implementations the architecture spec
-    mandates JN injects:
-      - storage.HTTPContentStore   (artifact-store wire)
-      - storage.HTTPRetrievalProvider (resolve credential)
-      - log.HTTPEntryFetcher       (operator /raw byte fetch)
-      - log.HTTPOperatorQueryAPI   (operator metadata queries)
-      - exchange/auth.NonceStore   (strict-forever replay defense)
+	Coverage matrix (ABOUT.md interface rules):
+	  Rule 1  Entry construction          → 18 builders dispatchable
+	  Rule 7  Entry classification        → ClassifyEntry signature
+	  Rule 8  Condition evaluation        → EvaluateConditions surface
+	  Rule 9  Delegation tree walking     → WalkDelegationTree surface
+	  Rule 10 Log_Time extraction         → EntryWithMetadata fields
+	  Rule 11 Signature wire format       → envelope.Serialize round-trip
+	  Rule 13 Schema parameter extraction → SchemaParameterExtractor iface
+	  Rule 14 Artifact access grants      → GrantArtifactAccess existence
+
+	Plus the SDK's HTTP client implementations the architecture spec
+	mandates JN injects:
+	  - storage.HTTPContentStore   (artifact-store wire)
+	  - storage.HTTPRetrievalProvider (resolve credential)
+	  - log.HTTPEntryFetcher       (ledger /raw byte fetch)
+	  - log.HTTPLedgerQueryAPI   (ledger metadata queries)
+	  - exchange/auth.NonceStore   (strict-forever replay defense)
 
 KEY DESIGN: every test is byte-for-byte deterministic where possible.
 Round-trip tests use envelope.Serialize → Deserialize and assert
@@ -42,18 +43,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/admission"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/sct"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/admission"
+	"github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/crypto/sct"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/did"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ import (
 
 var (
 	_ types.EntryFetcher              = (*sdklog.HTTPEntryFetcher)(nil)
-	_ sdklog.OperatorQueryAPI         = (*sdklog.HTTPOperatorQueryAPI)(nil)
+	_ sdklog.LedgerQueryAPI           = (*sdklog.HTTPLedgerQueryAPI)(nil)
 	_ storage.ContentStore            = (*storage.HTTPContentStore)(nil)
 	_ storage.RetrievalProvider       = (*storage.HTTPRetrievalProvider)(nil)
 	_ schema.SchemaParameterExtractor = (*schema.JSONParameterExtractor)(nil)
@@ -281,23 +282,23 @@ func TestSDKContract_CIDDeterministic(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// SCT contract — JN consumers verify operator-issued SCTs
+// SCT contract — JN consumers verify ledger-issued SCTs
 // ─────────────────────────────────────────────────────────────────────
 
 // TestSDKContract_SCTSigningPayload_Layout pins the SDK's wire layout
-// of the SCT signing payload. Operator cuts SCTs on this payload;
+// of the SCT signing payload. Ledger cuts SCTs on this payload;
 // JN's exchange (verify_origin path eventually) must rebuild
 // byte-identical bytes to verify. Pin: 63 fixed bytes + 3 variable
 // length-prefixed strings.
 func TestSDKContract_SCTSigningPayload_Layout(t *testing.T) {
 	hash := sha256.Sum256([]byte("layout-pin"))
 	payload, err := sct.SigningPayload(
-		"did:test:operator", sct.SigAlgoECDSASecp256k1SHA256,
+		"did:test:ledger", sct.SigAlgoECDSASecp256k1SHA256,
 		"did:web:courts.davidson:cases", hash, 0)
 	if err != nil {
 		t.Fatalf("SigningPayload: %v", err)
 	}
-	wantLen := len(sct.DomainSep) + 1 + 2 + len("did:test:operator") +
+	wantLen := len(sct.DomainSep) + 1 + 2 + len("did:test:ledger") +
 		2 + len(sct.SigAlgoECDSASecp256k1SHA256) +
 		2 + len("did:web:courts.davidson:cases") + 32 + 8
 	if len(payload) != wantLen {
@@ -306,7 +307,7 @@ func TestSDKContract_SCTSigningPayload_Layout(t *testing.T) {
 }
 
 // TestSDKContract_SCTRejectsNegativeLogTime pins the BUG #5 contract
-// inherited from the SDK. Operator must never emit an SCT with
+// inherited from the SDK. Ledger must never emit an SCT with
 // negative LogTimeMicros, and JN's eventual verifier path must
 // refuse to construct a verifying payload over one.
 func TestSDKContract_SCTRejectsNegativeLogTime(t *testing.T) {
@@ -340,7 +341,7 @@ func TestSDKContract_InMemoryNonceStore_StrictForever(t *testing.T) {
 // envelope.AdmissionProofBody.Difficulty is uint8 on the wire;
 // crypto/admission.Proof.Difficulty is uint32 in the API. The
 // adapter ProofFromWire promotes wire→API. JN's exchange does NOT
-// stamp Mode B (the operator does), but the contract is pinned here
+// stamp Mode B (the ledger does), but the contract is pinned here
 // because Davidson's bootstrap-time submitter would care.
 func TestSDKContract_AdmissionDifficulty_WireByte(t *testing.T) {
 	body := &envelope.AdmissionProofBody{

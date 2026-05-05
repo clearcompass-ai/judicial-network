@@ -2,9 +2,10 @@
 FILE PATH: deployments/tn/sup_ct/cosignature_mix_test.go
 
 DESCRIPTION:
-    Tests for the TN Sup Ct cosig fixture. Pins the canonical
-    appellate-family rules AND the cross-exchange disciplinary
-    revocation rule that distinguishes Sup Ct from COA.
+
+	Tests for the TN Sup Ct cosig fixture. Pins the canonical
+	appellate-family rules AND the cross-exchange disciplinary
+	revocation rule that distinguishes Sup Ct from COA.
 */
 package sup_ct
 

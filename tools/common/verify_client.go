@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
+	sdklog "github.com/clearcompass-ai/attesta/log"
 )
 
 // VerifyClient calls the domain verification API (api/core/).

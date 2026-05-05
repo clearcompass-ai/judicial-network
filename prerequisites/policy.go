@@ -2,46 +2,49 @@
 FILE PATH: prerequisites/policy.go
 
 DESCRIPTION:
-    Phase 3D.preqs prerequisite policy. Two intertwined v1.6
-    surfaces ship in this package:
 
-      1. Closed-set vocabulary. Only event_types declared in the
-         policy may appear on-log. The walker rejects unknown
-         event_types up front; the aggregator enforces the same
-         constraint downstream. No silent additions.
+	.preqs prerequisite policy. Two intertwined v1.6
+	surfaces ship in this package:
 
-      2. Per-event prerequisite rules. Each event_type carries zero
-         or more Prereq entries. Each rule is either Hard (the
-         walker rejects when unsatisfied) or Advisory (surfaced for
-         audit but does not block). Two rule shapes ship:
+	  1. Closed-set vocabulary. Only event_types declared in the
+	     policy may appear on-log. The walker rejects unknown
+	     event_types up front; the aggregator enforces the same
+	     constraint downstream. No silent additions.
 
-           RequiredAncestor  — at least one entry of one of these
-                               event_types must already exist in the
-                               case-root subtree (e.g.,
-                               motion_continuance requires a
-                               case_initiated ancestor).
+	  2. Per-event prerequisite rules. Each event_type carries zero
+	     or more Prereq entries. Each rule is either Hard (the
+	     walker rejects when unsatisfied) or Advisory (surfaced for
+	     audit but does not block). Two rule shapes ship:
 
-           RequiredAuthority — the primary signer's delegation chain
-                               must include this authority scope
-                               (e.g., judicial_appointment requires
-                               judicial_appointment_authority).
+	       RequiredAncestor  — at least one entry of one of these
+	                           event_types must already exist in the
+	                           case-root subtree (e.g.,
+	                           motion_continuance requires a
+	                           case_initiated ancestor).
 
-    The verifier evaluates rules against a CaseContext the caller
-    builds (observed event_types in the subtree + authority scopes
-    held by the primary signer). This keeps the policy module pure
-    — no fetcher, no walk-the-SMT side effects — so tests can drive
-    every rule from a small in-memory fixture.
+	       RequiredAuthority — the primary signer's delegation chain
+	                           must include this authority scope
+	                           (e.g., judicial_appointment requires
+	                           judicial_appointment_authority).
+
+	The verifier evaluates rules against a CaseContext the caller
+	builds (observed event_types in the subtree + authority scopes
+	held by the primary signer). This keeps the policy module pure
+	— no fetcher, no walk-the-SMT side effects — so tests can drive
+	every rule from a small in-memory fixture.
 
 OVERVIEW:
-    PrereqMode      — Hard | Advisory enum.
-    Prereq          — single rule.
-    EventRuleSet    — ([]Prereq) for one event_type.
-    Policy          — interface (KnowsEventType, Lookup, EventTypes).
-    InMemoryPolicy  — RWMutex-protected map impl.
-    Sentinels.
+
+	PrereqMode      — Hard | Advisory enum.
+	Prereq          — single rule.
+	EventRuleSet    — ([]Prereq) for one event_type.
+	Policy          — interface (KnowsEventType, Lookup, EventTypes).
+	InMemoryPolicy  — RWMutex-protected map impl.
+	Sentinels.
 
 KEY DEPENDENCIES:
-    None — pure data.
+
+	None — pure data.
 */
 package prerequisites
 

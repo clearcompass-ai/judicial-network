@@ -1,11 +1,13 @@
 /*
 FILE PATH:
-    tests/contracts/smart_contract_wallet_security_test.go
+
+	tests/contracts/smart_contract_wallet_security_test.go
 
 DESCRIPTION:
-    Security-property and SDK-seam pinning for v0.8.0 EIP-1271
-    integration. Companion of smart_contract_wallet_test.go
-    (verification semantics).
+
+	Security-property and SDK-seam pinning for v0.8.0 EIP-1271
+	integration. Companion of smart_contract_wallet_test.go
+	(verification semantics).
 
 SECURITY PROPERTIES PINNED:
   - Cross-exchange replay defense: an entry whose Header.Destination
@@ -30,9 +32,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/did"
 )
 
 // ─── cross-exchange replay defense (registry-level) ────────────
@@ -117,14 +119,14 @@ func TestSCW_CalldataMatchesSDKEncoding(t *testing.T) {
 // A rename or removal of any of these in the SDK breaks the JN
 // build BEFORE any runtime test runs.
 var (
-	_ = signatures.VerifyEIP1271
-	_ = signatures.EncodeIsValidSignatureCalldata
-	_ = signatures.NewStubEthereumRPC
-	_ = signatures.ErrEIP1271InvalidMagic
-	_ = signatures.ErrEIP1271ContractEmpty
-	_ = signatures.ErrEthCallReverted
-	_ = did.DefaultVerifierRegistryWithRPC
-	_ = did.NewPKHVerifierWithRPC
+	_                              = signatures.VerifyEIP1271
+	_                              = signatures.EncodeIsValidSignatureCalldata
+	_                              = signatures.NewStubEthereumRPC
+	_                              = signatures.ErrEIP1271InvalidMagic
+	_                              = signatures.ErrEIP1271ContractEmpty
+	_                              = signatures.ErrEthCallReverted
+	_                              = did.DefaultVerifierRegistryWithRPC
+	_                              = did.NewPKHVerifierWithRPC
 	_                              = envelope.SigAlgoEIP1271
 	_ signatures.EthereumRPCClient = (*signatures.StubEthereumRPC)(nil)
 )

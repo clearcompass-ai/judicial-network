@@ -2,11 +2,12 @@
 FILE PATH: escrow/event_builder_test.go
 
 DESCRIPTION:
-    Direct unit pin for the JN-side escrow wrappers around the SDK
-    recovery primitives. The HTTP handlers in api/judicial/escrow.go
-    exercise the same code path through the wire layer; tests here
-    fail-fast on misconfiguration before any HTTP plumbing is
-    involved.
+
+	Direct unit pin for the JN-side escrow wrappers around the SDK
+	recovery primitives. The HTTP handlers in api/judicial/escrow.go
+	exercise the same code path through the wire layer; tests here
+	fail-fast on misconfiguration before any HTTP plumbing is
+	involved.
 */
 package escrow
 

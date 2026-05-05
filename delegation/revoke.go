@@ -2,42 +2,44 @@
 FILE PATH: delegation/revoke.go
 
 DESCRIPTION:
-    RevokeDelegation — Path A revocation of a previously-issued
-    judicial-delegation-v1 entry. Same-signer model: the granter
-    who issued the original delegation revokes it via amendment.
-    Origin_Tip of the original delegation advances to the
-    revocation entry, breaking liveness for the chain.
 
-    The flow:
+	RevokeDelegation — Path A revocation of a previously-issued
+	judicial-delegation-v1 entry. Same-signer model: the granter
+	who issued the original delegation revokes it via amendment.
+	Origin_Tip of the original delegation advances to the
+	revocation entry, breaking liveness for the chain.
 
-      1. Validate the request (granter, target_delegation,
-         reason). Reason is a domain-defined string;
-         "expired" / "officer_transfer" / "performance" /
-         "conflict" / "death_in_office" are conventional but the
-         schema accepts any non-empty string.
-      2. Build the JudicialRevocationPayload.
-      3. Build the EIP-712 typed-data display the wallet renders
-         to the granter at sign time. Domain Salt =
-         institutional DID; PrimaryType = "Revocation".
-      4. Call SDK BuildRevocation. TargetRoot is the original
-         delegation's LogPosition.
-      5. Sign-and-submit via the BuildContext pipeline.
-      6. Return the assigned LogPositionRef.
+	The flow:
 
-    Authority model: the catalog gate does NOT apply here. The
-    authority to revoke comes from being the original granter —
-    AuthorityResolver will reject revocation entries whose signer
-    does not match the targeted delegation's GranterDID at admission
-    time.
+	  1. Validate the request (granter, target_delegation,
+	     reason). Reason is a domain-defined string;
+	     "expired" / "officer_transfer" / "performance" /
+	     "conflict" / "death_in_office" are conventional but the
+	     schema accepts any non-empty string.
+	  2. Build the JudicialRevocationPayload.
+	  3. Build the EIP-712 typed-data display the wallet renders
+	     to the granter at sign time. Domain Salt =
+	     institutional DID; PrimaryType = "Revocation".
+	  4. Call SDK BuildRevocation. TargetRoot is the original
+	     delegation's LogPosition.
+	  5. Sign-and-submit via the BuildContext pipeline.
+	  6. Return the assigned LogPositionRef.
+
+	Authority model: the catalog gate does NOT apply here. The
+	authority to revoke comes from being the original granter —
+	AuthorityResolver will reject revocation entries whose signer
+	does not match the targeted delegation's GranterDID at admission
+	time.
 
 OVERVIEW:
-    RevokeRequest — caller-supplied parameters.
-    RevokeResult  — assigned position + payload echo.
-    Revoke        — entry point.
+
+	RevokeRequest — caller-supplied parameters.
+	RevokeResult  — assigned position + payload echo.
+	Revoke        — entry point.
 
 KEY DEPENDENCIES:
-    - delegation/builders_common.go (BuildContext, signAndSubmit).
-    - schemas/judicial_amendments.go (JudicialRevocationPayload).
+  - delegation/builders_common.go (BuildContext, signAndSubmit).
+  - schemas/judicial_amendments.go (JudicialRevocationPayload).
 */
 package delegation
 
@@ -46,10 +48,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // RevokeRequest is the input to Revoke.
@@ -82,7 +84,7 @@ type RevokeResult struct {
 
 // Revoke creates a judicial-revocation-v1 entry. Validates the
 // request, builds the revocation envelope (Path A), signs via
-// IdentityProvider, submits to the operator.
+// IdentityProvider, submits to the ledger.
 func Revoke(ctx context.Context, bc *BuildContext, req RevokeRequest) (*RevokeResult, error) {
 	if bc == nil {
 		return nil, fmt.Errorf("%w: nil BuildContext", ErrInvalidRequest)

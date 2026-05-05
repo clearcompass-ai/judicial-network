@@ -2,21 +2,22 @@
 FILE PATH: deployments/tn/trial/prerequisites_counsel_appearance_test.go
 
 DESCRIPTION:
-    Targeted prereq-walker tests for the v1.8 §1
-    counsel_appearance event:
 
-      - Hard: case_initiated ancestor (the case root must exist
-        before counsel can appear).
-      - Walker accepts when case_initiated is observed.
-      - Walker rejects (WalkRejectMissingAncestor) when not.
-      - The Advisory "party_binding for each binding_id in
-        represents" check is enforced at the verifier (payload
-        walk over represents) — outside the prereq Walker's
-        single-event surface — and pinned in the
-        api/exchange/handlers integration test once submit-
-        handler gates land.
+	Targeted prereq-walker tests for the v1.8 §1
+	counsel_appearance event:
 
-    Functional tests emulate real attorney filings.
+	  - Hard: case_initiated ancestor (the case root must exist
+	    before counsel can appear).
+	  - Walker accepts when case_initiated is observed.
+	  - Walker rejects (WalkRejectMissingAncestor) when not.
+	  - The Advisory "party_binding for each binding_id in
+	    represents" check is enforced at the verifier (payload
+	    walk over represents) — outside the prereq Walker's
+	    single-event surface — and pinned in the
+	    api/exchange/handlers integration test once submit-
+	    handler gates land.
+
+	Functional tests emulate real attorney filings.
 */
 package trial
 

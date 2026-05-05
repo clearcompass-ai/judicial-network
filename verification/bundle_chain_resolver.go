@@ -2,38 +2,40 @@
 FILE PATH: verification/bundle_chain_resolver.go
 
 DESCRIPTION:
-    BundleChainResolver — production adapter wrapping
-    *AuthorityResolver and exposing it as a
-    jurisdiction.AuthorityChainResolver.
 
-    Each Bundle's AuthorityChainResolver() method returns one
-    of these so chain walks are scoped per-jurisdiction:
-    Davidson chains validate against Davidson's RoleCatalog;
-    Sup Ct chains against the Sup Ct catalog. Cross-exchange
-    cosignature events still flow through the cosig fixture's
-    IntraExchangeOnly=false machinery; this resolver only
-    handles SAME-Bundle chain walks.
+	BundleChainResolver — production adapter wrapping
+	*AuthorityResolver and exposing it as a
+	jurisdiction.AuthorityChainResolver.
 
-    The adapter is a thin shim: the production logic lives in
-    AuthorityResolver. Construction is the only complexity —
-    callers supply the per-Bundle catalog plus the operator-
-    fetcher and SMT leaf reader.
+	Each Bundle's AuthorityChainResolver() method returns one
+	of these so chain walks are scoped per-jurisdiction:
+	Davidson chains validate against Davidson's RoleCatalog;
+	Sup Ct chains against the Sup Ct catalog. Cross-exchange
+	cosignature events still flow through the cosig fixture's
+	IntraExchangeOnly=false machinery; this resolver only
+	handles SAME-Bundle chain walks.
+
+	The adapter is a thin shim: the production logic lives in
+	AuthorityResolver. Construction is the only complexity —
+	callers supply the per-Bundle catalog plus the ledger-
+	fetcher and SMT leaf reader.
 
 OVERVIEW:
-    BundleChainResolver       wraps *AuthorityResolver.
-    NewBundleChainResolver    constructor.
-    Resolve                   AuthorityRequest →
-                              jurisdiction.AuthorityVerdict.
+
+	BundleChainResolver       wraps *AuthorityResolver.
+	NewBundleChainResolver    constructor.
+	Resolve                   AuthorityRequest →
+	                          jurisdiction.AuthorityVerdict.
 */
 package verification
 
 import (
 	"context"
 
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // BundleChainResolver implements jurisdiction.AuthorityChainResolver
@@ -47,7 +49,7 @@ type BundleChainResolver struct {
 //
 // catalog is the per-Bundle RoleCatalog (what makes the
 // resolver jurisdiction-specific). fetcher reads delegation
-// entries by LogPosition (production: HTTP client to operator;
+// entries by LogPosition (production: HTTP client to ledger;
 // tests: in-memory fake). leaf reads SMT leaves for
 // origin/revocation evaluation.
 //

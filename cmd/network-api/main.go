@@ -3,29 +3,29 @@ Command network-api is the JN judicial network API binary.
 
 Boot order (every step is testable; see main_test.go):
 
-  1. Parse --config flag and load operational config from JSON.
-     Apply env overrides on top (precedence: env > file > defaults).
-     Validate the merged config; abort fast on any failure.
+ 1. Parse --config flag and load operational config from JSON.
+    Apply env overrides on top (precedence: env > file > defaults).
+    Validate the merged config; abort fast on any failure.
 
-  2. Register every compiled-in deployment Bundle into the
-     jurisdiction.Registry. Each Bundle is its own deployment
-     profile (definition-as-code; see deployments/.../bundle.go).
-     Adding a new court is "import a new package + one
-     registry.Register call" — no JSON, no DNS, no env DID.
+ 2. Register every compiled-in deployment Bundle into the
+    jurisdiction.Registry. Each Bundle is its own deployment
+    profile (definition-as-code; see deployments/.../bundle.go).
+    Adding a new court is "import a new package + one
+    registry.Register call" — no JSON, no DNS, no env DID.
 
-  3. Freeze the registry. After Freeze the registry is read-only and
-     reads are wait-free; this is the property the api/exchange
-     hot-path relies on.
+ 3. Freeze the registry. After Freeze the registry is read-only and
+    reads are wait-free; this is the property the api/exchange
+    hot-path relies on.
 
-  4. Build per-destination NonceStore via cfg.BuildForExchange — one
-     store per registered destination DID. With the redis backend a
-     single shared connection serves all of them, namespaced by
-     destination at the SDK layer.
+ 4. Build per-destination NonceStore via cfg.BuildForExchange — one
+    store per registered destination DID. With the redis backend a
+    single shared connection serves all of them, namespaced by
+    destination at the SDK layer.
 
-  5. Compose api/exchange + api/verification under api.NewServer.
-     Single listener, single TLS endpoint, single auth surface.
+ 5. Compose api/exchange + api/verification under api.NewServer.
+    Single listener, single TLS endpoint, single auth surface.
 
-  6. Block on SIGINT / SIGTERM; on signal, drain via Shutdown.
+ 6. Block on SIGINT / SIGTERM; on signal, drain via Shutdown.
 
 What this binary does NOT do:
 
@@ -34,7 +34,7 @@ What this binary does NOT do:
     See api/config.Operational's docstring for the rule.
   - It does NOT run an aggregator, a tools/courts handler, or any
     helper. Helpers (tools/*) are clients, not composed in.
-  - It does NOT touch the operator. The operator is a separate
+  - It does NOT touch the ledger. The ledger is a separate
     upstream service the api/ talks to over HTTP.
 */
 package main
@@ -86,7 +86,7 @@ type deps struct {
 
 	// newKeyStore returns the keystore.KeyStore implementation for
 	// the given KeyStore config. realDeps returns an in-memory
-	// KeyStore for the "memory" backend; future Phase 8 wires
+	// KeyStore for the "memory" backend; future  wires
 	// PKCS#11 / Vault here.
 	newKeyStore func(config.KeyStoreConfig) (keystore.KeyStore, error)
 
@@ -133,7 +133,7 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("nonce stores: %w", err)
 	}
 
-	// Construct the keystore. Phase 8 swaps this for HSM / Vault
+	// Construct the keystore.  swaps this for HSM / Vault
 	// backends; for now the binary supports the "memory" backend
 	// out-of-the-box.
 	ks, err := d.newKeyStore(cfg.KeyStore)
@@ -166,42 +166,42 @@ func run(argv []string, d deps) error {
 		return middleware.CallerDIDFromContext(r.Context())
 	})
 
-	// Phase 15 observability bundle is constructed once and shared
-	// between the composer's /metrics endpoint and the operator-
+	//  observability bundle is constructed once and shared
+	// between the composer's /metrics endpoint and the ledger-
 	// submit metrics so all jn_* metrics scrape from one registry.
 	obs := api.NewObservability()
 
-	// Phase 14b operator-submit protection: circuit breaker +
+	//  ledger-submit protection: circuit breaker +
 	// per-submit metrics. Both wired into Exchange config.
-	operatorBreaker := reliability.NewBreaker(reliability.DefaultCircuitConfig())
-	operatorMetrics := observability.NewOperatorSubmitMetrics(obs.Metrics())
+	ledgerBreaker := reliability.NewBreaker(reliability.DefaultCircuitConfig())
+	ledgerMetrics := observability.NewLedgerSubmitMetrics(obs.Metrics())
 
-	// Priority 3 /readyz checks: operator + artifact-store
+	// Priority 3 /readyz checks: ledger + artifact-store
 	// reachability via GET /healthz on each. k8s scrapes /readyz
 	// to gate traffic to a replica that can fulfill its job.
 	readyzChecks := buildReadyzChecks(cfg)
 
 	srv, err := api.NewServer(api.Config{
-		Addr:         cfg.ListenAddr,
-		TLSCertFile:  cfg.Auth.TLSCertFile,
-		TLSKeyFile:   cfg.Auth.TLSKeyFile,
-		ClientCAFile: cfg.Auth.ClientCAFile,
+		Addr:          cfg.ListenAddr,
+		TLSCertFile:   cfg.Auth.TLSCertFile,
+		TLSKeyFile:    cfg.Auth.TLSKeyFile,
+		ClientCAFile:  cfg.Auth.ClientCAFile,
 		Auth:          authenticator,
 		Observability: obs,
 		ReadyzChecks:  readyzChecks,
 		Exchange: exchange.ServerConfig{
-			OperatorEndpoint:      cfg.OperatorEndpoint,
+			LedgerEndpoint:        cfg.LedgerEndpoint,
 			ArtifactStoreEndpoint: cfg.ArtifactStoreEndpoint,
 			VerificationEndpoint:  cfg.VerificationEndpoint,
 			KeyStore:              ks,
 			Index:                 index.NewLogIndex(),
 			NonceStores:           nonceStores,
-			OperatorBreaker:       operatorBreaker,
-			OperatorMetrics:       operatorMetrics,
+			LedgerBreaker:         ledgerBreaker,
+			LedgerMetrics:         ledgerMetrics,
 		},
 		Verification: verification.ServerConfig{
-			// Phase 7 wires real LogQueries + LeafReader from the
-			// operator/aggregator surface. For boot-time the
+			//  wires real LogQueries + LeafReader from the
+			// ledger/aggregator surface. For boot-time the
 			// verification handler tree is registered with empty deps;
 			// any /v1/verify/* request reaching it returns a clean
 			// "unknown log" error rather than a panic.
@@ -227,8 +227,8 @@ func run(argv []string, d deps) error {
 			serverErr <- srv.StartTLS()
 		default:
 			// Plain HTTP for dev / non-mTLS deployments. JWT auth
-			// is layered in middleware (Phase 5) — TLS material
-			// is the operator's responsibility in that case.
+			// is layered in middleware — TLS material
+			// is the ledger's responsibility in that case.
 			serverErr <- srv.Start()
 		}
 	}()
@@ -268,4 +268,3 @@ func loadConfig(argv []string) (config.Operational, error) {
 	}
 	return cfg, nil
 }
-

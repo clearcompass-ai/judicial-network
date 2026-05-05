@@ -2,36 +2,38 @@
 FILE PATH: api/exchange/identity/identity_signing.go
 
 DESCRIPTION:
-    Wallet-signing types used by IdentityProvider.SignDigest. Split
-    out of identity.go to keep that file focused on the verification
-    side of the interface.
 
-    Why these shapes are EIP-712-flavored, not arbitrary bytes:
+	Wallet-signing types used by IdentityProvider.SignDigest. Split
+	out of identity.go to keep that file focused on the verification
+	side of the interface.
 
-      For judicial submissions the wallet UI MUST display the
-      structured fields the signer is committing to (action, docket,
-      artifact CID, expires-at, etc.). EIP-191 (personal_sign) shows
-      opaque hash bytes — fine for a login nonce, not fine for a
-      court action. EIP-712-style typed data lets the wallet render
-      the actual fields, and the domain separator binds the
-      signature to a specific (court, schema_version) so a sig for
-      davidson-tn cannot be replayed against shelby-tn.
+	Why these shapes are EIP-712-flavored, not arbitrary bytes:
 
-      JN computes the digest itself: keccak256(\x19\x01 ||
-      domain_separator_hash || typed_struct_hash). The provider does
-      NOT hash again; it signs the bytes. The Display struct carries
-      the same typed structure to the wallet for rendering.
+	  For judicial submissions the wallet UI MUST display the
+	  structured fields the signer is committing to (action, docket,
+	  artifact CID, expires-at, etc.). EIP-191 (personal_sign) shows
+	  opaque hash bytes — fine for a login nonce, not fine for a
+	  court action. EIP-712-style typed data lets the wallet render
+	  the actual fields, and the domain separator binds the
+	  signature to a specific (court, schema_version) so a sig for
+	  davidson-tn cannot be replayed against shelby-tn.
+
+	  JN computes the digest itself: keccak256(\x19\x01 ||
+	  domain_separator_hash || typed_struct_hash). The provider does
+	  NOT hash again; it signs the bytes. The Display struct carries
+	  the same typed structure to the wallet for rendering.
 
 OVERVIEW:
-    SignRequest        — what JN passes to SignDigest.
-    SignResponse       — what the provider returns on approval.
-    TypedDataDisplay   — EIP-712 typed-data envelope for wallet UX.
-    EIP712Domain       — the domain-separator inputs.
-    EIP712Field        — one (name, type, value) row in the typed
-                         structure.
+
+	SignRequest        — what JN passes to SignDigest.
+	SignResponse       — what the provider returns on approval.
+	TypedDataDisplay   — EIP-712 typed-data envelope for wallet UX.
+	EIP712Domain       — the domain-separator inputs.
+	EIP712Field        — one (name, type, value) row in the typed
+	                     structure.
 
 KEY DEPENDENCIES:
-    - api/exchange/identity/identity.go (IdentityProvider interface).
+  - api/exchange/identity/identity.go (IdentityProvider interface).
 */
 package identity
 

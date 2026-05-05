@@ -2,8 +2,9 @@
 FILE PATH: deployments/tn/sup_ct/prerequisites_test.go
 
 DESCRIPTION:
-    Tests for the TN Supreme Court prereq fixture. Pins the
-    11-event vocabulary AND the §12C revocation Hard prereq.
+
+	Tests for the TN Supreme Court prereq fixture. Pins the
+	11-event vocabulary AND the §12C revocation Hard prereq.
 */
 package sup_ct
 

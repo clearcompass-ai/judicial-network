@@ -2,40 +2,41 @@
 FILE PATH: schemas/key_attestation.go
 
 DESCRIPTION:
-    tn-key-attestation-v1 — judicial domain attestation entry per
-    ortholog-sdk/docs/attestation-entries.md. Records the institution
-    that witnessed key generation for a named entity at a named
-    position. Replaces the removed pre-v7.5 KeyGenerationMode
-    ControlHeader field; the institutional witness IS the trust
-    boundary, not the entity itself.
+
+	tn-key-attestation-v1 — judicial domain attestation entry per
+	attesta/docs/attestation-entries.md. Records the institution
+	that witnessed key generation for a named entity at a named
+	position. Replaces the removed pre-v7.5 KeyGenerationMode
+	ControlHeader field; the institutional witness IS the trust
+	boundary, not the entity itself.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Path A entry: AuthorityPath = AuthoritySameSigner. The
-      attesting institution (typically the court's exchange) signs
-      on its own authority. SubjectIdentifier = the attested
-      entity's DID for operator-side index queries.
-    - SchemaParameters: identifier_scope = real_did,
-      override_requires_witness = true (judicial domains require an
-      independent witness for any override of attestation claims),
-      migration_policy = amendment.
-    - GenerationMode is a closed string enum:
-        "exchange_managed"     — keys held by a custodial exchange
-        "client_side_enclave"  — keys held by the entity in a TEE
-        "hsm_fips_140_3"       — keys held in a certified HSM
-      Domain code resolves the legal/regulatory implications; the
-      schema only enumerates the modes.
-    - AttestationEvidence is opaque — Apple App Attest, Android Key
-      Attestation, HSM quote, etc. — domain verifiers parse it.
-      The SDK never inspects.
-    - WitnessArtifactHash binds the attestation to a specific
-      proof artifact stored off-log; verifiers re-fetch the artifact
-      via this hash to confirm the institution actually performed
-      the witness rather than fabricating the claim.
+  - Path A entry: AuthorityPath = AuthoritySameSigner. The
+    attesting institution (typically the court's exchange) signs
+    on its own authority. SubjectIdentifier = the attested
+    entity's DID for ledger-side index queries.
+  - SchemaParameters: identifier_scope = real_did,
+    override_requires_witness = true (judicial domains require an
+    independent witness for any override of attestation claims),
+    migration_policy = amendment.
+  - GenerationMode is a closed string enum:
+    "exchange_managed"     — keys held by a custodial exchange
+    "client_side_enclave"  — keys held by the entity in a TEE
+    "hsm_fips_140_3"       — keys held in a certified HSM
+    Domain code resolves the legal/regulatory implications; the
+    schema only enumerates the modes.
+  - AttestationEvidence is opaque — Apple App Attest, Android Key
+    Attestation, HSM quote, etc. — domain verifiers parse it.
+    The SDK never inspects.
+  - WitnessArtifactHash binds the attestation to a specific
+    proof artifact stored off-log; verifiers re-fetch the artifact
+    via this hash to confirm the institution actually performed
+    the witness rather than fabricating the claim.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go (registration)
-    - SDK consumers: schema.JSONParameterExtractor handles the
-      parameters fields; the payload struct lives here.
+  - schemas/registry.go (registration)
+  - SDK consumers: schema.JSONParameterExtractor handles the
+    parameters fields; the payload struct lives here.
 */
 package schemas
 

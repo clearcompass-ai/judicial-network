@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // VerifyBatchHandler handles GET /v1/verify/batch/{logID}/{positions}.
@@ -19,10 +19,10 @@ func NewVerifyBatchHandler(deps *Dependencies) *VerifyBatchHandler {
 }
 
 type batchItem struct {
-	Position  uint64                      `json:"position"`
-	Origin    *verifier.OriginEvaluation  `json:"origin,omitempty"`
+	Position  uint64                        `json:"position"`
+	Origin    *verifier.OriginEvaluation    `json:"origin,omitempty"`
 	Authority *verifier.AuthorityEvaluation `json:"authority,omitempty"`
-	Error     string                      `json:"error,omitempty"`
+	Error     string                        `json:"error,omitempty"`
 }
 
 func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

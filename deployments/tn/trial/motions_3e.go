@@ -2,16 +2,17 @@
 FILE PATH: deployments/tn/trial/motions_3e.go
 
 DESCRIPTION:
-    v1.8 §3E — Trial-Prep & Evidentiary Motions. Five event
-    types covering pre-trial evidentiary practice. All §3E
-    motions follow the §3 default (Hard case_initiated only).
 
-    Filer set:
-      motion_in_limine                       all advocates (civil + criminal)
-      motion_suppress                        defense + prosecutor (criminal)
-      motion_judicial_notice                 all advocates (TRE 201)
-      motion_special_jury_instructions       all advocates (TRCP 51 / TRCrP 30)
-      motion_competency_evaluation           defense + prosecutor (criminal)
+	v1.8 §3E — Trial-Prep & Evidentiary Motions. Five event
+	types covering pre-trial evidentiary practice. All §3E
+	motions follow the §3 default (Hard case_initiated only).
+
+	Filer set:
+	  motion_in_limine                       all advocates (civil + criminal)
+	  motion_suppress                        defense + prosecutor (criminal)
+	  motion_judicial_notice                 all advocates (TRE 201)
+	  motion_special_jury_instructions       all advocates (TRCP 51 / TRCrP 30)
+	  motion_competency_evaluation           defense + prosecutor (criminal)
 */
 package trial
 

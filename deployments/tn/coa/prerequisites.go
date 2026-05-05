@@ -2,32 +2,34 @@
 FILE PATH: deployments/tn/coa/prerequisites.go
 
 DESCRIPTION:
-    Tennessee Court of Appeals — prerequisite policy. Closed-set
-    vocabulary + per-event prereq rules for the COA exchange.
-    Vocabulary matches the cosignature policy (10 rules) so
-    jurisdiction.Validate accepts the bundle at boot.
 
-    Categories:
-      - appellate root bootstrap (appellate_case_initiation):
-        no Hard prereq; ADVISORY notice_of_appeal on the
-        referenced trial root (cross-network — trial-side
-        notice may not be visible yet when COA dockets the
-        appeal; v1.8 §7B.1 calls this Advisory by design).
-      - opinion events (appellate_opinion_publication,
-        appellate_opinion_participation): require an
-        appellate_case_initiation ancestor.
-      - appellate_disposition: requires a merits-level opinion
-        ancestor on this case root (v1.8 §7B.3).
-      - remand_affirmance: ADVISORY notice_of_appeal (v1.8 §8).
-      - personnel events: authority-scope rules.
-      - topology events: no prereqs.
+	Tennessee Court of Appeals — prerequisite policy. Closed-set
+	vocabulary + per-event prereq rules for the COA exchange.
+	Vocabulary matches the cosignature policy (10 rules) so
+	jurisdiction.Validate accepts the bundle at boot.
+
+	Categories:
+	  - appellate root bootstrap (appellate_case_initiation):
+	    no Hard prereq; ADVISORY notice_of_appeal on the
+	    referenced trial root (cross-network — trial-side
+	    notice may not be visible yet when COA dockets the
+	    appeal; v1.8 §7B.1 calls this Advisory by design).
+	  - opinion events (appellate_opinion_publication,
+	    appellate_opinion_participation): require an
+	    appellate_case_initiation ancestor.
+	  - appellate_disposition: requires a merits-level opinion
+	    ancestor on this case root (v1.8 §7B.3).
+	  - remand_affirmance: ADVISORY notice_of_appeal (v1.8 §8).
+	  - personnel events: authority-scope rules.
+	  - topology events: no prereqs.
 
 OVERVIEW:
-    PrerequisiteRules        — map[event_type][]Prereq.
-    MustPrerequisitePolicy   — convenience constructor (panics).
+
+	PrerequisiteRules        — map[event_type][]Prereq.
+	MustPrerequisitePolicy   — convenience constructor (panics).
 
 KEY DEPENDENCIES:
-    - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
+  - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
 */
 package coa
 

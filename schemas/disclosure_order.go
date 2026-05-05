@@ -1,30 +1,33 @@
 /*
 FILE PATH:
-    schemas/disclosure_order.go
+
+	schemas/disclosure_order.go
 
 DESCRIPTION:
-    Defines tn-disclosure-order-v1 — a Path C enforcement entry signed by a
-    judge that names specific recipients authorized to access specific artifacts.
-    This is the judicial selective disclosure mechanism.
+
+	Defines tn-disclosure-order-v1 — a Path C enforcement entry signed by a
+	judge that names specific recipients authorized to access specific artifacts.
+	This is the judicial selective disclosure mechanism.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Path C enforcement entry: requires signer in scope authority set (judge).
-    - per_artifact vs case_wide scope: per_artifact names specific CIDs;
-      case_wide authorizes recipients for ALL artifacts in the case.
-    - retrieve.go scans the authority chain for these entries and merges
-      authorized recipients from all matching orders.
-    - The SDK never reads these payloads (SDK-D6). The judicial network
-      extracts recipients; the SDK checks membership.
+  - Path C enforcement entry: requires signer in scope authority set (judge).
+  - per_artifact vs case_wide scope: per_artifact names specific CIDs;
+    case_wide authorizes recipients for ALL artifacts in the case.
+  - retrieve.go scans the authority chain for these entries and merges
+    authorized recipients from all matching orders.
+  - The SDK never reads these payloads (SDK-D6). The judicial network
+    extracts recipients; the SDK checks membership.
 
 OVERVIEW:
-    DisclosureOrderPayload carries order_type ("disclosure"|"revoke_disclosure"),
-    scope ("per_artifact"|"case_wide"), authorized_recipients, authorized_artifact_cids.
-    Helper functions: ExtractDisclosureRecipients, ExtractDisclosureArtifactCIDs,
-    DisclosureOrderAppliesToArtifact — called by retrieve.go during authority
-    chain scanning.
+
+	DisclosureOrderPayload carries order_type ("disclosure"|"revoke_disclosure"),
+	scope ("per_artifact"|"case_wide"), authorized_recipients, authorized_artifact_cids.
+	Helper functions: ExtractDisclosureRecipients, ExtractDisclosureArtifactCIDs,
+	DisclosureOrderAppliesToArtifact — called by retrieve.go during authority
+	chain scanning.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go: SchemaRegistration type, ErrDeserialize sentinel
+  - schemas/registry.go: SchemaRegistration type, ErrDeserialize sentinel
 */
 package schemas
 

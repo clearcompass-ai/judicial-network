@@ -2,23 +2,24 @@
 FILE PATH: internal/testutil/sign.go
 
 DESCRIPTION:
-    Test-only helpers for signing entries the way the production
-    exchange will. v7.75 forbids serializing an unsigned entry, so
-    every domain test that asserts a Serialize/Deserialize round-trip
-    must first attach a primary signature.
+
+	Test-only helpers for signing entries the way the production
+	exchange will. v7.75 forbids serializing an unsigned entry, so
+	every domain test that asserts a Serialize/Deserialize round-trip
+	must first attach a primary signature.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Production code in judicial-network NEVER signs entries. Builders
-      produce unsigned entries; the exchange (key custodian) signs and
-      submits. This package exists so test authors don't have to
-      reproduce the SDK's signing dance in every package.
-    - Lives under internal/ so it cannot escape the module.
-    - SignEntry returns a fully-signed *envelope.Entry with one
-      ECDSA-secp256k1 primary signature whose SignerDID equals the
-      header SignerDID — the v7.75 invariant Validate() enforces.
-    - GenerateKeyForDID is a test convenience: it returns a signing
-      key without claiming any binding between the key and the DID.
-      Production DIDs are resolved off-log; tests fake the resolution.
+  - Production code in judicial-network NEVER signs entries. Builders
+    produce unsigned entries; the exchange (key custodian) signs and
+    submits. This package exists so test authors don't have to
+    reproduce the SDK's signing dance in every package.
+  - Lives under internal/ so it cannot escape the module.
+  - SignEntry returns a fully-signed *envelope.Entry with one
+    ECDSA-secp256k1 primary signature whose SignerDID equals the
+    header SignerDID — the v7.75 invariant Validate() enforces.
+  - GenerateKeyForDID is a test convenience: it returns a signing
+    key without claiming any binding between the key and the DID.
+    Production DIDs are resolved off-log; tests fake the resolution.
 */
 package testutil
 
@@ -27,8 +28,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
 )
 
 // GenerateSigningKey returns a fresh secp256k1 private key. Fatals

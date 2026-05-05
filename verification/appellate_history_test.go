@@ -2,18 +2,19 @@
 FILE PATH: verification/appellate_history_test.go
 
 DESCRIPTION:
-    Tests for the v0.7.0 unbounded WalkAppealChain. Pins:
-      - origin-only chain (length 1).
-      - 2-step chain (TN COA topology).
-      - 3-step chain (TN COA + Sup Ct topology).
-      - 4-step chain (federal: district → circuit → en-banc
-        rehear → SCOTUS).
-      - error halts the walk; partial chain returned.
-      - nil NextProofFn rejected.
-      - Step indices are 1-indexed and contiguous.
 
-    VerifyAppealChain pins are out-of-scope here (require live
-    BLS keys); covered in cross-log proof contract tests.
+	Tests for the v0.7.0 unbounded WalkAppealChain. Pins:
+	  - origin-only chain (length 1).
+	  - 2-step chain (TN COA topology).
+	  - 3-step chain (TN COA + Sup Ct topology).
+	  - 4-step chain (federal: district → circuit → en-banc
+	    rehear → SCOTUS).
+	  - error halts the walk; partial chain returned.
+	  - nil NextProofFn rejected.
+	  - Step indices are 1-indexed and contiguous.
+
+	VerifyAppealChain pins are out-of-scope here (require live
+	BLS keys); covered in cross-log proof contract tests.
 */
 package verification
 
@@ -22,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // stubNext is a deterministic NextProofFn that returns each
@@ -200,7 +201,8 @@ func TestVerifyAppealChain_UnknownLogDIDFailsClosed(t *testing.T) {
 	}
 	result, err := VerifyAppealChain(steps,
 		map[string][]types.WitnessPublicKey{},
-		map[string]int{}, cosign.NetworkID{1}, nil)
+		map[string]int{},
+		map[string]cosign.NetworkID{}, nil)
 	if err == nil {
 		t.Error("unknown LogDID must break the chain")
 	}

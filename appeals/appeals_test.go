@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -73,9 +73,9 @@ func TestMandateConfig_AllFields(t *testing.T) {
 	schemaRef := types.LogPosition{LogDID: "did:web:test", Sequence: 3}
 	cfg := MandateConfig{
 		SignerDID:            "did:web:appellate",
-		LowerCourtCasePos:   types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 100},
-		LowerCourtScopePos:  types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 1},
-		PriorAuthority:      &prior,
+		LowerCourtCasePos:    types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 100},
+		LowerCourtScopePos:   types.LogPosition{LogDID: "did:web:trial:cases", Sequence: 1},
+		PriorAuthority:       &prior,
 		AppellateDecisionPos: types.LogPosition{LogDID: "did:web:appellate:cases", Sequence: 500},
 		Outcome:              "reverse",
 		RemandInstructions:   "retry with new jury",
@@ -128,8 +128,8 @@ func TestAppealInitiationConfig_AllFields(t *testing.T) {
 
 func TestDecisionConfig_AllFields(t *testing.T) {
 	cfg := DecisionConfig{
-		JudgeDID:           "did:web:exchange:appellate:judge-chen",
-		AppealCaseRootPos:  types.LogPosition{LogDID: "did:web:appellate:cases", Sequence: 200},
+		JudgeDID:          "did:web:exchange:appellate:judge-chen",
+		AppealCaseRootPos: types.LogPosition{LogDID: "did:web:appellate:cases", Sequence: 200},
 		CandidatePositions: []types.LogPosition{
 			{LogDID: "did:web:appellate:cases", Sequence: 201},
 			{LogDID: "did:web:appellate:cases", Sequence: 202},

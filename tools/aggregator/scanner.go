@@ -8,9 +8,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
-// Scanner polls the operator for new entries and indexes them into Postgres.
+// Scanner polls the ledger for new entries and indexes them into Postgres.
 type Scanner struct {
-	operator     *common.OperatorClient
+	ledger       *common.LedgerClient
 	db           *common.DB
 	indexer      *Indexer
 	deserializer *Deserializer
@@ -19,10 +19,10 @@ type Scanner struct {
 	pollInterval time.Duration
 }
 
-// NewScanner creates a scanner that reads from the operator and writes to Postgres.
-func NewScanner(cfg common.Config, operator *common.OperatorClient, db *common.DB) *Scanner {
+// NewScanner creates a scanner that reads from the ledger and writes to Postgres.
+func NewScanner(cfg common.Config, ledger *common.LedgerClient, db *common.DB) *Scanner {
 	return &Scanner{
-		operator:     operator,
+		ledger:       ledger,
 		db:           db,
 		indexer:      NewIndexer(db),
 		deserializer: NewDeserializer(),
@@ -73,7 +73,7 @@ func (s *Scanner) scanLog(ctx context.Context, logDID string) error {
 		startPos = 0
 	}
 
-	entries, err := s.operator.ScanFrom(startPos, s.batchSize)
+	entries, err := s.ledger.ScanFrom(startPos, s.batchSize)
 	if err != nil {
 		return err
 	}

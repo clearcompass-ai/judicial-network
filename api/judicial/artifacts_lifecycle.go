@@ -2,27 +2,28 @@
 FILE PATH: api/judicial/artifacts_lifecycle.go
 
 DESCRIPTION:
-    Artifact lifecycle handlers: expungement (cryptographic erasure
-    of a single CID's keys + ciphertext) and re-encryption (key
-    rotation against an existing CID).
 
-      DELETE /v1/judicial/artifacts/{cid}
-      POST   /v1/judicial/artifacts/reencrypt
+	Artifact lifecycle handlers: expungement (cryptographic erasure
+	of a single CID's keys + ciphertext) and re-encryption (key
+	rotation against an existing CID).
 
-    Daily reality:
-      - Expunge is the per-CID counterpart to enforcement.ExpungeCase
-        (which expunges every CID under a case in one shot). Used
-        for record-correction or per-document expungement orders.
-      - Re-encryption is invoked by the operator on a key rotation
-        cycle to replace AES-GCM keys; ciphertext is re-encrypted
-        with a fresh key and the old key is destroyed.
+	  DELETE /v1/judicial/artifacts/{cid}
+	  POST   /v1/judicial/artifacts/reencrypt
+
+	Daily reality:
+	  - Expunge is the per-CID counterpart to enforcement.ExpungeCase
+	    (which expunges every CID under a case in one shot). Used
+	    for record-correction or per-document expungement orders.
+	  - Re-encryption is invoked by the ledger on a key rotation
+	    cycle to replace AES-GCM keys; ciphertext is re-encrypted
+	    with a fresh key and the old key is destroyed.
 */
 package judicial
 
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/storage"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

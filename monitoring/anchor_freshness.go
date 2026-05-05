@@ -1,16 +1,19 @@
 /*
 FILE PATH: monitoring/anchor_freshness.go
 DESCRIPTION: Monitors anchor publication cadence. Detects when a county log
-    falls behind its configured anchor schedule or when the parent (state)
-    log's tree head becomes stale from the county's perspective.
+
+	falls behind its configured anchor schedule or when the parent (state)
+	log's tree head becomes stale from the county's perspective.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses witness.TreeHeadClient to fetch parent log head + staleness check.
-    - Uses log.OperatorQueryAPI.ScanFromPosition to find recent anchor
-      commentary entries on the county log and compute gap since last anchor.
-    - Emits monitoring.Alert via the Alert() channel pattern; caller routes
-      to BuildCommentary (on-log) or PagerDuty (ops) per Alert.Destination.
+  - Uses witness.TreeHeadClient to fetch parent log head + staleness check.
+  - Uses log.LedgerQueryAPI.ScanFromPosition to find recent anchor
+    commentary entries on the county log and compute gap since last anchor.
+  - Emits monitoring.Alert via the Alert() channel pattern; caller routes
+    to BuildCommentary (on-log) or PagerDuty (ops) per Alert.Destination.
+
 OVERVIEW: CheckAnchorFreshness returns AlertSet describing lag conditions.
-KEY DEPENDENCIES: ortholog-sdk/witness, ortholog-sdk/log, ortholog-sdk/monitoring
+KEY DEPENDENCIES: attesta/witness, attesta/log, attesta/monitoring
 */
 package monitoring
 
@@ -19,11 +22,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/witness"
 )
 
 const MonitorAnchorFreshness monitoring.MonitorID = "judicial.anchor_freshness"
@@ -51,9 +54,9 @@ type AnchorFreshnessConfig struct {
 	// Typical: StalenessMonitoring (60s).
 	ParentStaleness witness.StalenessConfig
 
-	// OperatorSignerDID is the operator DID that signs anchor entries.
+	// LedgerSignerDID is the ledger DID that signs anchor entries.
 	// Used to filter scan results to our own anchors.
-	OperatorSignerDID string
+	LedgerSignerDID string
 }
 
 // CheckAnchorFreshness evaluates whether the county log is keeping up with
@@ -63,7 +66,7 @@ type AnchorFreshnessConfig struct {
 // Empty slice means everything is fine.
 func CheckAnchorFreshness(
 	cfg AnchorFreshnessConfig,
-	queryAPI sdklog.OperatorQueryAPI,
+	queryAPI sdklog.LedgerQueryAPI,
 	treeHeadClient *witness.TreeHeadClient,
 	now time.Time,
 ) ([]monitoring.Alert, error) {
@@ -77,7 +80,7 @@ func CheckAnchorFreshness(
 	var alerts []monitoring.Alert
 
 	// Check 1: when did we last publish an anchor?
-	entries, err := queryAPI.QueryBySignerDID(cfg.OperatorSignerDID)
+	entries, err := queryAPI.QueryBySignerDID(cfg.LedgerSignerDID)
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/anchor: query anchors: %w", err)
 	}

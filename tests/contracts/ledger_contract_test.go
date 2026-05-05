@@ -1,30 +1,31 @@
 /*
-FILE PATH: tests/contracts/operator_contract_test.go
+FILE PATH: tests/contracts/ledger_contract_test.go
 
 DESCRIPTION:
-    Wire-format contract tests pinning judicial-network's HTTP
-    interactions with the operator service. Per the architecture
-    spec, JN talks to the operator only via SDK clients
-    (HTTPEntryFetcher, HTTPOperatorQueryAPI, HTTPSubmitter). This
-    file pins:
 
-      1. /v1/entries/{seq}/raw response shape (X-Sequence + X-Log-Time
-         headers, application/octet-stream body) round-trips through
-         the SDK fetcher to a complete EntryWithMetadata.
-      2. /v1/query/scan response shape (queryListResponse JSON)
-         round-trips through HTTPOperatorQueryAPI.ScanFromPosition.
-      3. POST /v1/entries acceptance contract: the operator's submit
-         endpoint accepts canonical wire bytes that JN's exchange
-         produces (envelope.Serialize), responds 202 + SCT JSON.
-      4. 404 / 503 / non-200 mappings the SDK errors-on per docstring.
-      5. The operator's /raw absent-X-Log-Time is tolerated (SDK
-         reads it, falls back gracefully — pre-fix-regression
-         guard for legacy entry_index rows).
+	Wire-format contract tests pinning judicial-network's HTTP
+	interactions with the ledger service. Per the architecture
+	spec, JN talks to the ledger only via SDK clients
+	(HTTPEntryFetcher, HTTPLedgerQueryAPI, HTTPSubmitter). This
+	file pins:
 
-    Each test uses an httptest.Server fake. The fake reproduces the
-    operator's wire shape byte-for-byte; if the SDK fetcher / query
-    API can drive the fake, a real operator at the same wire
-    contract will work.
+	  1. /v1/entries/{seq}/raw response shape (X-Sequence + X-Log-Time
+	     headers, application/octet-stream body) round-trips through
+	     the SDK fetcher to a complete EntryWithMetadata.
+	  2. /v1/query/scan response shape (queryListResponse JSON)
+	     round-trips through HTTPLedgerQueryAPI.ScanFromPosition.
+	  3. POST /v1/entries acceptance contract: the ledger's submit
+	     endpoint accepts canonical wire bytes that JN's exchange
+	     produces (envelope.Serialize), responds 202 + SCT JSON.
+	  4. 404 / 503 / non-200 mappings the SDK errors-on per docstring.
+	  5. The ledger's /raw absent-X-Log-Time is tolerated (SDK
+	     reads it, falls back gracefully — pre-fix-regression
+	     guard for legacy entry_index rows).
+
+	Each test uses an httptest.Server fake. The fake reproduces the
+	ledger's wire shape byte-for-byte; if the SDK fetcher / query
+	API can drive the fake, a real ledger at the same wire
+	contract will work.
 */
 package contracts
 
@@ -38,26 +39,26 @@ import (
 	"testing"
 	"time"
 
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // ─────────────────────────────────────────────────────────────────────
 // /v1/entries/{seq}/raw — byte fetch contract
 // ─────────────────────────────────────────────────────────────────────
 
-// TestOperatorContract_RawEndpoint_HappyPath pins the operator's /raw
+// TestLedgerContract_RawEndpoint_HappyPath pins the ledger's /raw
 // response shape that JN's HTTPEntryFetcher consumes:
 //
-//   200 OK
-//   Content-Type: application/octet-stream
-//   X-Sequence: <uint64 decimal>
-//   X-Log-Time: <RFC-3339Nano UTC>
-//   <body: raw wire bytes>
+//	200 OK
+//	Content-Type: application/octet-stream
+//	X-Sequence: <uint64 decimal>
+//	X-Log-Time: <RFC-3339Nano UTC>
+//	<body: raw wire bytes>
 //
-// A regression in the operator's serveWALInline / serveBytestoreRedirect
-// (operator commit 8afc27b) that drops the headers fails this test.
-func TestOperatorContract_RawEndpoint_HappyPath(t *testing.T) {
+// A regression in the ledger's serveWALInline / serveBytestoreRedirect
+// (ledger commit 8afc27b) that drops the headers fails this test.
+func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
 	logTime := time.Date(2027, 4, 29, 12, 0, 0, 0, time.UTC)
 	wire := []byte("test-canonical-wire-bytes")
 
@@ -101,11 +102,11 @@ func TestOperatorContract_RawEndpoint_HappyPath(t *testing.T) {
 	}
 }
 
-// TestOperatorContract_RawEndpoint_MissingXLogTime tolerated.
-// Older operator versions (pre-8afc27b) didn't stamp X-Log-Time.
+// TestLedgerContract_RawEndpoint_MissingXLogTime tolerated.
+// Older ledger versions (pre-8afc27b) didn't stamp X-Log-Time.
 // JN's fetcher must fall back to a zero-valued LogTime rather than
 // erroring, so legacy /raw routes remain consumable.
-func TestOperatorContract_RawEndpoint_MissingXLogTime(t *testing.T) {
+func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("X-Sequence", "1")
@@ -132,11 +133,11 @@ func TestOperatorContract_RawEndpoint_MissingXLogTime(t *testing.T) {
 	}
 }
 
-// TestOperatorContract_RawEndpoint_404 pins the SDK's 404 mapping:
-// fetcher returns (nil, nil) on operator 404, NOT an error.
+// TestLedgerContract_RawEndpoint_404 pins the SDK's 404 mapping:
+// fetcher returns (nil, nil) on ledger 404, NOT an error.
 // Consumers (JN's tools/aggregator/scanner.go) rely on this to
-// distinguish "no entry at this seq" from "operator unreachable."
-func TestOperatorContract_RawEndpoint_404(t *testing.T) {
+// distinguish "no entry at this seq" from "ledger unreachable."
+func TestLedgerContract_RawEndpoint_404(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.NotFound(w, nil)
 	}))
@@ -158,27 +159,28 @@ func TestOperatorContract_RawEndpoint_404(t *testing.T) {
 // /v1/query/scan — metadata pagination contract
 // ─────────────────────────────────────────────────────────────────────
 
-// TestOperatorContract_ScanEndpoint_HappyPath pins the JSON envelope
-// the operator returns from /v1/query/scan and confirms the SDK's
-// HTTPOperatorQueryAPI.ScanFromPosition consumes it cleanly.
+// TestLedgerContract_ScanEndpoint_HappyPath pins the JSON envelope
+// the ledger returns from /v1/query/scan and confirms the SDK's
+// HTTPLedgerQueryAPI.ScanFromPosition consumes it cleanly.
 //
 // Wire shape:
-//   GET /v1/query/scan?start=N&count=M  →  200 + JSON
-//     {
-//       "entries": [
-//         {
-//           "sequence_number":  <uint64>,
-//           "canonical_hash":   "<hex>",
-//           "log_time":          "<RFC-3339Nano>",
-//           "signer_did":        "did:...",
-//           "protocol_version": <uint16>,
-//           "payload_size":     <int>,
-//           "canonical_size":   <int>
-//         }, ...
-//       ],
-//       "count": <int>
-//     }
-func TestOperatorContract_ScanEndpoint_HappyPath(t *testing.T) {
+//
+//	GET /v1/query/scan?start=N&count=M  →  200 + JSON
+//	  {
+//	    "entries": [
+//	      {
+//	        "sequence_number":  <uint64>,
+//	        "canonical_hash":   "<hex>",
+//	        "log_time":          "<RFC-3339Nano>",
+//	        "signer_did":        "did:...",
+//	        "protocol_version": <uint16>,
+//	        "payload_size":     <int>,
+//	        "canonical_size":   <int>
+//	      }, ...
+//	    ],
+//	    "count": <int>
+//	  }
+func TestLedgerContract_ScanEndpoint_HappyPath(t *testing.T) {
 	logTime := time.Date(2027, 4, 29, 8, 0, 0, 0, time.UTC)
 	wantEntries := []map[string]any{
 		{
@@ -213,13 +215,13 @@ func TestOperatorContract_ScanEndpoint_HappyPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	q, err := sdklog.NewHTTPOperatorQueryAPI(sdklog.HTTPOperatorQueryAPIConfig{
+	q, err := sdklog.NewHTTPLedgerQueryAPI(sdklog.HTTPLedgerQueryAPIConfig{
 		BaseURL: srv.URL,
 		LogDID:  "did:web:courts.davidson:cases",
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Fatalf("NewHTTPOperatorQueryAPI: %v", err)
+		t.Fatalf("NewHTTPLedgerQueryAPI: %v", err)
 	}
 	got, err := q.ScanFromPosition(5, 10)
 	if err != nil {
@@ -242,21 +244,21 @@ func TestOperatorContract_ScanEndpoint_HappyPath(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// POST /v1/entries — JN→operator submit contract
+// POST /v1/entries — JN→ledger submit contract
 // ─────────────────────────────────────────────────────────────────────
 
-// TestOperatorContract_SubmitEndpoint_HappyPath pins the request
+// TestLedgerContract_SubmitEndpoint_HappyPath pins the request
 // shape JN's exchange handlers (entries.go EntrySubmitHandler /
-// EntryFullHandler / management.go submitToOperator) emit:
+// EntryFullHandler / management.go submitToLedger) emit:
 //
-//   POST /v1/entries
-//   Content-Type: application/octet-stream
-//   <body: envelope.Serialize(signed_entry)>
+//	POST /v1/entries
+//	Content-Type: application/octet-stream
+//	<body: envelope.Serialize(signed_entry)>
 //
-// The operator returns 202 + SCT JSON. JN's submitToOperator helper
+// The ledger returns 202 + SCT JSON. JN's submitToLedger helper
 // JSON-decodes-and-re-encodes the response; we assert the round-trip
 // works end-to-end.
-func TestOperatorContract_SubmitEndpoint_HappyPath(t *testing.T) {
+func TestLedgerContract_SubmitEndpoint_HappyPath(t *testing.T) {
 	var seenContentType, seenMethod string
 	var seenBody []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +270,7 @@ func TestOperatorContract_SubmitEndpoint_HappyPath(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"version":         1,
-			"signer_did":      "did:test:operator",
+			"signer_did":      "did:test:ledger",
 			"sig_algo_id":     "ecdsa-secp256k1-sha256",
 			"log_did":         "did:web:courts.davidson:cases",
 			"canonical_hash":  "abcd",
@@ -308,11 +310,11 @@ func TestOperatorContract_SubmitEndpoint_HappyPath(t *testing.T) {
 	}
 }
 
-// TestOperatorContract_SubmitEndpoint_503Retried pins the wire-level
-// 503-Retry-After contract. Operator commit dd2acd9 + JN Phase 1E
+// TestLedgerContract_SubmitEndpoint_503Retried pins the wire-level
+// 503-Retry-After contract. Ledger commit dd2acd9 + JN 
 // shared client both require the SDK transport to retry transparently.
 // First call returns 503 + Retry-After: 1; second call succeeds.
-func TestOperatorContract_SubmitEndpoint_503Retried(t *testing.T) {
+func TestLedgerContract_SubmitEndpoint_503Retried(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls++
@@ -341,4 +343,3 @@ func TestOperatorContract_SubmitEndpoint_503Retried(t *testing.T) {
 		t.Errorf("expected ≥ 2 attempts, got %d", calls)
 	}
 }
-

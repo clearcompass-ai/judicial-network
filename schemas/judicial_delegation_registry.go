@@ -2,22 +2,24 @@
 FILE PATH: schemas/judicial_delegation_registry.go
 
 DESCRIPTION:
-    Marshal helpers, schema parameters, and registry registrations
-    for the three delegation entry shapes. Split out of
-    judicial_delegation.go to keep that file focused on the
-    payload types + Validate methods.
+
+	Marshal helpers, schema parameters, and registry registrations
+	for the three delegation entry shapes. Split out of
+	judicial_delegation.go to keep that file focused on the
+	payload types + Validate methods.
 
 OVERVIEW:
-    Marshal{Delegation,Revocation,Succession}Payload — validate-then-JSON.
-    Unmarshal{Delegation,Revocation,Succession}Payload — JSON-then-validate.
-    Default{Delegation,Revocation,Succession}Params  — registry params bytes.
-    judicial{Delegation,Revocation,Succession}Registration — registry entries
-        consumed by registry.go's registerAll().
+
+	Marshal{Delegation,Revocation,Succession}Payload — validate-then-JSON.
+	Unmarshal{Delegation,Revocation,Succession}Payload — JSON-then-validate.
+	Default{Delegation,Revocation,Succession}Params  — registry params bytes.
+	judicial{Delegation,Revocation,Succession}Registration — registry entries
+	    consumed by registry.go's registerAll().
 
 KEY DEPENDENCIES:
-    - schemas/judicial_delegation.go (payload types + Validate)
-    - schemas/registry.go (SchemaRegistration, ErrDeserialize,
-      IdentifierScopeRealDID)
+  - schemas/judicial_delegation.go (payload types + Validate)
+  - schemas/registry.go (SchemaRegistration, ErrDeserialize,
+    IdentifierScopeRealDID)
 */
 package schemas
 

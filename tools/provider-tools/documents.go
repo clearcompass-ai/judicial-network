@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // ListDocuments handles GET /v1/records/{docket}/documents.
@@ -106,7 +106,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch from artifact store via SDK ContentStore. Per the
 	// architecture spec, judicial-network never imports
-	// ortholog-artifact-store/ directly — every wire call goes
+	// attesta-artifact-store/ directly — every wire call goes
 	// through the SDK's ContentStore interface.
 	cid, err := storage.ParseCID(cidStr)
 	if err != nil {

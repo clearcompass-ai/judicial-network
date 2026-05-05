@@ -197,9 +197,9 @@ func TestSealingOrder_DefaultParams(t *testing.T) {
 
 func TestDisclosureOrder_ExtractRecipients(t *testing.T) {
 	payload, _ := json.Marshal(map[string]any{
-		"order_type":            "disclosure",
-		"scope":                 "per_artifact",
-		"authorized_recipients": []string{"did:web:state:tn:davidson", "did:web:defense:smith"},
+		"order_type":               "disclosure",
+		"scope":                    "per_artifact",
+		"authorized_recipients":    []string{"did:web:state:tn:davidson", "did:web:defense:smith"},
 		"authorized_artifact_cids": []string{"sha256:abc123"},
 	})
 

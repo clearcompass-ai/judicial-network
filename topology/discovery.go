@@ -1,43 +1,46 @@
 /*
 FILE PATH: topology/discovery.go
 DESCRIPTION: Court DID → anchor chain resolution. Walks the anchor hierarchy
-    to verify a court is a legitimate participant.
+
+	to verify a court is a legitimate participant.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Uses DIDResolver for court DID → DID Document → operator endpoint.
-    - Uses TreeHeadClient to fetch and cache tree heads along the chain.
-    - Max chain depth 10 (state → county is typically depth 2).
+  - Uses DIDResolver for court DID → DID Document → ledger endpoint.
+  - Uses TreeHeadClient to fetch and cache tree heads along the chain.
+  - Max chain depth 10 (state → county is typically depth 2).
+
 OVERVIEW: DiscoverAnchorChain walks from court to state root.
-KEY DEPENDENCIES: ortholog-sdk/did, ortholog-sdk/witness
+KEY DEPENDENCIES: attesta/did, attesta/witness
 */
 package topology
 
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/witness"
+	"github.com/clearcompass-ai/attesta/did"
+	"github.com/clearcompass-ai/attesta/witness"
 )
 
 const maxAnchorChainDepth = 10
 
 // AnchorChainNode represents one step in the anchor chain.
 type AnchorChainNode struct {
-	LogDID      string
-	OperatorURL string
-	TreeSize    uint64
-	Depth       int
+	LogDID    string
+	LedgerURL string
+	TreeSize  uint64
+	Depth     int
 }
 
 // AnchorChainResult holds the discovered anchor chain.
 type AnchorChainResult struct {
-	Chain       []AnchorChainNode
+	Chain        []AnchorChainNode
 	StateRootDID string
-	Valid       bool
+	Valid        bool
 }
 
 // DiscoverAnchorChain walks the anchor hierarchy from a court DID to
 // the state root. Each step resolves the DID Document to find the
-// operator endpoint and parent anchor DID.
+// ledger endpoint and parent anchor DID.
 func DiscoverAnchorChain(
 	courtDID string,
 	hierarchy *Hierarchy,
@@ -68,13 +71,13 @@ func DiscoverAnchorChain(
 			Depth:  depth,
 		}
 
-		// Resolve operator URL from DID Document.
+		// Resolve ledger URL from DID Document.
 		if resolver != nil {
 			doc, err := resolver.Resolve(current)
 			if err == nil {
-				url, urlErr := doc.OperatorEndpointURL()
+				url, urlErr := doc.LedgerEndpointURL()
 				if urlErr == nil {
-					chainNode.OperatorURL = url
+					chainNode.LedgerURL = url
 				}
 			}
 		}

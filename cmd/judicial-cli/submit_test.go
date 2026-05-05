@@ -2,11 +2,12 @@
 FILE PATH: cmd/judicial-cli/submit_test.go
 
 DESCRIPTION:
-    Pins the buildAndSign pipeline: a spec on disk → canonical wire
-    bytes that round-trip through envelope.Deserialize and verify
-    against the keys we wrote. The pipeline is the load-bearing path
-    for every walkthrough scenario; drift here would silently break
-    them.
+
+	Pins the buildAndSign pipeline: a spec on disk → canonical wire
+	bytes that round-trip through envelope.Deserialize and verify
+	against the keys we wrote. The pipeline is the load-bearing path
+	for every walkthrough scenario; drift here would silently break
+	them.
 */
 package main
 
@@ -17,8 +18,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	sdkenv "github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	sdkenv "github.com/clearcompass-ai/attesta/core/envelope"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
 )
 
 // helper: keygen into a tempdir and return the file path.
@@ -178,16 +179,16 @@ func TestLoadSubmitSpec_RejectsOverCappedEvidence(t *testing.T) {
 	}
 	specPath := writeSpec(t, dir, "bad", spec)
 	if _, err := loadSubmitSpec(specPath); err == nil {
-		t.Fatal("11 evidence pointers MUST reject (operator cap is 10)")
+		t.Fatal("11 evidence pointers MUST reject (ledger cap is 10)")
 	}
 }
 
 func TestLoadSubmitSpec_MissingFields(t *testing.T) {
 	dir := t.TempDir()
 	cases := []SubmitSpec{
-		{PrimarySignerKey: "x", Payload: json.RawMessage(`{}`)},        // no destination
-		{Destination: "did:web:x", Payload: json.RawMessage(`{}`)},     // no signer key
-		{Destination: "did:web:x", PrimarySignerKey: "x"},              // no payload
+		{PrimarySignerKey: "x", Payload: json.RawMessage(`{}`)},    // no destination
+		{Destination: "did:web:x", Payload: json.RawMessage(`{}`)}, // no signer key
+		{Destination: "did:web:x", PrimarySignerKey: "x"},          // no payload
 	}
 	for i, s := range cases {
 		path := writeSpec(t, dir, "bad", s)

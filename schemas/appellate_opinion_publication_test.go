@@ -2,10 +2,11 @@
 FILE PATH: schemas/appellate_opinion_publication_test.go
 
 DESCRIPTION:
-    Tests for tn-appellate-opinion-publication-v1. Covers
-    Validate happy + every rejection path, serialize round-trip,
-    registry round-trip, and a functional emulation of a 3-judge
-    panel publishing a majority opinion.
+
+	Tests for tn-appellate-opinion-publication-v1. Covers
+	Validate happy + every rejection path, serialize round-trip,
+	registry round-trip, and a functional emulation of a 3-judge
+	panel publishing a majority opinion.
 */
 package schemas
 

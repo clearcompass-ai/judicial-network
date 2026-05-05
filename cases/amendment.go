@@ -2,11 +2,12 @@
 FILE PATH: cases/amendment.go
 DESCRIPTION: Case status changes and reassignment via SDK BuildAmendment (Path A).
 KEY ARCHITECTURAL DECISIONS:
-    - BuildAmendment: same signer as root entity advances OriginTip.
-    - Status transitions: active→closed, active→sealed.
-    - artifact_cid updates after re-encryption.
+  - BuildAmendment: same signer as root entity advances OriginTip.
+  - Status transitions: active→closed, active→sealed.
+  - artifact_cid updates after re-encryption.
+
 OVERVIEW: AmendCase → Path A amendment entry for status changes.
-KEY DEPENDENCIES: ortholog-sdk/builder
+KEY DEPENDENCIES: attesta/builder
 */
 package cases
 
@@ -14,15 +15,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // AmendmentConfig configures a case amendment.
 type AmendmentConfig struct {
-	Destination string // DID of target exchange. Required.
-	SignerDID        string            // Must be same signer as case root entity
+	Destination      string // DID of target exchange. Required.
+	SignerDID        string // Must be same signer as case root entity
 	CaseRootPos      types.LogPosition
 	AmendmentType    string // "status_change", "reassignment", "artifact_update"
 	NewStatus        string // "closed", "sealed", "reopened" (for status_change)
@@ -62,7 +63,7 @@ func AmendCase(cfg AmendmentConfig) (*envelope.Entry, error) {
 	}
 
 	return builder.BuildAmendment(builder.AmendmentParams{
-		Destination: cfg.Destination,
+		Destination:      cfg.Destination,
 		SignerDID:        cfg.SignerDID,
 		TargetRoot:       cfg.CaseRootPos,
 		Payload:          payloadBytes,

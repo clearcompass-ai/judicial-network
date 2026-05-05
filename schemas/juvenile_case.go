@@ -1,28 +1,31 @@
 /*
 FILE PATH:
-    schemas/juvenile_case.go
+
+	schemas/juvenile_case.go
 
 DESCRIPTION:
-    Defines tn-juvenile-case-v1. AES-GCM encryption, open grant mode.
-    Always vendor_specific identifier scope. Automatic sealing at disposition
-    per TCA 37-1-153 (sealing_order activation_delay=0).
+
+	Defines tn-juvenile-case-v1. AES-GCM encryption, open grant mode.
+	Always vendor_specific identifier scope. Automatic sealing at disposition
+	per TCA 37-1-153 (sealing_order activation_delay=0).
 
 KEY ARCHITECTURAL DECISIONS:
-    - Open grant mode: juvenile case filings use open authorization. Privacy
-      is structural (vendor_specific DIDs, auto-seal at disposition), not
-      grant-level access control.
-    - Auto-seal at disposition: sealing_order activation_delay=0 (immediate).
-      TCA 37-1-153 mandates automatic sealing of juvenile records upon
-      disposition. Once sealed, the sealing check in retrieve.go blocks access.
-    - vendor_specific always: juvenile identities never appear on the log.
+  - Open grant mode: juvenile case filings use open authorization. Privacy
+    is structural (vendor_specific DIDs, auto-seal at disposition), not
+    grant-level access control.
+  - Auto-seal at disposition: sealing_order activation_delay=0 (immediate).
+    TCA 37-1-153 mandates automatic sealing of juvenile records upon
+    disposition. Once sealed, the sealing check in retrieve.go blocks access.
+  - vendor_specific always: juvenile identities never appear on the log.
 
 OVERVIEW:
-    Juvenile case schema with disposition tracking and auto-seal metadata.
-    Auto-seal fields (auto_seal_authority, auto_seal_at_disposition) are
-    domain-specific — the SDK never reads them.
+
+	Juvenile case schema with disposition tracking and auto-seal metadata.
+	Auto-seal fields (auto_seal_authority, auto_seal_at_disposition) are
+	domain-specific — the SDK never reads them.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go: SchemaPosition, SchemaRegistration
+  - schemas/registry.go: SchemaPosition, SchemaRegistration
 */
 package schemas
 
@@ -111,7 +114,7 @@ func juvenileCaseRegistration() *SchemaRegistration {
 			}
 			return SerializeJuvenileCasePayload(p)
 		},
-		Deserialize: func(data []byte) (interface{}, error) { return DeserializeJuvenileCasePayload(data) },
+		Deserialize:     func(data []byte) (interface{}, error) { return DeserializeJuvenileCasePayload(data) },
 		DefaultParams:   DefaultJuvenileCaseParams,
 		IdentifierScope: IdentifierScopeVendorSpecific,
 	}

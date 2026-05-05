@@ -2,18 +2,19 @@
 FILE PATH: api/exchange/keystore/signer/signer_test.go
 
 DESCRIPTION:
-    Validation contracts for the keys/v1.Signer adapter. Drives the
-    in-memory keystore (deterministic, no external deps) and pins:
 
-      - New requires non-nil keystore + non-empty DID.
-      - New errors when the keystore has no key for the DID.
-      - Address derived once at construction matches Address derived
-        directly from the keystore's public key via
-        signatures.AddressFromPubkey.
-      - Sign returns 65-byte Ethereum-format (r || s || v) and
-        RecoverSecp256k1 over (digest, sig) returns the same public
-        key the keystore generated.
-      - DID round-trips.
+	Validation contracts for the keys/v1.Signer adapter. Drives the
+	in-memory keystore (deterministic, no external deps) and pins:
+
+	  - New requires non-nil keystore + non-empty DID.
+	  - New errors when the keystore has no key for the DID.
+	  - Address derived once at construction matches Address derived
+	    directly from the keystore's public key via
+	    signatures.AddressFromPubkey.
+	  - Sign returns 65-byte Ethereum-format (r || s || v) and
+	    RecoverSecp256k1 over (digest, sig) returns the same public
+	    key the keystore generated.
+	  - DID round-trips.
 */
 package signer
 
@@ -21,7 +22,7 @@ import (
 	"bytes"
 	"testing"
 
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )

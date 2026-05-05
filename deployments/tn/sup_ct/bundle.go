@@ -2,14 +2,15 @@
 FILE PATH: deployments/tn/sup_ct/bundle.go
 
 DESCRIPTION:
-    Tennessee Supreme Court Bundle composer. Wires the four
-    Sup Ct policy files into a single jurisdiction.Bundle.
 
-    ExchangeDID = did:web:state:tn:sc
+	Tennessee Supreme Court Bundle composer. Wires the four
+	Sup Ct policy files into a single jurisdiction.Bundle.
 
-    This is the v0.7.0 cross-exchange production deployment:
-    a TN Sup Ct registered alongside TN COA + Davidson trial
-    proves the multi-exchange model works end-to-end.
+	ExchangeDID = did:web:state:tn:sc
+
+	This is the v0.7.0 cross-exchange production deployment:
+	a TN Sup Ct registered alongside TN COA + Davidson trial
+	proves the multi-exchange model works end-to-end.
 */
 package sup_ct
 

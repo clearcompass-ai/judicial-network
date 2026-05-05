@@ -2,11 +2,12 @@
 FILE PATH: cmd/judicial-cli/keys_test.go
 
 DESCRIPTION:
-    Roundtrip + interop tests for the on-disk key file format. The
-    critical invariant: a key written by `keygen` and loaded by
-    LoadKey must produce signatures that the SDK verifies against the
-    DID encoded in the same file. Drift here would silently break
-    every walkthrough scenario.
+
+	Roundtrip + interop tests for the on-disk key file format. The
+	critical invariant: a key written by `keygen` and loaded by
+	LoadKey must produce signatures that the SDK verifies against the
+	DID encoded in the same file. Drift here would silently break
+	every walkthrough scenario.
 */
 package main
 
@@ -18,8 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	sdkdid "github.com/clearcompass-ai/ortholog-sdk/did"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	sdkdid "github.com/clearcompass-ai/attesta/did"
 )
 
 // TestKeygen_Roundtrip pins:

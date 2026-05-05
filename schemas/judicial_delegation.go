@@ -2,46 +2,48 @@
 FILE PATH: schemas/judicial_delegation.go
 
 DESCRIPTION:
-    judicial-delegation-v1 — the single canonical entry shape for
-    every authority grant in the judicial network. Replaces the
-    previous role-specific delegation builders (judge.go, clerk.go,
-    deputy.go) with one unified payload.
 
-    A delegation is: "X granted Y the role R with scope S, expiring
-    at E, on date D." That sentence captures the entire authority
-    graph. Walked recursively, it's the audit trail. Intersected
-    across the chain, it's the access-control list.
+	judicial-delegation-v1 — the single canonical entry shape for
+	every authority grant in the judicial network. Replaces the
+	previous role-specific delegation builders (judge.go, clerk.go,
+	deputy.go) with one unified payload.
+
+	A delegation is: "X granted Y the role R with scope S, expiring
+	at E, on date D." That sentence captures the entire authority
+	graph. Walked recursively, it's the audit trail. Intersected
+	across the chain, it's the access-control list.
 
 KEY ARCHITECTURAL DECISIONS:
-    - One entry type. Roles are programmatic (RoleCatalog), not
-      hard-coded constants. New roles are added by editing
-      court-controlled YAML — no JN code change, no schema
-      migration.
-    - Mandatory expiration. Every delegation MUST carry an
-      expires_at timestamp. The institutional DID at depth 0 is
-      treated as unrestricted (no expiration) because it has its
-      own multi-party Authority_Set governance.
-    - granter_delegation_ref documents the chain explicitly in
-      Domain Payload. The SDK's Delegation_Pointers in the Control
-      Header carries the cryptographic chain; granter_delegation_ref
-      is the domain-readable mirror so AuthorityResolver can walk
-      O(depth) without re-decoding the header.
-    - scope is a list of domain-defined string tokens. The
-      ScopeEnforcer (verification/scope_enforcement.go) intersects
-      across the chain — narrower-cannot-be-widened — and
-      AuthorityResolver enforces this at every admission gate.
-    - rationale is human-readable text published on-log for
-      transparency. Limited to 2 KiB; larger evidence (CV,
-      selection-panel scoring) goes via rationale_artifact CID.
+  - One entry type. Roles are programmatic (RoleCatalog), not
+    hard-coded constants. New roles are added by editing
+    court-controlled YAML — no JN code change, no schema
+    migration.
+  - Mandatory expiration. Every delegation MUST carry an
+    expires_at timestamp. The institutional DID at depth 0 is
+    treated as unrestricted (no expiration) because it has its
+    own multi-party Authority_Set governance.
+  - granter_delegation_ref documents the chain explicitly in
+    Domain Payload. The SDK's Delegation_Pointers in the Control
+    Header carries the cryptographic chain; granter_delegation_ref
+    is the domain-readable mirror so AuthorityResolver can walk
+    O(depth) without re-decoding the header.
+  - scope is a list of domain-defined string tokens. The
+    ScopeEnforcer (verification/scope_enforcement.go) intersects
+    across the chain — narrower-cannot-be-widened — and
+    AuthorityResolver enforces this at every admission gate.
+  - rationale is human-readable text published on-log for
+    transparency. Limited to 2 KiB; larger evidence (CV,
+    selection-panel scoring) goes via rationale_artifact CID.
 
 OVERVIEW:
-    JudicialDelegationPayload — the Domain Payload shape.
-    Amendments (revocation, succession) are in judicial_amendments.go.
-    Marshal helpers + registry registrations are in
-    judicial_delegation_registry.go.
+
+	JudicialDelegationPayload — the Domain Payload shape.
+	Amendments (revocation, succession) are in judicial_amendments.go.
+	Marshal helpers + registry registrations are in
+	judicial_delegation_registry.go.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go (registers the schema URI)
+  - schemas/registry.go (registers the schema URI)
 */
 package schemas
 

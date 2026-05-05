@@ -2,16 +2,17 @@
 FILE PATH: api/exchange/keystore/vault/vault_keystore.go
 
 DESCRIPTION:
-    HashiCorp Vault Transit native backend for keystore.KeyStore.
-    This file owns the Config + KeyStore types, constructor, and the
-    KeyStore-interface dispatch surface for both curves (secp256k1 +
-    Ed25519). Curve-specific glue lives in vault_secp256k1.go and
-    vault_ed25519.go; HTTP plumbing lives in vault_http.go.
 
-    Vault Transit OSS supports `ecdsa-p256k1` since v1.18 (Sept 2024)
-    and `ed25519` since v1.6 (Jan 2021); production deploys run latest
-    Vault. Private keys never leave Vault; ExportForEscrow returns an
-    explicit "not exportable" error.
+	HashiCorp Vault Transit native backend for keystore.KeyStore.
+	This file owns the Config + KeyStore types, constructor, and the
+	KeyStore-interface dispatch surface for both curves (secp256k1 +
+	Ed25519). Curve-specific glue lives in vault_secp256k1.go and
+	vault_ed25519.go; HTTP plumbing lives in vault_http.go.
+
+	Vault Transit OSS supports `ecdsa-p256k1` since v1.18 (Sept 2024)
+	and `ed25519` since v1.6 (Jan 2021); production deploys run latest
+	Vault. Private keys never leave Vault; ExportForEscrow returns an
+	explicit "not exportable" error.
 */
 package vault
 
@@ -163,7 +164,7 @@ func (k *KeyStore) Destroy(did string) error {
 }
 
 // ExportForEscrow is unsupported: Vault Transit keys are non-exportable
-// by design. Operators that need escrow ceremonies must run them
+// by design. Ledgers that need escrow ceremonies must run them
 // against the in-memory keystore at bootstrap and then promote the
 // resulting envelope into Vault.
 func (k *KeyStore) ExportForEscrow(_ string) (ed25519.PrivateKey, error) {

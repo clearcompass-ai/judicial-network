@@ -2,27 +2,28 @@
 FILE PATH: api/middleware/observability/logger.go
 
 DESCRIPTION:
-    Structured per-request logging middleware. Backed by zerolog
-    (small, allocator-friendly, JSON-by-default). Every request
-    emits one log line at end-of-handler with the canonical fields:
 
-      ts          ISO 8601
-      level       info | warn | error
-      request_id  correlation ID from RequestID middleware
-      caller_did  middleware.CallerDIDFromContext
-      method      HTTP verb
-      route       static route label (closure-supplied, same as metrics)
-      path        the actual request path (per-request, NOT a metric label)
-      status      raw HTTP status code
-      latency_ms  end-to-end handler duration in ms
+	Structured per-request logging middleware. Backed by zerolog
+	(small, allocator-friendly, JSON-by-default). Every request
+	emits one log line at end-of-handler with the canonical fields:
 
-    The logger reads the request_id + caller_did from context — both
-    populated by upstream middleware (RequestID + composer Auth).
-    Empty values are omitted.
+	  ts          ISO 8601
+	  level       info | warn | error
+	  request_id  correlation ID from RequestID middleware
+	  caller_did  middleware.CallerDIDFromContext
+	  method      HTTP verb
+	  route       static route label (closure-supplied, same as metrics)
+	  path        the actual request path (per-request, NOT a metric label)
+	  status      raw HTTP status code
+	  latency_ms  end-to-end handler duration in ms
 
-    Per-caller fields go HERE (not in metrics labels) because
-    structured logs scale to high cardinality where Prometheus
-    labels do not.
+	The logger reads the request_id + caller_did from context — both
+	populated by upstream middleware (RequestID + composer Auth).
+	Empty values are omitted.
+
+	Per-caller fields go HERE (not in metrics labels) because
+	structured logs scale to high cardinality where Prometheus
+	labels do not.
 */
 package observability
 
@@ -76,7 +77,7 @@ func LoggerMiddleware(logger zerolog.Logger, routeFn func() string) func(http.Ha
 
 // chooseLevel maps the response status to a log level: 5xx → error,
 // 4xx → warn, everything else → info. Aligns log severity with what
-// an operator would expect to act on.
+// an ledger would expect to act on.
 func chooseLevel(logger zerolog.Logger, status int) *zerolog.Event {
 	switch {
 	case status >= 500:

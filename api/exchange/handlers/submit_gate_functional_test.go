@@ -2,18 +2,19 @@
 FILE PATH: api/exchange/handlers/submit_gate_functional_test.go
 
 DESCRIPTION:
-    Functional integration tests for the SubmitGate, exercised
-    through EntrySubmitHandler.ServeHTTP. Cover the four
-    user-visible scenarios:
 
-      1. Pre-3E.4 backward compat — when SubmitGate is nil, the
-         handler is a pure proxy. Existing test exercises this;
-         here we re-confirm the proxy stays untouched.
-      2. Stub gate accepts → request reaches the operator.
-      3. Stub gate rejects → handler returns 403 with the gate's
-         Code in the body.
-      4. Stub gate handles deserialize errors gracefully on
-         malformed bodies → 400.
+	Functional integration tests for the SubmitGate, exercised
+	through EntrySubmitHandler.ServeHTTP. Cover the four
+	user-visible scenarios:
+
+	  1. Pre-3E.4 backward compat — when SubmitGate is nil, the
+	     handler is a pure proxy. Existing test exercises this;
+	     here we re-confirm the proxy stays untouched.
+	  2. Stub gate accepts → request reaches the ledger.
+	  3. Stub gate rejects → handler returns 403 with the gate's
+	     Code in the body.
+	  4. Stub gate handles deserialize errors gracefully on
+	     malformed bodies → 400.
 */
 package handlers
 
@@ -27,8 +28,8 @@ import (
 )
 
 // makeSubmitDeps wires a Dependencies with a stub gate and a
-// throwaway operator endpoint that the test fakes via
-// httptest.Server. Returns the handler + the operator's
+// throwaway ledger endpoint that the test fakes via
+// httptest.Server. Returns the handler + the ledger's
 // requested-url channel so tests can assert on forwarding.
 func makeSubmitDeps(t *testing.T, gate SubmitGater) (*EntrySubmitHandler, *httptest.Server, chan string) {
 	t.Helper()
@@ -39,7 +40,7 @@ func makeSubmitDeps(t *testing.T, gate SubmitGater) (*EntrySubmitHandler, *httpt
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"accepted":true}`))
 	}))
-	deps := &Dependencies{OperatorEndpoint: op.URL, SubmitGate: gate}
+	deps := &Dependencies{LedgerEndpoint: op.URL, SubmitGate: gate}
 	return NewEntrySubmitHandler(deps), op, hits
 }
 
@@ -54,7 +55,7 @@ func opaqueBytes() []byte {
 
 // ─── pre-3E.4 backward compat: nil gate forwards proxy ────────────
 
-func TestSubmit_NoGate_ProxiesToOperator(t *testing.T) {
+func TestSubmit_NoGate_ProxiesToLedger(t *testing.T) {
 	h, op, hits := makeSubmitDeps(t, nil)
 	defer op.Close()
 
@@ -73,13 +74,13 @@ func TestSubmit_NoGate_ProxiesToOperator(t *testing.T) {
 			t.Errorf("body forwarded drift: got %q want %q", got, string(body))
 		}
 	default:
-		t.Error("operator did not receive the forwarded body")
+		t.Error("ledger did not receive the forwarded body")
 	}
 }
 
-// ─── gate accepts → request reaches operator ─────────────────────
+// ─── gate accepts → request reaches ledger ─────────────────────
 
-func TestSubmit_GateAccepts_ForwardsToOperator(t *testing.T) {
+func TestSubmit_GateAccepts_ForwardsToLedger(t *testing.T) {
 	h, op, hits := makeSubmitDeps(t, stubGater{rej: nil})
 	defer op.Close()
 
@@ -96,7 +97,7 @@ func TestSubmit_GateAccepts_ForwardsToOperator(t *testing.T) {
 	select {
 	case <-hits:
 	default:
-		t.Error("operator should have received the forwarded entry")
+		t.Error("ledger should have received the forwarded entry")
 	}
 }
 
@@ -121,7 +122,7 @@ func TestSubmit_GateRejects_403WithCode(t *testing.T) {
 	}
 	select {
 	case <-hits:
-		t.Error("operator must NOT receive a rejected entry")
+		t.Error("ledger must NOT receive a rejected entry")
 	default:
 	}
 }

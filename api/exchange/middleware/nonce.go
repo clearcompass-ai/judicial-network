@@ -2,37 +2,38 @@
 FILE PATH: api/exchange/middleware/nonce.go
 
 DESCRIPTION:
-    HTTP middleware that gates exchange endpoints on nonce uniqueness.
-    Per ortholog-sdk/APPLY-destination-binding.md, NonceStore protects
-    non-log-entry traffic — the request paths log dedup does not cover:
-        - Sealed-record reads
-        - Certified-copy delivery / notifications
-        - Control-plane mutations (key rotation, webhook registration)
-    The middleware reads a nonce from a header, reserves it via the
-    SDK's NonceStore.Reserve, and rejects on collision or
-    infrastructure failure.
+
+	HTTP middleware that gates exchange endpoints on nonce uniqueness.
+	Per attesta/APPLY-destination-binding.md, NonceStore protects
+	non-log-entry traffic — the request paths log dedup does not cover:
+	    - Sealed-record reads
+	    - Certified-copy delivery / notifications
+	    - Control-plane mutations (key rotation, webhook registration)
+	The middleware reads a nonce from a header, reserves it via the
+	SDK's NonceStore.Reserve, and rejects on collision or
+	infrastructure failure.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Strict-forever semantics: a reserved nonce stays reserved.
-      Replay rejection is permanent. NonceStore does NOT garbage-
-      collect — that is by design (see ortholog-sdk/exchange/auth
-      package godoc).
-    - Endpoint-scoped namespacing: the middleware namespaces every
-      reservation as `<scope>::<nonce>` so the same client-supplied
-      nonce can be reused across distinct endpoints (sealed-read vs
-      certified-copy) without colliding. The scope is fixed at
-      construction time per route — distinct scope = distinct
-      replay-defense surface.
-    - Configurable header name (default "X-Ortholog-Nonce"). Empty
-      header → 400 with code `nonce_missing`.
-    - Stable JSON 4xx error codes: nonce_missing | nonce_replayed |
-      nonce_store_unavailable | nonce_misconfig.
-    - Composes upstream of any handler that mutates state or returns
-      sensitive data; composes downstream of freshness.go (the
-      request must be fresh AND have a unique nonce).
+  - Strict-forever semantics: a reserved nonce stays reserved.
+    Replay rejection is permanent. NonceStore does NOT garbage-
+    collect — that is by design (see attesta/exchange/auth
+    package godoc).
+  - Endpoint-scoped namespacing: the middleware namespaces every
+    reservation as `<scope>::<nonce>` so the same client-supplied
+    nonce can be reused across distinct endpoints (sealed-read vs
+    certified-copy) without colliding. The scope is fixed at
+    construction time per route — distinct scope = distinct
+    replay-defense surface.
+  - Configurable header name (default "X-Attesta-Nonce"). Empty
+    header → 400 with code `nonce_missing`.
+  - Stable JSON 4xx error codes: nonce_missing | nonce_replayed |
+    nonce_store_unavailable | nonce_misconfig.
+  - Composes upstream of any handler that mutates state or returns
+    sensitive data; composes downstream of freshness.go (the
+    request must be fresh AND have a unique nonce).
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/exchange/auth: NonceStore interface + sentinels.
+  - attesta/exchange/auth: NonceStore interface + sentinels.
 */
 package middleware
 
@@ -42,12 +43,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
+	"github.com/clearcompass-ai/attesta/exchange/auth"
 )
 
 // DefaultNonceHeader is the request header name read by the
 // NonceMiddleware when no override is set.
-const DefaultNonceHeader = "X-Ortholog-Nonce"
+const DefaultNonceHeader = "X-Attesta-Nonce"
 
 // NonceConfig parameterizes a single endpoint's nonce gate. Scope
 // MUST be non-empty; HeaderName empty → DefaultNonceHeader.
@@ -68,10 +69,10 @@ type NonceConfig struct {
 type nonceCode string
 
 const (
-	codeNonceMissing      nonceCode = "nonce_missing"
-	codeNonceReplayed     nonceCode = "nonce_replayed"
-	codeNonceUnavailable  nonceCode = "nonce_store_unavailable"
-	codeNonceMisconfig    nonceCode = "nonce_misconfig"
+	codeNonceMissing     nonceCode = "nonce_missing"
+	codeNonceReplayed    nonceCode = "nonce_replayed"
+	codeNonceUnavailable nonceCode = "nonce_store_unavailable"
+	codeNonceMisconfig   nonceCode = "nonce_misconfig"
 )
 
 // nonceRejectionBody mirrors the freshness rejection shape so SIEM

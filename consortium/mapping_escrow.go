@@ -2,49 +2,50 @@
 FILE PATH: consortium/mapping_escrow.go
 
 DESCRIPTION:
-    Vendor-DID ↔ real-DID mapping escrow for the consortium layer.
-    v7.75-aligned: uses Pedersen-VSS-backed StoreMappingV2 (and the
-    paired ReconstructV2) so every issued share is bound to an
-    on-log commitment entry that recipients verify before reconstruct.
-    Replaces the V1 plain-Shamir path that had no substitution
-    defense.
+
+	Vendor-DID ↔ real-DID mapping escrow for the consortium layer.
+	v7.75-aligned: uses Pedersen-VSS-backed StoreMappingV2 (and the
+	paired ReconstructV2) so every issued share is bound to an
+	on-log commitment entry that recipients verify before reconstruct.
+	Replaces the V1 plain-Shamir path that had no substitution
+	defense.
 
 KEY ARCHITECTURAL DECISIONS:
-    - StoreMappingV2 produces an EscrowSplitCommitment + signed
-      Path A commentary entry atomically (ADR-005 §3.5). The
-      manager surfaces both on the result so the caller can submit
-      the commitment entry to the log alongside the share
-      distribution. Atomicity is structural: a result with
-      Stored/EncShares/Commitment populated implies CommitmentEntry
-      is non-nil. The wrapper preserves the invariant.
-    - ReconstructV2 verifies each share against the published
-      commitment polynomial before Lagrange combination. A
-      substituted share is detected at reconstruct time, not at
-      application-decrypt time when symptoms surface.
-    - Backwards compatibility: pre-Wave-1 callers that need the V1
-      plain-Shamir path call escrow.SplitGF256 / ReconstructGF256
-      directly. The consortium manager is V2-only by design — the
-      vendor-DID mapping is the precise threat surface where
-      substitution defense matters most (mis-mapping a sealed
-      identity to the wrong vendor DID is catastrophic).
+  - StoreMappingV2 produces an EscrowSplitCommitment + signed
+    Path A commentary entry atomically (ADR-005 §3.5). The
+    manager surfaces both on the result so the caller can submit
+    the commitment entry to the log alongside the share
+    distribution. Atomicity is structural: a result with
+    Stored/EncShares/Commitment populated implies CommitmentEntry
+    is non-nil. The wrapper preserves the invariant.
+  - ReconstructV2 verifies each share against the published
+    commitment polynomial before Lagrange combination. A
+    substituted share is detected at reconstruct time, not at
+    application-decrypt time when symptoms surface.
+  - Backwards compatibility: pre-Wave-1 callers that need the V1
+    plain-Shamir path call escrow.SplitGF256 / ReconstructGF256
+    directly. The consortium manager is V2-only by design — the
+    vendor-DID mapping is the precise threat surface where
+    substitution defense matters most (mis-mapping a sealed
+    identity to the wrong vendor DID is catastrophic).
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/crypto/escrow: SplitV2, ReconstructV2, Share,
-      EscrowSplitCommitment.
-    - ortholog-sdk/exchange/identity: MappingEscrow, StoreMappingV2,
-      StoreMappingV2Config, StoreMappingV2Result, EscrowNode,
-      EncryptedShare, MappingRecord, CredentialRef, StoredMappingV2.
+  - attesta/crypto/escrow: SplitV2, ReconstructV2, Share,
+    EscrowSplitCommitment.
+  - attesta/exchange/identity: MappingEscrow, StoreMappingV2,
+    StoreMappingV2Config, StoreMappingV2Result, EscrowNode,
+    EncryptedShare, MappingRecord, CredentialRef, StoredMappingV2.
 */
 package consortium
 
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/vss"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/escrow"
-	"github.com/clearcompass-ai/ortholog-sdk/exchange/identity"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/vss"
+	"github.com/clearcompass-ai/attesta/crypto/escrow"
+	"github.com/clearcompass-ai/attesta/exchange/identity"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // MappingEscrowManager handles vendor-DID ↔ real-DID mappings within

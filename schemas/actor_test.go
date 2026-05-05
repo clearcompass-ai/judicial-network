@@ -2,14 +2,15 @@
 FILE PATH: schemas/actor_test.go
 
 DESCRIPTION:
-    Tests for the Actor classification surface. Pins:
-      - Closed-set membership: only 1, 2, 3 are valid.
-      - ActorUnspecified (zero value) is invalid — code that omits
-        Actor produces a loud error, not a silent default.
-      - HoldsKeys is true for ActorSigner, false for everything else
-        (the property the Phase 3C cosignature-mix evaluator depends on).
-      - Stable string forms for audit logs.
-      - Stable integer values (JSON catalog round-trip contract).
+
+	Tests for the Actor classification surface. Pins:
+	  - Closed-set membership: only 1, 2, 3 are valid.
+	  - ActorUnspecified (zero value) is invalid — code that omits
+	    Actor produces a loud error, not a silent default.
+	  - HoldsKeys is true for ActorSigner, false for everything else
+	    (the property the  cosignature-mix evaluator depends on).
+	  - Stable string forms for audit logs.
+	  - Stable integer values (JSON catalog round-trip contract).
 */
 package schemas
 
@@ -107,7 +108,7 @@ func TestValidateActor(t *testing.T) {
 // TestActor_StableIntegerValues pins the integer values — the
 // dictionary's actor ordering is part of the public contract, the
 // JSON catalog encodes the int, and the aggregator's Postgres
-// schema (Phase 3E) will index on it. Renumbering would break
+// schema will index on it. Renumbering would break
 // stored catalogs and breaks audit logs.
 func TestActor_StableIntegerValues(t *testing.T) {
 	if int(ActorUnspecified) != 0 {

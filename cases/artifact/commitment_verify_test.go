@@ -2,14 +2,15 @@
 FILE PATH: cases/artifact/commitment_verify_test.go
 
 COVERAGE:
-    Wave 1 commitment verification surface in retrieve.go:
-    - VerifyArtifactCommitmentOnLog: nil fetcher, missing-on-log,
-      tamper detection, happy path
-    - The new sentinels (ErrCommitmentMissing, ErrCommitmentMismatch,
-      ErrCommitmentNotOnLog) match correctly via errors.Is
-    - The PRE-grant atomic-emission + verify wiring inside
-      RetrieveArtifact is exercised end-to-end via a real
-      lifecycle.GrantArtifactAccess round-trip
+
+	Wave 1 commitment verification surface in retrieve.go:
+	- VerifyArtifactCommitmentOnLog: nil fetcher, missing-on-log,
+	  tamper detection, happy path
+	- The new sentinels (ErrCommitmentMissing, ErrCommitmentMismatch,
+	  ErrCommitmentNotOnLog) match correctly via errors.Is
+	- The PRE-grant atomic-emission + verify wiring inside
+	  RetrieveArtifact is exercised end-to-end via a real
+	  lifecycle.GrantArtifactAccess round-trip
 */
 package artifact
 
@@ -20,11 +21,11 @@ import (
 
 	secp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -117,10 +118,11 @@ func TestVerifyArtifactCommitmentOnLog_HappyPath(t *testing.T) {
 	grantor := "did:web:exchange:grantor"
 	recipient := "did:web:exchange:recipient"
 	cid := storage.Compute([]byte("artifact-bytes"))
-	splitID, err := sdkartifact.ComputePREGrantSplitID(grantor, recipient, cid)
-	if err != nil {
-		t.Fatalf("ComputePREGrantSplitID: %v", err)
+	splitID, splitErr := sdkartifact.ComputePREGrantSplitID(grantor, recipient, cid)
+	if splitErr != nil {
+		t.Fatal(splitErr)
 	}
+	_ = splitID
 
 	commitment := &sdkartifact.PREGrantCommitment{
 		SplitID:       splitID,
@@ -168,10 +170,13 @@ func TestVerifyArtifactCommitmentOnLog_TupleMismatch_Mismatch(t *testing.T) {
 	grantorQuery := "did:web:g2"
 	recipientQuery := "did:web:r2"
 	cid := storage.Compute([]byte("artifact"))
-	splitTrue, errTrue := sdkartifact.ComputePREGrantSplitID(grantorTrue, recipientTrue, cid)
-	splitQuery, errQuery := sdkartifact.ComputePREGrantSplitID(grantorQuery, recipientQuery, cid)
-	if errTrue != nil || errQuery != nil {
-		t.Fatalf("ComputePREGrantSplitID: %v / %v", errTrue, errQuery)
+	splitTrue, err := sdkartifact.ComputePREGrantSplitID(grantorTrue, recipientTrue, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	splitQuery, err := sdkartifact.ComputePREGrantSplitID(grantorQuery, recipientQuery, cid)
+	if err != nil {
+		t.Fatal(err)
 	}
 	if splitTrue == splitQuery {
 		t.Fatal("test invariant: split IDs must differ")
@@ -223,10 +228,11 @@ func TestVerifyArtifactCommitmentOnLog_Equivocation_Surfaces(t *testing.T) {
 	// when more than one entry shares the same SplitID. Our wrapper
 	// passes that through as the wrapped fetch error (NOT a sentinel).
 	cid := storage.Compute([]byte("artifact"))
-	splitID, err := sdkartifact.ComputePREGrantSplitID("did:web:g", "did:web:r", cid)
-	if err != nil {
-		t.Fatalf("ComputePREGrantSplitID: %v", err)
+	splitID, splitErr := sdkartifact.ComputePREGrantSplitID("did:web:g", "did:web:r", cid)
+	if splitErr != nil {
+		t.Fatal(splitErr)
 	}
+	_ = splitID
 
 	fetcher := &fakeCommitmentFetcher{
 		entries: map[[32]byte][]*types.EntryWithMetadata{

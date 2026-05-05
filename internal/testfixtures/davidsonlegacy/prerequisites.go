@@ -2,40 +2,42 @@
 FILE PATH: internal/testfixtures/davidsonlegacy/prerequisites.go
 
 DESCRIPTION:
-    Test-only fixture: the legacy v1.6 Davidson prerequisite
-    policy that pairs with the legacy 6-role catalog in
-    role_catalog.go. NOT a production deployment.
 
-    Production TN counties use the simplified TN trial prereq
-    policy in deployments/tn/trial/prerequisites.go (with the
-    full §3 motion vocabulary merged in via motions_3X.go);
-    this fixture preserves the original 18-event vocabulary for
-    contract tests.
+	Test-only fixture: the legacy v1.6 Davidson prerequisite
+	policy that pairs with the legacy 6-role catalog in
+	role_catalog.go. NOT a production deployment.
 
-    The 18 event_types match the cosignature policy's vocabulary
-    plus two structural anchors (case_initiated, hearing) that
-    are not subject to Filer cosignature.
+	Production TN counties use the simplified TN trial prereq
+	policy in deployments/tn/trial/prerequisites.go (with the
+	full §3 motion vocabulary merged in via motions_3X.go);
+	this fixture preserves the original 18-event vocabulary for
+	contract tests.
 
-    Categories:
-      - case-lifecycle filings (motions, pleadings, accountings):
-        require a case_initiated ancestor in the subtree.
-      - judicial outcomes (verdict, final_judgment): require a
-        responsive_pleading or motion_state_dismissal in the
-        subtree (i.e. some merits posture before judgment).
-      - personnel events (judicial_appointment, clerk_appointment,
-        court_reporter_appointment): require the primary signer to
-        hold the matching authority scope.
-      - cross-exchange events (case_transfer_*, relay_attestation):
-        no prereqs — transfers are bootstrap-friendly.
-      - transcript_publication: ADVISORY ancestor (the dictionary
-        recommends but does not require a hearing event).
+	The 18 event_types match the cosignature policy's vocabulary
+	plus two structural anchors (case_initiated, hearing) that
+	are not subject to Filer cosignature.
+
+	Categories:
+	  - case-lifecycle filings (motions, pleadings, accountings):
+	    require a case_initiated ancestor in the subtree.
+	  - judicial outcomes (verdict, final_judgment): require a
+	    responsive_pleading or motion_state_dismissal in the
+	    subtree (i.e. some merits posture before judgment).
+	  - personnel events (judicial_appointment, clerk_appointment,
+	    court_reporter_appointment): require the primary signer to
+	    hold the matching authority scope.
+	  - cross-exchange events (case_transfer_*, relay_attestation):
+	    no prereqs — transfers are bootstrap-friendly.
+	  - transcript_publication: ADVISORY ancestor (the dictionary
+	    recommends but does not require a hearing event).
 
 OVERVIEW:
-    PrerequisiteRules        — map[event_type][]Prereq.
-    MustPrerequisitePolicy   — convenience constructor (panics).
+
+	PrerequisiteRules        — map[event_type][]Prereq.
+	MustPrerequisitePolicy   — convenience constructor (panics).
 
 KEY DEPENDENCIES:
-    - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
+  - prerequisites.Prereq / prerequisites.NewInMemoryPolicy.
 */
 package davidsonlegacy
 

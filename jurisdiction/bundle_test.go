@@ -39,8 +39,8 @@ type fakeBundle struct {
 	forceNilVocab bool
 }
 
-func (f *fakeBundle) ExchangeDID() string                      { return f.exchange }
-func (f *fakeBundle) RoleCatalog() schemas.RoleCatalog         { return f.roles }
+func (f *fakeBundle) ExchangeDID() string              { return f.exchange }
+func (f *fakeBundle) RoleCatalog() schemas.RoleCatalog { return f.roles }
 func (f *fakeBundle) CosignaturePolicy() policy.CosignatureMixPolicy {
 	return f.cosig
 }

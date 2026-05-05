@@ -2,39 +2,41 @@
 FILE PATH: deployments/tn/coa/bundle.go
 
 DESCRIPTION:
-    Tennessee Court of Appeals Bundle — the composer that wires
-    the four COA policy files into a single jurisdiction.Bundle:
 
-      RoleCatalog            — coa.MustRoleCatalog()
-                               (chief_judge, judge, court_clerk,
-                               deputy_clerk)
-      CosignaturePolicy      — coa.MustCosignaturePolicy()
-                               (10 rules covering v1.8 §7B
-                               appellate family + personnel +
-                               topology)
-      PrerequisitePolicy     — coa.MustPrerequisitePolicy()
-                               (vocabulary + per-event prereqs)
-      AppellateVocabulary    — coa.AppellateVocabulary()
-                               (v1.8 §7B closed-set enums)
-      AuthorityChainResolver — jurisdiction.NoAuthorityChainResolver()
-                               (closed-by-default placeholder;
-                               production resolver lands when
-                               the verifier registry refactor
-                               wires it through)
+	Tennessee Court of Appeals Bundle — the composer that wires
+	the four COA policy files into a single jurisdiction.Bundle:
 
-    DID convention:
-      ExchangeDID = "did:web:state:tn:coa"
+	  RoleCatalog            — coa.MustRoleCatalog()
+	                           (chief_judge, judge, court_clerk,
+	                           deputy_clerk)
+	  CosignaturePolicy      — coa.MustCosignaturePolicy()
+	                           (10 rules covering v1.8 §7B
+	                           appellate family + personnel +
+	                           topology)
+	  PrerequisitePolicy     — coa.MustPrerequisitePolicy()
+	                           (vocabulary + per-event prereqs)
+	  AppellateVocabulary    — coa.AppellateVocabulary()
+	                           (v1.8 §7B closed-set enums)
+	  AuthorityChainResolver — jurisdiction.NoAuthorityChainResolver()
+	                           (closed-by-default placeholder;
+	                           production resolver lands when
+	                           the verifier registry refactor
+	                           wires it through)
+
+	DID convention:
+	  ExchangeDID = "did:web:state:tn:coa"
 
 OVERVIEW:
-    ExchangeDID    — institutional DID constant.
-    MustBundle     — canonical Bundle factory (panics on error).
-    BundleProvider — jurisdiction.Provider for v3 plugin loading.
-    bundle         — unexported impl of jurisdiction.Bundle.
+
+	ExchangeDID    — institutional DID constant.
+	MustBundle     — canonical Bundle factory (panics on error).
+	BundleProvider — jurisdiction.Provider for v3 plugin loading.
+	bundle         — unexported impl of jurisdiction.Bundle.
 
 KEY DEPENDENCIES:
-    - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
-    - coa.{Roles, CosignatureRules, PrerequisiteRules,
-            AppellateVocabulary} (the four siblings in this dir).
+  - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
+  - coa.{Roles, CosignatureRules, PrerequisiteRules,
+    AppellateVocabulary} (the four siblings in this dir).
 */
 package coa
 

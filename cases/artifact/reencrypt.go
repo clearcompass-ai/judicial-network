@@ -1,26 +1,29 @@
 /*
 FILE PATH:
-    cases/artifact/reencrypt.go
+
+	cases/artifact/reencrypt.go
 
 DESCRIPTION:
-    Implements Tier 1 AES-GCM re-encryption for key rotation. Only AES-GCM
-    artifacts are re-encrypted — PRE transforms the access path via KFrags,
-    not the ciphertext.
+
+	Implements Tier 1 AES-GCM re-encryption for key rotation. Only AES-GCM
+	artifacts are re-encrypted — PRE transforms the access path via KFrags,
+	not the ciphertext.
 
 KEY ARCHITECTURAL DECISIONS:
-    - AES-GCM only. PRE artifacts are not re-encrypted (PRE transforms access,
-      not storage). Therefore this file uses ArtifactKeyStore only — no
-      DelegationKeyStore involvement.
-    - content_digest UNCHANGED (same plaintext). artifact_cid CHANGES (new key).
-    - Delegates to SDK lifecycle/artifact.ReEncrypt.
+  - AES-GCM only. PRE artifacts are not re-encrypted (PRE transforms access,
+    not storage). Therefore this file uses ArtifactKeyStore only — no
+    DelegationKeyStore involvement.
+  - content_digest UNCHANGED (same plaintext). artifact_cid CHANGES (new key).
+  - Delegates to SDK lifecycle/artifact.ReEncrypt.
 
 OVERVIEW:
-    Per artifact: ReEncrypt → new CT + new key → push + store.
-    Batch: semaphore concurrency, per-CID retry.
+
+	Per artifact: ReEncrypt → new CT + new key → push + store.
+	Batch: semaphore concurrency, per-CID retry.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle/artifact: ReEncrypt, KeyStore
-    - ortholog-sdk/storage: ContentStore, CID
+  - attesta/lifecycle/artifact: ReEncrypt, KeyStore
+  - attesta/storage: ContentStore, CID
 */
 package artifact
 
@@ -29,8 +32,8 @@ import (
 	"sync"
 	"time"
 
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // -------------------------------------------------------------------------------------------------

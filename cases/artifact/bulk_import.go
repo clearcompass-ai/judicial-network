@@ -1,26 +1,29 @@
 /*
 FILE PATH:
-    cases/artifact/bulk_import.go
+
+	cases/artifact/bulk_import.go
 
 DESCRIPTION:
-    Handles batch PublishArtifact operations for historical record digitization.
-    Used during court onboarding when migrating records from legacy CMS systems.
+
+	Handles batch PublishArtifact operations for historical record digitization.
+	Used during court onboarding when migrating records from legacy CMS systems.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Sequential processing with rate limiting.
-    - ContinueOnError for corrupt legacy records.
-    - Passes both keyStore (AES-GCM) and delKeyStore (PRE) through to
-      PublishArtifact. Either may be nil depending on the import schemas.
+  - Sequential processing with rate limiting.
+  - ContinueOnError for corrupt legacy records.
+  - Passes both keyStore (AES-GCM) and delKeyStore (PRE) through to
+    PublishArtifact. Either may be nil depending on the import schemas.
 
 OVERVIEW:
-    Each ImportRecord is encrypted via PublishArtifact with configurable
-    rate limiting. Progress callbacks report per-record status.
+
+	Each ImportRecord is encrypted via PublishArtifact with configurable
+	rate limiting. Progress callbacks report per-record status.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/builder: EntryFetcher
-    - ortholog-sdk/lifecycle/artifact: KeyStore
-    - ortholog-sdk/storage: ContentStore
-    - DelegationKeyStore (defined in publish.go)
+  - attesta/builder: EntryFetcher
+  - attesta/lifecycle/artifact: KeyStore
+  - attesta/storage: ContentStore
+  - DelegationKeyStore (defined in publish.go)
 */
 package artifact
 
@@ -28,11 +31,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // -------------------------------------------------------------------------------------------------

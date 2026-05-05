@@ -2,29 +2,31 @@
 FILE PATH: deployments/tn/counties/davidson/bundle.go
 
 DESCRIPTION:
-    Davidson County Bundle — a thin composer over the shared TN
-    trial framework (deployments/tn/trial/). Davidson contributes
-    ONLY its ExchangeDID; every policy method delegates to the
-    framework so all 95 TN counties stay in lockstep on roles,
-    cosignature mix, prerequisites, and appellate vocabulary.
 
-    Why a composer pattern: each new TN county becomes a ~30-line
-    Bundle (this file shape × 95 counties = 95 small files,
-    instead of 95 copies of the policy fixtures).
+	Davidson County Bundle — a thin composer over the shared TN
+	trial framework (deployments/tn/trial/). Davidson contributes
+	ONLY its ExchangeDID; every policy method delegates to the
+	framework so all 95 TN counties stay in lockstep on roles,
+	cosignature mix, prerequisites, and appellate vocabulary.
 
-    DID convention:
-        State courts:   did:web:state:tn:<court-id>
-        Federal courts: did:web:fed:<level>:<court-id>
+	Why a composer pattern: each new TN county becomes a ~30-line
+	Bundle (this file shape × 95 counties = 95 small files,
+	instead of 95 copies of the policy fixtures).
+
+	DID convention:
+	    State courts:   did:web:state:tn:<court-id>
+	    Federal courts: did:web:fed:<level>:<court-id>
 
 OVERVIEW:
-    ExchangeDID    — institutional DID constant.
-    MustBundle     — canonical Bundle factory (panics on error).
-    BundleProvider — jurisdiction.Provider for v3 plugin loading.
-    bundle         — unexported impl of jurisdiction.Bundle.
+
+	ExchangeDID    — institutional DID constant.
+	MustBundle     — canonical Bundle factory (panics on error).
+	BundleProvider — jurisdiction.Provider for v3 plugin loading.
+	bundle         — unexported impl of jurisdiction.Bundle.
 
 KEY DEPENDENCIES:
-    - deployments/tn/trial  (the shared TN trial framework).
-    - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
+  - deployments/tn/trial  (the shared TN trial framework).
+  - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
 */
 package davidson
 
@@ -52,10 +54,10 @@ type bundle struct {
 	preqs   prerequisites.Policy
 }
 
-func (b *bundle) ExchangeDID() string                              { return ExchangeDID }
-func (b *bundle) RoleCatalog() schemas.RoleCatalog                 { return b.catalog }
-func (b *bundle) CosignaturePolicy() policy.CosignatureMixPolicy   { return b.cosig }
-func (b *bundle) PrerequisitePolicy() prerequisites.Policy         { return b.preqs }
+func (b *bundle) ExchangeDID() string                            { return ExchangeDID }
+func (b *bundle) RoleCatalog() schemas.RoleCatalog               { return b.catalog }
+func (b *bundle) CosignaturePolicy() policy.CosignatureMixPolicy { return b.cosig }
+func (b *bundle) PrerequisitePolicy() prerequisites.Policy       { return b.preqs }
 
 // authorityChainResolver is the package-level wiring point for
 // the production verifier-backed resolver. Defaults to

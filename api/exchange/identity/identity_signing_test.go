@@ -2,13 +2,14 @@
 FILE PATH: api/exchange/identity/identity_signing_test.go
 
 DESCRIPTION:
-    Tests for SignRequest, TypedDataDisplay, and EIP712Field
-    validation. Pins the contract that:
-      - signing requests for court actions require typed-data
-        display (so the wallet shows the user what they sign);
-      - the typed-data display has a domain separator (Name +
-        Version + Salt) — cross-court replay is structurally
-        impossible.
+
+	Tests for SignRequest, TypedDataDisplay, and EIP712Field
+	validation. Pins the contract that:
+	  - signing requests for court actions require typed-data
+	    display (so the wallet shows the user what they sign);
+	  - the typed-data display has a domain separator (Name +
+	    Version + Salt) — cross-court replay is structurally
+	    impossible.
 */
 package identity
 
@@ -176,6 +177,6 @@ func TestTypedDataDisplay_DistinctSaltsAreDistinctDomains(t *testing.T) {
 	}
 
 	// Cross-court replay defense lives in the digest computation
-	// (Phase 2C.5); this test pins that the Display structure
+	// (.5); this test pins that the Display structure
 	// distinguishes the two courts at the typed-data layer.
 }

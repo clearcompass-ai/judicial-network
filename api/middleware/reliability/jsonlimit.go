@@ -2,21 +2,22 @@
 FILE PATH: api/middleware/reliability/jsonlimit.go
 
 DESCRIPTION:
-    Per-request body size limit. Wraps r.Body with http.MaxBytesReader
-    so handlers cannot be coerced into reading multi-gigabyte JSON
-    blobs into memory. JN handlers parse JSON via json.Decoder which
-    naturally reads from r.Body — once the wrapper is in place every
-    decoder call inherits the limit.
 
-    The default cap is 1 MiB which fits every JN request shape with
-    headroom (the largest is a filing with a base64-encoded artifact
-    up to ~750 KiB plaintext). Configurable per-deploy when a
-    legitimate larger body is needed (bulk import via the operator's
-    own surface, never through the API).
+	Per-request body size limit. Wraps r.Body with http.MaxBytesReader
+	so handlers cannot be coerced into reading multi-gigabyte JSON
+	blobs into memory. JN handlers parse JSON via json.Decoder which
+	naturally reads from r.Body — once the wrapper is in place every
+	decoder call inherits the limit.
 
-    A request that exceeds the cap surfaces as a 413 Payload Too
-    Large response written by the wrapper itself; the downstream
-    handler never sees the oversized body.
+	The default cap is 1 MiB which fits every JN request shape with
+	headroom (the largest is a filing with a base64-encoded artifact
+	up to ~750 KiB plaintext). Configurable per-deploy when a
+	legitimate larger body is needed (bulk import via the ledger's
+	own surface, never through the API).
+
+	A request that exceeds the cap surfaces as a 413 Payload Too
+	Large response written by the wrapper itself; the downstream
+	handler never sees the oversized body.
 */
 package reliability
 

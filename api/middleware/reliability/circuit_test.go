@@ -2,12 +2,13 @@
 FILE PATH: api/middleware/reliability/circuit_test.go
 
 DESCRIPTION:
-    Pins the three-state circuit breaker:
-      Closed → consecutive failures → Open
-      Open   → fast-fail with ErrCircuitOpen until cooldown elapses
-      Open   → cooldown elapsed → next call is HalfOpen
-      HalfOpen → ProbeWindow successes → Closed
-      HalfOpen → first failure → Open
+
+	Pins the three-state circuit breaker:
+	  Closed → consecutive failures → Open
+	  Open   → fast-fail with ErrCircuitOpen until cooldown elapses
+	  Open   → cooldown elapsed → next call is HalfOpen
+	  HalfOpen → ProbeWindow successes → Closed
+	  HalfOpen → first failure → Open
 */
 package reliability
 

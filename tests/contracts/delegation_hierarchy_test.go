@@ -2,22 +2,23 @@
 FILE PATH: tests/contracts/delegation_hierarchy_test.go
 
 DESCRIPTION:
-    End-to-end contract tests for the Davidson hierarchy:
-    institutional → chief_justice → judge → court_clerk. Pin that
-    the unified judicial-delegation-v1 schema, the IdentityProvider
-    signing path, the SDK envelope, the AuthorityResolver chain
-    walker, and the role catalog all agree on:
 
-      - 3-hop chain Resolves with depth=3 and OK=true.
-      - Scope tokens granted at every hop intersect to the leaf's
-        effective set.
-      - The signed canonical bytes round-trip through the SDK
-        envelope decoder (no wire-format drift between the writer
-        and the reader).
-      - Mandatory expiration is enforced end-to-end (the resolver
-        rejects an expired tip).
-      - A 4-hop chain (institutional → CJ → judge → clerk → staff)
-        is rejected for exceeding MaxDelegationDepth=3.
+	End-to-end contract tests for the Davidson hierarchy:
+	institutional → chief_justice → judge → court_clerk. Pin that
+	the unified judicial-delegation-v1 schema, the IdentityProvider
+	signing path, the SDK envelope, the AuthorityResolver chain
+	walker, and the role catalog all agree on:
+
+	  - 3-hop chain Resolves with depth=3 and OK=true.
+	  - Scope tokens granted at every hop intersect to the leaf's
+	    effective set.
+	  - The signed canonical bytes round-trip through the SDK
+	    envelope decoder (no wire-format drift between the writer
+	    and the reader).
+	  - Mandatory expiration is enforced end-to-end (the resolver
+	    rejects an expired tip).
+	  - A 4-hop chain (institutional → CJ → judge → clerk → staff)
+	    is rejected for exceeding MaxDelegationDepth=3.
 */
 package contracts
 

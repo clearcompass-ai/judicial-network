@@ -2,20 +2,22 @@
 FILE PATH: deployments/TEMPLATE/rules/cosignature_mix.go
 
 DESCRIPTION:
-    TEMPLATE deployment — cosignature-mix policy skeleton. The
-    skeleton ships ONE rule for `case_initiated` (the only event
-    every Bundle must accept) — the minimum needed for
-    jurisdiction.Validate to pass.
 
-    Real deployments expand to cover their full event vocabulary:
-    motions, judicial outcomes, personnel events, etc. See
-    deployments/tn/trial/cosignature_mix.go for a 16-rule TN trial
-    reference and deployments/tn/coa/cosignature_mix.go for a 10-
-    rule TN COA reference.
+	TEMPLATE deployment — cosignature-mix policy skeleton. The
+	skeleton ships ONE rule for `case_initiated` (the only event
+	every Bundle must accept) — the minimum needed for
+	jurisdiction.Validate to pass.
+
+	Real deployments expand to cover their full event vocabulary:
+	motions, judicial outcomes, personnel events, etc. See
+	deployments/tn/trial/cosignature_mix.go for a 16-rule TN trial
+	reference and deployments/tn/coa/cosignature_mix.go for a 10-
+	rule TN COA reference.
 
 OVERVIEW:
-    CosignatureRules         — slice of CosignatureRule.
-    MustCosignaturePolicy    — convenience constructor (panics).
+
+	CosignatureRules         — slice of CosignatureRule.
+	MustCosignaturePolicy    — convenience constructor (panics).
 */
 package rules
 

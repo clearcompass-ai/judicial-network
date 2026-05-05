@@ -2,14 +2,15 @@
 FILE PATH: api/exchange/keystore/vault/vault_secp256k1.go
 
 DESCRIPTION:
-    secp256k1 surface for the Vault Transit backend. The protocol curve
-    is secp256k1 with SignCompact wire format (recoveryByte || R || S,
-    65 bytes); Vault returns DER-marshaled (R, S) so we recover the
-    byte by trying both v values against the known public key.
 
-    S is canonicalized to low form (BIP-62) so the recovery byte
-    matches what the SDK and Privy emit — keeping the wire shape
-    consistent across custody backends.
+	secp256k1 surface for the Vault Transit backend. The protocol curve
+	is secp256k1 with SignCompact wire format (recoveryByte || R || S,
+	65 bytes); Vault returns DER-marshaled (R, S) so we recover the
+	byte by trying both v values against the known public key.
+
+	S is canonicalized to low form (BIP-62) so the recovery byte
+	matches what the SDK and Privy emit — keeping the wire shape
+	consistent across custody backends.
 */
 package vault
 

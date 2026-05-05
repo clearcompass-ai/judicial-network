@@ -2,9 +2,10 @@
 FILE PATH: deployments/TEMPLATE/rules/appellate_test.go
 
 DESCRIPTION:
-    Tests for the TEMPLATE AppellateVocabulary. Pins the
-    trial-only contract: non-nil return + every closed set is
-    empty.
+
+	Tests for the TEMPLATE AppellateVocabulary. Pins the
+	trial-only contract: non-nil return + every closed set is
+	empty.
 */
 package rules
 

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -28,8 +28,8 @@ func TestCaseStatusAmendment_CarriesStatus(t *testing.T) {
 
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  courtDID,
-		TargetRoot: casePos,
+		SignerDID:   courtDID,
+		TargetRoot:  casePos,
 		Payload: mustJSON(t, map[string]any{
 			"status":      "disposed",
 			"disposition": "guilty_plea",
@@ -59,9 +59,9 @@ func TestEvidenceChain_MultipleAmendments(t *testing.T) {
 	// First amendment: initial filing.
 	a1, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  courtDID,
-		TargetRoot: casePos,
-		Payload:    mustJSON(t, map[string]any{"event": "initial_filing", "seq": 1}),
+		SignerDID:   courtDID,
+		TargetRoot:  casePos,
+		Payload:     mustJSON(t, map[string]any{"event": "initial_filing", "seq": 1}),
 	})
 	if err != nil {
 		t.Fatalf("a1: %v", err)
@@ -70,9 +70,9 @@ func TestEvidenceChain_MultipleAmendments(t *testing.T) {
 	// Second amendment: evidence submitted.
 	a2, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  courtDID,
-		TargetRoot: casePos,
-		Payload:    mustJSON(t, map[string]any{"event": "evidence_submitted", "seq": 2}),
+		SignerDID:   courtDID,
+		TargetRoot:  casePos,
+		Payload:     mustJSON(t, map[string]any{"event": "evidence_submitted", "seq": 2}),
 	})
 	if err != nil {
 		t.Fatalf("a2: %v", err)
@@ -81,9 +81,9 @@ func TestEvidenceChain_MultipleAmendments(t *testing.T) {
 	// Third amendment: hearing held.
 	a3, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: "did:web:exchange.test",
-		SignerDID:  courtDID,
-		TargetRoot: casePos,
-		Payload:    mustJSON(t, map[string]any{"event": "hearing_held", "seq": 3}),
+		SignerDID:   courtDID,
+		TargetRoot:  casePos,
+		Payload:     mustJSON(t, map[string]any{"event": "hearing_held", "seq": 3}),
 	})
 	if err != nil {
 		t.Fatalf("a3: %v", err)
@@ -116,7 +116,7 @@ func TestDelegationChainVerification_PathBShape(t *testing.T) {
 
 	// Judge acts via 2-hop delegation chain.
 	entry, err := builder.BuildPathBEntry(builder.PathBParams{
-		Destination: "did:web:exchange.test",
+		Destination:        "did:web:exchange.test",
 		SignerDID:          judgeDID,
 		TargetRoot:         casePos,
 		DelegationPointers: []types.LogPosition{deleg1, deleg2},
@@ -144,7 +144,7 @@ func TestDelegationChainVerification_PathBShape(t *testing.T) {
 
 func TestSealingCheck_EnforcementDetectable(t *testing.T) {
 	entry, err := builder.BuildEnforcement(builder.EnforcementParams{
-		Destination: "did:web:exchange.test",
+		Destination:  "did:web:exchange.test",
 		SignerDID:    judgeDID,
 		TargetRoot:   types.LogPosition{LogDID: casesLogDID, Sequence: 100},
 		ScopePointer: types.LogPosition{LogDID: casesLogDID, Sequence: 1},
@@ -182,13 +182,13 @@ func TestAppellateHistory_CrossLogReference(t *testing.T) {
 	}
 
 	entry, err := builder.BuildAmendment(builder.AmendmentParams{
-		Destination: "did:web:exchange.test",
+		Destination:      "did:web:exchange.test",
 		SignerDID:        courtDID,
 		TargetRoot:       casePos,
 		EvidencePointers: []types.LogPosition{appellateRef},
 		Payload: mustJSON(t, map[string]any{
-			"status":        "remanded",
-			"appellate_ref": appellateRef.String(),
+			"status":             "remanded",
+			"appellate_ref":      appellateRef.String(),
 			"appellate_decision": "reversed_and_remanded",
 		}),
 	})
@@ -211,8 +211,8 @@ func TestBackgroundCheck_MultiLogEntries(t *testing.T) {
 	// Simulate entries from two different county logs.
 	davidson, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:courts.nashville.gov",
-		Payload:   mustJSON(t, map[string]any{"docket": "2027-CR-4471", "county": "davidson"}),
+		SignerDID:   "did:web:courts.nashville.gov",
+		Payload:     mustJSON(t, map[string]any{"docket": "2027-CR-4471", "county": "davidson"}),
 	})
 	if err != nil {
 		t.Fatalf("davidson: %v", err)
@@ -220,8 +220,8 @@ func TestBackgroundCheck_MultiLogEntries(t *testing.T) {
 
 	shelby, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: "did:web:exchange.test",
-		SignerDID: "did:web:courts.memphis.gov",
-		Payload:   mustJSON(t, map[string]any{"docket": "2027-CR-9901", "county": "shelby"}),
+		SignerDID:   "did:web:courts.memphis.gov",
+		Payload:     mustJSON(t, map[string]any{"docket": "2027-CR-9901", "county": "shelby"}),
 	})
 	if err != nil {
 		t.Fatalf("shelby: %v", err)

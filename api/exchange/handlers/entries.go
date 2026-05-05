@@ -2,37 +2,39 @@
 FILE PATH: exchange/handlers/entries.go
 
 DESCRIPTION:
-    Entry lifecycle handlers: build → sign → submit. The exchange
-    holds the private key, builds entries via SDK builders, signs
-    with the custodied key, and forwards to the operator.
 
-    Five endpoints:
-      POST /v1/entries/build             → SDK Build* → unsigned entry bytes
-      POST /v1/entries/sign              → sign with custodied key
-      POST /v1/entries/submit            → forward signed bytes to operator
-      POST /v1/entries/build-sign-submit → all three in one call
-      GET  /v1/entries/status/{hash}     → submission tracking
+	Entry lifecycle handlers: build → sign → submit. The exchange
+	holds the private key, builds entries via SDK builders, signs
+	with the custodied key, and forwards to the ledger.
+
+	Five endpoints:
+	  POST /v1/entries/build             → SDK Build* → unsigned entry bytes
+	  POST /v1/entries/sign              → sign with custodied key
+	  POST /v1/entries/submit            → forward signed bytes to ledger
+	  POST /v1/entries/build-sign-submit → all three in one call
+	  GET  /v1/entries/status/{hash}     → submission tracking
 
 WAVE 1 ADMISSION GATEKEEPER:
-    Per ortholog-sdk/docs/implementation-obligations.md ("Exchange
-    Admission Gatekeeper"), the build path MUST consult a domain
-    scope_limit registry BEFORE signing. The cryptographic chain on
-    the log will eventually catch a violation at read time
-    (verification/scope_enforcement.go), but the exchange is the
-    earliest place we can refuse to sign — and refusing to sign is
-    the only place we can prevent a write that the operator would
-    otherwise accept and persist forever.
 
-    Wiring: Dependencies.ScopeChecker (nil = AllowAll, used by tests
-    that don't yet have a roster). Production deployments inject a
-    registry-backed checker so a request to issue, e.g., a sealing
-    order under a key whose scope_limit is "daily_assignment" returns
-    403 Forbidden before KeyStore.Sign is ever called.
+	Per attesta/docs/implementation-obligations.md ("Exchange
+	Admission Gatekeeper"), the build path MUST consult a domain
+	scope_limit registry BEFORE signing. The cryptographic chain on
+	the log will eventually catch a violation at read time
+	(verification/scope_enforcement.go), but the exchange is the
+	earliest place we can refuse to sign — and refusing to sign is
+	the only place we can prevent a write that the ledger would
+	otherwise accept and persist forever.
+
+	Wiring: Dependencies.ScopeChecker (nil = AllowAll, used by tests
+	that don't yet have a roster). Production deployments inject a
+	registry-backed checker so a request to issue, e.g., a sealing
+	order under a key whose scope_limit is "daily_assignment" returns
+	403 Forbidden before KeyStore.Sign is ever called.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/builder: all Build* functions (guide §11.3)
-    - exchange/keystore: Sign (key custody)
-    - exchange/auth: SignerDIDFromContext (authenticated caller)
+  - attesta/builder: all Build* functions (guide §11.3)
+  - exchange/keystore: Sign (key custody)
+  - exchange/auth: SignerDIDFromContext (authenticated caller)
 */
 package handlers
 
@@ -45,9 +47,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
@@ -63,7 +65,7 @@ import (
 // signer's scope_limit does not permit the requested builder.
 //
 // Returning a non-nil error fail-closes admission: KeyStore.Sign is
-// not called, no signing payload reaches the wire, no operator round
+// not called, no signing payload reaches the wire, no ledger round
 // trip is initiated.
 type ScopeChecker interface {
 	// Allowed returns nil iff the (signerDID, builder) pair is
@@ -149,7 +151,7 @@ func (c *InMemoryScopeChecker) Allowed(signerDID, builderName string) error {
 // admission time via jurisdiction.Registry; see submit_gate.go for the
 // dispatch path.
 type Dependencies struct {
-	OperatorEndpoint      string
+	LedgerEndpoint        string
 	ArtifactStoreEndpoint string
 	VerificationEndpoint  string
 	KeyStore              keystore.KeyStore
@@ -163,25 +165,25 @@ type Dependencies struct {
 	ScopeChecker ScopeChecker
 
 	// SubmitGate runs the per-jurisdiction validation gates on
-	// /v1/entries/submit before forwarding to the operator. nil →
+	// /v1/entries/submit before forwarding to the ledger. nil →
 	// no gate (the handler is a pure proxy, matching pre-3E.4
 	// behavior; tests / pre-bundle deployments). Production wires
 	// a real *SubmitGate that resolves the Bundle from
 	// entry.Header.Destination and runs cosig + walker checks.
 	SubmitGate SubmitGater
 
-	// OperatorBreaker fast-fails operator submits when an operator
+	// LedgerBreaker fast-fails ledger submits when an ledger
 	// outage trips the breaker. nil → no breaker; submits flow
 	// through bare. Production wires
 	// reliability.NewBreaker(reliability.DefaultCircuitConfig()).
-	OperatorBreaker *reliability.Breaker
+	LedgerBreaker *reliability.Breaker
 
-	// OperatorMetrics records per-submit latency + outcome + breaker
+	// LedgerMetrics records per-submit latency + outcome + breaker
 	// state. nil → no metrics observed (current behavior). Production
 	// wires the same observability.MetricsRegistry the composer uses
-	// for /metrics so jn_operator_submit_* metrics are scraped
+	// for /metrics so jn_ledger_submit_* metrics are scraped
 	// alongside the inbound jn_http_* RED triad.
-	OperatorMetrics *observability.OperatorSubmitMetrics
+	LedgerMetrics *observability.LedgerSubmitMetrics
 }
 
 // scopeOrAllowAll returns the configured checker or the AllowAll
@@ -258,8 +260,8 @@ func dispatchBuilder(req BuildRequest) (*envelope.Entry, error) {
 	case "root_entity":
 		return builder.BuildRootEntity(builder.RootEntityParams{
 			Destination: req.Destination,
-			SignerDID: req.SignerDID,
-			Payload:   req.DomainPayload,
+			SignerDID:   req.SignerDID,
+			Payload:     req.DomainPayload,
 		})
 	case "amendment":
 		var targetRoot types.LogPosition
@@ -268,21 +270,21 @@ func dispatchBuilder(req BuildRequest) (*envelope.Entry, error) {
 		}
 		return builder.BuildAmendment(builder.AmendmentParams{
 			Destination: req.Destination,
-			SignerDID:  req.SignerDID,
-			TargetRoot: targetRoot,
-			Payload:    req.DomainPayload,
+			SignerDID:   req.SignerDID,
+			TargetRoot:  targetRoot,
+			Payload:     req.DomainPayload,
 		})
 	case "commentary":
 		return builder.BuildCommentary(builder.CommentaryParams{
 			Destination: req.Destination,
-			SignerDID: req.SignerDID,
-			Payload:   req.DomainPayload,
+			SignerDID:   req.SignerDID,
+			Payload:     req.DomainPayload,
 		})
 	case "enforcement":
 		return builder.BuildEnforcement(builder.EnforcementParams{
 			Destination: req.Destination,
-			SignerDID: req.SignerDID,
-			Payload:   req.DomainPayload,
+			SignerDID:   req.SignerDID,
+			Payload:     req.DomainPayload,
 		})
 	default:
 		return nil, fmt.Errorf("unknown builder: %s", req.Builder)
@@ -351,16 +353,16 @@ func (h *EntrySubmitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Forward to operator via the SDK-tuned shared client
+	// Forward to ledger via the SDK-tuned shared client
 	// (sdklog.DefaultClient — RetryAfterRoundTripper + 100-conn
-	// pool). See management.go::operatorSubmitClient.
-	resp, err := operatorSubmitClient.Post(
-		h.deps.OperatorEndpoint+"/v1/entries",
+	// pool). See management.go::ledgerSubmitClient.
+	resp, err := ledgerSubmitClient.Post(
+		h.deps.LedgerEndpoint+"/v1/entries",
 		"application/octet-stream",
 		bytes.NewReader(body),
 	)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "operator unreachable")
+		writeError(w, http.StatusBadGateway, "ledger unreachable")
 		return
 	}
 	defer resp.Body.Close()
@@ -416,7 +418,7 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// header + payload) — never over a Serialize that already
 	// includes a signatures section. After signing, re-build the
 	// entry with the signature attached and Serialize the result
-	// for transport to the operator.
+	// for transport to the ledger.
 	signingPayload := envelope.SigningPayload(entry)
 	sig, err := h.deps.KeyStore.Sign(req.SignerDID, signingPayload)
 	if err != nil {
@@ -436,9 +438,9 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	signed := envelope.Serialize(signedEntry)
 
-	// Submit to operator via shared SDK-tuned client + Phase 14
-	// circuit breaker + Phase 15 metrics (when wired).
-	submitToOperatorProtected(w, h.deps, signed)
+	// Submit to ledger via shared SDK-tuned client + 
+	// circuit breaker +  metrics (when wired).
+	submitToLedgerProtected(w, h.deps, signed)
 }
 
 // ─── Status ─────────────────────────────────────────────────────────

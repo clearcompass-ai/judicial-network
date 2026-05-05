@@ -6,7 +6,7 @@
 // directly to validate entries against the SDK verifier without
 // having to construct an envelope themselves.
 //
-// The package was renamed from api/core in Phase 2 to match the URL
+// The package was renamed from api/core  to match the URL
 // prefix it serves and to avoid the misleading "core" naming —
 // nothing about this service is more "core" than the other api/
 // packages; it just verifies.
@@ -18,12 +18,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
 )
@@ -31,14 +31,14 @@ import (
 // ServerConfig configures the verification service.
 type ServerConfig struct {
 	Addr           string
-	LogQueries     map[string]sdklog.OperatorQueryAPI
+	LogQueries     map[string]sdklog.LedgerQueryAPI
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
 	BLSVerifier    cosign.BLSAggregateVerifier
 	WitnessKeys    map[string][]types.WitnessPublicKey
 	WitnessQuorum  map[string]int
-	NetworkID      cosign.NetworkID
+	WitnessNetwork map[string]cosign.NetworkID
 }
 
 // Server is the verification service HTTP server.
@@ -63,7 +63,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		BLSVerifier:    cfg.BLSVerifier,
 		WitnessKeys:    cfg.WitnessKeys,
 		WitnessQuorum:  cfg.WitnessQuorum,
-		NetworkID:      cfg.NetworkID,
+		WitnessNetwork: cfg.WitnessNetwork,
 	}
 
 	mux := http.NewServeMux()

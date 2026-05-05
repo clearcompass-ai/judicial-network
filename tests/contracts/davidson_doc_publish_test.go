@@ -2,34 +2,35 @@
 FILE PATH: tests/contracts/davidson_doc_publish_test.go
 
 DESCRIPTION:
-    Davidson County complex document publishing — end-to-end contract
-    test exercising the full JN→SDK→artifact-store pipeline.
 
-    Two flows pinned (matching Davidson schemas):
+	Davidson County complex document publishing — end-to-end contract
+	test exercising the full JN→SDK→artifact-store pipeline.
 
-      AES-GCM (routine filings, e.g. tn-criminal-case-v1):
-        plaintext → EncryptArtifact → CID → ContentStore.Push
-        ContentStore.Fetch → DecryptArtifact → plaintext
+	Two flows pinned (matching Davidson schemas):
 
-      Umbral PRE (evidence artifacts, tn-evidence-artifact-v1):
-        plaintext → GenerateDelegationKey(pkOwner) → pkDel + wrappedSkDel
-        plaintext → PRE_Encrypt(pkDel) → capsule + ciphertext
-        ContentStore.Push(cid, ciphertext)
-        delKeyStore.Store(cid, wrappedSkDel)
-        — Grant: UnwrapDelegationKey(wrapped, skOwner) → skDel
-                 PRE_GenerateKFrags(...) → KFrags → CFrags
-                 recipient: PRE_DecryptFrags(capsule, ciphertext, CFrags) → plaintext
+	  AES-GCM (routine filings, e.g. tn-criminal-case-v1):
+	    plaintext → EncryptArtifact → CID → ContentStore.Push
+	    ContentStore.Fetch → DecryptArtifact → plaintext
 
-    Architecture pin: each step routes through the SDK primitive the
-    architecture spec mandates (no domain reimplementation). The fake
-    artifact-store is a real httptest.Server speaking the SDK's
-    HTTPContentStore wire shape — proving JN's publish/fetch flow
-    works against any conforming artifact-store.
+	  Umbral PRE (evidence artifacts, tn-evidence-artifact-v1):
+	    plaintext → GenerateDelegationKey(pkOwner) → pkDel + wrappedSkDel
+	    plaintext → PRE_Encrypt(pkDel) → capsule + ciphertext
+	    ContentStore.Push(cid, ciphertext)
+	    delKeyStore.Store(cid, wrappedSkDel)
+	    — Grant: UnwrapDelegationKey(wrapped, skOwner) → skDel
+	             PRE_GenerateKFrags(...) → KFrags → CFrags
+	             recipient: PRE_DecryptFrags(capsule, ciphertext, CFrags) → plaintext
 
-    This is the test that pins "Davidson County complex document
-    publishing fully working." A regression in any layer (SDK
-    encryption, CID compute, ContentStore wire, or PRE primitives)
-    fails this test deterministically.
+	Architecture pin: each step routes through the SDK primitive the
+	architecture spec mandates (no domain reimplementation). The fake
+	artifact-store is a real httptest.Server speaking the SDK's
+	HTTPContentStore wire shape — proving JN's publish/fetch flow
+	works against any conforming artifact-store.
+
+	This is the test that pins "Davidson County complex document
+	publishing fully working." A regression in any layer (SDK
+	encryption, CID compute, ContentStore wire, or PRE primitives)
+	fails this test deterministically.
 */
 package contracts
 
@@ -42,9 +43,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/clearcompass-ai/attesta/storage"
 
 	"github.com/dustinxie/ecc"
 )
@@ -136,12 +137,12 @@ func (s *fakeArtifactStore) handle(w http.ResponseWriter, r *http.Request) {
 // filings (Motion to Dismiss, Order, Judgment).
 //
 // Steps:
-//   1. Plaintext → EncryptArtifact   (SDK)
-//   2. ciphertext → CID = storage.Compute(ciphertext)   (SDK)
-//   3. ContentStore.Push(cid, ciphertext)               (JN→artifact-store)
-//   4. ContentStore.Fetch(cid)                          (JN→artifact-store)
-//   5. fetched → DecryptArtifact(key)                    (SDK)
-//   6. assert fetched-and-decrypted == original plaintext
+//  1. Plaintext → EncryptArtifact   (SDK)
+//  2. ciphertext → CID = storage.Compute(ciphertext)   (SDK)
+//  3. ContentStore.Push(cid, ciphertext)               (JN→artifact-store)
+//  4. ContentStore.Fetch(cid)                          (JN→artifact-store)
+//  5. fetched → DecryptArtifact(key)                    (SDK)
+//  6. assert fetched-and-decrypted == original plaintext
 //
 // A single-byte drift anywhere in this chain fails the test.
 func TestDavidson_AESGCMDocumentPublish_RoundTrip(t *testing.T) {
@@ -224,27 +225,27 @@ func TestDavidson_AESGCMDocumentPublish_WrongKey_Fails(t *testing.T) {
 // TestDavidson_UmbralPREDocumentPublish_RoundTrip exercises the
 // Davidson evidence-artifact publish + grant + decrypt flow:
 //
-//   PUBLISH (e.g., detective uploads body-camera footage):
-//     1. Generate per-artifact delegation key from owner's pubkey:
-//        pkDel, wrappedSkDel := GenerateDelegationKey(pkOwner)
-//        (master key NEVER enters PRE — security pin)
-//     2. ciphertext, capsule := PRE_Encrypt(pkDel, plaintext)
-//     3. cid := storage.Compute(ciphertext)
-//     4. ContentStore.Push(cid, ciphertext)
-//     5. (caller stores wrappedSkDel in DelegationKeyStore)
+//	PUBLISH (e.g., detective uploads body-camera footage):
+//	  1. Generate per-artifact delegation key from owner's pubkey:
+//	     pkDel, wrappedSkDel := GenerateDelegationKey(pkOwner)
+//	     (master key NEVER enters PRE — security pin)
+//	  2. ciphertext, capsule := PRE_Encrypt(pkDel, plaintext)
+//	  3. cid := storage.Compute(ciphertext)
+//	  4. ContentStore.Push(cid, ciphertext)
+//	  5. (caller stores wrappedSkDel in DelegationKeyStore)
 //
-//   GRANT (prosecutor requests access):
-//     6. wrappedSkDel ← delKeyStore.Get(cid)
-//     7. skDel ← UnwrapDelegationKey(wrappedSkDel, skOwner)
-//        (HSM-resident in production; here in-memory for the test)
-//     8. KFrags := PRE_GenerateKFrags(skDel, pkRecipient, M=3, N=5)
-//     9. CFrags := PRE_ReEncrypt(KFrags, capsule) [per-fragment]
+//	GRANT (prosecutor requests access):
+//	  6. wrappedSkDel ← delKeyStore.Get(cid)
+//	  7. skDel ← UnwrapDelegationKey(wrappedSkDel, skOwner)
+//	     (HSM-resident in production; here in-memory for the test)
+//	  8. KFrags := PRE_GenerateKFrags(skDel, pkRecipient, M=3, N=5)
+//	  9. CFrags := PRE_ReEncrypt(KFrags, capsule) [per-fragment]
 //
-//   DECRYPT (prosecutor reads):
-//     10. ciphertext ← ContentStore.Fetch(cid)
-//     11. plaintext := PRE_DecryptFrags(skRecipient, capsule,
-//                                        ciphertext, CFrags[:M])
-//     12. assert plaintext == original
+//	DECRYPT (prosecutor reads):
+//	  10. ciphertext ← ContentStore.Fetch(cid)
+//	  11. plaintext := PRE_DecryptFrags(skRecipient, capsule,
+//	                                     ciphertext, CFrags[:M])
+//	  12. assert plaintext == original
 //
 // Davidson's tn-evidence-artifact-v1 schema declares
 // re_encryption_threshold: { m: 3, n: 5 } — this test uses those
@@ -384,9 +385,9 @@ func skScalar(sk *ecdsa.PrivateKey) []byte {
 // (artifactCID, key) tuple cannot retrieve the document through the
 // public path. This is the architecture-spec contract:
 //
-//   Sealed → 404 (the document might as well not exist for
-//             unauthorized readers)
-//   Expunged → 410 (the document IS deleted; key is gone)
+//	Sealed → 404 (the document might as well not exist for
+//	          unauthorized readers)
+//	Expunged → 410 (the document IS deleted; key is gone)
 //
 // The sealing check happens before the fetch in the production
 // retrieve.go path. We simulate it here with a sealed flag the

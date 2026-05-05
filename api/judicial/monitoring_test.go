@@ -2,8 +2,9 @@
 FILE PATH: api/judicial/monitoring_test.go
 
 DESCRIPTION:
-    Validation contracts for monitoring handlers (blob-availability,
-    delegation-health, anchor-freshness stub).
+
+	Validation contracts for monitoring handlers (blob-availability,
+	delegation-health, anchor-freshness stub).
 */
 package judicial
 
@@ -13,7 +14,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/storage"
 
 	"github.com/clearcompass-ai/judicial-network/monitoring"
 )

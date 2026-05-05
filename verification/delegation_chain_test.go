@@ -2,12 +2,13 @@
 FILE PATH: verification/delegation_chain_test.go
 
 COVERAGE:
-    Two-phase verification — cryptographic (Phase 1) and semantic
-    (Phase 2). Tests cover: empty chain, dead delegation surfaces in
-    FirstDead, optional ScopeEnforcer (nil keeps Phase-1-only),
-    semantic scope violation surfaces in ScopeViolation, and the
-    short-circuit that prevents Phase 2 from running when Phase 1
-    fails.
+
+	Two-phase verification — cryptographic and semantic
+. Tests cover: empty chain, dead delegation surfaces in
+	FirstDead, optional ScopeEnforcer (nil keeps -only),
+	semantic scope violation surfaces in ScopeViolation, and the
+	short-circuit that prevents  from running when 
+	fails.
 */
 package verification
 
@@ -15,10 +16,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
@@ -88,7 +89,7 @@ func mkDelegation(t *testing.T, signerDID, delegateDID, scopeJSON string) *envel
 	return entry
 }
 
-// ─── Phase 1: empty chain ───────────────────────────────────────────
+// ─── : empty chain ───────────────────────────────────────────
 
 func TestVerifyFilingDelegation_EmptyChain_AllPhasesOK(t *testing.T) {
 	res, err := VerifyFilingDelegation(nil, nil, nil, nil, nil)
@@ -115,7 +116,7 @@ func TestVerifyFilingDelegation_EmptyChain_WithEnforcer_ReportsScopeChecked(t *t
 	}
 }
 
-// ─── Phase 1 short-circuit when leafReader is unhappy ───────────────
+// ───  short-circuit when leafReader is unhappy ───────────────
 
 func TestVerifyFilingDelegation_NoEnforcer_OnlyPhase1Runs(t *testing.T) {
 	// Build a valid delegation chain of depth 1.
@@ -139,7 +140,7 @@ func TestVerifyFilingDelegation_NoEnforcer_OnlyPhase1Runs(t *testing.T) {
 	}
 }
 
-// ─── Phase 1 + Phase 2 happy path ───────────────────────────────────
+// ───  +  happy path ───────────────────────────────────
 
 func TestVerifyFilingDelegation_BothPhases_HappyPath(t *testing.T) {
 	courtDID := "did:web:courts.test.gov"
@@ -174,7 +175,7 @@ func TestVerifyFilingDelegation_BothPhases_HappyPath(t *testing.T) {
 	}
 }
 
-// ─── Phase 2 surfaces *ScopeViolation rather than error ─────────────
+// ───  surfaces *ScopeViolation rather than error ─────────────
 
 func TestVerifyFilingDelegation_ScopeViolation_ReturnsViolationFlag(t *testing.T) {
 	courtDID := "did:web:courts.test.gov"
@@ -215,7 +216,7 @@ func TestVerifyFilingDelegation_ScopeViolation_ReturnsViolationFlag(t *testing.T
 	}
 }
 
-// ─── Phase 1 short-circuits Phase 2 when chain is dead ──────────────
+// ───  short-circuits  when chain is dead ──────────────
 
 func TestVerifyFilingDelegation_DeadHop_Phase2Skipped(t *testing.T) {
 	courtDID := "did:web:courts.test.gov"
@@ -247,7 +248,7 @@ func TestVerifyFilingDelegation_DeadHop_Phase2Skipped(t *testing.T) {
 		t.Error("AllLive must be false (dead hop)")
 	}
 	if res.ScopeChecked {
-		t.Error("ScopeChecked must be false (Phase 2 short-circuited)")
+		t.Error("ScopeChecked must be false ( short-circuited)")
 	}
 	if res.FirstDead == nil {
 		t.Error("FirstDead must be populated when AllLive is false")
@@ -279,7 +280,7 @@ func TestVerifyFilingDelegation_Phase1FetcherError_DegradesToDead(t *testing.T) 
 	}
 }
 
-// ─── Phase 2 unwrapped error (non-ScopeViolation) propagates ────────
+// ───  unwrapped error (non-ScopeViolation) propagates ────────
 
 func TestVerifyFilingDelegation_Phase2InfraError_Returned(t *testing.T) {
 	courtDID := "did:web:courts.test.gov"
@@ -298,7 +299,7 @@ func TestVerifyFilingDelegation_Phase2InfraError_Returned(t *testing.T) {
 		SchemaRef:          &schemaPos,
 		DelegationPointers: []types.LogPosition{delPos},
 	}}
-	// Resolver returns infra error → Phase 2 wraps and bubbles.
+	// Resolver returns infra error →  wraps and bubbles.
 	enf := &ScopeEnforcer{
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "", errors.New("registry down") },

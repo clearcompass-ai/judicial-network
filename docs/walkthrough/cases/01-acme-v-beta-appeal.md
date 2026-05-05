@@ -1,27 +1,27 @@
 # Case 1, Act II · Appeal to TN Court of Appeals
 
 This is the centerpiece of the walkthrough. Two entries land on the
-**second operator** (`$COA`, port 8081), and one of them carries
+**second ledger** (`$COA`, port 8081), and one of them carries
 a public reference back to the trial-court entry on the **first
-operator** (`$DAVIDSON`, port 8080) — the protocol's
+ledger** (`$DAVIDSON`, port 8080) — the protocol's
 cross-exchange composition mechanism.
 
 Pre-flight: Act I (5 entries on Davidson) complete.
-`$EDWARDS`, `$CLERK` exported. You're in `~/ortholog/keys`.
+`$EDWARDS`, `$CLERK` exported. You're in `~/attesta/keys`.
 
 ## The cross-exchange seam
 
 The SDK gives every entry's `ControlHeader` a list of
 **`EvidencePointers`** — `(log_did, sequence)` tuples that name
-entries on other logs. The operator on the receiving end caps the
+entries on other logs. The ledger on the receiving end caps the
 list at 10
-([`operator/api/middleware/evidence_cap.go:20`](../../../../ortholog-operator/api/middleware/evidence_cap.go))
-but enforces nothing beyond that — it's not the operator's job to
+([`ledger/api/middleware/evidence_cap.go:20`](../../../../ledger/api/middleware/evidence_cap.go))
+but enforces nothing beyond that — it's not the ledger's job to
 verify that the cited remote entry exists or means what the citing
 entry claims. The audit is left to whoever consumes the citing
 entry. That's the "dumb writes" architecture making cross-exchange
 composition trivial: any entry can name any other entry on any
-operator's log, with no prior trust setup, no cross-credentials, no
+ledger's log, with no prior trust setup, no cross-credentials, no
 shared schema.
 
 Schema field at `sdk/core/envelope/control_header.go:127`.
@@ -65,7 +65,7 @@ judicial-cli submit --endpoint $COA --spec coa-disposition.spec.json
 
 Note the **two changes** from every previous step:
 
-1. `--endpoint $COA` — we're talking to the second operator.
+1. `--endpoint $COA` — we're talking to the second ledger.
 2. `evidence_pointers` — the cross-exchange reference.
 
 Output:
@@ -73,7 +73,7 @@ Output:
 ```
 canonical_hash=8e1d3c2f9a5b6e4d7c8f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d
 status=accepted (HTTP 202)
-sct={...COA OPERATOR SCT...}
+sct={...COA LEDGER SCT...}
 ```
 
 Wait for it to land at COA sequence 1:
@@ -86,9 +86,9 @@ state=sequenced sequence=1
 ## Step 5b — Verify the cross-pointer survived
 
 This is the moment of truth. The disposition was admitted by COA's
-operator, sequenced into COA's Merkle log, and stored in COA's GCS
+ledger, sequenced into COA's Merkle log, and stored in COA's GCS
 bucket. But the `EvidencePointers` field inside the entry header —
-naming a sequence on a *different operator's* log — should be
+naming a sequence on a *different ledger's* log — should be
 exactly what we sent.
 
 ```bash
@@ -103,8 +103,8 @@ $ judicial-cli get --endpoint $COA --seq 1 | jq '.header.evidence_pointers'
 
 There it is.
 
-**Now follow the pointer back.** The COA operator can't help you
-with this — Davidson is a different operator with no relationship
+**Now follow the pointer back.** The COA ledger can't help you
+with this — Davidson is a different ledger with no relationship
 to COA. You go to Davidson directly:
 
 ```bash
@@ -114,11 +114,11 @@ $ judicial-cli get --endpoint $DAVIDSON --seq 1 | jq '.header.signer_did, (.sign
 "did:key:zQ3sh...COOPER"
 ```
 
-You just performed an audit move that **two operators with no shared
+You just performed an audit move that **two ledgers with no shared
 state** collaborated on, mediated only by the public cross-pointer.
 This is the property the entire protocol is designed to provide:
 *citable evidence across federation boundaries with no trust setup
-between operators.*
+between ledgers.*
 
 ## Step 6 — Opinion publication (`AppellateOpinionPublicationPayload`)
 
@@ -194,17 +194,17 @@ $ curl -fsS $COA/v1/tree/head | jq '.size'
 exchanges. 1 cross-exchange reference. 2 different signing
 primitives (64-byte SDK-native + 65-byte EIP-191 wallet) coexisting
 on the same log. Every signature real. Every entry on a real
-running operator. Every step reproducible from this file alone.**
+running ledger. Every step reproducible from this file alone.**
 
 ## Why this matters
 
 In a real federated deployment — say the U.S. federal courts plus 50
 state appellate systems plus the Department of Justice plus various
-pro-bono case-tracking nonprofits — operators don't have shared
+pro-bono case-tracking nonprofits — ledgers don't have shared
 admin credentials, don't have synchronized clocks, and don't have a
 shared schema registry. What they have is the protocol: signed
 canonical bytes with cross-pointers, served over HTTP with a Merkle
-log behind every operator. This case showed that the cross-pointer
+log behind every ledger. This case showed that the cross-pointer
 half works. **Case 2 will show how the system handles the most
 delicate intra-exchange operations: sealed minor bindings, judicial
 succession, delegation revocation.**

@@ -1,17 +1,18 @@
 /*
-FILE PATH: tools/common/operator_client_test.go
+FILE PATH: tools/common/ledger_client_test.go
 
 DESCRIPTION:
-    Wire-contract tests for the SDK-backed OperatorClient shim. Stands
-    up an httptest server, exercises FetchEntry (→ /raw) and ScanFrom
-    (→ /v1/query/scan + per-row /raw), and asserts:
 
-      - FetchEntry hits /v1/entries/{seq}/raw and reads X-Sequence /
-        X-Log-Time headers per the SDK's HTTPEntryFetcher contract.
-      - ScanFrom hits /v1/query/scan, parses the SDK-canonical
-        EntryResponse JSON, and back-fills CanonicalBytes via /raw.
-      - 404 from /raw returns (nil, nil) — the standard "not found" signal.
-      - ScanFrom without a logDID returns a clear error.
+	Wire-contract tests for the SDK-backed LedgerClient shim. Stands
+	up an httptest server, exercises FetchEntry (→ /raw) and ScanFrom
+	(→ /v1/query/scan + per-row /raw), and asserts:
+
+	  - FetchEntry hits /v1/entries/{seq}/raw and reads X-Sequence /
+	    X-Log-Time headers per the SDK's HTTPEntryFetcher contract.
+	  - ScanFrom hits /v1/query/scan, parses the SDK-canonical
+	    EntryResponse JSON, and back-fills CanonicalBytes via /raw.
+	  - 404 from /raw returns (nil, nil) — the standard "not found" signal.
+	  - ScanFrom without a logDID returns a clear error.
 */
 package common
 
@@ -28,9 +29,9 @@ import (
 
 const testLogDID = "did:web:test.log"
 
-// fakeOperator is an in-process httptest server that serves /raw and
+// fakeLedger is an in-process httptest server that serves /raw and
 // /v1/query/scan with the SDK-canonical wire shapes.
-type fakeOperator struct {
+type fakeLedger struct {
 	t           *testing.T
 	rawCalls    int
 	scanCalls   int
@@ -38,9 +39,9 @@ type fakeOperator struct {
 	storedTime  map[uint64]time.Time
 }
 
-func newFakeOperator(t *testing.T) (*httptest.Server, *fakeOperator) {
+func newFakeLedger(t *testing.T) (*httptest.Server, *fakeLedger) {
 	t.Helper()
-	op := &fakeOperator{
+	op := &fakeLedger{
 		t:           t,
 		storedBytes: make(map[uint64][]byte),
 		storedTime:  make(map[uint64]time.Time),
@@ -50,7 +51,7 @@ func newFakeOperator(t *testing.T) (*httptest.Server, *fakeOperator) {
 	// SDK v0.7.75: HTTPEntryFetcher targets /v1/entries/{seq}/raw.
 	// Response: 200 + application/octet-stream + raw wire bytes.
 	// Headers: X-Sequence (uint64 decimal), X-Log-Time (RFC-3339Nano UTC).
-	// The operator stamps both per commit 8afc27b.
+	// The ledger stamps both per commit 8afc27b.
 	mux.HandleFunc("GET /v1/entries/{seq}/raw", func(w http.ResponseWriter, r *http.Request) {
 		op.rawCalls++
 		var seq uint64
@@ -97,14 +98,14 @@ func newFakeOperator(t *testing.T) (*httptest.Server, *fakeOperator) {
 // 1) FetchEntry round-trip
 // -------------------------------------------------------------------------
 
-func TestOperatorClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
-	srv, op := newFakeOperator(t)
+func TestLedgerClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
+	srv, op := newFakeLedger(t)
 	defer srv.Close()
 
 	op.storedBytes[42] = []byte{0x01, 0x02, 0x03, 0x04}
 	op.storedTime[42] = time.Date(2026, 4, 29, 12, 0, 0, 0, time.UTC)
 
-	c := NewOperatorClient(srv.URL, testLogDID)
+	c := NewLedgerClient(srv.URL, testLogDID)
 	got, err := c.FetchEntry(42)
 	if err != nil {
 		t.Fatalf("FetchEntry: %v", err)
@@ -131,11 +132,11 @@ func TestOperatorClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
 // 2) FetchEntry 404 → (nil, nil)
 // -------------------------------------------------------------------------
 
-func TestOperatorClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
-	srv, _ := newFakeOperator(t)
+func TestLedgerClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
+	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
-	c := NewOperatorClient(srv.URL, testLogDID)
+	c := NewLedgerClient(srv.URL, testLogDID)
 	got, err := c.FetchEntry(999)
 	if err != nil {
 		t.Fatalf("FetchEntry: %v", err)
@@ -149,8 +150,8 @@ func TestOperatorClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
 // 3) ScanFrom hits /v1/query/scan + back-fills bytes per row
 // -------------------------------------------------------------------------
 
-func TestOperatorClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
-	srv, op := newFakeOperator(t)
+func TestLedgerClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
+	srv, op := newFakeLedger(t)
 	defer srv.Close()
 
 	for seq, bytes := range map[uint64][]byte{
@@ -161,7 +162,7 @@ func TestOperatorClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
 		op.storedTime[seq] = time.Now().UTC()
 	}
 
-	c := NewOperatorClient(srv.URL, testLogDID)
+	c := NewLedgerClient(srv.URL, testLogDID)
 	rows, err := c.ScanFrom(0, 100)
 	if err != nil {
 		t.Fatalf("ScanFrom: %v", err)
@@ -186,11 +187,11 @@ func TestOperatorClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
 // 4) ScanFrom without a logDID fails clearly
 // -------------------------------------------------------------------------
 
-func TestOperatorClient_ScanFrom_RequiresLogDID(t *testing.T) {
-	srv, _ := newFakeOperator(t)
+func TestLedgerClient_ScanFrom_RequiresLogDID(t *testing.T) {
+	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
-	c := NewOperatorClient(srv.URL) // no logDID
+	c := NewLedgerClient(srv.URL) // no logDID
 	_, err := c.ScanFrom(0, 10)
 	if err == nil {
 		t.Fatal("expected error for ScanFrom without logDID")
@@ -204,11 +205,11 @@ func TestOperatorClient_ScanFrom_RequiresLogDID(t *testing.T) {
 // 5) TreeHead passthrough
 // -------------------------------------------------------------------------
 
-func TestOperatorClient_TreeHead_Passthrough(t *testing.T) {
-	srv, _ := newFakeOperator(t)
+func TestLedgerClient_TreeHead_Passthrough(t *testing.T) {
+	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
-	c := NewOperatorClient(srv.URL, testLogDID)
+	c := NewLedgerClient(srv.URL, testLogDID)
 	head, err := c.TreeHead()
 	if err != nil {
 		t.Fatalf("TreeHead: %v", err)
@@ -222,12 +223,12 @@ func TestOperatorClient_TreeHead_Passthrough(t *testing.T) {
 // 6) BUG #3 mirror: oversize tree-head + scan responses error out
 // -------------------------------------------------------------------------
 
-// TestOperatorClient_TreeHead_OversizeErrors pins the cap+1 overflow
-// detection added in Phase 1C.2. A 64 KiB+1024 tree-head response
-// (operator misbehavior — legitimate tree heads are ~hundreds of
+// TestLedgerClient_TreeHead_OversizeErrors pins the cap+1 overflow
+// detection added .2. A 64 KiB+1024 tree-head response
+// (ledger misbehavior — legitimate tree heads are ~hundreds of
 // bytes) surfaces a typed error instead of being silently truncated
 // to a parse failure with no attribution.
-func TestOperatorClient_TreeHead_OversizeErrors(t *testing.T) {
+func TestLedgerClient_TreeHead_OversizeErrors(t *testing.T) {
 	huge := make([]byte, (64<<10)+1024)
 	for i := range huge {
 		huge[i] = '"'
@@ -239,7 +240,7 @@ func TestOperatorClient_TreeHead_OversizeErrors(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewOperatorClient(srv.URL, testLogDID)
+	c := NewLedgerClient(srv.URL, testLogDID)
 	_, err := c.TreeHead()
 	if err == nil {
 		t.Fatal("expected error for oversize tree-head response")
@@ -249,12 +250,12 @@ func TestOperatorClient_TreeHead_OversizeErrors(t *testing.T) {
 	}
 }
 
-// TestOperatorClient_ScanFrom_OversizeErrors mirrors the same
+// TestLedgerClient_ScanFrom_OversizeErrors mirrors the same
 // contract for /v1/query/scan. The cap matches the SDK's
 // maxQueryResponseBytes (16 MiB). Build a small fake that returns
 // junk past the cap; ScanFrom must surface "exceeds" error rather
 // than truncate-and-parse-fail.
-func TestOperatorClient_ScanFrom_OversizeErrors(t *testing.T) {
+func TestLedgerClient_ScanFrom_OversizeErrors(t *testing.T) {
 	huge := make([]byte, maxScanResponseBytes+1024)
 	for i := range huge {
 		huge[i] = '"'
@@ -270,7 +271,7 @@ func TestOperatorClient_ScanFrom_OversizeErrors(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewOperatorClient(srv.URL, testLogDID)
+	c := NewLedgerClient(srv.URL, testLogDID)
 	_, err := c.ScanFrom(0, 100)
 	if err == nil {
 		t.Fatal("expected error for oversize scan response")

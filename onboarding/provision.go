@@ -2,36 +2,38 @@
 FILE PATH: onboarding/provision.go
 
 DESCRIPTION:
-    Three-log bootstrap for a new court. Composes three calls to
-    lifecycle.ProvisionSingleLog (one per log) with judicial-specific
-    filtering applied locally.
+
+	Three-log bootstrap for a new court. Composes three calls to
+	lifecycle.ProvisionSingleLog (one per log) with judicial-specific
+	filtering applied locally.
 
 KEY ARCHITECTURAL DECISIONS:
-    - The SDK provides ProvisionSingleLog for single-log provisioning.
-      Domain-specific orchestration (which delegations target which
-      logs, which schemas live on which log) is the domain's
-      responsibility. This file is where that orchestration lives
-      for the judicial network.
-    - Per-log filtering replaces the previous DelegationSpec.LogDIDs
-      and SchemaSpec.LogDID fields (removed from SDK). Officers list
-      which logs they apply to via InitialOfficer.LogTargets; schemas
-      target the cases log by judicial convention. The provisionOne
-      helper applies the filters before calling the SDK.
-    - ScopePayload carries court_did + log_did so verifiers can
-      identify both the institutional context and the specific log.
+  - The SDK provides ProvisionSingleLog for single-log provisioning.
+    Domain-specific orchestration (which delegations target which
+    logs, which schemas live on which log) is the domain's
+    responsibility. This file is where that orchestration lives
+    for the judicial network.
+  - Per-log filtering replaces the previous DelegationSpec.LogDIDs
+    and SchemaSpec.LogDID fields (removed from SDK). Officers list
+    which logs they apply to via InitialOfficer.LogTargets; schemas
+    target the cases log by judicial convention. The provisionOne
+    helper applies the filters before calling the SDK.
+  - ScopePayload carries court_did + log_did so verifiers can
+    identify both the institutional context and the specific log.
 
 OVERVIEW:
-    ProvisionCourt(cfg, registry) →
-      provisionOne(officers log)
-      provisionOne(cases log)
-      provisionOne(parties log)
-    Returns CourtProvision with three LogProvision pointers.
+
+	ProvisionCourt(cfg, registry) →
+	  provisionOne(officers log)
+	  provisionOne(cases log)
+	  provisionOne(parties log)
+	Returns CourtProvision with three LogProvision pointers.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/lifecycle: ProvisionSingleLog, SingleLogConfig,
-      DelegationSpec, SchemaSpec, LogProvision
-    - judicial-network/schemas: schema registry for resolving URIs
-    - judicial-network/topology: SpokeConfig (court + three log DIDs)
+  - attesta/lifecycle: ProvisionSingleLog, SingleLogConfig,
+    DelegationSpec, SchemaSpec, LogProvision
+  - judicial-network/schemas: schema registry for resolving URIs
+  - judicial-network/topology: SpokeConfig (court + three log DIDs)
 */
 package onboarding
 
@@ -40,9 +42,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	sdkschema "github.com/clearcompass-ai/ortholog-sdk/schema"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	sdkschema "github.com/clearcompass-ai/attesta/schema"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/topology"
@@ -95,7 +97,7 @@ type InitialOfficer struct {
 //
 // Callers iterate per-log via Officers.AllEntries(),
 // Cases.AllEntries(), Parties.AllEntries() — each returns entries
-// in submission order for that log's operator.
+// in submission order for that log's ledger.
 type CourtProvision struct {
 	Officers *lifecycle.LogProvision
 	Cases    *lifecycle.LogProvision
@@ -108,7 +110,7 @@ type CourtProvision struct {
 
 // ProvisionCourt builds all provisioning entries for a new court.
 // The returned CourtProvision carries per-log entry lists. The caller
-// submits each log's entries to the corresponding operator's API.
+// submits each log's entries to the corresponding ledger's API.
 func ProvisionCourt(cfg CourtProvisionConfig, registry *schemas.Registry) (*CourtProvision, error) {
 	if cfg.Spoke == nil {
 		return nil, fmt.Errorf("onboarding/provision: nil spoke config")
@@ -221,7 +223,7 @@ func officerTargetsLog(officer InitialOfficer, logDID string) bool {
 // buildOfficerScopeLimit produces the scope_limit JSON payload for
 // a delegation entry. Inlines the role+division shape directly;
 // the legacy tn-court-officer-v1 payload type was removed in
-// Phase 3D.cleanup-2 — the unified judicial-delegation-v1 schema
+// .cleanup-2 — the unified judicial-delegation-v1 schema
 // is now the only delegation payload format.
 func buildOfficerScopeLimit(officer InitialOfficer) []byte {
 	payload, _ := json.Marshal(map[string]any{

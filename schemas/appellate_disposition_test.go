@@ -2,10 +2,11 @@
 FILE PATH: schemas/appellate_disposition_test.go
 
 DESCRIPTION:
-    Tests for tn-appellate-disposition-v1. Covers Validate
-    happy + every rejection, serialize round-trip, registry
-    round-trip, and a functional emulation of a TN COA 3-0
-    disposition.
+
+	Tests for tn-appellate-disposition-v1. Covers Validate
+	happy + every rejection, serialize round-trip, registry
+	round-trip, and a functional emulation of a TN COA 3-0
+	disposition.
 */
 package schemas
 

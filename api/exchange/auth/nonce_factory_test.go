@@ -2,20 +2,21 @@
 FILE PATH: api/exchange/auth/nonce_factory_test.go
 
 DESCRIPTION:
-    Coverage for the NonceStore factory and the strict-forever
-    semantics. Tests four things:
 
-    1. The factory selects the right SDK backend per cfg.Backend.
-    2. The factory's per-destination namespace works — two destinations
-       sharing the same backend connection do NOT collide on identical
-       nonce values.
-    3. The freshness window is independent of replay tracking — stale
-       timestamps fail before reservation.
-    4. The strict-forever contract holds: a once-reserved nonce stays
-       reserved forever (no TTL pruning behind our back).
+	Coverage for the NonceStore factory and the strict-forever
+	semantics. Tests four things:
 
-    Redis-backed paths exercise an in-process miniredis so the tests
-    are hermetic — no Docker, no external Redis required.
+	1. The factory selects the right SDK backend per cfg.Backend.
+	2. The factory's per-destination namespace works — two destinations
+	   sharing the same backend connection do NOT collide on identical
+	   nonce values.
+	3. The freshness window is independent of replay tracking — stale
+	   timestamps fail before reservation.
+	4. The strict-forever contract holds: a once-reserved nonce stays
+	   reserved forever (no TTL pruning behind our back).
+
+	Redis-backed paths exercise an in-process miniredis so the tests
+	are hermetic — no Docker, no external Redis required.
 */
 package auth
 
@@ -31,7 +32,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 
-	sdkauth "github.com/clearcompass-ai/ortholog-sdk/exchange/auth"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ func TestFactory_BackendConstantsStable(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 // TestNonceStore_StrictForever_NoPruning pins the SDK contract on
-// the JN-side wrapper. The pre-Phase-1B local store TTL-pruned
+// the JN-side wrapper. The previous local store TTL-pruned
 // reservations on every Check call; this test confirms that's gone.
 // A nonce reserved at t=now is still reserved when checked again
 // after the freshness window has elapsed — only the freshness gate

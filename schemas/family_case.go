@@ -1,24 +1,27 @@
 /*
 FILE PATH:
-    schemas/family_case.go
+
+	schemas/family_case.go
 
 DESCRIPTION:
-    Defines tn-family-case-v1. AES-GCM encryption, open grant mode.
-    Always vendor_specific identifier scope — all parties get vendor-specific
-    DIDs to protect family privacy.
+
+	Defines tn-family-case-v1. AES-GCM encryption, open grant mode.
+	Always vendor_specific identifier scope — all parties get vendor-specific
+	DIDs to protect family privacy.
 
 KEY ARCHITECTURAL DECISIONS:
-    - vendor_specific always: no real DIDs appear on the log for family cases.
-    - Open grant mode: routine family case filings accessible without
-      scope authority gating. Privacy is structural (vendor-specific DIDs),
-      not access-control-based.
+  - vendor_specific always: no real DIDs appear on the log for family cases.
+  - Open grant mode: routine family case filings accessible without
+    scope authority gating. Privacy is structural (vendor-specific DIDs),
+    not access-control-based.
 
 OVERVIEW:
-    Family case schema (divorce, custody, adoption). CaseSubType for
-    sub-classification. Vendor-specific DIDs protect participant identity.
+
+	Family case schema (divorce, custody, adoption). CaseSubType for
+	sub-classification. Vendor-specific DIDs protect participant identity.
 
 KEY DEPENDENCIES:
-    - schemas/registry.go: SchemaPosition, SchemaRegistration
+  - schemas/registry.go: SchemaPosition, SchemaRegistration
 */
 package schemas
 
@@ -100,7 +103,7 @@ func familyCaseRegistration() *SchemaRegistration {
 			}
 			return SerializeFamilyCasePayload(p)
 		},
-		Deserialize: func(data []byte) (interface{}, error) { return DeserializeFamilyCasePayload(data) },
+		Deserialize:     func(data []byte) (interface{}, error) { return DeserializeFamilyCasePayload(data) },
 		DefaultParams:   DefaultFamilyCaseParams,
 		IdentifierScope: IdentifierScopeVendorSpecific,
 	}

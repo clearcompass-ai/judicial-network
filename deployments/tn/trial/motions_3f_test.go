@@ -2,13 +2,14 @@
 FILE PATH: deployments/tn/trial/motions_3f_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3F in-trial dispositive motions. Pins:
-      - 3 motion types.
-      - Each carries Advisory hearing_convened_concluded prereq.
-      - Walker accepts even without the hearing event (Advisory
-        race tolerance).
-      - motion_directed_verdict is civil-only-by-name (TRCP 50);
-        motion_judgment_acquittal is criminal-only (TRCrP 29).
+
+	Tests for v1.8 §3F in-trial dispositive motions. Pins:
+	  - 3 motion types.
+	  - Each carries Advisory hearing_convened_concluded prereq.
+	  - Walker accepts even without the hearing event (Advisory
+	    race tolerance).
+	  - motion_directed_verdict is civil-only-by-name (TRCP 50);
+	    motion_judgment_acquittal is criminal-only (TRCrP 29).
 */
 package trial
 

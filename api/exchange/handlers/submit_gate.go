@@ -2,41 +2,43 @@
 FILE PATH: api/exchange/handlers/submit_gate.go
 
 DESCRIPTION:
-    SubmitGater — the per-jurisdiction admission gate run on
-    POST /v1/entries/submit before the handler forwards to the
-    operator. Implements 3E.4: every submission is validated
-    against the destination Bundle's policies before any bytes
-    leave the exchange.
 
-    Gate sequence (when wired):
-      1. Resolve the Bundle from entry.Header.Destination via
-         the registered jurisdiction.Registry.
-      2. Run verification.CheckCosignature against the Bundle's
-         CosignaturePolicy + RoleResolver. Closed-set rejection
-         tokens map to 403 Forbidden bodies.
-      3. Run prerequisites.Walker.Check against the Bundle's
-         PrerequisitePolicy. Hard rejections fail the submit;
-         Advisory violations forward (the aggregator surfaces
-         them).
+	SubmitGater — the per-jurisdiction admission gate run on
+	POST /v1/entries/submit before the handler forwards to the
+	ledger. Implements 3E.4: every submission is validated
+	against the destination Bundle's policies before any bytes
+	leave the exchange.
 
-    The handler treats a nil SubmitGate as the pre-3E.4 pass-
-    through proxy — backward-compatible for tests and pre-roster
-    deployments. Production deployments wire a *BundleSubmitGate.
+	Gate sequence (when wired):
+	  1. Resolve the Bundle from entry.Header.Destination via
+	     the registered jurisdiction.Registry.
+	  2. Run verification.CheckCosignature against the Bundle's
+	     CosignaturePolicy + RoleResolver. Closed-set rejection
+	     tokens map to 403 Forbidden bodies.
+	  3. Run prerequisites.Walker.Check against the Bundle's
+	     PrerequisitePolicy. Hard rejections fail the submit;
+	     Advisory violations forward (the aggregator surfaces
+	     them).
+
+	The handler treats a nil SubmitGate as the pre-3E.4 pass-
+	through proxy — backward-compatible for tests and pre-roster
+	deployments. Production deployments wire a *BundleSubmitGate.
 
 OVERVIEW:
-    SubmitGater         interface (Admit method).
-    Rejection           closed-set rejection envelope.
-    BundleSubmitGate    production impl over jurisdiction.Registry.
+
+	SubmitGater         interface (Admit method).
+	Rejection           closed-set rejection envelope.
+	BundleSubmitGate    production impl over jurisdiction.Registry.
 
 KEY DEPENDENCIES:
-    - jurisdiction.Registry / Bundle.
-    - verification.CheckCosignature / RoleResolver.
-    - prerequisites.Walker / CaseContext.
+  - jurisdiction.Registry / Bundle.
+  - verification.CheckCosignature / RoleResolver.
+  - prerequisites.Walker / CaseContext.
 */
 package handlers
 
 import (
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/envelope"
 
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/prerequisites"

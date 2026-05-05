@@ -2,23 +2,24 @@
 FILE PATH: schemas/appellate_disposition.go
 
 DESCRIPTION:
-    tn-appellate-disposition-v1 — the appellate panel's bottom-
-    line case outcome. Per v1.8 §7B.3:
 
-      - outcome: closed-set per the destination Bundle's
-        AppellateVocabulary.DispositionOutcomes (e.g.,
-        affirmed, reversed, vacated, remanded,
-        affirmed_in_part_reversed_in_part, dismissed).
-      - panel: list of participating judge DIDs (typically 3
-        for TN COA, 5 for TN Sup Ct).
-      - vote_tally: informational summary (e.g., "3-0", "2-1").
-        Authoritative source remains the participation events.
+	tn-appellate-disposition-v1 — the appellate panel's bottom-
+	line case outcome. Per v1.8 §7B.3:
 
-    Prereq: at least one merits-level
-    appellate_opinion_publication (majority, plurality,
-    per_curiam, or memorandum) on this case root. The verifier
-    enforces the merits-subset constraint by consulting the
-    bundle's MeritsOpinionTypes().
+	  - outcome: closed-set per the destination Bundle's
+	    AppellateVocabulary.DispositionOutcomes (e.g.,
+	    affirmed, reversed, vacated, remanded,
+	    affirmed_in_part_reversed_in_part, dismissed).
+	  - panel: list of participating judge DIDs (typically 3
+	    for TN COA, 5 for TN Sup Ct).
+	  - vote_tally: informational summary (e.g., "3-0", "2-1").
+	    Authoritative source remains the participation events.
+
+	Prereq: at least one merits-level
+	appellate_opinion_publication (majority, plurality,
+	per_curiam, or memorandum) on this case root. The verifier
+	enforces the merits-subset constraint by consulting the
+	bundle's MeritsOpinionTypes().
 */
 package schemas
 

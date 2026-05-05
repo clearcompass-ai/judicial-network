@@ -4,19 +4,20 @@
 FILE PATH: api/exchange/keystore/pkcs11/pkcs11_real_test.go
 
 DESCRIPTION:
-    Real-token PKCS#11 conformance test. Built only with `-tags pkcs11`
-    AND when SOFTHSM_LIB + SOFTHSM_PIN are present in the environment;
-    otherwise the test skips. Run locally with:
 
-      export SOFTHSM2_CONF=$PWD/softhsm.conf
-      softhsm2-util --init-token --slot 0 --label test --pin 1234 --so-pin 1234
-      SOFTHSM_LIB=/usr/lib/softhsm/libsofthsm2.so SOFTHSM_PIN=1234 \
-        SOFTHSM_SLOT=$(softhsm2-util --show-slots | awk '/^Slot/{slot=$2} /Initialized:.*yes/{print slot; exit}') \
-        go test -tags pkcs11 ./api/exchange/keystore/pkcs11/...
+	Real-token PKCS#11 conformance test. Built only with `-tags pkcs11`
+	AND when SOFTHSM_LIB + SOFTHSM_PIN are present in the environment;
+	otherwise the test skips. Run locally with:
 
-    The test exercises the same RunSecp256k1Conformance suite the
-    Vault and Memory backends pass, so wire shapes are guaranteed
-    interchangeable across all three production backends.
+	  export SOFTHSM2_CONF=$PWD/softhsm.conf
+	  softhsm2-util --init-token --slot 0 --label test --pin 1234 --so-pin 1234
+	  SOFTHSM_LIB=/usr/lib/softhsm/libsofthsm2.so SOFTHSM_PIN=1234 \
+	    SOFTHSM_SLOT=$(softhsm2-util --show-slots | awk '/^Slot/{slot=$2} /Initialized:.*yes/{print slot; exit}') \
+	    go test -tags pkcs11 ./api/exchange/keystore/pkcs11/...
+
+	The test exercises the same RunSecp256k1Conformance suite the
+	Vault and Memory backends pass, so wire shapes are guaranteed
+	interchangeable across all three production backends.
 */
 package pkcs11
 

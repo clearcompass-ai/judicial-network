@@ -2,44 +2,45 @@
 FILE PATH: api/exchange/keystore/signer/signer.go
 
 DESCRIPTION:
-    keys/v1.Signer adapter that wraps any keystore.KeyStore and
-    exposes a controlling-EOA-shaped Sign + Address surface for
-    external SCW party signing flows.
 
-    Why this exists
-    ───────────────
-    The SDK's keys/v1.Signer interface is defined for
-    Ortholog-Smart-Contract-Wallet (SCW) party signers — every
-    isValidSignature path on the SCW recovers an EOA from a 65-byte
-    Ethereum-format (r || s || v) signature. Production deployments
-    custody the controlling key in Vault Transit or a SoftHSM token,
-    not on disk; this adapter is the seam that lets external SCW
-    flows route Sign(digest) calls through whichever custody backend
-    the deployment chose.
+	keys/v1.Signer adapter that wraps any keystore.KeyStore and
+	exposes a controlling-EOA-shaped Sign + Address surface for
+	external SCW party signing flows.
 
-    Wire-shape translation
-    ──────────────────────
-    keystore.KeyStore.SignSecp256k1 returns 65-byte SignCompact
-    [v+27 || r || s] (the wire format Privy emits and the SDK
-    consumes for Ortholog log-entry envelopes). The SCW path wants
-    Ethereum-format [r || s || v]. The two encodings carry the same
-    information; the adapter byte-swaps without re-signing.
+	Why this exists
+	───────────────
+	The SDK's keys/v1.Signer interface is defined for
+	Attesta-Smart-Contract-Wallet (SCW) party signers — every
+	isValidSignature path on the SCW recovers an EOA from a 65-byte
+	Ethereum-format (r || s || v) signature. Production deployments
+	custody the controlling key in Vault Transit or a SoftHSM token,
+	not on disk; this adapter is the seam that lets external SCW
+	flows route Sign(digest) calls through whichever custody backend
+	the deployment chose.
 
-    Address derivation
-    ──────────────────
-    Address is derived once at New time via signatures.AddressFromPubkey
-    over the keystore's stored 65-byte uncompressed public key. The
-    keystore's public key is fetched once (the constructor performs
-    the only PublicKeySecp256k1 round-trip); subsequent Sign calls
-    bypass the public-key fetch.
+	Wire-shape translation
+	──────────────────────
+	keystore.KeyStore.SignSecp256k1 returns 65-byte SignCompact
+	[v+27 || r || s] (the wire format Privy emits and the SDK
+	consumes for Attesta log-entry envelopes). The SCW path wants
+	Ethereum-format [r || s || v]. The two encodings carry the same
+	information; the adapter byte-swaps without re-signing.
+
+	Address derivation
+	──────────────────
+	Address is derived once at New time via signatures.AddressFromPubkey
+	over the keystore's stored 65-byte uncompressed public key. The
+	keystore's public key is fetched once (the constructor performs
+	the only PublicKeySecp256k1 round-trip); subsequent Sign calls
+	bypass the public-key fetch.
 */
 package signer
 
 import (
 	"fmt"
 
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	keysv1 "github.com/clearcompass-ai/ortholog-sdk/keys/v1"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	keysv1 "github.com/clearcompass-ai/attesta/keys/v1"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
@@ -91,7 +92,7 @@ func (a *Adapter) Sign(digest [32]byte) ([]byte, error) {
 		return nil, fmt.Errorf("signer: SignSecp256k1 returned %d bytes, want 65", len(compact))
 	}
 	out := make([]byte, sdksigs.EthereumSignatureLen)
-	copy(out[0:32], compact[1:33])  // r
+	copy(out[0:32], compact[1:33])   // r
 	copy(out[32:64], compact[33:65]) // s
 	out[64] = compact[0]             // v (27 or 28)
 	return out, nil

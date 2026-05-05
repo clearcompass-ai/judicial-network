@@ -2,15 +2,16 @@
 FILE PATH: api/judicial/verification_appeals.go
 
 DESCRIPTION:
-    Appellate-history + cross-log proof verification handlers.
 
-      POST /v1/judicial/verification/appeal-chain    → VerifyAppealChain
-      POST /v1/judicial/verification/cross-log-proof → verifier.VerifyCrossLogProof
+	Appellate-history + cross-log proof verification handlers.
 
-    Walking the chain end-to-end is also stubbed because WalkAppealChain
-    needs a NextProofFn — a Go callback that fetches the next hop's
-    proof from a log; not directly mappable to one HTTP call. Production
-    callers walk hop-by-hop using cross-log-proof verification.
+	  POST /v1/judicial/verification/appeal-chain    → VerifyAppealChain
+	  POST /v1/judicial/verification/cross-log-proof → verifier.VerifyCrossLogProof
+
+	Walking the chain end-to-end is also stubbed because WalkAppealChain
+	needs a NextProofFn — a Go callback that fetches the next hop's
+	proof from a log; not directly mappable to one HTTP call. Production
+	callers walk hop-by-hop using cross-log-proof verification.
 */
 package judicial
 
@@ -19,8 +20,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
@@ -64,7 +65,7 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 	verified, err := verification.VerifyAppealChain(
 		steps, h.deps.WitnessKeys, h.deps.WitnessQuorum,
-		h.deps.NetworkID, h.deps.BLSVerifier,
+		h.deps.WitnessNetwork, h.deps.BLSVerifier,
 	)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -134,6 +135,11 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	if quorum == 0 {
 		quorum = h.deps.WitnessQuorum[req.SourceLogDID]
 	}
+	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
+	if networkID.IsZero() {
+		writeError(w, http.StatusBadRequest, "no network_id configured for source_log_did")
+		return
+	}
 	if len(keys) == 0 || quorum == 0 {
 		writeError(w, http.StatusBadRequest,
 			"source_witness_keys + quorum required (or pre-configured for the source log)")
@@ -142,18 +148,18 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 	// The verifier needs an "anchor payload extractor" — a function
 	// that pulls a tree-head reference out of the anchor entry's
-	// payload. Phase 7 doesn't ship a registry of such extractors;
+	// payload.  doesn't ship a registry of such extractors;
 	// callers MAY supply one named in the request (future C6 work)
 	// or fall back to the SDK's default for relay attestations.
 	if req.AnchorPayloadExtractor != "" && req.AnchorPayloadExtractor != "relay_attestation" {
 		writeError(w, http.StatusBadRequest,
-			"anchor_payload_extractor: only \"relay_attestation\" supported in Phase 7")
+			"anchor_payload_extractor: only \"relay_attestation\" supported ")
 		return
 	}
 	anchorExt := defaultAnchorExtractor
 
 	verifyErr := verifier.VerifyCrossLogProof(
-		proof, keys, quorum, h.deps.NetworkID, h.deps.BLSVerifier, anchorExt,
+		proof, keys, quorum, networkID, h.deps.BLSVerifier, anchorExt,
 	)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -167,7 +173,7 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 // defaultAnchorExtractor pulls the anchor tree-head reference from a
 // relay attestation payload via the SDK's ExtractAnchorPayload-shaped
-// API. Phase 7 only supports relay-attestation anchor entries.
+// API.  only supports relay-attestation anchor entries.
 var defaultAnchorExtractor = func(payload []byte) ([32]byte, error) {
 	// SDK exposes this on the topology side; we wrap to keep import
 	// surface minimal here.

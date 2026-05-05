@@ -14,9 +14,9 @@ DESCRIPTION:
 	time-lock for scope removal.
 
 KEY DEPENDENCIES:
-  - ortholog-sdk/storage: ContentStore.Exists (guide §8.2)
-  - ortholog-sdk/builder: BuildCommentary (guide §11.3)
-  - ortholog-sdk/crypto/escrow: escrow node types (guide §15)
+  - attesta/storage: ContentStore.Exists (guide §8.2)
+  - attesta/builder: BuildCommentary (guide §11.3)
+  - attesta/crypto/escrow: escrow node types (guide §15)
 */
 package load_accounting
 
@@ -25,15 +25,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // FireDrillRunner executes periodic liveness checks against escrow
 // nodes and storage backends.
 type FireDrillRunner struct {
-	destination string
+	destination  string
 	signerDID    string
 	contentStore storage.ContentStore
 	slaWindow    time.Duration
@@ -134,8 +134,8 @@ func (r *FireDrillRunner) PublishDrillAttestation(results []DrillResult) (*envel
 
 	return builder.BuildCommentary(builder.CommentaryParams{
 		Destination: r.destination,
-		SignerDID: r.signerDID,
-		Payload:   payload,
+		SignerDID:   r.signerDID,
+		Payload:     payload,
 	})
 }
 

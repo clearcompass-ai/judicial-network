@@ -2,19 +2,20 @@
 FILE PATH: parties/parties_test.go
 
 DESCRIPTION:
-    Tests for party-binding writers + roster queries under the
-    v1.6 schema (BindingID, PartyClass, PartyName) plus the
-    legacy VendorDIDStore tests for vendor-DID rotation (a
-    separate concern from party_binding alignment).
+
+	Tests for party-binding writers + roster queries under the
+	v1.6 schema (BindingID, PartyClass, PartyName) plus the
+	legacy VendorDIDStore tests for vendor-DID rotation (a
+	separate concern from party_binding alignment).
 */
 package parties
 
 import (
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // ─── 1) CreateBinding ─────────────────────────────────────────────

@@ -1,16 +1,18 @@
 /*
 FILE PATH:
-    tools/providers/providers_test.go
+
+	tools/providers/providers_test.go
 
 DESCRIPTION:
-    Unit tests for provider tools HTTP handlers. Tests API key enforcement,
-    routing correctness, and degraded behavior when DB is unavailable.
-    No Postgres required — tests verify the handler contract, not DB queries.
+
+	Unit tests for provider tools HTTP handlers. Tests API key enforcement,
+	routing correctness, and degraded behavior when DB is unavailable.
+	No Postgres required — tests verify the handler contract, not DB queries.
 
 KEY ARCHITECTURAL DECISIONS:
-    - No Postgres: DB is nil. All query endpoints return 503.
-    - API key enforcement tested: missing key → 401.
-    - Health endpoint always works regardless of DB state.
+  - No Postgres: DB is nil. All query endpoints return 503.
+  - API key enforcement tested: missing key → 401.
+  - Health endpoint always works regardless of DB state.
 */
 package providers
 

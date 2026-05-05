@@ -8,7 +8,7 @@ status: draft
 
 ## About This Document
 
-The judicial-network records every substantive event on Ortholog, an append-only, cryptographically signed log substrate — conceptually similar to Certificate Transparency logs. Entries are permanent and order-preserving; integrity is verifiable by anyone with access to the log.
+The judicial-network records every substantive event on Attesta, an append-only, cryptographically signed log substrate — conceptually similar to Certificate Transparency logs. Entries are permanent and order-preserving; integrity is verifiable by anyone with access to the log.
 
 This dictionary defines **what events the network records, who is authorized to sign them, and what prior log state each event depends on**. It does not prescribe how those events are validated, indexed, or queried — those concerns belong to the implementing code.
 
@@ -27,7 +27,7 @@ The dictionary is divided into four parts:
 
 The judicial-network has a three-level structural hierarchy. The rest of this dictionary reads against these definitions:
 
-- **Network** — A single shared Ortholog log. All courts that write to a network share the same append-only sequence and the same anchor hierarchy. A network is the unit of cryptographic integrity. *Analogy: one Certificate Transparency log shared by many Certificate Authorities.*
+- **Network** — A single shared Attesta log. All courts that write to a network share the same append-only sequence and the same anchor hierarchy. A network is the unit of cryptographic integrity. *Analogy: one Certificate Transparency log shared by many Certificate Authorities.*
 - **Exchange** — A single court that writes to a network. Each exchange has its own institutional DID, its own Signers (Adjudicators, Clerks, Court Reporters), and its own delegation chain. Davidson County and Shelby County are separate exchanges that may share the same network. *Analogy: one CA writing to a CT log.*
 - **Division** — A subdivision within an exchange (e.g., Criminal, Chancery, Business Court). Divisions share the exchange's Signers and delegation chain; they do not have independent cryptographic authority. Divisions are routing constructs, not security boundaries.
 
@@ -98,7 +98,7 @@ Several places in this dictionary require an implementation choice — a thresho
 
 ### Read-Side Separation
 
-The Ortholog log is the canonical, immutable, write-optimized source of truth. Search, indexing, reporting, and access-controlled views are provided by a separate aggregator microservice with its own database that consumes the log. The dictionary defines what is *written*; the aggregator defines what is *exposed*.
+The Attesta log is the canonical, immutable, write-optimized source of truth. Search, indexing, reporting, and access-controlled views are provided by a separate aggregator microservice with its own database that consumes the log. The dictionary defines what is *written*; the aggregator defines what is *exposed*.
 
 ---
 
@@ -614,7 +614,7 @@ Events that operate on the network itself — creating new networks, anchoring a
 
 **Forks are new networks, not new courts.** Onboarding a new court onto the existing network is `exchange_onboarding` (§11); creating a new network is `network_fork` here. A fork is motivated by horizontal scalability (the existing network has grown too large for efficient operation), jurisdictional independence (e.g., a federal court system operating outside a state network), or governance separation (a sub-consortium that needs its own anchor hierarchy).
 
-- **`network_fork`** — Instantiates a new network — a new shared Ortholog log with its own anchor hierarchy. Used when forking is motivated by scalability, jurisdictional independence, or governance separation. Specialty courts that require their own log set, federal courts joining the broader network, and large-scale shard operations all use this event.
+- **`network_fork`** — Instantiates a new network — a new shared Attesta log with its own anchor hierarchy. Used when forking is motivated by scalability, jurisdictional independence, or governance separation. Specialty courts that require their own log set, federal courts joining the broader network, and large-scale shard operations all use this event.
   *Origin event for the new network.*
 - **`anchor_registration`** — Establishes a periodic publishing interval that mirrors a network's log state to a parent log for cross-network verification via compound proofs.
   *Origin event (one per parent log).*
@@ -734,7 +734,7 @@ Every place this dictionary defers a decision to the network's implementing code
 
 ## v1.3
 
-- Reframed Ortholog as the append-only signed log substrate (CT-Log-style); removed all phase / SDK / operator / Pydantic references.
+- Reframed Attesta as the append-only signed log substrate (CT-Log-style); removed all phase / SDK / ledger / Pydantic references.
 - Stripped prescriptive code recommendations from Implementation Notes.
 - Added inline 🚩 developer flags consolidated into Appendix B.
 - §12A appointments reframed: political process irrelevant to the network; cosignature is what matters.

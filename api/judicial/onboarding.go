@@ -2,27 +2,28 @@
 FILE PATH: api/judicial/onboarding.go
 
 DESCRIPTION:
-    Onboarding handlers — bootstrap events at court setup time. Most
-    are operationally specialized (bulk bootstrap scripts hold this
-    responsibility, not curl), so several appear as 501 stubs.
 
-      POST /v1/judicial/onboarding/schema-adoption    → AdoptSchema
-      POST /v1/judicial/onboarding/court-provision    → 501 (operations script)
-      POST /v1/judicial/onboarding/anchor-registration → 501 (witness deps)
-      POST /v1/judicial/onboarding/migrate-records    → 501 (artifact stack;
-                                                        see C4 for the artifact
-                                                        composition pattern)
+	Onboarding handlers — bootstrap events at court setup time. Most
+	are operationally specialized (bulk bootstrap scripts hold this
+	responsibility, not curl), so several appear as 501 stubs.
 
-    Schema adoption is the only daily-ish onboarding event (a court
-    pulls a schema published by a parent jurisdiction). The other
-    three are one-time bootstraps owned by ops tooling.
+	  POST /v1/judicial/onboarding/schema-adoption    → AdoptSchema
+	  POST /v1/judicial/onboarding/court-provision    → 501 (operations script)
+	  POST /v1/judicial/onboarding/anchor-registration → 501 (witness deps)
+	  POST /v1/judicial/onboarding/migrate-records    → 501 (artifact stack;
+	                                                    see C4 for the artifact
+	                                                    composition pattern)
+
+	Schema adoption is the only daily-ish onboarding event (a court
+	pulls a schema published by a parent jurisdiction). The other
+	three are one-time bootstraps owned by ops tooling.
 */
 package judicial
 
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/onboarding"
 )
@@ -42,12 +43,12 @@ func registerOnboardingRoutes(mux *http.ServeMux, deps *Dependencies) {
 // and prepares a local commentary entry adopting the schema. Daily
 // reality: a county court adopting a state-published schema upgrade.
 type schemaAdoptRequest struct {
-	Destination          string `json:"destination"`
-	SourceSchemaLogDID   string `json:"source_schema_log_did"`
-	SourceSchemaSeq      uint64 `json:"source_schema_seq"`
-	HistoricalLogDID     string `json:"historical_log_did,omitempty"`
-	HistoricalSeq        *uint64 `json:"historical_seq,omitempty"`
-	EventTime            int64  `json:"event_time,omitempty"`
+	Destination        string  `json:"destination"`
+	SourceSchemaLogDID string  `json:"source_schema_log_did"`
+	SourceSchemaSeq    uint64  `json:"source_schema_seq"`
+	HistoricalLogDID   string  `json:"historical_log_did,omitempty"`
+	HistoricalSeq      *uint64 `json:"historical_seq,omitempty"`
+	EventTime          int64   `json:"event_time,omitempty"`
 }
 
 type schemaAdoptHandler struct{ deps *Dependencies }
@@ -106,7 +107,7 @@ func (h *courtProvisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 }
 
 // RegisterFirstAnchor needs a *witness.TreeHeadClient — federation
-// boot, owned by the federation operator's tooling rather than HTTP.
+// boot, owned by the federation ledger's tooling rather than HTTP.
 type anchorRegistrationHandler struct{ deps *Dependencies }
 
 func (h *anchorRegistrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

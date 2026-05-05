@@ -2,31 +2,32 @@
 FILE PATH: exchange/keystore/keystore.go
 
 DESCRIPTION:
-    Key custody interface. The exchange holds private keys on behalf
-    of signers. This interface abstracts the backing store — in-memory
-    for tests, HSM for production, vault for cloud deployments.
 
-    The keystore never exports private keys (except for the dedicated
-    escrow path). It signs bytes and returns signatures. Same model
-    as AWS KMS or PKCS#11.
+	Key custody interface. The exchange holds private keys on behalf
+	of signers. This interface abstracts the backing store — in-memory
+	for tests, HSM for production, vault for cloud deployments.
 
-    Two curves coexist: Ed25519 (legacy, used by some non-protocol
-    paths) and secp256k1 (the protocol curve — every Ortholog log
-    entry's signature is over secp256k1). The secp256k1 methods
-    (GenerateSecp256k1, SignSecp256k1, PublicKeySecp256k1) are the
-    fix for the pre-existing mismatch where Sign returned Ed25519
-    bytes but the entry asserted SigAlgoECDSA.
+	The keystore never exports private keys (except for the dedicated
+	escrow path). It signs bytes and returns signatures. Same model
+	as AWS KMS or PKCS#11.
 
-    Production path: callers route SIGN operations to whichever
-    custody backend the deployment uses (Privy via IdentityProvider
-    for user wallets; this keystore for system DIDs like the
-    institutional/operator key).
+	Two curves coexist: Ed25519 (legacy, used by some non-protocol
+	paths) and secp256k1 (the protocol curve — every Attesta log
+	entry's signature is over secp256k1). The secp256k1 methods
+	(GenerateSecp256k1, SignSecp256k1, PublicKeySecp256k1) are the
+	fix for the pre-existing mismatch where Sign returned Ed25519
+	bytes but the entry asserted SigAlgoECDSA.
+
+	Production path: callers route SIGN operations to whichever
+	custody backend the deployment uses (Privy via IdentityProvider
+	for user wallets; this keystore for system DIDs like the
+	institutional/ledger key).
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/did: DID creation (guide §17)
-    - ortholog-sdk/crypto/escrow: SplitGF256, EncryptForNode (guide §15)
-    - github.com/decred/dcrd/dcrec/secp256k1/v4 (curve operations,
-      via keystore_secp256k1.go)
+  - attesta/did: DID creation (guide §17)
+  - attesta/crypto/escrow: SplitGF256, EncryptForNode (guide §15)
+  - github.com/decred/dcrd/dcrec/secp256k1/v4 (curve operations,
+    via keystore_secp256k1.go)
 */
 package keystore
 
@@ -39,7 +40,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
-// Curve names recorded in KeyInfo.Curve. The Ortholog protocol curve
+// Curve names recorded in KeyInfo.Curve. The Attesta protocol curve
 // is secp256k1; Ed25519 is retained for non-protocol paths.
 const (
 	CurveEd25519   = "ed25519"
@@ -96,7 +97,7 @@ type KeyStore interface {
 
 // KeyInfo describes a managed key without exposing the private
 // material. Curve distinguishes Ed25519 (legacy paths) from
-// secp256k1 (the Ortholog protocol curve). PublicKey holds the raw
+// secp256k1 (the Attesta protocol curve). PublicKey holds the raw
 // public-key bytes for the named curve: 32 bytes for Ed25519, 65
 // bytes (uncompressed, 0x04 prefix) for secp256k1.
 type KeyInfo struct {

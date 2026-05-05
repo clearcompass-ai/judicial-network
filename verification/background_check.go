@@ -2,11 +2,12 @@
 FILE PATH: verification/background_check.go
 DESCRIPTION: Party DID → public case associations across logs.
 KEY ARCHITECTURAL DECISIONS:
-    - Uses QueryBySignerDID to discover entries by a party.
-    - Uses smt.GenerateBatchProof for efficient multi-leaf proofs.
-    - Only returns public (non-sealed) cases.
+  - Uses QueryBySignerDID to discover entries by a party.
+  - Uses smt.GenerateBatchProof for efficient multi-leaf proofs.
+  - Only returns public (non-sealed) cases.
+
 OVERVIEW: BackgroundCheck → list of public case associations with proofs.
-KEY DEPENDENCIES: ortholog-sdk/core/smt, log.OperatorQueryAPI
+KEY DEPENDENCIES: attesta/core/smt, log.LedgerQueryAPI
 */
 package verification
 
@@ -14,17 +15,17 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 type CaseAssociation struct {
-	CaseRef    string
-	Role       string
-	Status     string
-	Position   types.LogPosition
-	IsSealed   bool
+	CaseRef  string
+	Role     string
+	Status   string
+	Position types.LogPosition
+	IsSealed bool
 }
 
 type BackgroundQuerier interface {

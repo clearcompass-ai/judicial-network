@@ -2,9 +2,10 @@
 FILE PATH: schemas/key_attestation_test.go
 
 COVERAGE:
-    Every code path in key_attestation.go: enum membership,
-    Validate's seven required-field branches, serialize/deserialize
-    round-trip, registry registration, and DefaultParams stability.
+
+	Every code path in key_attestation.go: enum membership,
+	Validate's seven required-field branches, serialize/deserialize
+	round-trip, registry registration, and DefaultParams stability.
 */
 package schemas
 

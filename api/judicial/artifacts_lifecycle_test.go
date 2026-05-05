@@ -2,7 +2,8 @@
 FILE PATH: api/judicial/artifacts_lifecycle_test.go
 
 DESCRIPTION:
-    Validation contracts for artifact expunge + reencrypt handlers.
+
+	Validation contracts for artifact expunge + reencrypt handlers.
 */
 package judicial
 

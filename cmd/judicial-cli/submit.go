@@ -2,41 +2,43 @@
 FILE PATH: cmd/judicial-cli/submit.go
 
 DESCRIPTION:
-    `submit` reads a JSON spec describing one judicial entry, builds
-    the canonical wire bytes via the SDK envelope primitives, signs
-    with the primary signer plus zero-or-more cosigners, and POSTs
-    raw binary to the operator's /v1/entries.
 
-    The spec format is intentionally schema-agnostic — the operator
-    is "dumb writes" and we mirror that: judicial-cli does NOT
-    validate domain payload fields. Walkthrough docs supply the
-    correct JSON shape per schema.
+	`submit` reads a JSON spec describing one judicial entry, builds
+	the canonical wire bytes via the SDK envelope primitives, signs
+	with the primary signer plus zero-or-more cosigners, and POSTs
+	raw binary to the ledger's /v1/entries.
 
-WIRE FLOW (matches operator/cmd/submit-stamp/main.go:283-307):
-    1. payload_bytes := json.Marshal(spec.Payload)
-    2. header := build ControlHeader from spec
-    3. entry  := envelope.NewUnsignedEntry(header, payload_bytes)
-    4. digest := sha256(envelope.SigningPayload(entry))
-    5. sig0   := SignEntry(digest, primary_priv)
-    6. for each cosigner: sig_n := SignEntry(digest, priv_n)
-    7. entry.Signatures = [primary_sig, ...cosigner_sigs]
-    8. entry.Validate()
-    9. wire := envelope.Serialize(entry)
-   10. POST wire as application/octet-stream → /v1/entries
-   11. parse 202 SCT JSON; print sequence-tracking hash + log_time
+	The spec format is intentionally schema-agnostic — the ledger
+	is "dumb writes" and we mirror that: judicial-cli does NOT
+	validate domain payload fields. Walkthrough docs supply the
+	correct JSON shape per schema.
+
+WIRE FLOW (matches ledger/cmd/submit-stamp/main.go:283-307):
+ 1. payload_bytes := json.Marshal(spec.Payload)
+ 2. header := build ControlHeader from spec
+ 3. entry  := envelope.NewUnsignedEntry(header, payload_bytes)
+ 4. digest := sha256(envelope.SigningPayload(entry))
+ 5. sig0   := SignEntry(digest, primary_priv)
+ 6. for each cosigner: sig_n := SignEntry(digest, priv_n)
+ 7. entry.Signatures = [primary_sig, ...cosigner_sigs]
+ 8. entry.Validate()
+ 9. wire := envelope.Serialize(entry)
+ 10. POST wire as application/octet-stream → /v1/entries
+ 11. parse 202 SCT JSON; print sequence-tracking hash + log_time
 
 SPEC JSON SHAPE:
-    {
-      "schema":      "civil_case",                 // documentation hint only
-      "destination": "did:web:state:tn:davidson",  // operator's LogDID
-      "primary_signer_key": "/path/to/clerk.key.json",
-      "cosigner_keys":      ["/path/to/cooper.key.json"],
-      "event_time_micros":  1705276800000000,       // optional; defaults to now()
-      "evidence_pointers": [                        // optional; cap 10
-        {"log_did": "did:web:state:tn:coa", "sequence": 1}
-      ],
-      "payload": { ... arbitrary domain JSON ... }
-    }
+
+	{
+	  "schema":      "civil_case",                 // documentation hint only
+	  "destination": "did:web:state:tn:davidson",  // ledger's LogDID
+	  "primary_signer_key": "/path/to/clerk.key.json",
+	  "cosigner_keys":      ["/path/to/cooper.key.json"],
+	  "event_time_micros":  1705276800000000,       // optional; defaults to now()
+	  "evidence_pointers": [                        // optional; cap 10
+	    {"log_did": "did:web:state:tn:coa", "sequence": 1}
+	  ],
+	  "payload": { ... arbitrary domain JSON ... }
+	}
 */
 package main
 
@@ -52,20 +54,20 @@ import (
 	"os"
 	"time"
 
-	sdkenv "github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
-	sdktypes "github.com/clearcompass-ai/ortholog-sdk/types"
+	sdkenv "github.com/clearcompass-ai/attesta/core/envelope"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	sdktypes "github.com/clearcompass-ai/attesta/types"
 )
 
 // SubmitSpec is the on-disk JSON shape that drives `submit`.
 type SubmitSpec struct {
-	Schema           string             `json:"schema"`
-	Destination      string             `json:"destination"`
-	PrimarySignerKey string             `json:"primary_signer_key"`
-	CosignerKeys     []string           `json:"cosigner_keys,omitempty"`
-	EventTimeMicros  int64              `json:"event_time_micros,omitempty"`
-	EvidencePointers []EvidencePointer  `json:"evidence_pointers,omitempty"`
-	Payload          json.RawMessage    `json:"payload"`
+	Schema           string            `json:"schema"`
+	Destination      string            `json:"destination"`
+	PrimarySignerKey string            `json:"primary_signer_key"`
+	CosignerKeys     []string          `json:"cosigner_keys,omitempty"`
+	EventTimeMicros  int64             `json:"event_time_micros,omitempty"`
+	EvidencePointers []EvidencePointer `json:"evidence_pointers,omitempty"`
+	Payload          json.RawMessage   `json:"payload"`
 }
 
 // EvidencePointer mirrors types.LogPosition in JSON form, kept local
@@ -77,7 +79,7 @@ type EvidencePointer struct {
 
 func runSubmit(args []string) error {
 	fs := flagSet("submit")
-	endpoint := fs.String("endpoint", "", "operator base URL (e.g. http://localhost:8080)")
+	endpoint := fs.String("endpoint", "", "ledger base URL (e.g. http://localhost:8080)")
 	specPath := fs.String("spec", "", "path to submission spec JSON")
 	authToken := fs.String("token", "", "optional bearer token for Mode A admission")
 	if err := fs.Parse(args); err != nil {
@@ -102,7 +104,7 @@ func runSubmit(args []string) error {
 		return transportErr("%v", err)
 	}
 	if status != http.StatusAccepted {
-		return remoteErr("operator returned HTTP %d: %s", status, string(resp))
+		return remoteErr("ledger returned HTTP %d: %s", status, string(resp))
 	}
 
 	// Echo SCT JSON to stdout, plus a one-liner with the
@@ -133,7 +135,7 @@ func loadSubmitSpec(path string) (*SubmitSpec, error) {
 		return nil, fmt.Errorf("spec missing payload")
 	}
 	if len(spec.EvidencePointers) > 10 {
-		return nil, fmt.Errorf("evidence_pointers exceeds operator cap of 10 (got %d)",
+		return nil, fmt.Errorf("evidence_pointers exceeds ledger cap of 10 (got %d)",
 			len(spec.EvidencePointers))
 	}
 	return &spec, nil
@@ -182,7 +184,7 @@ func buildAndSign(spec *SubmitSpec) ([]byte, [32]byte, error) {
 	}
 
 	// 3) Build the unsigned entry. Payload bytes are the JSON of
-	//    spec.Payload — domain-opaque to the operator, decoded by
+	//    spec.Payload — domain-opaque to the ledger, decoded by
 	//    the verifier downstream.
 	entry, err := sdkenv.NewUnsignedEntry(header, spec.Payload)
 	if err != nil {
@@ -234,7 +236,7 @@ func buildAndSign(spec *SubmitSpec) ([]byte, [32]byte, error) {
 }
 
 // resolveEventTime returns the spec value if set, or wall-clock
-// microseconds otherwise. Operator's freshness-tolerance gate
+// microseconds otherwise. Ledger's freshness-tolerance gate
 // rejects entries too far from now per
 // exchange/policy.FreshnessInteractive (5 minutes by default).
 func resolveEventTime(spec int64) int64 {
@@ -244,7 +246,7 @@ func resolveEventTime(spec int64) int64 {
 	return time.Now().UnixMicro()
 }
 
-// postEntry POSTs canonical bytes to operator's /v1/entries.
+// postEntry POSTs canonical bytes to ledger's /v1/entries.
 func postEntry(endpoint, token string, wire []byte) ([]byte, int, error) {
 	url := endpoint + "/v1/entries"
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(wire))
@@ -278,7 +280,7 @@ func postEntry(endpoint, token string, wire []byte) ([]byte, int, error) {
 // Method-to-algo mapping (kept in sync with PKHVerifier and KeyVerifier):
 //   - "key", ""    -> SignEntry (64B)              + SigAlgoECDSA  (0x0001)
 //   - "pkh-eip155" -> SignEthereumRecoverable(EIP-191 digest) (65B)
-//                                                  + SigAlgoEIP191 (0x0003)
+//   - SigAlgoEIP191 (0x0003)
 //
 // Adding a new DID method (e.g., "pkh-eip155-eip712" using EIP-712
 // typed data, or full smart-contract-wallet EIP-1271) is a new

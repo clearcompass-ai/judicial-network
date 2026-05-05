@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // ErrArbitrationDenied surfaces the arbitration verdict when a
@@ -21,14 +21,14 @@ var ErrArbitrationDenied = errors.New("migration/ungraceful: arbitration denied 
 
 // UngracefulMigrationConfig configures recovery from a failed exchange.
 type UngracefulMigrationConfig struct {
-	Destination string // DID of target exchange. Required.
-	CourtDID          string
-	FailedExchangeDID string
-	NewExchangeDID    string
+	Destination          string // DID of target exchange. Required.
+	CourtDID             string
+	FailedExchangeDID    string
+	NewExchangeDID       string
 	EscrowShareProviders []EscrowNodeInfo
-	RecoveryThreshold int
-	ObjectiveTriggers []ObjectiveTrigger
-	EscrowPackageCID  storage.CID
+	RecoveryThreshold    int
+	ObjectiveTriggers    []ObjectiveTrigger
+	EscrowPackageCID     storage.CID
 }
 
 // EscrowNodeInfo identifies an escrow node and its share.
@@ -45,17 +45,17 @@ type ObjectiveTrigger struct {
 
 // UngracefulMigrationPlan contains the recovery sequence.
 type UngracefulMigrationPlan struct {
-	// Phase 1: Recovery
+	// : Recovery
 	RecoveryRequest *lifecycle.InitiateRecoveryResult
 	RecoveredKeys   *lifecycle.RecoveryResult
 
-	// Phase 2: Scope removal of failed exchange
+	// : Scope removal of failed exchange
 	RemovalExecution *lifecycle.RemovalExecution
 
-	// Phase 3: Key rotation to new exchange
+	// : Key rotation to new exchange
 	KeyRotations []*envelope.Entry
 
-	// Phase 4: DID Document update (off-protocol, DNS)
+	// : DID Document update (off-protocol, DNS)
 	DIDDocumentUpdateRequired bool
 }
 
@@ -76,7 +76,7 @@ func InitiateUngracefulMigration(cfg UngracefulMigrationConfig) (*lifecycle.Init
 }
 
 // ArbitrateHostileRecovery is the consensus-override path documented
-// in ortholog-sdk/docs/recovery.md Part 2: Arbitrated / Hostile
+// in attesta/docs/recovery.md Part 2: Arbitrated / Hostile
 // Recovery. When cooperative escrow recovery is impossible (stolen
 // keys, rogue staff, escrow-node failure) the network administrators
 // vote and an independent witness cosigns; SDK math evaluates whether
@@ -89,7 +89,7 @@ func InitiateUngracefulMigration(cfg UngracefulMigrationConfig) (*lifecycle.Init
 //
 // The caller is responsible for:
 //   - Discovering EscrowApprovals via QueryByCosignatureOf on the
-//     RecoveryRequest entry (typically via OperatorQueryAPI).
+//     RecoveryRequest entry (typically via LedgerQueryAPI).
 //   - Resolving the SchemaParams for the override's governance
 //     scope (override threshold + witness requirement).
 //   - Supplying the EscrowNodeSet from the consortium config.
@@ -139,7 +139,7 @@ func PublishMigrationRecord(
 
 	return builder.BuildCommentary(builder.CommentaryParams{
 		Destination: cfg.Destination,
-		SignerDID: signerDID,
-		Payload:   payload,
+		SignerDID:   signerDID,
+		Payload:     payload,
 	})
 }

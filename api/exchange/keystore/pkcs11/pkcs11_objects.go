@@ -4,14 +4,15 @@
 FILE PATH: api/exchange/keystore/pkcs11/pkcs11_objects.go
 
 DESCRIPTION:
-    PKCS#11 object lookup + EC_POINT extraction. Both the public-key
-    and private-key handles are tagged with a CKA_LABEL of
-    "ortholog:<did>" at generation time; lookup is a FindObjects pass
-    keyed on (CKA_CLASS, CKA_KEY_TYPE, CKA_LABEL).
 
-    PKCS#11 returns the public key's CKA_EC_POINT as a DER OCTET
-    STRING wrapping the uncompressed (0x04 || X || Y) form; we
-    unwrap to 65 bytes.
+	PKCS#11 object lookup + EC_POINT extraction. Both the public-key
+	and private-key handles are tagged with a CKA_LABEL of
+	"attesta:<did>" at generation time; lookup is a FindObjects pass
+	keyed on (CKA_CLASS, CKA_KEY_TYPE, CKA_LABEL).
+
+	PKCS#11 returns the public key's CKA_EC_POINT as a DER OCTET
+	STRING wrapping the uncompressed (0x04 || X || Y) form; we
+	unwrap to 65 bytes.
 */
 package pkcs11
 

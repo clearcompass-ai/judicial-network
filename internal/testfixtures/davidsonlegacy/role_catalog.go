@@ -2,37 +2,39 @@
 FILE PATH: internal/testfixtures/davidsonlegacy/role_catalog.go
 
 DESCRIPTION:
-    Test-only fixture preserving the legacy 6-role Davidson
-    hierarchy. NOT a production deployment — production TN
-    counties use deployments/tn/counties/<county>/, which
-    composes from the simplified 3-role tn/trial framework
-    (judge / court_clerk / court_reporter).
 
-    This fixture exists solely to back the multi-hop delegation-
-    chain contract tests (depth=3 happy path, depth>3 rejection,
-    ValidateGrant rejection-path coverage) that the simplified
-    catalog cannot model. The 6-role hierarchy here is the
-    original v1.6 Davidson catalog verbatim.
+	Test-only fixture preserving the legacy 6-role Davidson
+	hierarchy. NOT a production deployment — production TN
+	counties use deployments/tn/counties/<county>/, which
+	composes from the simplified 3-role tn/trial framework
+	(judge / court_clerk / court_reporter).
 
-    Hierarchy:
+	This fixture exists solely to back the multi-hop delegation-
+	chain contract tests (depth=3 happy path, depth>3 rejection,
+	ValidateGrant rejection-path coverage) that the simplified
+	catalog cannot model. The 6-role hierarchy here is the
+	original v1.6 Davidson catalog verbatim.
 
-      institutional_did ── grants ──> chief_justice (depth 0→1)
-      chief_justice     ── grants ──> judge (depth 1→2)
-      chief_justice     ── grants ──> court_reporter (depth 1→2)
-      judge             ── grants ──> court_clerk (depth 2→3)
-      judge             ── grants ──> deputy_judge (depth 2→3)
-      court_clerk       ── grants ──> court_staff (depth 3→4)
+	Hierarchy:
 
-    Scope tokens follow the convention "verb:object", e.g.
-    "case_filing", "invite:judge", "revoke:any",
-    "transcript_publication".
+	  institutional_did ── grants ──> chief_justice (depth 0→1)
+	  chief_justice     ── grants ──> judge (depth 1→2)
+	  chief_justice     ── grants ──> court_reporter (depth 1→2)
+	  judge             ── grants ──> court_clerk (depth 2→3)
+	  judge             ── grants ──> deputy_judge (depth 2→3)
+	  court_clerk       ── grants ──> court_staff (depth 3→4)
+
+	Scope tokens follow the convention "verb:object", e.g.
+	"case_filing", "invite:judge", "revoke:any",
+	"transcript_publication".
 
 OVERVIEW:
-    Roles            — slice of Role definitions.
-    MustRoleCatalog  — convenience constructor (panics on error).
+
+	Roles            — slice of Role definitions.
+	MustRoleCatalog  — convenience constructor (panics on error).
 
 KEY DEPENDENCIES:
-    - schemas.Role / schemas.NewInMemoryCatalog (core types).
+  - schemas.Role / schemas.NewInMemoryCatalog (core types).
 */
 package davidsonlegacy
 

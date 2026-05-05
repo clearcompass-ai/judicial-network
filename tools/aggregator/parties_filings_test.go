@@ -2,24 +2,25 @@
 FILE PATH: tools/aggregator/parties_filings_test.go
 
 DESCRIPTION:
-    Unit + functional tests for BuildPartiesFilingRows — the
-    pure extractor that produces parties_filings rows from
-    ClassifiedEntry payloads. No Postgres needed. Covers:
 
-      - nil / empty payload → no rows.
-      - filed_by_capacity only → one row, kind=filed_by.
-      - signed_by_capacities only → one row per cosigner.
-      - both → rows for each capacity.
-      - missing optional fields default to empty strings (not
-        nil-dereference panics).
+	Unit + functional tests for BuildPartiesFilingRows — the
+	pure extractor that produces parties_filings rows from
+	ClassifiedEntry payloads. No Postgres needed. Covers:
 
-    Functional emulation:
-      - Defense counsel files motion_continuance — the canonical
-        Filer flow. One filed_by row + one signed_by row for
-        each cosigner.
-      - Pro Se filing (no attorney_did, only binding_id).
-      - counsel_appearance with represents list — one filed_by
-        row covering the appearance.
+	  - nil / empty payload → no rows.
+	  - filed_by_capacity only → one row, kind=filed_by.
+	  - signed_by_capacities only → one row per cosigner.
+	  - both → rows for each capacity.
+	  - missing optional fields default to empty strings (not
+	    nil-dereference panics).
+
+	Functional emulation:
+	  - Defense counsel files motion_continuance — the canonical
+	    Filer flow. One filed_by row + one signed_by row for
+	    each cosigner.
+	  - Pro Se filing (no attorney_did, only binding_id).
+	  - counsel_appearance with represents list — one filed_by
+	    row covering the appearance.
 */
 package aggregator
 

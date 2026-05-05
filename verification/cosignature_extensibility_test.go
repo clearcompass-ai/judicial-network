@@ -2,22 +2,23 @@
 FILE PATH: verification/cosignature_extensibility_test.go
 
 DESCRIPTION:
-    Pins the credential-extensibility contract: per-(actor × event)
-    credential requirements are configured by the policy module, NOT
-    by Go code. Adding a new required credential, or a new event with
-    its own credential bag, is a JSON catalog change — code does not
-    move.
 
-    Two scenarios:
-      - new event_type with multi-credential bag (bpr_number,
-        state_id, federal_pacer_id) — verifier rejects on missing
-        keys, accepts on full set, ignores extra unmentioned keys.
-      - same actor (defense_counsel), TWO events with DIFFERENT
-        credential demands — verifier reads the rule and gates
-        accordingly.
+	Pins the credential-extensibility contract: per-(actor × event)
+	credential requirements are configured by the policy module, NOT
+	by Go code. Adding a new required credential, or a new event with
+	its own credential bag, is a JSON catalog change — code does not
+	move.
 
-    These two tests are the pin for "Capacity is extensible by design"
-    promised in the v1.6 design conversation.
+	Two scenarios:
+	  - new event_type with multi-credential bag (bpr_number,
+	    state_id, federal_pacer_id) — verifier rejects on missing
+	    keys, accepts on full set, ignores extra unmentioned keys.
+	  - same actor (defense_counsel), TWO events with DIFFERENT
+	    credential demands — verifier reads the rule and gates
+	    accordingly.
+
+	These two tests are the pin for "Capacity is extensible by design"
+	promised in the v1.6 design conversation.
 */
 package verification
 

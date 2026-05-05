@@ -2,13 +2,14 @@
 FILE PATH: tools/cmd/aggregator/probes_test.go
 
 DESCRIPTION:
-    Pins the aggregator binary's probe HTTP surface:
-      1. /healthz returns 200 unconditionally (liveness).
-      2. /readyz returns 200 when both DB ping + operator /healthz
-         succeed; 503 when either fails (readiness).
-      3. /metrics serves the Prometheus registry.
-      4. Unknown paths return 404 — the aggregator has no
-         /v1/* routes by design.
+
+	Pins the aggregator binary's probe HTTP surface:
+	  1. /healthz returns 200 unconditionally (liveness).
+	  2. /readyz returns 200 when both DB ping + ledger /healthz
+	     succeed; 503 when either fails (readiness).
+	  3. /metrics serves the Prometheus registry.
+	  4. Unknown paths return 404 — the aggregator has no
+	     /v1/* routes by design.
 */
 package main
 
@@ -27,14 +28,14 @@ type stubDB struct{ errOnPing error }
 
 func (s stubDB) PingContext(_ context.Context) error { return s.errOnPing }
 
-func newProbes(t *testing.T, dbErr error, operatorOK bool) (*probeHandlers, func()) {
+func newProbes(t *testing.T, dbErr error, ledgerOK bool) (*probeHandlers, func()) {
 	t.Helper()
 	op := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/healthz" {
 			http.NotFound(w, r)
 			return
 		}
-		if !operatorOK {
+		if !ledgerOK {
 			http.Error(w, "down", http.StatusServiceUnavailable)
 			return
 		}
@@ -92,15 +93,15 @@ func TestProbes_Readyz_DBDown_503(t *testing.T) {
 	}
 }
 
-func TestProbes_Readyz_OperatorDown_503(t *testing.T) {
+func TestProbes_Readyz_LedgerDown_503(t *testing.T) {
 	p, cleanup := newProbes(t, nil, false)
 	defer cleanup()
 	rec := hit(p.Handler(), http.MethodGet, "/readyz")
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want 503", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "operator") {
-		t.Errorf("body should mention operator; got %q", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "ledger") {
+		t.Errorf("body should mention ledger; got %q", rec.Body.String())
 	}
 }
 

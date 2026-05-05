@@ -1,29 +1,34 @@
 /*
 FILE PATH: cases/artifact/retrieve.go
 DESCRIPTION: Sealing checks, authorized recipients, SDK GrantArtifactAccess,
-    and Wave 1 PRE commitment verification.
+
+	and Wave 1 PRE commitment verification.
+
 KEY ARCHITECTURAL DECISIONS:
-    - DRIFT 1 FIX: Uses verifier.EvaluateOrigin for entity state check
-      (handles path compression, revocation, succession). Manual AuthorityTip
-      check retained for sealing detection (authority-lane concern).
-    - TWO KEY STORES: ArtifactKeyStore (AES-GCM) and DelegationKeyStore (PRE).
-    - PRE UNWRAP OUTSIDE SDK: delKeyStore.Get → UnwrapDelegationKey → sk_del.
-    - GrantArtifactAccessParams.OwnerSecretKey receives sk_del, NOT master key.
-    - WAVE 1 PRE COMMITMENT VERIFICATION: For umbral_pre grants, after
-      GrantArtifactAccess returns, the result's PREGrantCommitment is
-      verified locally via VerifyPREGrantCommitment (ADR-005 §3-4).
-      This catches an SDK bug where the result's CFrags ship with a
-      mismatched commitment set; recipients receiving CFrags without
-      a matching on-log commitment MUST reject as structurally
-      malformed (per ADR-005 §3.5 receive-side rule).
-    - VerifyArtifactCommitmentOnLog is the recipient-side primitive
-      that fetches the commitment from the log via the SDK's
-      CommitmentFetcher and verifies it. Audit/verification API
-      callers use this when they're consuming a grant rather than
-      producing one.
+  - DRIFT 1 FIX: Uses verifier.EvaluateOrigin for entity state check
+    (handles path compression, revocation, succession). Manual AuthorityTip
+    check retained for sealing detection (authority-lane concern).
+  - TWO KEY STORES: ArtifactKeyStore (AES-GCM) and DelegationKeyStore (PRE).
+  - PRE UNWRAP OUTSIDE SDK: delKeyStore.Get → UnwrapDelegationKey → sk_del.
+  - GrantArtifactAccessParams.OwnerSecretKey receives sk_del, NOT master key.
+  - WAVE 1 PRE COMMITMENT VERIFICATION: For umbral_pre grants, after
+    GrantArtifactAccess returns, the result's PREGrantCommitment is
+    verified locally via VerifyPREGrantCommitment (ADR-005 §3-4).
+    This catches an SDK bug where the result's CFrags ship with a
+    mismatched commitment set; recipients receiving CFrags without
+    a matching on-log commitment MUST reject as structurally
+    malformed (per ADR-005 §3.5 receive-side rule).
+  - VerifyArtifactCommitmentOnLog is the recipient-side primitive
+    that fetches the commitment from the log via the SDK's
+    CommitmentFetcher and verifies it. Audit/verification API
+    callers use this when they're consuming a grant rather than
+    producing one.
+
 OVERVIEW: RetrieveArtifact → entity state check → sealing check →
-    authorized recipients → GrantArtifactAccess → commitment verify.
-KEY DEPENDENCIES: ortholog-sdk/builder, lifecycle, smt, verifier, judicial-network/schemas
+
+	authorized recipients → GrantArtifactAccess → commitment verify.
+
+KEY DEPENDENCIES: attesta/builder, lifecycle, smt, verifier, judicial-network/schemas
 */
 package artifact
 
@@ -33,15 +38,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/did"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

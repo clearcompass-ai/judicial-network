@@ -1,31 +1,33 @@
 /*
 FILE PATH:
-    tools/cmd/court-tools/main.go
+
+	tools/cmd/court-tools/main.go
 
 DESCRIPTION:
-    Entry point for the court-tools binary. Wires upstream services (operator,
-    exchange, verification API, artifact store) to the courts HTTP server and
-    the log aggregator. Single process, two goroutines.
+
+	Entry point for the court-tools binary. Wires upstream services (ledger,
+	exchange, verification API, artifact store) to the courts HTTP server and
+	the log aggregator. Single process, two goroutines.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Aggregator in-process: avoids separate deployment for small courts.
-      --aggregator-only flag supports dedicated aggregator deployments.
-    - DB optional: if Postgres unreachable, HTTP server starts but read
-      endpoints return 503. Writes always work (routed through exchange).
-    - Fail-fast on config: missing or malformed config is fatal.
+  - Aggregator in-process: avoids separate deployment for small courts.
+    --aggregator-only flag supports dedicated aggregator deployments.
+  - DB optional: if Postgres unreachable, HTTP server starts but read
+    endpoints return 503. Writes always work (routed through exchange).
+  - Fail-fast on config: missing or malformed config is fatal.
 
 OVERVIEW:
-    1. Parse flags → load config (JSON + env overrides).
-    2. Construct HTTP clients for exchange, operator, verification API.
-    3. Attempt Postgres connection. Log warning if unavailable.
-    4. Start aggregator goroutine (polls operator → writes Postgres).
-    5. Start courts HTTP server on configured address.
-    6. Block on SIGINT/SIGTERM → cancel context → clean shutdown.
+ 1. Parse flags → load config (JSON + env overrides).
+ 2. Construct HTTP clients for exchange, ledger, verification API.
+ 3. Attempt Postgres connection. Log warning if unavailable.
+ 4. Start aggregator goroutine (polls ledger → writes Postgres).
+ 5. Start courts HTTP server on configured address.
+ 6. Block on SIGINT/SIGTERM → cancel context → clean shutdown.
 
 KEY DEPENDENCIES:
-    - tools/common: Config, ExchangeClient, OperatorClient, VerifyClient, DB
-    - tools/courts: Server (HTTP handler tree)
-    - tools/aggregator: Scanner (polling loop)
+  - tools/common: Config, ExchangeClient, LedgerClient, VerifyClient, DB
+  - tools/courts: Server (HTTP handler tree)
+  - tools/aggregator: Scanner (polling loop)
 */
 package main
 
@@ -57,7 +59,7 @@ func main() {
 	}
 
 	exchange := common.NewExchangeClient(cfg.ExchangeURL)
-	operator := common.NewOperatorClient(cfg.OperatorURL, cfg.CasesLogDID)
+	ledger := common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
 	verify := common.NewVerifyClient(cfg.VerificationURL)
 
 	// -------------------------------------------------------------------------
@@ -82,7 +84,7 @@ func main() {
 	// -------------------------------------------------------------------------
 
 	if db != nil {
-		scanner := aggregator.NewScanner(cfg, operator, db)
+		scanner := aggregator.NewScanner(cfg, ledger, db)
 		go func() {
 			if e := scanner.Run(ctx); e != nil {
 				log.Printf("ERROR: aggregator: %v", e)

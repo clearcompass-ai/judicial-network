@@ -2,24 +2,25 @@
 FILE PATH: api/judicial/cases.go
 
 DESCRIPTION:
-    Route registration for cases.* handlers + the simpler
-    same-process handlers (initiate, amend, lookup, transfer
-    division, transfer county stub). The artifact-bearing handlers
-    File and RecordJudicialAction live in cases_filings.go where
-    their dependency surface (ContentStore + KeyStore +
-    DelegationKeyStore + Resolver) is grouped.
 
-    Daily reality:
+	Route registration for cases.* handlers + the simpler
+	same-process handlers (initiate, amend, lookup, transfer
+	division, transfer county stub). The artifact-bearing handlers
+	File and RecordJudicialAction live in cases_filings.go where
+	their dependency surface (ContentStore + KeyStore +
+	DelegationKeyStore + Resolver) is grouped.
 
-      POST /v1/judicial/cases                          → InitiateCase
-      POST /v1/judicial/cases/{caseRootSeq}/amend      → AmendCase
-      GET  /v1/judicial/cases/{docket}                 → LookupDocket
-      POST /v1/judicial/cases/{caseRootSeq}/transfer/division
-                                                       → TransferDivision
-      POST /v1/judicial/cases/{caseRootSeq}/transfer/county
-                                                       → 501 (deferred to C5;
-                                                         needs cross-log proof
-                                                         composition)
+	Daily reality:
+
+	  POST /v1/judicial/cases                          → InitiateCase
+	  POST /v1/judicial/cases/{caseRootSeq}/amend      → AmendCase
+	  GET  /v1/judicial/cases/{docket}                 → LookupDocket
+	  POST /v1/judicial/cases/{caseRootSeq}/transfer/division
+	                                                   → TransferDivision
+	  POST /v1/judicial/cases/{caseRootSeq}/transfer/county
+	                                                   → 501 (deferred to C5;
+	                                                     needs cross-log proof
+	                                                     composition)
 */
 package judicial
 
@@ -27,7 +28,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases"
 )

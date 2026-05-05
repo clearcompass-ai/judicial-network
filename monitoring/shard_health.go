@@ -1,14 +1,17 @@
 /*
 FILE PATH: monitoring/shard_health.go
 DESCRIPTION: Monitors shard chain integrity and per-shard size thresholds.
-    Uses SDK verifier.VerifyShardChain for link verification and tracks
-    size against configured freeze thresholds.
+
+	Uses SDK verifier.VerifyShardChain for link verification and tracks
+	size against configured freeze thresholds.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Caller provides the full shard chain (from operator's shard manager).
-    - Uses verifier.VerifyShardChain to detect genesis link breaks.
-    - Flags shards approaching freeze threshold (warning) and over it (critical).
+  - Caller provides the full shard chain (from ledger's shard manager).
+  - Uses verifier.VerifyShardChain to detect genesis link breaks.
+  - Flags shards approaching freeze threshold (warning) and over it (critical).
+
 OVERVIEW: CheckShardHealth returns alerts for chain breaks + threshold crossings.
-KEY DEPENDENCIES: ortholog-sdk/verifier
+KEY DEPENDENCIES: attesta/verifier
 */
 package monitoring
 
@@ -16,9 +19,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 const MonitorShardHealth monitoring.MonitorID = "judicial.shard_health"
@@ -27,6 +30,11 @@ const MonitorShardHealth monitoring.MonitorID = "judicial.shard_health"
 type ShardHealthConfig struct {
 	// Shards is the ordered shard chain.
 	Shards []verifier.ShardInfo
+
+	// NetworkID binds shard-chain link verification to a specific
+	// network/fork — cross-network shard-chain replay is rejected
+	// at the link-validation step.
+	NetworkID cosign.NetworkID
 
 	// FreezeThreshold is the entry count at which a shard should be frozen
 	// and a new shard started.
@@ -66,10 +74,10 @@ func CheckShardHealth(cfg ShardHealthConfig, now time.Time) ([]monitoring.Alert,
 			Destination: monitoring.Both,
 			Message:     fmt.Sprintf("shard chain broken at index %d", brokenAt),
 			Details: map[string]any{
-				"log_did":     cfg.LogDID,
-				"chain_len":   len(cfg.Shards),
-				"broken_at":   brokenAt,
-				"error":       errorString(err),
+				"log_did":   cfg.LogDID,
+				"chain_len": len(cfg.Shards),
+				"broken_at": brokenAt,
+				"error":     errorString(err),
 			},
 			EmittedAt: now,
 		})
@@ -94,11 +102,11 @@ func CheckShardHealth(cfg ShardHealthConfig, now time.Time) ([]monitoring.Alert,
 					latest.ShardID, latest.FinalSize, cfg.FreezeThreshold,
 				),
 				Details: map[string]any{
-					"log_did":     cfg.LogDID,
-					"shard_id":    latest.ShardID,
-					"size":        latest.FinalSize,
-					"threshold":   cfg.FreezeThreshold,
-					"action":      "freeze_and_shard",
+					"log_did":   cfg.LogDID,
+					"shard_id":  latest.ShardID,
+					"size":      latest.FinalSize,
+					"threshold": cfg.FreezeThreshold,
+					"action":    "freeze_and_shard",
 				},
 				EmittedAt: now,
 			})

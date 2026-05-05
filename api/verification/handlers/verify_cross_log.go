@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 	"github.com/clearcompass-ai/judicial-network/topology"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
 )
 
 // VerifyCrossLogHandler handles POST /v1/verify/cross-log.
@@ -33,8 +33,14 @@ func (h *VerifyCrossLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	quorum := h.deps.WitnessQuorum[req.SourceLogDID]
+	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
+	if networkID.IsZero() {
+		writeError(w, http.StatusBadRequest, "no network ID for source log")
+		return
+	}
 
-	err := verifier.VerifyCrossLogProof(req.Proof, keys, quorum, h.deps.NetworkID, h.deps.BLSVerifier, topology.ExtractAnchorPayload)
+	err := verifier.VerifyCrossLogProof(req.Proof, keys, quorum, networkID,
+		h.deps.BLSVerifier, topology.ExtractAnchorPayload)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"valid": false,

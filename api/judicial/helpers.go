@@ -2,13 +2,14 @@
 FILE PATH: api/judicial/helpers.go
 
 DESCRIPTION:
-    Shared helpers used by every domain-specific file in this
-    package: HTTP path/query parsing, base64 codec, and the
-    logPositionRef wire shape every request payload uses to
-    reference a specific (logDID, sequence) tuple.
 
-    Kept in a dedicated file (under 300 lines) so the domain
-    files stay focused on the handlers themselves.
+	Shared helpers used by every domain-specific file in this
+	package: HTTP path/query parsing, base64 codec, and the
+	logPositionRef wire shape every request payload uses to
+	reference a specific (logDID, sequence) tuple.
+
+	Kept in a dedicated file (under 300 lines) so the domain
+	files stay focused on the handlers themselves.
 */
 package judicial
 
@@ -17,8 +18,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // logPositionRef is the JSON wire shape for a types.LogPosition.

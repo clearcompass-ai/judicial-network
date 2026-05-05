@@ -2,24 +2,25 @@
 FILE PATH: deployments/tn/trial/motions_3c.go
 
 DESCRIPTION:
-    v1.8 §3C — Equitable, Provisional & Class Remedies. Four
-    event types covering TRCP 65 injunctions, asset attachment,
-    TRCP 23 class certification, and the catch-all.
 
-    All §3C motions follow the §3 default: Hard case_initiated
-    ancestor only; no additional prereqs.
+	v1.8 §3C — Equitable, Provisional & Class Remedies. Four
+	event types covering TRCP 65 injunctions, asset attachment,
+	TRCP 23 class certification, and the catch-all.
 
-    Filer set:
-      motion_tro_preliminary_injunction — civil-side primarily,
-        but prosecutor-permitted for asset-freeze actions in
-        criminal/civil-forfeiture cases.
-      motion_attachment_receivership — civil-side + prosecutor
-        (forfeiture proceedings).
-      motion_class_certification — civil_attorney only (class
-        actions are a civil-procedure construct; defense_counsel
-        does not typically move for class cert; prosecutor
-        never).
-      motion_equitable_general — all advocates, catch-all.
+	All §3C motions follow the §3 default: Hard case_initiated
+	ancestor only; no additional prereqs.
+
+	Filer set:
+	  motion_tro_preliminary_injunction — civil-side primarily,
+	    but prosecutor-permitted for asset-freeze actions in
+	    criminal/civil-forfeiture cases.
+	  motion_attachment_receivership — civil-side + prosecutor
+	    (forfeiture proceedings).
+	  motion_class_certification — civil_attorney only (class
+	    actions are a civil-procedure construct; defense_counsel
+	    does not typically move for class cert; prosecutor
+	    never).
+	  motion_equitable_general — all advocates, catch-all.
 */
 package trial
 

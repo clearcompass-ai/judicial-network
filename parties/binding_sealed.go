@@ -1,15 +1,18 @@
 /*
 FILE PATH: parties/binding_sealed.go
 DESCRIPTION: Sealed party bindings for juvenile/family cases. PRE-encrypts
-    the real-identity-to-vendor-DID mapping so only authorized officers
-    can resolve real identity.
+
+	the real-identity-to-vendor-DID mapping so only authorized officers
+	can resolve real identity.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Calls artifact.PublishArtifact (PRE path) to encrypt the identity mapping.
-    - Vendor DID on the log, real DID only in PRE-encrypted artifact.
-    - Only scope authority officers can decrypt via GrantArtifactAccess sealed mode.
-    - Uses DelegationKeyStore for PRE wrapped keys.
+  - Calls artifact.PublishArtifact (PRE path) to encrypt the identity mapping.
+  - Vendor DID on the log, real DID only in PRE-encrypted artifact.
+  - Only scope authority officers can decrypt via GrantArtifactAccess sealed mode.
+  - Uses DelegationKeyStore for PRE wrapped keys.
+
 OVERVIEW: CreateSealedBinding → PRE-encrypted mapping + root entity.
-KEY DEPENDENCIES: ortholog-sdk/builder, cases/artifact
+KEY DEPENDENCIES: attesta/builder, cases/artifact
 */
 package parties
 
@@ -17,13 +20,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/did"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )
@@ -45,7 +48,7 @@ type SealedBindingConfig struct {
 
 // SealedBindingResult holds the binding entry and published encrypted mapping.
 type SealedBindingResult struct {
-	Entry           *envelope.Entry
+	Entry            *envelope.Entry
 	EncryptedMapping *artifact.PublishedArtifact
 }
 
@@ -106,10 +109,10 @@ func CreateSealedBinding(
 
 	entry, err := builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: cfg.Destination,
-		SignerDID: cfg.SignerDID,
-		Payload:   payload,
-		SchemaRef: schemaRefPtr,
-		EventTime: cfg.EventTime,
+		SignerDID:   cfg.SignerDID,
+		Payload:     payload,
+		SchemaRef:   schemaRefPtr,
+		EventTime:   cfg.EventTime,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("parties/binding_sealed: build root entity: %w", err)

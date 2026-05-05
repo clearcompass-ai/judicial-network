@@ -11,16 +11,16 @@ import (
 // Reconciler periodically verifies that Postgres matches the log.
 // If Postgres is wrong, it can be rebuilt from scratch by scanning from 0.
 type Reconciler struct {
-	operator     *common.OperatorClient
+	ledger       *common.LedgerClient
 	db           *common.DB
 	deserializer *Deserializer
 	logDIDs      []string
 }
 
 // NewReconciler creates a reconciler.
-func NewReconciler(cfg common.Config, operator *common.OperatorClient, db *common.DB) *Reconciler {
+func NewReconciler(cfg common.Config, ledger *common.LedgerClient, db *common.DB) *Reconciler {
 	return &Reconciler{
-		operator:     operator,
+		ledger:       ledger,
 		db:           db,
 		deserializer: NewDeserializer(),
 		logDIDs:      cfg.LogDIDs(),
@@ -69,7 +69,7 @@ func (r *Reconciler) reconcileLog(ctx context.Context, logDID string, checkCount
 		startPos = watermark - uint64(checkCount)
 	}
 
-	entries, err := r.operator.ScanFrom(startPos, checkCount)
+	entries, err := r.ledger.ScanFrom(startPos, checkCount)
 	if err != nil {
 		return nil, err
 	}

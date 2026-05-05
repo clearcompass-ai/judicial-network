@@ -2,52 +2,55 @@
 FILE PATH: verification/scope_enforcement.go
 
 DESCRIPTION:
-    Domain Path B scope_limit interceptor — the read-side defense
-    against the Compromised-Subordinate-Key attack
-    (ortholog-sdk/docs/implementation-obligations.md).
+
+	Domain Path B scope_limit interceptor — the read-side defense
+	against the Compromised-Subordinate-Key attack
+	(attesta/docs/implementation-obligations.md).
 
 THE THREAT MODEL:
-    The SDK enforces *cryptographic* authority: a Path B entry's
-    delegation chain must be live, unrevoked, and connect the signer
-    to a root entity. The SDK does NOT inspect DomainPayload (it is
-    opaque by protocol). A compromised subordinate key (e.g., an
-    automated scheduler) holding a delegation legally narrowed by
-    scope_limit can therefore submit any entry the cryptographic chain
-    technically permits — including entries whose target schema is
-    explicitly forbidden by the delegation's scope_limit.
+
+	The SDK enforces *cryptographic* authority: a Path B entry's
+	delegation chain must be live, unrevoked, and connect the signer
+	to a root entity. The SDK does NOT inspect DomainPayload (it is
+	opaque by protocol). A compromised subordinate key (e.g., an
+	automated scheduler) holding a delegation legally narrowed by
+	scope_limit can therefore submit any entry the cryptographic chain
+	technically permits — including entries whose target schema is
+	explicitly forbidden by the delegation's scope_limit.
 
 THE DEFENSE:
-    Walk the same delegation chain the SDK validated cryptographically,
-    deserialize each delegation's DomainPayload, intersect the
-    scope_limit permissions across the chain, and reject if the
-    target entry's SchemaRef is not in the permitted set. A narrower
-    scope cannot be widened by a parent.
+
+	Walk the same delegation chain the SDK validated cryptographically,
+	deserialize each delegation's DomainPayload, intersect the
+	scope_limit permissions across the chain, and reject if the
+	target entry's SchemaRef is not in the permitted set. A narrower
+	scope cannot be widened by a parent.
 
 KEY ARCHITECTURAL DECISIONS:
-    - Read-side only. Every consumer of judicial entries (verification
-      API, monitoring, foreign courts via cross-log) MUST run this
-      check after the SDK's cryptographic verification before treating
-      the entry as authoritative. Wiring is in delegation_chain.go.
-    - Two scope_limit shapes accepted:
-        (a) JSON array  ["case_filing","order"]
-        (b) CSV string  "case_filing,order"
-      Both are first-class. Empty/missing = unrestricted. This matches
-      the existing inconsistency between schemas/court_officer.go
-      (string) and tools/common/types.go (array) without a breaking
-      schema migration.
-    - Comparison is case-insensitive on the schema URI's last segment
-      (the schema name). "tn-criminal-case-v1" matches "tn-criminal-
-      case-v1"; full URI prefix matches are not supported because the
-      payload-side scope_limit values are domain-defined strings, not
-      log positions.
-    - ErrScopeViolation carries the chain hop, the violating
-      delegation's DelegateDID, the target schema, and the permitted
-      set so audit logs surface enough context to triage without
-      re-fetching.
+  - Read-side only. Every consumer of judicial entries (verification
+    API, monitoring, foreign courts via cross-log) MUST run this
+    check after the SDK's cryptographic verification before treating
+    the entry as authoritative. Wiring is in delegation_chain.go.
+  - Two scope_limit shapes accepted:
+    (a) JSON array  ["case_filing","order"]
+    (b) CSV string  "case_filing,order"
+    Both are first-class. Empty/missing = unrestricted. This matches
+    the existing inconsistency between schemas/court_officer.go
+    (string) and tools/common/types.go (array) without a breaking
+    schema migration.
+  - Comparison is case-insensitive on the schema URI's last segment
+    (the schema name). "tn-criminal-case-v1" matches "tn-criminal-
+    case-v1"; full URI prefix matches are not supported because the
+    payload-side scope_limit values are domain-defined strings, not
+    log positions.
+  - ErrScopeViolation carries the chain hop, the violating
+    delegation's DelegateDID, the target schema, and the permitted
+    set so audit logs surface enough context to triage without
+    re-fetching.
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/types: EntryFetcher, LogPosition.
-    - ortholog-sdk/core/envelope: Entry, ControlHeader.
+  - attesta/types: EntryFetcher, LogPosition.
+  - attesta/core/envelope: Entry, ControlHeader.
 */
 package verification
 
@@ -57,8 +60,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // Errors surfaced by the scope enforcer. Stable enum values — audit
@@ -107,7 +110,7 @@ func (v *ScopeViolation) Is(target error) bool {
 
 // SchemaRefResolver resolves a SchemaRef LogPosition to the schema's
 // canonical name. Domain applications inject this — typically a
-// thin wrapper over the operator's QueryByPosition that pulls the
+// thin wrapper over the ledger's QueryByPosition that pulls the
 // schema entry, deserializes its parameters, and returns the URI.
 //
 // For tests and dry-run scenarios the resolver may return a stable
@@ -211,11 +214,12 @@ func NormalizeSchemaName(s string) string {
 
 // ExtractScopeLimit parses a delegation payload's scope_limit field.
 // Accepts both shapes:
-//   {"scope_limit": ["case_filing", "order"]}      // array
-//   {"scope_limit": "case_filing,order"}            // CSV string
-//   {}                                               // missing → unrestricted
-//   {"scope_limit": ""}                              // empty string → unrestricted
-//   {"scope_limit": []}                              // empty array → unrestricted
+//
+//	{"scope_limit": ["case_filing", "order"]}      // array
+//	{"scope_limit": "case_filing,order"}            // CSV string
+//	{}                                               // missing → unrestricted
+//	{"scope_limit": ""}                              // empty string → unrestricted
+//	{"scope_limit": []}                              // empty array → unrestricted
 //
 // Returned slice is normalized: trimmed, lowercased, no empty entries.
 // Nil/empty returned slice means "unrestricted" — see PermitsAll.

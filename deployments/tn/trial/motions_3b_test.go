@@ -2,15 +2,16 @@
 FILE PATH: deployments/tn/trial/motions_3b_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3B dispositive motions. Pins:
-      - 6 motion types (5 + 1 catch-all).
-      - motion_judgment_on_pleadings has Hard responsive_pleading
-        prereq (pleadings closed).
-      - motion_default_judgment has Hard party_binding prereq.
-      - Filer sets: civil-side dispositive vs prosecutor-only.
-      - Both motion_summary_judgment and motion_state_dismissal
-        flow through the helper (no longer in the base file).
-      - Walker accepts/rejects appropriately.
+
+	Tests for v1.8 §3B dispositive motions. Pins:
+	  - 6 motion types (5 + 1 catch-all).
+	  - motion_judgment_on_pleadings has Hard responsive_pleading
+	    prereq (pleadings closed).
+	  - motion_default_judgment has Hard party_binding prereq.
+	  - Filer sets: civil-side dispositive vs prosecutor-only.
+	  - Both motion_summary_judgment and motion_state_dismissal
+	    flow through the helper (no longer in the base file).
+	  - Walker accepts/rejects appropriately.
 */
 package trial
 
@@ -25,12 +26,12 @@ import (
 
 func TestMotions3B_ExpectedEvents(t *testing.T) {
 	want := map[string]bool{
-		"motion_summary_judgment":         true,
-		"motion_judgment_on_pleadings":    true,
-		"motion_default_judgment":         true,
-		"motion_state_dismissal":          true,
+		"motion_summary_judgment":          true,
+		"motion_judgment_on_pleadings":     true,
+		"motion_default_judgment":          true,
+		"motion_state_dismissal":           true,
 		"motion_dismiss_unnecessary_delay": true,
-		"motion_dispositive_general":      true,
+		"motion_dispositive_general":       true,
 	}
 	got := map[string]bool{}
 	for _, m := range motions3B() {

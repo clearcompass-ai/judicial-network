@@ -2,13 +2,14 @@
 FILE PATH: api/middleware/observability/readyz_test.go
 
 DESCRIPTION:
-    Pins the readyz handler:
-      1. Empty Checks → 200 unconditionally.
-      2. All checks pass → 200 with each check's name → "ok".
-      3. Any check fails → 503 with failed check's error in body.
-      4. CheckHTTPGet 200 → ok; non-2xx or unreachable → error.
-      5. Per-check timeout respected (handler doesn't hang on a
-         slow upstream past the configured budget).
+
+	Pins the readyz handler:
+	  1. Empty Checks → 200 unconditionally.
+	  2. All checks pass → 200 with each check's name → "ok".
+	  3. Any check fails → 503 with failed check's error in body.
+	  4. CheckHTTPGet 200 → ok; non-2xx or unreachable → error.
+	  5. Per-check timeout respected (handler doesn't hang on a
+	     slow upstream past the configured budget).
 */
 package observability
 
@@ -44,7 +45,7 @@ func TestReadyzHandler_NoChecks_200(t *testing.T) {
 
 func TestReadyzHandler_AllPass_200(t *testing.T) {
 	h := ReadyzHandler(ReadyzConfig{
-		Checks: []ReadyCheck{okCheck("operator"), okCheck("artifact_store")},
+		Checks: []ReadyCheck{okCheck("ledger"), okCheck("artifact_store")},
 	})
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
@@ -53,7 +54,7 @@ func TestReadyzHandler_AllPass_200(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.NewDecoder(rec.Body).Decode(&body)
-	if body["operator"] != "ok" || body["artifact_store"] != "ok" {
+	if body["ledger"] != "ok" || body["artifact_store"] != "ok" {
 		t.Errorf("body = %+v, want all 'ok'", body)
 	}
 }
@@ -61,7 +62,7 @@ func TestReadyzHandler_AllPass_200(t *testing.T) {
 func TestReadyzHandler_OneFails_503(t *testing.T) {
 	h := ReadyzHandler(ReadyzConfig{
 		Checks: []ReadyCheck{
-			okCheck("operator"),
+			okCheck("ledger"),
 			errCheck("artifact_store", "connection refused"),
 		},
 	})
@@ -72,8 +73,8 @@ func TestReadyzHandler_OneFails_503(t *testing.T) {
 	}
 	var body map[string]string
 	_ = json.NewDecoder(rec.Body).Decode(&body)
-	if body["operator"] != "ok" {
-		t.Errorf("operator = %q, want ok", body["operator"])
+	if body["ledger"] != "ok" {
+		t.Errorf("ledger = %q, want ok", body["ledger"])
 	}
 	if body["artifact_store"] != "connection refused" {
 		t.Errorf("artifact_store = %q, want failure detail", body["artifact_store"])

@@ -2,15 +2,16 @@
 FILE PATH: tools/cmd/aggregator/main_test.go
 
 DESCRIPTION:
-    Pins the aggregator binary's boot path:
-      1. parseFlags surfaces a usable runArgs from typical input.
-      2. run() rejects empty database_url + operator_url.
-      3. run() boots, the probe server is reachable, the scanner
-         goroutine starts, and SIGINT triggers a graceful shutdown.
 
-    Tests use deps stubs to avoid real Postgres / operator
-    dependencies — the boot wiring is what's under test, not the
-    Scanner / DB internals (those have their own unit tests).
+	Pins the aggregator binary's boot path:
+	  1. parseFlags surfaces a usable runArgs from typical input.
+	  2. run() rejects empty database_url + ledger_url.
+	  3. run() boots, the probe server is reachable, the scanner
+	     goroutine starts, and SIGINT triggers a graceful shutdown.
+
+	Tests use deps stubs to avoid real Postgres / ledger
+	dependencies — the boot wiring is what's under test, not the
+	Scanner / DB internals (those have their own unit tests).
 */
 package main
 
@@ -75,7 +76,7 @@ func writeAggCfg(t *testing.T, m map[string]any) string {
 
 func TestRun_RejectsEmptyDatabaseURL(t *testing.T) {
 	cfgPath := writeAggCfg(t, map[string]any{
-		"operator_url": "http://op.test",
+		"ledger_url":   "http://op.test",
 		"database_url": "",
 	})
 	err := run([]string{"--config", cfgPath}, deps{
@@ -86,16 +87,16 @@ func TestRun_RejectsEmptyDatabaseURL(t *testing.T) {
 	}
 }
 
-func TestRun_RejectsEmptyOperatorURL(t *testing.T) {
+func TestRun_RejectsEmptyLedgerURL(t *testing.T) {
 	cfgPath := writeAggCfg(t, map[string]any{
-		"operator_url": "",
+		"ledger_url":   "",
 		"database_url": "postgres://localhost/x",
 	})
 	err := run([]string{"--config", cfgPath}, deps{
 		loadConfig: common.LoadConfig,
 	})
-	if !errors.Is(err, errMissingOperator) {
-		t.Errorf("err = %v, want errMissingOperator", err)
+	if !errors.Is(err, errMissingLedger) {
+		t.Errorf("err = %v, want errMissingLedger", err)
 	}
 }
 
@@ -113,12 +114,12 @@ func TestRun_BootShutdownRoundTrip(t *testing.T) {
 	ln.Close()
 
 	cfgPath := writeAggCfg(t, map[string]any{
-		"operator_url": "http://op.test",
+		"ledger_url":   "http://op.test",
 		"database_url": "postgres://test/test",
 		"cases_log":    "did:web:test:cases",
 	})
 
-	// Stub deps so no real DB / operator is needed.
+	// Stub deps so no real DB / ledger is needed.
 	stubDB := &fakeDB{}
 	scannerStarted := make(chan struct{}, 1)
 	stubDeps := deps{
@@ -129,8 +130,8 @@ func TestRun_BootShutdownRoundTrip(t *testing.T) {
 			// the pool until the loop runs.
 			return &common.DB{}, nil
 		},
-		newOperator: func(url, did string) *common.OperatorClient {
-			return common.NewOperatorClient(url, did)
+		newLedger: func(url, did string) *common.LedgerClient {
+			return common.NewLedgerClient(url, did)
 		},
 		startScanner: func(ctx context.Context, _ *aggregator.Scanner) error {
 			scannerStarted <- struct{}{}

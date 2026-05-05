@@ -2,16 +2,17 @@
 FILE PATH: deployments/tn/trial/motions_3a_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3A pleading motions. Pins:
-      - 9 motion types (8 + 1 catch-all).
-      - Every entry follows the §3 default cosig shape.
-      - Filer sets are correct per v1.8 (civil-side, criminal-
-        side, both).
-      - The catch-all carries CustomTitleRequired=true.
-      - Every §3A event ends up in CosignatureRules() and
-        PrerequisiteRules() through the helpers.
-      - Walker accepts each §3A motion with case_initiated
-        observed.
+
+	Tests for v1.8 §3A pleading motions. Pins:
+	  - 9 motion types (8 + 1 catch-all).
+	  - Every entry follows the §3 default cosig shape.
+	  - Filer sets are correct per v1.8 (civil-side, criminal-
+	    side, both).
+	  - The catch-all carries CustomTitleRequired=true.
+	  - Every §3A event ends up in CosignatureRules() and
+	    PrerequisiteRules() through the helpers.
+	  - Walker accepts each §3A motion with case_initiated
+	    observed.
 */
 package trial
 
@@ -26,15 +27,15 @@ import (
 
 func TestMotions3A_ExpectedEvents(t *testing.T) {
 	want := map[string]bool{
-		"motion_dismiss_jurisdiction":          true,
-		"motion_dismiss_process_defects":       true,
+		"motion_dismiss_jurisdiction":           true,
+		"motion_dismiss_process_defects":        true,
 		"motion_dismiss_failure_to_state_claim": true,
-		"motion_dismiss_charging_defect":       true,
-		"motion_dismiss_no_probable_cause":     true,
-		"motion_more_definite_statement":       true,
-		"motion_to_strike":                     true,
-		"motion_amend_pleadings":               true,
-		"motion_pleading_general":              true,
+		"motion_dismiss_charging_defect":        true,
+		"motion_dismiss_no_probable_cause":      true,
+		"motion_more_definite_statement":        true,
+		"motion_to_strike":                      true,
+		"motion_amend_pleadings":                true,
+		"motion_pleading_general":               true,
 	}
 	got := map[string]bool{}
 	for _, m := range motions3A() {

@@ -2,13 +2,14 @@
 FILE PATH: cmd/judicial-cli/web3_test.go
 
 DESCRIPTION:
-    Tests for the web3 DID path: --method pkh-eip155 keygen and the
-    EIP-191 signing dispatch in signByMethod.
 
-    The load-bearing invariant: a sig produced by buildAndSign for a
-    pkh-eip155 key MUST verify through PKHVerifier on the operator
-    side. We pin that here using sdksigs.VerifySecp256k1EIP191
-    against the address recovered from the did:pkh DID.
+	Tests for the web3 DID path: --method pkh-eip155 keygen and the
+	EIP-191 signing dispatch in signByMethod.
+
+	The load-bearing invariant: a sig produced by buildAndSign for a
+	pkh-eip155 key MUST verify through PKHVerifier on the ledger
+	side. We pin that here using sdksigs.VerifySecp256k1EIP191
+	against the address recovered from the did:pkh DID.
 */
 package main
 
@@ -22,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	sdkenv "github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdksigs "github.com/clearcompass-ai/ortholog-sdk/crypto/signatures"
+	sdkenv "github.com/clearcompass-ai/attesta/core/envelope"
+	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
 )
 
 // TestKeygen_PKHEIP155_Roundtrip pins:
@@ -137,7 +138,7 @@ func TestKeygen_UnknownMethodRejected(t *testing.T) {
 // load-bearing invariant of the web3 path. A signature produced by
 // buildAndSign for a pkh-eip155 primary signer must verify cleanly
 // through sdksigs.VerifySecp256k1EIP191 — i.e., the same primitive
-// the operator's PKHVerifier dispatches to under the hood for
+// the ledger's PKHVerifier dispatches to under the hood for
 // SigAlgoEIP191.
 func TestSignByMethod_PKH_RoundTripsThroughPKHVerifier(t *testing.T) {
 	dir := t.TempDir()
@@ -182,7 +183,7 @@ func TestSignByMethod_PKH_RoundTripsThroughPKHVerifier(t *testing.T) {
 		t.Errorf("EIP-191 sig MUST be 65 bytes; got %d", len(got.Signatures[0].Bytes))
 	}
 
-	// Verify like the operator-side PKHVerifier would.
+	// Verify like the ledger-side PKHVerifier would.
 	walletDID, _, priv, err := LoadKey(walletPath)
 	if err != nil {
 		t.Fatalf("LoadKey: %v", err)

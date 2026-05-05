@@ -2,26 +2,28 @@
 FILE PATH: verification/cosignature_signers.go
 
 DESCRIPTION:
-    Helper for cosignature_check.go: walks the entry's signatures,
-    excludes the primary signer (Signatures[0]) and the filer's own
-    signature (capacity.DID), looks each up via RoleResolver to
-    learn their Signer role + exchange, and reports back a
-    SignerCosigner slice plus a verdict for the
-    rule.MinSignerCosigners + rule.IntraExchangeOnly checks.
 
-    Why not inline in cosignature_check.go: that file already
-    handles the multi-step pipeline; the per-cosigner walk is its
-    own concern. Splitting keeps both files under the line cap and
-    each readable on its own.
+	Helper for cosignature_check.go: walks the entry's signatures,
+	excludes the primary signer (Signatures[0]) and the filer's own
+	signature (capacity.DID), looks each up via RoleResolver to
+	learn their Signer role + exchange, and reports back a
+	SignerCosigner slice plus a verdict for the
+	rule.MinSignerCosigners + rule.IntraExchangeOnly checks.
+
+	Why not inline in cosignature_check.go: that file already
+	handles the multi-step pipeline; the per-cosigner walk is its
+	own concern. Splitting keeps both files under the line cap and
+	each readable on its own.
 
 OVERVIEW:
-    collectSignerCosigners — walks signatures, returns
-                             ([]SignerCosigner, CosignatureRejection, reason).
+
+	collectSignerCosigners — walks signatures, returns
+	                         ([]SignerCosigner, CosignatureRejection, reason).
 
 KEY DEPENDENCIES:
-    - verification.RoleResolver (DID → role + exchange).
-    - policy.CosignatureRule (RequiredSignerRoles, MinSignerCosigners,
-      IntraExchangeOnly).
+  - verification.RoleResolver (DID → role + exchange).
+  - policy.CosignatureRule (RequiredSignerRoles, MinSignerCosigners,
+    IntraExchangeOnly).
 */
 package verification
 
@@ -29,9 +31,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
 )
 
 // collectSignerCosigners walks entry.Signatures and accumulates

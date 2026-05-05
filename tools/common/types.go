@@ -28,15 +28,15 @@ type CaseRecord struct {
 
 // CaseEvent is a single event in a case's timeline.
 type CaseEvent struct {
-	ID             int64           `json:"id"`
-	CaseID         int64           `json:"case_id"`
-	EventType      string          `json:"event_type"` // amendment, enforcement, path_b_order, cosignature
-	LogPosition    uint64          `json:"log_position"`
-	SignerDID      string          `json:"signer_did"`
-	AuthorityPath  string          `json:"authority_path,omitempty"`
-	PayloadSummary map[string]any  `json:"payload_summary,omitempty"`
-	LogTime        *time.Time      `json:"log_time,omitempty"`
-	CreatedAt      time.Time       `json:"created_at"`
+	ID             int64          `json:"id"`
+	CaseID         int64          `json:"case_id"`
+	EventType      string         `json:"event_type"` // amendment, enforcement, path_b_order, cosignature
+	LogPosition    uint64         `json:"log_position"`
+	SignerDID      string         `json:"signer_did"`
+	AuthorityPath  string         `json:"authority_path,omitempty"`
+	PayloadSummary map[string]any `json:"payload_summary,omitempty"`
+	LogTime        *time.Time     `json:"log_time,omitempty"`
+	CreatedAt      time.Time      `json:"created_at"`
 }
 
 // OfficerRecord is the aggregated view of a delegation.
@@ -56,14 +56,14 @@ type OfficerRecord struct {
 
 // ArtifactRecord tracks an artifact CID referenced in a filing.
 type ArtifactRecord struct {
-	ID              int64  `json:"id"`
-	CID             string `json:"cid"`
-	ContentDigest   string `json:"content_digest,omitempty"`
-	CaseID          int64  `json:"case_id"`
-	FilingPosition  uint64 `json:"filing_position"`
-	SignerDID       string `json:"signer_did"`
-	Sealed          bool   `json:"sealed"`
-	Expunged        bool   `json:"expunged"`
+	ID             int64  `json:"id"`
+	CID            string `json:"cid"`
+	ContentDigest  string `json:"content_digest,omitempty"`
+	CaseID         int64  `json:"case_id"`
+	FilingPosition uint64 `json:"filing_position"`
+	SignerDID      string `json:"signer_did"`
+	Sealed         bool   `json:"sealed"`
+	Expunged       bool   `json:"expunged"`
 }
 
 // SealingOrderRecord tracks active sealing orders.
@@ -155,8 +155,8 @@ type OfficerRequest struct {
 
 // DocketRequest is the body for POST /v1/docket.
 type DocketRequest struct {
-	Date        string              `json:"date"`
-	Assignments []DocketAssignment  `json:"assignments"`
+	Date        string             `json:"date"`
+	Assignments []DocketAssignment `json:"assignments"`
 }
 
 // DocketAssignment is a single judge assignment in a docket.

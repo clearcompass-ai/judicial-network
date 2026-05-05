@@ -2,16 +2,17 @@
 FILE PATH: deployments/tn/trial/motions_3h_test.go
 
 DESCRIPTION:
-    Tests for v1.8 §3H post-trial / post-conviction motions.
-    Pins:
-      - 11 motion types (10 + 1 catch-all).
-      - Each has a Hard prereq tied to verdict / final_judgment
-        (see per-event semantics).
-      - Defense-only motions (reduction of sentence, correct
-        illegal sentence, coram nobis, post-conviction relief).
-      - Civil-only (motion_discretionary_costs).
-      - Catch-all flag.
-      - Walker accept/reject around verdict / final_judgment.
+
+	Tests for v1.8 §3H post-trial / post-conviction motions.
+	Pins:
+	  - 11 motion types (10 + 1 catch-all).
+	  - Each has a Hard prereq tied to verdict / final_judgment
+	    (see per-event semantics).
+	  - Defense-only motions (reduction of sentence, correct
+	    illegal sentence, coram nobis, post-conviction relief).
+	  - Civil-only (motion_discretionary_costs).
+	  - Catch-all flag.
+	  - Walker accept/reject around verdict / final_judgment.
 */
 package trial
 

@@ -1,15 +1,18 @@
 /*
 FILE PATH: monitoring/mirror_consistency.go
 DESCRIPTION: Detects mirror drift — cases where the delegation mirror entries
-    on the cases log disagree with the live delegation state on the officers log.
+
+	on the cases log disagree with the live delegation state on the officers log.
+
 KEY ARCHITECTURAL DECISIONS:
-    - Compares smt.LeafReader state for delegation leaves on the officers log
-      against mirror commentary payloads on the cases log.
-    - A live delegation (OriginTip == position on officers log) should have
-      at least one un-revoked mirror entry on the cases log.
-    - A revoked delegation should either have no mirror or a revocation mirror.
+  - Compares smt.LeafReader state for delegation leaves on the officers log
+    against mirror commentary payloads on the cases log.
+  - A live delegation (OriginTip == position on officers log) should have
+    at least one un-revoked mirror entry on the cases log.
+  - A revoked delegation should either have no mirror or a revocation mirror.
+
 OVERVIEW: CheckMirrorConsistency returns alerts for missing/stale mirrors.
-KEY DEPENDENCIES: ortholog-sdk/core/smt, ortholog-sdk/log, ortholog-sdk/verifier
+KEY DEPENDENCIES: attesta/core/smt, attesta/log, attesta/verifier
 */
 package monitoring
 
@@ -18,12 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/monitoring"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/monitoring"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 const MonitorMirrorConsistency monitoring.MonitorID = "judicial.mirror_consistency"
@@ -39,7 +42,7 @@ type MirrorConsistencyConfig struct {
 	// CasesLogDID is the cases log DID (where mirrors should appear).
 	CasesLogDID string
 
-	// MirrorSignerDID is the operator DID that signs mirror entries on
+	// MirrorSignerDID is the ledger DID that signs mirror entries on
 	// the cases log.
 	MirrorSignerDID string
 }
@@ -48,8 +51,8 @@ type MirrorConsistencyConfig struct {
 // live delegation has a matching mirror on the cases log.
 func CheckMirrorConsistency(
 	cfg MirrorConsistencyConfig,
-	officersQuerier sdklog.OperatorQueryAPI,
-	casesQuerier sdklog.OperatorQueryAPI,
+	officersQuerier sdklog.LedgerQueryAPI,
+	casesQuerier sdklog.LedgerQueryAPI,
 	officersFetcher types.EntryFetcher,
 	officersLeafReader smt.LeafReader,
 	now time.Time,
@@ -75,7 +78,7 @@ func CheckMirrorConsistency(
 		liveByPos[node.Position] = node
 	}
 
-	// 2. Fetch mirror entries from the cases log signed by the operator.
+	// 2. Fetch mirror entries from the cases log signed by the ledger.
 	mirrorEntries, err := casesQuerier.QueryBySignerDID(cfg.MirrorSignerDID)
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/mirror: query mirrors: %w", err)

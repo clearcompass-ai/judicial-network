@@ -6,30 +6,30 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/smt"
-	"github.com/clearcompass-ai/ortholog-sdk/crypto/cosign"
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
-	"github.com/clearcompass-ai/ortholog-sdk/verifier"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/smt"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // Dependencies shared across all verification handlers.
 // Uses real SDK interfaces — no invented abstractions.
 type Dependencies struct {
-	LogQueries     map[string]sdklog.OperatorQueryAPI
+	LogQueries     map[string]sdklog.LedgerQueryAPI
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
 	BLSVerifier    cosign.BLSAggregateVerifier
 	WitnessKeys    map[string][]types.WitnessPublicKey // logDID → keys
 	WitnessQuorum  map[string]int                      // logDID → K
-	NetworkID      cosign.NetworkID
+	WitnessNetwork map[string]cosign.NetworkID         // logDID → NetworkID
 }
 
-// resolveLog finds the operator query API for a given log identifier.
-func (d *Dependencies) resolveLog(logID string) (sdklog.OperatorQueryAPI, bool) {
+// resolveLog finds the ledger query API for a given log identifier.
+func (d *Dependencies) resolveLog(logID string) (sdklog.LedgerQueryAPI, bool) {
 	q, ok := d.LogQueries[logID]
 	return q, ok
 }
@@ -40,16 +40,16 @@ func (d *Dependencies) fetcherFor(logID string) (types.EntryFetcher, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown log %s", logID)
 	}
-	return &operatorFetcher{query: query, logDID: logID}, nil
+	return &ledgerFetcher{query: query, logDID: logID}, nil
 }
 
-// operatorFetcher adapts OperatorQueryAPI to types.EntryFetcher.
-type operatorFetcher struct {
-	query  sdklog.OperatorQueryAPI
+// ledgerFetcher adapts LedgerQueryAPI to types.EntryFetcher.
+type ledgerFetcher struct {
+	query  sdklog.LedgerQueryAPI
 	logDID string
 }
 
-func (f *operatorFetcher) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
+func (f *ledgerFetcher) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
 	entries, err := f.query.ScanFromPosition(pos.Sequence, 1)
 	if err != nil {
 		return nil, err

@@ -1,16 +1,19 @@
 /*
 FILE PATH: cases/artifact/publish.go
 DESCRIPTION: Encrypts artifacts and pushes ciphertext to content store. Dispatches
-    between AES-256-GCM and Umbral PRE based on schema artifact_encryption field.
+
+	between AES-256-GCM and Umbral PRE based on schema artifact_encryption field.
+
 KEY ARCHITECTURAL DECISIONS:
-    - TWO KEY STORES: ArtifactKeyStore (SDK, 44-byte ArtifactKey) and
-      DelegationKeyStore (judicial-network, ~113-byte ECIES ciphertext).
-    - PRE DELEGATION KEY PATTERN: Master key NEVER enters PRE operations.
-    - FLAG 1 FIX: resolvePublicKey now uses ResolveEncryptionKey (did_keys.go)
-      which resolves by keyAgreement purpose. Falls back to WitnessKeys()[0].
-    - FLAG 2 FIX: encodeCapsule has struct-layout-dependency comment.
+  - TWO KEY STORES: ArtifactKeyStore (SDK, 44-byte ArtifactKey) and
+    DelegationKeyStore (judicial-network, ~113-byte ECIES ciphertext).
+  - PRE DELEGATION KEY PATTERN: Master key NEVER enters PRE operations.
+  - FLAG 1 FIX: resolvePublicKey now uses ResolveEncryptionKey (did_keys.go)
+    which resolves by keyAgreement purpose. Falls back to WitnessKeys()[0].
+  - FLAG 2 FIX: encodeCapsule has struct-layout-dependency comment.
+
 OVERVIEW: AES-GCM and PRE publish paths with key store separation.
-KEY DEPENDENCIES: ortholog-sdk/builder, crypto/artifact, lifecycle, storage, did
+KEY DEPENDENCIES: attesta/builder, crypto/artifact, lifecycle, storage, did
 */
 package artifact
 
@@ -18,14 +21,14 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	sdkartifact "github.com/clearcompass-ai/ortholog-sdk/crypto/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/did"
-	"github.com/clearcompass-ai/ortholog-sdk/lifecycle"
-	lifecycleartifact "github.com/clearcompass-ai/ortholog-sdk/lifecycle/artifact"
-	"github.com/clearcompass-ai/ortholog-sdk/schema"
-	"github.com/clearcompass-ai/ortholog-sdk/storage"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
+	"github.com/clearcompass-ai/attesta/did"
+	"github.com/clearcompass-ai/attesta/lifecycle"
+	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
+	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/clearcompass-ai/attesta/types"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -242,10 +245,11 @@ func resolveSchemaParams(
 // TODO: Switch to Capsule.Bytes() when the SDK provides a canonical
 // serialization method. Until then, this manual approach is correct
 // for the current Capsule struct layout (v1.3.2):
-//   EX, EY *big.Int  — 32 bytes each (padded)
-//   VX, VY *big.Int  — 32 bytes each (padded)
-//   CheckVal [32]byte — 32 bytes
-//   Total: 160 bytes → base64
+//
+//	EX, EY *big.Int  — 32 bytes each (padded)
+//	VX, VY *big.Int  — 32 bytes each (padded)
+//	CheckVal [32]byte — 32 bytes
+//	Total: 160 bytes → base64
 func encodeCapsule(capsule *sdkartifact.Capsule) string {
 	if capsule == nil {
 		return ""

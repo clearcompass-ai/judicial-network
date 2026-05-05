@@ -177,12 +177,12 @@ func TestVerifyCrossLog_NilProof(t *testing.T) {
 }
 
 func TestVerifyFraudProof_ValidCommitment(t *testing.T) {
-	// Operator published honest commitment. Replay matches.
+	// Ledger published honest commitment. Replay matches.
 	// Assert: valid=true, misbehavior=false.
 }
 
 func TestVerifyFraudProof_MismatchedRoot(t *testing.T) {
-	// Operator published wrong root. Replay produces different root.
+	// Ledger published wrong root. Replay produces different root.
 	// Assert: valid=false, misbehavior=true.
 	// Assert: expected_root ≠ committed_root.
 }

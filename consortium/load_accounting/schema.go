@@ -2,17 +2,18 @@
 FILE PATH: consortium/load_accounting/schema.go
 
 DESCRIPTION:
-    Defines the load accounting schema published as a root entity on
-    the consortium governance log. This schema declares settlement
-    parameters: SLA response windows, max drill frequency, exchange
-    rates for surplus/deficit, and settlement period length.
 
-    The schema is published via BuildSchemaEntry (guide §11.3) and
-    governed by scope amendment (unanimous consent to change).
+	Defines the load accounting schema published as a root entity on
+	the consortium governance log. This schema declares settlement
+	parameters: SLA response windows, max drill frequency, exchange
+	rates for surplus/deficit, and settlement period length.
+
+	The schema is published via BuildSchemaEntry (guide §11.3) and
+	governed by scope amendment (unanimous consent to change).
 
 KEY DEPENDENCIES:
-    - ortholog-sdk/builder: BuildSchemaEntry (guide §11.3)
-    - ortholog-sdk/builder: BuildRootEntity (guide §11.3)
+  - attesta/builder: BuildSchemaEntry (guide §11.3)
+  - attesta/builder: BuildRootEntity (guide §11.3)
 */
 package load_accounting
 
@@ -20,8 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/ortholog-sdk/builder"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
+	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/core/envelope"
 )
 
 // LoadAccountingParams defines the settlement policy for a consortium.
@@ -71,8 +72,8 @@ func DefaultLoadAccountingParams() LoadAccountingParams {
 // consortium governance log.
 func BuildLoadAccountingSchema(params LoadAccountingParams, destination string) ([]byte, error) {
 	payload, err := json.Marshal(map[string]any{
-		"schema_type":       "load_accounting_v1",
-		"load_accounting":   params,
+		"schema_type":     "load_accounting_v1",
+		"load_accounting": params,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("load_accounting/schema: marshal: %w", err)
@@ -81,7 +82,7 @@ func BuildLoadAccountingSchema(params LoadAccountingParams, destination string) 
 }
 
 // PublishLoadAccountingEntity creates a root entity entry carrying the
-// load accounting parameters. Submit to the consortium log operator.
+// load accounting parameters. Submit to the consortium log ledger.
 func PublishLoadAccountingEntity(
 	signerDID string, destination string,
 	params LoadAccountingParams,
@@ -93,7 +94,7 @@ func PublishLoadAccountingEntity(
 
 	return builder.BuildRootEntity(builder.RootEntityParams{
 		Destination: destination,
-		SignerDID: signerDID,
-		Payload:   payload,
+		SignerDID:   signerDID,
+		Payload:     payload,
 	})
 }

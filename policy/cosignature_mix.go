@@ -2,42 +2,44 @@
 FILE PATH: policy/cosignature_mix.go
 
 DESCRIPTION:
-    Phase 3C cosignature-mix policy module. The data-driven answer
-    to the v1.4 Event Dictionary's developer flags:
 
-      Flag #1 — Tier 2 cosignature mix.
-                Which ActorSigner role may cosign which event_type
-                when filed by which FilerRole.
+	 cosignature-mix policy module. The data-driven answer
+	to the v1.4 Event Dictionary's developer flags:
 
-      Flag #2 — Cross-exchange cosignature validity.
-                Whether an event requires INTRA-exchange cosignature
-                only (e.g., judicial_appointment) or permits
-                CROSS-exchange cosignatures (e.g., case transfers,
-                relay attestations).
+	  Flag #1 — Tier 2 cosignature mix.
+	            Which ActorSigner role may cosign which event_type
+	            when filed by which FilerRole.
 
-    The policy is a closed-set table. The verifier
-    (verification/cosignature_check.go) calls Lookup(eventType)
-    once per entry and reads the rule:
+	  Flag #2 — Cross-exchange cosignature validity.
+	            Whether an event requires INTRA-exchange cosignature
+	            only (e.g., judicial_appointment) or permits
+	            CROSS-exchange cosignatures (e.g., case transfers,
+	            relay attestations).
 
-      rule.AllowedFilerRoles    — the capacity.role must be in here
-      rule.RequiredSignerRoles  — at least one ActorSigner cosigner
-                                  must hold one of these roles
-      rule.MinSignerCosigners   — count threshold (default 1)
-      rule.IntraExchangeOnly    — Flag #2; if true, every signer
-                                  must come from the entry's exchange
-      rule.RequiredCredentials  — capacity.credentials must contain
-                                  every key (non-empty value)
+	The policy is a closed-set table. The verifier
+	(verification/cosignature_check.go) calls Lookup(eventType)
+	once per entry and reads the rule:
+
+	  rule.AllowedFilerRoles    — the capacity.role must be in here
+	  rule.RequiredSignerRoles  — at least one ActorSigner cosigner
+	                              must hold one of these roles
+	  rule.MinSignerCosigners   — count threshold (default 1)
+	  rule.IntraExchangeOnly    — Flag #2; if true, every signer
+	                              must come from the entry's exchange
+	  rule.RequiredCredentials  — capacity.credentials must contain
+	                              every key (non-empty value)
 
 OVERVIEW:
-    CosignatureRule       — the rule struct.
-    CosignatureMixPolicy  — interface (Lookup, List).
-    InMemoryPolicy        — RWMutex-protected map implementation
-                            (methods in cosignature_mix_inmemory.go).
-    Sentinel errors and validateRule.
+
+	CosignatureRule       — the rule struct.
+	CosignatureMixPolicy  — interface (Lookup, List).
+	InMemoryPolicy        — RWMutex-protected map implementation
+	                        (methods in cosignature_mix_inmemory.go).
+	Sentinel errors and validateRule.
 
 KEY DEPENDENCIES:
-    - schemas/capacity.go (FilerRole closed set referenced in
-      AllowedFilerRoles).
+  - schemas/capacity.go (FilerRole closed set referenced in
+    AllowedFilerRoles).
 */
 package policy
 

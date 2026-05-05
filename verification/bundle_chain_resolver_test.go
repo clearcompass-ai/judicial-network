@@ -2,18 +2,19 @@
 FILE PATH: verification/bundle_chain_resolver_test.go
 
 DESCRIPTION:
-    Tests for BundleChainResolver — the production adapter that
-    exposes verification.AuthorityResolver as a
-    jurisdiction.AuthorityChainResolver. Pins:
 
-      - Constructor returns a non-nil resolver.
-      - Resolve maps AuthorityRequest fields onto the inner
-        signature correctly.
-      - Resolve maps *Authority verdict fields onto
-        jurisdiction.AuthorityVerdict correctly.
-      - Empty/missing signer or delegation_ref propagates as a
-        rejection with the right token.
-      - The inner resolver's catalog is the per-Bundle one.
+	Tests for BundleChainResolver — the production adapter that
+	exposes verification.AuthorityResolver as a
+	jurisdiction.AuthorityChainResolver. Pins:
+
+	  - Constructor returns a non-nil resolver.
+	  - Resolve maps AuthorityRequest fields onto the inner
+	    signature correctly.
+	  - Resolve maps *Authority verdict fields onto
+	    jurisdiction.AuthorityVerdict correctly.
+	  - Empty/missing signer or delegation_ref propagates as a
+	    rejection with the right token.
+	  - The inner resolver's catalog is the per-Bundle one.
 */
 package verification
 

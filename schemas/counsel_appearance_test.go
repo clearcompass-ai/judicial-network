@@ -2,23 +2,24 @@
 FILE PATH: schemas/counsel_appearance_test.go
 
 DESCRIPTION:
-    Tests for the tn-counsel-appearance-v1 schema. Two layers:
 
-      1. Unit-level invariants
-         - Validate accepts the canonical happy-path payload.
-         - Validate rejects every malformed shape.
-         - Serialize/Deserialize round-trip.
-         - Status default to "active" on empty.
+	Tests for the tn-counsel-appearance-v1 schema. Two layers:
 
-      2. Functional emulation
-         - "Defense counsel files appearance for one defendant."
-         - "Defense counsel represents two co-defendants."
-         - "Civil attorney represents the plaintiff."
-         - "Counsel withdraws by amending status to withdrawn."
+	  1. Unit-level invariants
+	     - Validate accepts the canonical happy-path payload.
+	     - Validate rejects every malformed shape.
+	     - Serialize/Deserialize round-trip.
+	     - Status default to "active" on empty.
 
-    The functional tests exercise the schema as it would be
-    used in a real submission flow — building the payload,
-    validating it, and round-tripping JSON.
+	  2. Functional emulation
+	     - "Defense counsel files appearance for one defendant."
+	     - "Defense counsel represents two co-defendants."
+	     - "Civil attorney represents the plaintiff."
+	     - "Counsel withdraws by amending status to withdrawn."
+
+	The functional tests exercise the schema as it would be
+	used in a real submission flow — building the payload,
+	validating it, and round-tripping JSON.
 */
 package schemas
 

@@ -2,11 +2,12 @@
 FILE PATH: verification/authority_resolver_helpers_test.go
 
 DESCRIPTION:
-    Shared test helpers for the AuthorityResolver test package:
-    fakeFetcher, position keys, canonical envelope builders, and
-    delegation/revocation payload factories. Pulled out of
-    authority_resolver_test.go so the test files can stay under the
-    source-file line cap.
+
+	Shared test helpers for the AuthorityResolver test package:
+	fakeFetcher, position keys, canonical envelope builders, and
+	delegation/revocation payload factories. Pulled out of
+	authority_resolver_test.go so the test files can stay under the
+	source-file line cap.
 */
 package verification
 
@@ -14,9 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/judicial-network/schemas"
-	"github.com/clearcompass-ai/ortholog-sdk/core/envelope"
-	"github.com/clearcompass-ai/ortholog-sdk/types"
 )
 
 // ─── fakes ──────────────────────────────────────────────────────────
