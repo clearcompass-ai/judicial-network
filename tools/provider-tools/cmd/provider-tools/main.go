@@ -47,7 +47,7 @@ import (
 	"syscall"
 
 	"github.com/clearcompass-ai/judicial-network/tools/common"
-	"github.com/clearcompass-ai/judicial-network/tools/providers"
+	"github.com/clearcompass-ai/judicial-network/tools/provider-tools"
 )
 
 func main() {

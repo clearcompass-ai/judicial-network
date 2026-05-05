@@ -1,5 +1,5 @@
 /*
-FILE PATH: tools/cmd/witness/main.go
+FILE PATH: tools/witness/cmd/witness/main.go
 
 DESCRIPTION:
 

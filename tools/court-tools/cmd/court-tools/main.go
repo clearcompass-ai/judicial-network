@@ -41,7 +41,7 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 	"github.com/clearcompass-ai/judicial-network/tools/common"
-	"github.com/clearcompass-ai/judicial-network/tools/courts"
+	"github.com/clearcompass-ai/judicial-network/tools/court-tools"
 )
 
 func main() {

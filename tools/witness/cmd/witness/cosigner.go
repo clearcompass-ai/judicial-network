@@ -1,5 +1,5 @@
 /*
-FILE PATH: tools/cmd/witness/cosigner.go
+FILE PATH: tools/witness/cmd/witness/cosigner.go
 
 DESCRIPTION:
 
@@ -154,10 +154,10 @@ func (l *cosignLoop) processLog(ctx context.Context, logDID string) error {
 
 // defaultSignerFunc is wired in main.go realDeps. It loads the BLS
 // key from disk on first call (cached for the daemon's lifetime).
-// Currently a placeholder — production deploys ship a follow-up
-// commit that loads + parses the BLS PEM and calls
-// signatures.SignBLSCosignature. Returning a fixed nil signature
-// here keeps the daemon bootable in dev without a real key.
+// Currently a placeholder — W1 lands the real implementation that
+// parses the BLS PEM and calls cosign.SignBLS with PurposeTreeHead.
+// Returning a fixed nil signature here keeps the daemon bootable in
+// dev without a real key.
 var defaultSignerFunc SignerFunc = func(_ types.TreeHead) ([]byte, error) {
 	return nil, fmt.Errorf("witness: BLS key loader not yet wired (default signer placeholder)")
 }

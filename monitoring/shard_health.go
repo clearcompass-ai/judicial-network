@@ -46,6 +46,11 @@ type ShardHealthConfig struct {
 
 	// LogDID identifies the log being monitored (for alert details).
 	LogDID string
+
+	// NetworkID binds the chain verification to a specific network/fork.
+	// Required (verifier.VerifyShardChain rejects zero NetworkID via
+	// the cosign canonical-message preamble).
+	NetworkID cosign.NetworkID
 }
 
 // CheckShardHealth verifies the chain and evaluates size thresholds.
