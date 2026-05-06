@@ -228,11 +228,10 @@ func TestVerifyArtifactCommitmentOnLog_Equivocation_Surfaces(t *testing.T) {
 	// when more than one entry shares the same SplitID. Our wrapper
 	// passes that through as the wrapped fetch error (NOT a sentinel).
 	cid := storage.Compute([]byte("artifact"))
-	splitID, splitErr := sdkartifact.ComputePREGrantSplitID("did:web:g", "did:web:r", cid)
-	if splitErr != nil {
-		t.Fatal(splitErr)
+	splitID, err := sdkartifact.ComputePREGrantSplitID("did:web:g", "did:web:r", cid)
+	if err != nil {
+		t.Fatal(err)
 	}
-	_ = splitID
 
 	fetcher := &fakeCommitmentFetcher{
 		entries: map[[32]byte][]*types.EntryWithMetadata{

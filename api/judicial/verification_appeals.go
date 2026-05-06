@@ -16,15 +16,50 @@ DESCRIPTION:
 package judicial
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
+
+// resolveSourceNetworkID returns the source-log NetworkID for a
+// cross-log-proof verification call. Precedence:
+//
+//  1. If the request supplied source_network_id_hex (64 lowercase
+//     hex), decode it and return.
+//  2. Otherwise return the deps fallback (may be the zero value, in
+//     which case the caller will surface a 400).
+//
+// Errors only on a malformed hex string. The empty / zero-value
+// "neither path produced anything" case is delegated to the caller
+// since "missing keys" and "missing network ID" merge into one
+// human-readable error there.
+func resolveSourceNetworkID(reqHex string, fallback cosign.NetworkID) (cosign.NetworkID, error) {
+	if reqHex == "" {
+		return fallback, nil
+	}
+	if len(reqHex) != 64 {
+		return cosign.NetworkID{}, fmt.Errorf(
+			"source_network_id_hex: want 64 hex chars, got %d", len(reqHex))
+	}
+	raw, err := hex.DecodeString(reqHex)
+	if err != nil {
+		return cosign.NetworkID{}, errors.New("source_network_id_hex: invalid hex")
+	}
+	var id cosign.NetworkID
+	copy(id[:], raw)
+	if id.IsZero() {
+		return cosign.NetworkID{}, errors.New("source_network_id_hex: zero NetworkID is reserved")
+	}
+	return id, nil
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // POST /v1/judicial/verification/appeal-chain
@@ -85,14 +120,16 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 type crossLogProofRequest struct {
 	Proof json.RawMessage `json:"proof"`
 
-	// SourceWitnessKeys + SourceWitnessQuorum override the
-	// Dependencies.WitnessKeys / Quorum maps for THIS verification
-	// call. Reason: source log lives in a different trust boundary
-	// than the caller's; the caller MUST tell the API which key
-	// set to verify the source tree-head signatures against.
+	// SourceWitnessKeys + SourceWitnessQuorum + SourceNetworkIDHex
+	// override the Dependencies.WitnessKeys / WitnessQuorum /
+	// WitnessNetwork maps for THIS verification call. Reason: source
+	// log lives in a different trust boundary than the caller's; the
+	// caller MUST tell the API which key set + network to verify the
+	// source tree-head signatures against.
 	SourceLogDID           string   `json:"source_log_did"`
 	SourceWitnessKeysB64   []string `json:"source_witness_keys_b64,omitempty"`
 	SourceWitnessQuorum    int      `json:"source_witness_quorum,omitempty"`
+	SourceNetworkIDHex     string   `json:"source_network_id_hex,omitempty"` // 64-char lowercase hex
 	AnchorPayloadExtractor string   `json:"anchor_payload_extractor,omitempty"`
 }
 
@@ -135,14 +172,16 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	if quorum == 0 {
 		quorum = h.deps.WitnessQuorum[req.SourceLogDID]
 	}
-	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
-	if networkID.IsZero() {
-		writeError(w, http.StatusBadRequest, "no network_id configured for source_log_did")
+	networkID, nidErr := resolveSourceNetworkID(req.SourceNetworkIDHex,
+		h.deps.WitnessNetwork[req.SourceLogDID])
+	if nidErr != nil {
+		writeError(w, http.StatusBadRequest, nidErr.Error())
 		return
 	}
-	if len(keys) == 0 || quorum == 0 {
+	if len(keys) == 0 || quorum == 0 || networkID.IsZero() {
 		writeError(w, http.StatusBadRequest,
-			"source_witness_keys + quorum required (or pre-configured for the source log)")
+			"source_witness_keys + quorum + network_id required "+
+				"(supply via request fields or pre-configure for the source log)")
 		return
 	}
 

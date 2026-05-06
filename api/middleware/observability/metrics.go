@@ -35,7 +35,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
-	sdklog "github.com/clearcompass-ai/ortholog-sdk/log"
+	sdklog "github.com/clearcompass-ai/attesta/log"
 )
 
 // MetricsRegistryConfig configures the JN MetricsRegistry's
