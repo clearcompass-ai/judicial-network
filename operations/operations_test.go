@@ -147,7 +147,7 @@ func TestPublishEvent_SerializeRoundtrip(t *testing.T) {
 	}
 
 	signed := testutil.SignEntry(t, result.Entry, testutil.GenerateSigningKey(t))
-	raw := envelope.Serialize(signed)
+	raw, _ := envelope.Serialize(signed)
 	restored, err := envelope.Deserialize(raw)
 	if err != nil {
 		t.Fatalf("roundtrip: %v", err)

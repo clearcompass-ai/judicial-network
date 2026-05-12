@@ -141,7 +141,7 @@ func TestSCW_HappyPath_RegistryAccepts(t *testing.T) {
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
 
-	if err := registry.VerifyEntry(entry); err != nil {
+	if err := registry.VerifyEntry(ctx, entry); err != nil {
 		t.Fatalf("happy path EIP-1271 entry MUST verify; got %v", err)
 	}
 	if got := rpc.CallCount("eth_call"); got != 1 {
@@ -164,7 +164,7 @@ func TestSCW_RejectsSelectorWithAttackerJunk(t *testing.T) {
 	rpc.BindEthCall(addr, calldata, junk)
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEIP1271InvalidMagic) {
 		t.Fatalf("selector + attacker-junk MUST surface ErrEIP1271InvalidMagic; got %v", err)
 	}
@@ -179,7 +179,7 @@ func TestSCW_RejectsAllZeroReturn(t *testing.T) {
 	rpc.BindEthCall(addr, calldata, make([]byte, 32))
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEIP1271InvalidMagic) {
 		t.Fatalf("all-zero return MUST reject; got %v", err)
 	}
@@ -196,7 +196,7 @@ func TestSCW_RejectsEmptyReturn_NotDeployed(t *testing.T) {
 	rpc.BindEthCall(addr, calldata, []byte{})
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEIP1271ContractEmpty) {
 		t.Fatalf("empty return MUST surface ErrEIP1271ContractEmpty; got %v", err)
 	}
@@ -211,7 +211,7 @@ func TestSCW_PropagatesRevert(t *testing.T) {
 	rpc.BindEthCallError(addr, calldata, signatures.ErrEthCallReverted)
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEthCallReverted) {
 		t.Fatalf("revert MUST propagate as ErrEthCallReverted; got %v", err)
 	}

@@ -81,10 +81,11 @@ func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
 		Timeout: 5 * time.Second,
 	})
 
-	got, err := f.Fetch(types.LogPosition{
+	got, err := f.Fetch(ctx, types.LogPosition{
 		LogDID:   "did:web:courts.davidson:cases",
 		Sequence: 42,
 	})
+
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -121,7 +122,7 @@ func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
 		LogDID:  "did:test",
 		Timeout: 5 * time.Second,
 	})
-	got, err := f.Fetch(types.LogPosition{LogDID: "did:test", Sequence: 1})
+	got, err := f.Fetch(ctx, types.LogPosition{LogDID: "did:test", Sequence: 1})
 	if err != nil {
 		t.Fatalf("Fetch tolerated absence: %v", err)
 	}
@@ -146,7 +147,7 @@ func TestLedgerContract_RawEndpoint_404(t *testing.T) {
 	f := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
 		BaseURL: srv.URL, LogDID: "x", Timeout: 5 * time.Second,
 	})
-	got, err := f.Fetch(types.LogPosition{LogDID: "x", Sequence: 999})
+	got, err := f.Fetch(ctx, types.LogPosition{LogDID: "x", Sequence: 999})
 	if err != nil {
 		t.Fatalf("404 should not error: %v", err)
 	}

@@ -12,6 +12,7 @@ COVERAGE:
 package verification
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -29,7 +30,7 @@ type stubFetcher struct {
 	err     error
 }
 
-func (s *stubFetcher) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
+func (s *stubFetcher) Fetch(ctx context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
 	if s.err != nil {
 		return nil, s.err
 	}

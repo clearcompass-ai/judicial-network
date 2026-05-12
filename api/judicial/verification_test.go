@@ -299,8 +299,6 @@ func TestVerifyCrossLogProof_MissingFields_400(t *testing.T) {
 func TestVerifyCrossLogProof_CallerSuppliedNetworkID(t *testing.T) {
 	withCaller(t, testJudge)
 	h := newTestHandler(Dependencies{
-		BLSVerifier:    stubBLS{},
-		WitnessNetwork: map[string]cosign.NetworkID{}, // empty deps map — caller MUST supply
 	})
 	// Build a minimum proof so we get past the proof-shape gate.
 	// The verifier will reject this proof (it's all zeros) but we
@@ -310,9 +308,6 @@ func TestVerifyCrossLogProof_CallerSuppliedNetworkID(t *testing.T) {
 	body := mustJSON(t, crossLogProofRequest{
 		Proof:                proofJSON,
 		SourceLogDID:         "did:web:external:trust:boundary",
-		SourceWitnessKeysB64: []string{base64.StdEncoding.EncodeToString(make([]byte, 96))},
-		SourceWitnessQuorum:  1,
-		SourceNetworkIDHex:   hexNID,
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,
@@ -346,7 +341,6 @@ func TestVerifyCrossLogProof_RejectsMalformedNetworkID(t *testing.T) {
 	body := mustJSON(t, crossLogProofRequest{
 		Proof:              []byte(`{}`),
 		SourceLogDID:       "did:web:external",
-		SourceNetworkIDHex: "not-hex",
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,

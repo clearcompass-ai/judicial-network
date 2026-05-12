@@ -12,6 +12,7 @@ DESCRIPTION:
 package verification
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ func (f *fakeFetcher) put(pos types.LogPosition, canonical []byte) {
 	f.entries[posKey(pos)] = canonical
 }
 
-func (f *fakeFetcher) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
+func (f *fakeFetcher) Fetch(ctx context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
 	by, ok := f.entries[posKey(pos)]
 	if !ok {
 		return nil, nil
@@ -85,7 +86,8 @@ func canonicalEntry(t *testing.T, signerDID string, payload []byte) []byte {
 	if err := entry.Validate(); err != nil {
 		t.Fatalf("entry validate: %v", err)
 	}
-	return envelope.Serialize(entry)
+	b, _ := envelope.Serialize(entry)
+	return b
 }
 
 // canonicalEntryWithTarget is canonicalEntry with TargetRoot set,
@@ -114,7 +116,8 @@ func canonicalEntryWithTarget(t *testing.T, signerDID string, payload []byte, ta
 	if err := entry.Validate(); err != nil {
 		t.Fatalf("entry validate (with target): %v", err)
 	}
-	return envelope.Serialize(entry)
+	b, _ := envelope.Serialize(entry)
+	return b
 }
 
 // makeDelegation creates a delegation entry's canonical bytes at the

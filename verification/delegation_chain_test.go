@@ -15,6 +15,7 @@ COVERAGE:
 package verification
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -31,7 +32,7 @@ import (
 
 type liveLeafReader struct{}
 
-func (liveLeafReader) Get(key [32]byte) (*types.SMTLeaf, error) {
+func (liveLeafReader) Get(ctx context.Context, key [32]byte) (*types.SMTLeaf, error) {
 	// Return a leaf whose OriginTip equals the position the SMT
 	// derives the key from. Since smt.DeriveKey(pos) is what the SDK
 	// uses, returning a leaf with OriginTip=anyPos here is enough
@@ -70,7 +71,7 @@ func deadSMTFor(live, dead types.LogPosition) smt.LeafReader {
 // fetcherFromEntries fetches by exact LogPosition match.
 type fetcherFromEntries map[types.LogPosition]*types.EntryWithMetadata
 
-func (f fetcherFromEntries) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
+func (f fetcherFromEntries) Fetch(ctx context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
 	if e, ok := f[pos]; ok {
 		return e, nil
 	}

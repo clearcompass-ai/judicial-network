@@ -53,7 +53,7 @@ func TestSCW_DestinationMismatchRejectsBeforeRPC(t *testing.T) {
 	// notices the leak.)
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, did.ErrDestinationMismatch) {
 		t.Fatalf("cross-destination entry MUST reject with ErrDestinationMismatch; got %v", err)
 	}
@@ -102,7 +102,7 @@ func TestSCW_CalldataMatchesSDKEncoding(t *testing.T) {
 	rpc.BindEthCall(addr, wrongCalldata, scwMagicReturn())
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if err == nil {
 		t.Fatal("calldata mismatch MUST cause stub to miss binding")
 	}

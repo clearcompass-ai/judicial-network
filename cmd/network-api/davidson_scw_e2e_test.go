@@ -35,6 +35,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -59,6 +60,7 @@ import (
 )
 
 func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	// 1. Stub ledger + free port for the binary.
 	op := stubLedger(t)
 	defer op.Close()
@@ -197,7 +199,7 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
 	rpc.BindEthCall(binE2EAddr(), calldata, binE2EMagicReturn())
 	registry := did.DefaultVerifierRegistryWithRPC(tndavidson.ExchangeDID, panicResolver{}, rpc)
-	if err := registry.VerifyEntry(rebuilt); err != nil {
+	if err := registry.VerifyEntry(ctx, rebuilt); err != nil {
 		t.Fatalf("verifier registry rejected binary-built entry: %v", err)
 	}
 

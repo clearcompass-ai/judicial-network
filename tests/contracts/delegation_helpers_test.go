@@ -75,7 +75,7 @@ func (b *ledgerBackend) SubmitCanonical(ctx context.Context, canonical []byte) (
 
 // Fetch returns the EntryWithMetadata for an earlier-submitted
 // position. Returns (nil, nil) on miss per the SDK contract.
-func (b *ledgerBackend) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
+func (b *ledgerBackend) Fetch(ctx context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if pos.LogDID != b.logDID {
@@ -105,7 +105,7 @@ func (l *leafBackend) setTip(forPos types.LogPosition, tip types.LogPosition) {
 	l.tip[smt.DeriveKey(forPos)] = tip
 }
 
-func (l *leafBackend) Get(key [32]byte) (*types.SMTLeaf, error) {
+func (l *leafBackend) Get(ctx context.Context, key [32]byte) (*types.SMTLeaf, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	t, ok := l.tip[key]
@@ -208,14 +208,14 @@ func (f *contractFixture) issue(t *testing.T, req delegation.IssueRequest) schem
 // resolve is a thin wrapper around verification.AuthorityResolver.Resolve
 // for assertion clarity in tests.
 func (f *contractFixture) resolve(signerDID string, ref schemas.LogPositionRef, action string) *verification.Authority {
-	return f.resolver.Resolve(signerDID, ref, action)
+	return f.resolver.Resolve(ctx, signerDID, ref, action)
 }
 
 // envelopeAt fetches and deserializes the entry at pos. Used by
 // tests that want to inspect on-log structure (signer, target_root).
 func (f *contractFixture) envelopeAt(t *testing.T, pos schemas.LogPositionRef) *envelope.Entry {
 	t.Helper()
-	meta, err := f.ledger.Fetch(types.LogPosition{LogDID: pos.LogDID, Sequence: pos.Sequence})
+	meta, err := f.ledger.Fetch(ctx, types.LogPosition{LogDID: pos.LogDID, Sequence: pos.Sequence})
 	if err != nil {
 		t.Fatalf("ledger.Fetch: %v", err)
 	}

@@ -41,7 +41,8 @@ func mkSignedEntryAt(t *testing.T, eventTime int64) []byte {
 		t.Fatalf("BuildRootEntity: %v", err)
 	}
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
-	return envelope.Serialize(signed)
+	b, _ := envelope.Serialize(signed)
+	return b
 }
 
 func passThrough() http.Handler {

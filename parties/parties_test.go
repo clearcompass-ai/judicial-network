@@ -43,7 +43,7 @@ func TestCreateBinding_Success(t *testing.T) {
 	}
 
 	signed := testutil.SignEntry(t, result.Entry, testutil.GenerateSigningKey(t))
-	raw := envelope.Serialize(signed)
+	raw, _ := envelope.Serialize(signed)
 	if _, err := envelope.Deserialize(raw); err != nil {
 		t.Fatalf("roundtrip: %v", err)
 	}

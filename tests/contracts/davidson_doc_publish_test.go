@@ -36,6 +36,7 @@ package contracts
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"net/http"
@@ -146,6 +147,7 @@ func (s *fakeArtifactStore) handle(w http.ResponseWriter, r *http.Request) {
 //
 // A single-byte drift anywhere in this chain fails the test.
 func TestDavidson_AESGCMDocumentPublish_RoundTrip(t *testing.T) {
+	ctx := context.Background()
 	_, storeURL := newFakeArtifactStore(t)
 
 	// Davidson's typical filing: a Motion to Dismiss PDF.
@@ -171,12 +173,12 @@ Counsel for Defendant: ...
 	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: storeURL,
 	})
-	if err := cs.Push(cid, ciphertext); err != nil {
+	if err := cs.Push(ctx, cid, ciphertext); err != nil {
 		t.Fatalf("ContentStore.Push: %v", err)
 	}
 
 	// ── Step 4: fetch via SDK ContentStore ────────────────────
-	got, err := cs.Fetch(cid)
+	got, err := cs.Fetch(ctx, cid)
 	if err != nil {
 		t.Fatalf("ContentStore.Fetch: %v", err)
 	}
@@ -203,6 +205,7 @@ Counsel for Defendant: ...
 // document. Critical for the routine-filings security model — only
 // the holder of the per-artifact key can read.
 func TestDavidson_AESGCMDocumentPublish_WrongKey_Fails(t *testing.T) {
+	ctx := context.Background()
 	plaintext := []byte("sealed exhibit — restricted access")
 	ciphertext, _, err := artifact.EncryptArtifact(plaintext)
 	if err != nil {
@@ -251,6 +254,7 @@ func TestDavidson_AESGCMDocumentPublish_WrongKey_Fails(t *testing.T) {
 // re_encryption_threshold: { m: 3, n: 5 } — this test uses those
 // values exactly, so a schema parameter regression surfaces here.
 func TestDavidson_UmbralPREDocumentPublish_RoundTrip(t *testing.T) {
+	ctx := context.Background()
 	_, storeURL := newFakeArtifactStore(t)
 
 	plaintext := []byte(`EVIDENCE EXHIBIT A — Body-camera footage hash
@@ -284,7 +288,7 @@ Case 2027-CR-4471 — Officer Martinez — 2027-04-15 14:32:11
 	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: storeURL,
 	})
-	if err := cs.Push(cid, ciphertext); err != nil {
+	if err := cs.Push(ctx, cid, ciphertext); err != nil {
 		t.Fatalf("ContentStore.Push: %v", err)
 	}
 
@@ -331,7 +335,7 @@ Case 2027-CR-4471 — Officer Martinez — 2027-04-15 14:32:11
 	}
 
 	// ── Step 10: fetch ciphertext from artifact-store ────────
-	gotCT, err := cs.Fetch(cid)
+	gotCT, err := cs.Fetch(ctx, cid)
 	if err != nil {
 		t.Fatalf("ContentStore.Fetch: %v", err)
 	}
@@ -393,6 +397,7 @@ func skScalar(sk *ecdsa.PrivateKey) []byte {
 // retrieve.go path. We simulate it here with a sealed flag the
 // fake artifact-store reads from a header.
 func TestDavidson_SealedDocument_NotRetrievable(t *testing.T) {
+	ctx := context.Background()
 	plaintext := []byte("Court order under seal — TCA 37-1-153")
 	ciphertext, _, err := artifact.EncryptArtifact(plaintext)
 	if err != nil {
@@ -425,12 +430,12 @@ func TestDavidson_SealedDocument_NotRetrievable(t *testing.T) {
 	})
 
 	// Push succeeds (sealed gate is read-side, not write-side).
-	if err := cs.Push(cid, ciphertext); err != nil {
+	if err := cs.Push(ctx, cid, ciphertext); err != nil {
 		t.Fatalf("Push: %v", err)
 	}
 
 	// Read succeeds when not sealed.
-	if _, err := cs.Fetch(cid); err != nil {
+	if _, err := cs.Fetch(ctx, cid); err != nil {
 		t.Fatalf("Fetch (not sealed): %v", err)
 	}
 

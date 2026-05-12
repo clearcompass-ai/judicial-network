@@ -29,6 +29,7 @@ DESCRIPTION:
 package contracts
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -55,6 +56,7 @@ import (
 // The artifact-store gates push integrity with sha256(body) ==
 // CID.Digest; we assert the body bytes match the CID input.
 func TestArtifactStoreContract_Push_RequestShape(t *testing.T) {
+	ctx := context.Background()
 	plaintext := []byte("contract pin: artifact-store push request shape")
 	cid := storage.Compute(plaintext)
 
@@ -78,7 +80,7 @@ func TestArtifactStoreContract_Push_RequestShape(t *testing.T) {
 	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
 	})
-	if err := cs.Push(cid, plaintext); err != nil {
+	if err := cs.Push(ctx, cid, plaintext); err != nil {
 		t.Fatalf("Push: %v", err)
 	}
 
@@ -114,7 +116,7 @@ func TestArtifactStoreContract_Push_ErrorMapping(t *testing.T) {
 		BaseURL: srv.URL,
 	})
 	cid := storage.Compute([]byte("x"))
-	err := cs.Push(cid, []byte("x"))
+	err := cs.Push(ctx, cid, []byte("x"))
 	if err == nil {
 		t.Fatal("expected error on 400")
 	}
@@ -125,6 +127,7 @@ func TestArtifactStoreContract_Push_ErrorMapping(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 func TestArtifactStoreContract_Fetch_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	plaintext := []byte("fetch round-trip pin")
 	cid := storage.Compute(plaintext)
 
@@ -143,7 +146,7 @@ func TestArtifactStoreContract_Fetch_HappyPath(t *testing.T) {
 	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
 	})
-	got, err := cs.Fetch(cid)
+	got, err := cs.Fetch(ctx, cid)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -166,7 +169,7 @@ func TestArtifactStoreContract_Fetch_404_ReturnsErrContentNotFound(t *testing.T)
 		BaseURL: srv.URL,
 	})
 	cid := storage.Compute([]byte("absent"))
-	_, err := cs.Fetch(cid)
+	_, err := cs.Fetch(ctx, cid)
 	if err == nil {
 		t.Fatal("expected error on 404")
 	}
@@ -186,6 +189,7 @@ func TestArtifactStoreContract_Fetch_404_ReturnsErrContentNotFound(t *testing.T)
 // on this — if JN's CID computation drifts, every push gets
 // rejected with a CID-mismatch error.
 func TestArtifactStoreContract_CIDDeterministic_RoundTrip(t *testing.T) {
+	ctx := context.Background()
 	cases := [][]byte{
 		[]byte(""),
 		[]byte("a"),
@@ -224,6 +228,7 @@ func TestArtifactStoreContract_CIDDeterministic_RoundTrip(t *testing.T) {
 // regression check: a 503 on first attempt + 200 on second attempt
 // succeeds without any caller code.
 func TestArtifactStoreContract_Push_RetriesOn503(t *testing.T) {
+	ctx := context.Background()
 	plaintext := []byte("retry-test")
 	cid := storage.Compute(plaintext)
 
@@ -252,7 +257,7 @@ func TestArtifactStoreContract_Push_RetriesOn503(t *testing.T) {
 	// We assert the push succeeds OR fails cleanly — no panic, no
 	// silent corruption. If/when the SDK adds retry to
 	// HTTPContentStore, this test pins the success path.
-	err := cs.Push(cid, plaintext)
+	err := cs.Push(ctx, cid, plaintext)
 	if err != nil {
 		// SDK's HTTPContentStore today does not retry; one 503 is
 		// surfaced. This is the documented current state.

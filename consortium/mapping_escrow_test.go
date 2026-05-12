@@ -12,6 +12,7 @@ COVERAGE:
 package consortium
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"testing"
 
@@ -87,6 +88,7 @@ func mkRecord() (h [32]byte, ref identity.CredentialRef) {
 // ─── Constructor validation ────────────────────────────────────────
 
 func TestNewMappingEscrowManager_NilContentStore(t *testing.T) {
+	ctx := context.Background()
 	cfg := freshConfig(t, 3, 5)
 	cfg.ContentStore = nil
 	_, err := NewMappingEscrowManager(cfg)
@@ -96,6 +98,7 @@ func TestNewMappingEscrowManager_NilContentStore(t *testing.T) {
 }
 
 func TestNewMappingEscrowManager_BadThreshold(t *testing.T) {
+	ctx := context.Background()
 	cfg := freshConfig(t, 0, 5)
 	if _, err := NewMappingEscrowManager(cfg); err == nil {
 		t.Fatal("threshold=0 must error")
@@ -107,6 +110,7 @@ func TestNewMappingEscrowManager_BadThreshold(t *testing.T) {
 }
 
 func TestNewMappingEscrowManager_EmptyDealerDID(t *testing.T) {
+	ctx := context.Background()
 	cfg := freshConfig(t, 3, 5)
 	cfg.DealerDID = ""
 	if _, err := NewMappingEscrowManager(cfg); err == nil {
@@ -115,6 +119,7 @@ func TestNewMappingEscrowManager_EmptyDealerDID(t *testing.T) {
 }
 
 func TestNewMappingEscrowManager_EmptyDestination(t *testing.T) {
+	ctx := context.Background()
 	cfg := freshConfig(t, 3, 5)
 	cfg.Destination = ""
 	if _, err := NewMappingEscrowManager(cfg); err == nil {
@@ -130,7 +135,7 @@ func TestCreateMapping_V2_AtomicCommitmentEmission(t *testing.T) {
 		t.Fatalf("ctor: %v", err)
 	}
 	identityHash, credRef := mkRecord()
-	res, err := mgr.CreateMapping(identityHash, credRef, 1700000000)
+	res, err := mgr.CreateMapping(ctx, identityHash, credRef, 1700000000)
 	if err != nil {
 		t.Fatalf("CreateMapping: %v", err)
 	}
@@ -166,11 +171,11 @@ func TestCreateMapping_DistinctCalls_DistinctSplitIDs(t *testing.T) {
 	idB[0] = 0xFF // make distinct
 	refB.Sequence = 200
 
-	resA, err := mgr.CreateMapping(idA, refA, 1700000000)
+	resA, err := mgr.CreateMapping(ctx, idA, refA, 1700000000)
 	if err != nil {
 		t.Fatalf("A: %v", err)
 	}
-	resB, err := mgr.CreateMapping(idB, refB, 1700000000)
+	resB, err := mgr.CreateMapping(ctx, idB, refB, 1700000000)
 	if err != nil {
 		t.Fatalf("B: %v", err)
 	}
@@ -186,7 +191,7 @@ func TestTransferMapping_FreshNodeSet(t *testing.T) {
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	identityHash, credRef := mkRecord()
 
-	original, err := mgr.CreateMapping(identityHash, credRef, 1700000000)
+	original, err := mgr.CreateMapping(ctx, identityHash, credRef, 1700000000)
 	if err != nil {
 		t.Fatalf("orig: %v", err)
 	}
@@ -195,7 +200,7 @@ func TestTransferMapping_FreshNodeSet(t *testing.T) {
 	newCfg.DealerDID = "did:web:successor-dealer"
 	newCfg.Destination = "did:web:successor-exchange"
 
-	transferred, err := mgr.TransferMapping(identityHash, credRef, newCfg, 1700000001)
+	transferred, err := mgr.TransferMapping(ctx, identityHash, credRef, newCfg, 1700000001)
 	if err != nil {
 		t.Fatalf("transfer: %v", err)
 	}
@@ -217,7 +222,7 @@ func TestTransferMapping_InitFailure_Errors(t *testing.T) {
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	identityHash, credRef := mkRecord()
 	bad := freshConfig(t, 0, 5) // threshold=0
-	if _, err := mgr.TransferMapping(identityHash, credRef, bad, 0); err == nil {
+	if _, err := mgr.TransferMapping(ctx, identityHash, credRef, bad, 0); err == nil {
 		t.Error("TransferMapping must surface bad-config error")
 	}
 }
@@ -225,6 +230,7 @@ func TestTransferMapping_InitFailure_Errors(t *testing.T) {
 // ─── RecoverMapping: short share count rejects ─────────────────────
 
 func TestRecoverMapping_ShortShares_Rejected(t *testing.T) {
+	ctx := context.Background()
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	_, err := mgr.RecoverMapping(nil, vss.Commitments{})
 	if err == nil {
@@ -235,6 +241,7 @@ func TestRecoverMapping_ShortShares_Rejected(t *testing.T) {
 // ─── RecoverMapping: enough shares but invalid commitments rejects ──
 
 func TestRecoverMapping_InvalidCommitments_Rejected(t *testing.T) {
+	ctx := context.Background()
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	// Three placeholder shares — the count satisfies the threshold
 	// but the commitments are empty, so ReconstructV2 rejects at
@@ -251,6 +258,7 @@ func TestRecoverMapping_InvalidCommitments_Rejected(t *testing.T) {
 // ─── RecoverMapping: round-trip with real SplitV2 output ──────────
 
 func TestRecoverMapping_HappyPath_RoundTrip(t *testing.T) {
+	ctx := context.Background()
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	secret := make([]byte, 32)
 	for i := range secret {
@@ -282,7 +290,7 @@ func TestCreateMapping_SDKError_Surfaces(t *testing.T) {
 	mgr, _ := NewMappingEscrowManager(cfg)
 	// CredentialRef with empty LogDID violates the SDK precondition.
 	identityHash := [32]byte{0x01}
-	_, err := mgr.CreateMapping(identityHash, identity.CredentialRef{}, 0)
+	_, err := mgr.CreateMapping(ctx, identityHash, identity.CredentialRef{}, 0)
 	if err == nil {
 		t.Error("SDK should reject empty CredentialRef.LogDID")
 	}

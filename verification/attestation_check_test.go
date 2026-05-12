@@ -74,9 +74,10 @@ func mkAttestationEntry(t *testing.T, entityDID, exchangeDID string, seq uint64,
 		t.Fatalf("BuildCommentary: %v", err)
 	}
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+	canonical, _ := envelope.Serialize(signed)
 	return &types.EntryWithMetadata{
 		Position:       types.LogPosition{LogDID: "did:web:l", Sequence: seq},
-		CanonicalBytes: envelope.Serialize(signed),
+		CanonicalBytes: canonical,
 		LogTime:        time.Unix(0, attestationTime*1000),
 	}
 }
@@ -301,9 +302,10 @@ func TestVerifyKeyAttestation_BadPayloadJSON(t *testing.T) {
 		t.Fatalf("BuildCommentary: %v", err)
 	}
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+	canonical2, _ := envelope.Serialize(signed)
 	wrapped := &types.EntryWithMetadata{
 		Position:       types.LogPosition{LogDID: "did:web:l", Sequence: 50},
-		CanonicalBytes: envelope.Serialize(signed),
+		CanonicalBytes: canonical2,
 	}
 	at := types.LogPosition{LogDID: "did:web:l", Sequence: 100}
 	res, err := VerifyKeyAttestation("did:web:judge", at,

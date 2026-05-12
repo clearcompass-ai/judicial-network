@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +25,7 @@ type mockQueryAPI struct {
 	entries map[uint64]types.EntryWithMetadata
 }
 
-func (m *mockQueryAPI) ScanFromPosition(startPos uint64, count int) ([]types.EntryWithMetadata, error) {
+func (m *mockQueryAPI) ScanFromPosition(ctx context.Context, startPos uint64, count int) ([]types.EntryWithMetadata, error) {
 	entry, ok := m.entries[startPos]
 	if !ok {
 		return nil, nil
@@ -32,19 +33,19 @@ func (m *mockQueryAPI) ScanFromPosition(startPos uint64, count int) ([]types.Ent
 	return []types.EntryWithMetadata{entry}, nil
 }
 
-func (m *mockQueryAPI) QueryBySignerDID(did string) ([]types.EntryWithMetadata, error) {
+func (m *mockQueryAPI) QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error) {
 	return nil, nil
 }
 
-func (m *mockQueryAPI) QueryByCosignatureOf(pos types.LogPosition) ([]types.EntryWithMetadata, error) {
+func (m *mockQueryAPI) QueryByCosignatureOf(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error) {
 	return nil, nil
 }
 
-func (m *mockQueryAPI) QueryByTargetRoot(pos types.LogPosition) ([]types.EntryWithMetadata, error) {
+func (m *mockQueryAPI) QueryByTargetRoot(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error) {
 	return nil, nil
 }
 
-func (m *mockQueryAPI) QueryBySchemaRef(pos types.LogPosition) ([]types.EntryWithMetadata, error) {
+func (m *mockQueryAPI) QueryBySchemaRef(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error) {
 	return nil, nil
 }
 
@@ -66,7 +67,8 @@ func buildTestEntry(t *testing.T) []byte {
 		t.Fatalf("build test entry: %v", err)
 	}
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
-	return envelope.Serialize(signed)
+	b, _ := envelope.Serialize(signed)
+	return b
 }
 
 func emptyDeps() *Dependencies {
@@ -222,8 +224,6 @@ func TestVerifyDelegation_UnknownLog(t *testing.T) {
 
 func TestVerifyCrossLog_MissingWitnessKeys(t *testing.T) {
 	deps := &Dependencies{
-		WitnessKeys:   map[string][]types.WitnessPublicKey{},
-		WitnessQuorum: map[string]int{},
 	}
 	handler := NewVerifyCrossLogHandler(deps)
 
