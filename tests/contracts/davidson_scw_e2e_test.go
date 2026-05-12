@@ -37,6 +37,7 @@ package contracts
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -58,6 +59,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────
 
 func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	h := newSCWE2EHarness(t)
 
 	// 1. Drive POST /v1/judicial/cases as the SCW caller.
@@ -150,6 +152,7 @@ func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 func TestDavidsonSCW_E2E_RejectsBadMagic(t *testing.T) {
+	ctx := context.Background()
 	h := newSCWE2EHarness(t)
 
 	body := []byte(`{

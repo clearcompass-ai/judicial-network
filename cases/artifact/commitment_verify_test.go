@@ -41,7 +41,7 @@ type fakeCommitmentFetcher struct {
 }
 
 func (f *fakeCommitmentFetcher) FindCommitmentEntries(
-	schemaID string, splitID [32]byte,
+	_ context.Context, schemaID string, splitID [32]byte,
 ) ([]*types.EntryWithMetadata, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -52,6 +52,7 @@ func (f *fakeCommitmentFetcher) FindCommitmentEntries(
 // ─── VerifyArtifactCommitmentOnLog ──────────────────────────────────
 
 func TestVerifyArtifactCommitmentOnLog_NilFetcher_Errors(t *testing.T) {
+	ctx := context.Background()
 	err := VerifyArtifactCommitmentOnLog(ctx, nil, "did:web:g", "did:web:r", storage.CID{})
 	if err == nil {
 		t.Error("nil fetcher must error")
@@ -59,6 +60,7 @@ func TestVerifyArtifactCommitmentOnLog_NilFetcher_Errors(t *testing.T) {
 }
 
 func TestVerifyArtifactCommitmentOnLog_NoEntry_NotOnLog(t *testing.T) {
+	ctx := context.Background()
 	fetcher := &fakeCommitmentFetcher{entries: map[[32]byte][]*types.EntryWithMetadata{}}
 	cid := storage.Compute([]byte("artifact-bytes"))
 	err := VerifyArtifactCommitmentOnLog(ctx, fetcher, "did:web:g", "did:web:r", cid)
@@ -68,6 +70,7 @@ func TestVerifyArtifactCommitmentOnLog_NoEntry_NotOnLog(t *testing.T) {
 }
 
 func TestVerifyArtifactCommitmentOnLog_FetcherError_Wrapped(t *testing.T) {
+	ctx := context.Background()
 	fetcher := &fakeCommitmentFetcher{err: errors.New("infra")}
 	cid := storage.Compute([]byte("artifact-bytes"))
 	err := VerifyArtifactCommitmentOnLog(ctx, fetcher, "did:web:g", "did:web:r", cid)
@@ -82,7 +85,6 @@ func TestVerifyArtifactCommitmentOnLog_FetcherError_Wrapped(t *testing.T) {
 // ─── Sentinel identity ──────────────────────────────────────────────
 
 func TestCommitmentSentinels_AreDistinct(t *testing.T) {
-	ctx := context.Background()
 	if errors.Is(ErrCommitmentMissing, ErrCommitmentMismatch) {
 		t.Error("ErrCommitmentMissing must not be ErrCommitmentMismatch")
 	}

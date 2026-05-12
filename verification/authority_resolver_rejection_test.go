@@ -30,7 +30,7 @@ func TestAuthorityResolver_RejectsExpired(t *testing.T) {
 	f.put(pos, entry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, "did:key:zQ3shS", ref, "case_filing")
+	auth := r.Resolve(context.Background(),"did:key:zQ3shS", ref, "case_filing")
 	if auth.Rejection != RejectExpired {
 		t.Errorf("expected RejectExpired, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -43,7 +43,7 @@ func TestAuthorityResolver_RejectsRevocationTip(t *testing.T) {
 	f.put(revPos, makeRevocation(t, "did:web:x", target))
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, "did:key:zQ3shS", target, "case_filing")
+	auth := r.Resolve(context.Background(),"did:key:zQ3shS", target, "case_filing")
 	if auth.Rejection != RejectRevoked {
 		t.Errorf("expected RejectRevoked, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -60,7 +60,7 @@ func TestAuthorityResolver_RejectsScopeOutsideChain(t *testing.T) {
 	f.put(cjPos, cjEntry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, cjDID, cjRef, "case_decision") // not in scope
+	auth := r.Resolve(context.Background(),cjDID, cjRef, "case_decision") // not in scope
 	if auth.Rejection != RejectScopeViolation {
 		t.Errorf("expected RejectScopeViolation, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -78,7 +78,7 @@ func TestAuthorityResolver_RejectsCatalogViolation(t *testing.T) {
 	f.put(clerkPos, clerkEntry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, clerkDID, clerkRef, "case_decision")
+	auth := r.Resolve(context.Background(),clerkDID, clerkRef, "case_decision")
 	if auth.Rejection != RejectCatalogViolation {
 		t.Errorf("expected RejectCatalogViolation, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -92,7 +92,7 @@ func TestAuthorityResolver_RejectsGranteeMismatch(t *testing.T) {
 	f.put(pos, entry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, "did:key:zQ3shIMPOSTER", ref, "case_filing")
+	auth := r.Resolve(context.Background(),"did:key:zQ3shIMPOSTER", ref, "case_filing")
 	if auth.Rejection != RejectSignerMismatch {
 		t.Errorf("expected RejectSignerMismatch, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -127,7 +127,7 @@ func TestAuthorityResolver_RejectsDepthExceeded(t *testing.T) {
 	f.put(pD, eD)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, d, rD, "case_filing")
+	auth := r.Resolve(context.Background(),d, rD, "case_filing")
 	if auth.Rejection != RejectDepthExceeded {
 		t.Errorf("expected RejectDepthExceeded, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -136,12 +136,12 @@ func TestAuthorityResolver_RejectsDepthExceeded(t *testing.T) {
 func TestAuthorityResolver_RejectsEmptyInputs(t *testing.T) {
 	r := &AuthorityResolver{Fetcher: newFakeFetcher(), Catalog: davidson.MustRoleCatalog()}
 
-	auth := r.Resolve(ctx, "", schemas.LogPositionRef{LogDID: "x", Sequence: 1}, "case_filing")
+	auth := r.Resolve(context.Background(), "", schemas.LogPositionRef{LogDID: "x", Sequence: 1}, "case_filing")
 	if auth.Rejection != RejectSignerMismatch || !strings.Contains(auth.Reason, "empty") {
 		t.Errorf("empty signer: got %s (%s)", auth.Rejection, auth.Reason)
 	}
 
-	auth = r.Resolve(ctx, "did:key:zQ3shS", schemas.LogPositionRef{}, "case_filing")
+	auth = r.Resolve(context.Background(), "did:key:zQ3shS", schemas.LogPositionRef{}, "case_filing")
 	if auth.Rejection != RejectMissingChainTip {
 		t.Errorf("empty tip: got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -149,7 +149,7 @@ func TestAuthorityResolver_RejectsEmptyInputs(t *testing.T) {
 
 func TestAuthorityResolver_RejectsFetchMiss(t *testing.T) {
 	r := &AuthorityResolver{Fetcher: newFakeFetcher(), Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, "did:key:zQ3shS",
+	auth := r.Resolve(context.Background(), "did:key:zQ3shS",
 		schemas.LogPositionRef{LogDID: "did:web:x", Sequence: 7},
 		"case_filing")
 
@@ -215,7 +215,7 @@ func TestAuthorityResolver_OriginRevoked_LeafReaderTip(t *testing.T) {
 		LeafReader: lr,
 		Catalog:    davidson.MustRoleCatalog(),
 	}
-	auth := r.Resolve(ctx, signer, delegRef, "case_filing")
+	auth := r.Resolve(context.Background(), signer, delegRef, "case_filing")
 	if auth.Rejection != RejectRevoked {
 		t.Errorf("expected RejectRevoked via origin tip, got %s (%s)", auth.Rejection, auth.Reason)
 	}

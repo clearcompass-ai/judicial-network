@@ -23,6 +23,7 @@ DESCRIPTION:
 package main
 
 import (
+	"context"
 	"testing"
 
 	"github.com/clearcompass-ai/attesta/storage"
@@ -88,11 +89,8 @@ func TestBuildJudicialDeps_WitnessMapsInitialized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
-	if deps.WitnessKeys == nil {
-		t.Error("WitnessKeys MUST be initialized (empty map, not nil)")
-	}
-	if deps.WitnessQuorum == nil {
-		t.Error("WitnessQuorum MUST be initialized (empty map, not nil)")
+	if deps.WitnessSets == nil {
+		t.Error("WitnessSets MUST be initialized (empty map, not nil) — v0.3.0 encapsulation")
 	}
 }
 
@@ -159,7 +157,7 @@ func TestBuildJudicialDeps_ContentStore_DefaultsInMemory(t *testing.T) {
 
 func TestSchemaResolverShim_DeclinesCleanly(t *testing.T) {
 	r := newSchemaResolverShim()
-	if _, err := r.Resolve(types.LogPosition{}, nil); err == nil {
+	if _, err := r.Resolve(context.Background(), types.LogPosition{}, nil); err == nil {
 		t.Error("shim resolver MUST return an error (nil hides misconfig at runtime)")
 	}
 }

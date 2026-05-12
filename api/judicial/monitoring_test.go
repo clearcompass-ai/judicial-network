@@ -10,6 +10,7 @@ package judicial
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"

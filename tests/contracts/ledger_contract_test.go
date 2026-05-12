@@ -59,6 +59,7 @@ import (
 // A regression in the ledger's serveWALInline / serveBytestoreRedirect
 // (ledger commit 8afc27b) that drops the headers fails this test.
 func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	logTime := time.Date(2027, 4, 29, 12, 0, 0, 0, time.UTC)
 	wire := []byte("test-canonical-wire-bytes")
 
@@ -108,6 +109,7 @@ func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
 // JN's fetcher must fall back to a zero-valued LogTime rather than
 // erroring, so legacy /raw routes remain consumable.
 func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
+	ctx := context.Background()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("X-Sequence", "1")
@@ -139,6 +141,7 @@ func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
 // Consumers (JN's tools/aggregator/scanner.go) rely on this to
 // distinguish "no entry at this seq" from "ledger unreachable."
 func TestLedgerContract_RawEndpoint_404(t *testing.T) {
+	ctx := context.Background()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.NotFound(w, nil)
 	}))
@@ -182,6 +185,7 @@ func TestLedgerContract_RawEndpoint_404(t *testing.T) {
 //	    "count": <int>
 //	  }
 func TestLedgerContract_ScanEndpoint_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	logTime := time.Date(2027, 4, 29, 8, 0, 0, 0, time.UTC)
 	wantEntries := []map[string]any{
 		{

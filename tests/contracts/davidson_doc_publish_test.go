@@ -205,7 +205,6 @@ Counsel for Defendant: ...
 // document. Critical for the routine-filings security model — only
 // the holder of the per-artifact key can read.
 func TestDavidson_AESGCMDocumentPublish_WrongKey_Fails(t *testing.T) {
-	ctx := context.Background()
 	plaintext := []byte("sealed exhibit — restricted access")
 	ciphertext, _, err := artifact.EncryptArtifact(plaintext)
 	if err != nil {

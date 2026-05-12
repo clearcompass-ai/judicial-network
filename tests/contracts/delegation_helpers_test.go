@@ -208,14 +208,14 @@ func (f *contractFixture) issue(t *testing.T, req delegation.IssueRequest) schem
 // resolve is a thin wrapper around verification.AuthorityResolver.Resolve
 // for assertion clarity in tests.
 func (f *contractFixture) resolve(signerDID string, ref schemas.LogPositionRef, action string) *verification.Authority {
-	return f.resolver.Resolve(ctx, signerDID, ref, action)
+	return f.resolver.Resolve(context.Background(), signerDID, ref, action)
 }
 
 // envelopeAt fetches and deserializes the entry at pos. Used by
 // tests that want to inspect on-log structure (signer, target_root).
 func (f *contractFixture) envelopeAt(t *testing.T, pos schemas.LogPositionRef) *envelope.Entry {
 	t.Helper()
-	meta, err := f.ledger.Fetch(ctx, types.LogPosition{LogDID: pos.LogDID, Sequence: pos.Sequence})
+	meta, err := f.ledger.Fetch(context.Background(), types.LogPosition{LogDID: pos.LogDID, Sequence: pos.Sequence})
 	if err != nil {
 		t.Fatalf("ledger.Fetch: %v", err)
 	}

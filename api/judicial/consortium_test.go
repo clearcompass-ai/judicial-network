@@ -122,7 +122,11 @@ func TestConsortiumVerifyCrossCourt_NoCaller_401(t *testing.T) {
 	}
 }
 
-func TestConsortiumVerifyCrossCourt_MissingBLS_500(t *testing.T) {
+// v0.3.0+: the BLS verifier moved inside WitnessKeySet. The
+// 500-on-missing-BLS path no longer exists; the equivalent
+// failure mode is "no WitnessSets entry for source_log_did"
+// which the handler returns as 400.
+func TestConsortiumVerifyCrossCourt_NoWitnessSet_400(t *testing.T) {
 	withCaller(t, testJudge)
 	h := newTestHandler(Dependencies{})
 	body := []byte(`{"proof":{}, "source_log_did":"did:web:state:tn:williamson:cases"}`)
@@ -130,14 +134,14 @@ func TestConsortiumVerifyCrossCourt_MissingBLS_500(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost,
 		"/v1/judicial/consortium/cross-court-proof/verify", bytes.NewReader(body))
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want 500", rec.Code)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 (no witness set for source log)", rec.Code)
 	}
 }
 
 func TestConsortiumVerifyCrossCourt_MissingFields_400(t *testing.T) {
 	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{BLSVerifier: stubBLS{}})
+	h := newTestHandler(Dependencies{})
 	body := []byte(`{"proof":{}}`) // missing source_log_did
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,
@@ -150,7 +154,7 @@ func TestConsortiumVerifyCrossCourt_MissingFields_400(t *testing.T) {
 
 func TestConsortiumVerifyCrossCourt_NoWitnessKeys_400(t *testing.T) {
 	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{BLSVerifier: stubBLS{}})
+	h := newTestHandler(Dependencies{})
 	body := []byte(`{"proof":{}, "source_log_did":"did:web:state:tn:williamson:cases"}`)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,

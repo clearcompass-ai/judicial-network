@@ -28,6 +28,7 @@ SECURITY PROPERTIES PINNED:
 package contracts
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -40,6 +41,7 @@ import (
 // ─── cross-exchange replay defense (registry-level) ────────────
 
 func TestSCW_DestinationMismatchRejectsBeforeRPC(t *testing.T) {
+	ctx := context.Background()
 	// Build entry bound to a DIFFERENT destination, then verify
 	// against a registry bound to scwDestination. The registry
 	// MUST reject before issuing any eth_call.
@@ -82,6 +84,7 @@ func TestSCW_AlgoIDIsRegistered(t *testing.T) {
 // stub binding misses and we'd see misleading "no binding" errors
 // instead of the magic-value semantics we're actually validating.
 func TestSCW_CalldataMatchesSDKEncoding(t *testing.T) {
+	ctx := context.Background()
 	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("test-binding-key")

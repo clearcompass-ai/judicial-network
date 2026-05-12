@@ -107,6 +107,7 @@ func TestArtifactStoreContract_Push_RequestShape(t *testing.T) {
 // surfaces them as a single typed error so callers can branch
 // cleanly.
 func TestArtifactStoreContract_Push_ErrorMapping(t *testing.T) {
+	ctx := context.Background()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest) // CID/body mismatch
 	}))
@@ -160,6 +161,7 @@ func TestArtifactStoreContract_Fetch_HappyPath(t *testing.T) {
 // documents.go  path errors.Is on this sentinel to
 // distinguish "artifact missing" from "artifact-store unreachable."
 func TestArtifactStoreContract_Fetch_404_ReturnsErrContentNotFound(t *testing.T) {
+	ctx := context.Background()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -189,7 +191,6 @@ func TestArtifactStoreContract_Fetch_404_ReturnsErrContentNotFound(t *testing.T)
 // on this — if JN's CID computation drifts, every push gets
 // rejected with a CID-mismatch error.
 func TestArtifactStoreContract_CIDDeterministic_RoundTrip(t *testing.T) {
-	ctx := context.Background()
 	cases := [][]byte{
 		[]byte(""),
 		[]byte("a"),

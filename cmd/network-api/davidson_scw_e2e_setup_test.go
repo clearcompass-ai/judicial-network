@@ -23,6 +23,7 @@ DESCRIPTION:
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"io"
 	"net/http"
@@ -128,6 +129,6 @@ func binE2ERebuild(t *testing.T, signerDID, docket string, eventTime int64) *env
 // should crash loud rather than silently hit the network.
 type panicResolver struct{}
 
-func (panicResolver) Resolve(string) (*did.DIDDocument, error) {
+func (panicResolver) Resolve(context.Context, string) (*did.DIDDocument, error) {
 	panic("binary e2e: did:web resolution not expected")
 }

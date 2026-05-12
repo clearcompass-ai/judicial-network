@@ -11,6 +11,7 @@ DESCRIPTION:
 package verification
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -51,7 +52,7 @@ func TestAuthorityResolver_HappyPath_3Hop(t *testing.T) {
 		Fetcher: f,
 		Catalog: davidson.MustRoleCatalog(),
 	}
-	auth := r.Resolve(ctx, clerkDID, clerkRef, "case_filing")
+	auth := r.Resolve(context.Background(),clerkDID, clerkRef, "case_filing")
 	if !auth.OK {
 		t.Fatalf("happy path should succeed, got: %+v", auth)
 	}
@@ -87,7 +88,7 @@ func TestAuthorityResolver_ScopeIntersectionAcrossChain(t *testing.T) {
 	f.put(judgePos, judgeEntry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(ctx, judgeDID, judgeRef, "case_filing")
+	auth := r.Resolve(context.Background(),judgeDID, judgeRef, "case_filing")
 	if !auth.OK {
 		t.Fatalf("case_filing should pass (in both): %+v", auth)
 	}
@@ -98,7 +99,7 @@ func TestAuthorityResolver_ScopeIntersectionAcrossChain(t *testing.T) {
 	// case_decision is in CJ's scope but NOT judge's scope; chain
 	// intersection narrows to {case_filing}, so case_decision must
 	// be rejected even though it's in judge.AllowedScope.
-	auth = r.Resolve(ctx, judgeDID, judgeRef, "case_decision")
+	auth = r.Resolve(context.Background(),judgeDID, judgeRef, "case_decision")
 	if auth.Rejection != RejectScopeViolation {
 		t.Errorf("expected RejectScopeViolation, got %s (%s)", auth.Rejection, auth.Reason)
 	}

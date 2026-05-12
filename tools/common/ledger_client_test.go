@@ -100,6 +100,7 @@ func newFakeLedger(t *testing.T) (*httptest.Server, *fakeLedger) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
+	ctx := context.Background()
 	srv, op := newFakeLedger(t)
 	defer srv.Close()
 
@@ -134,6 +135,7 @@ func TestLedgerClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
+	ctx := context.Background()
 	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
@@ -152,6 +154,7 @@ func TestLedgerClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
+	ctx := context.Background()
 	srv, op := newFakeLedger(t)
 	defer srv.Close()
 
@@ -189,6 +192,7 @@ func TestLedgerClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_ScanFrom_RequiresLogDID(t *testing.T) {
+	ctx := context.Background()
 	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
@@ -207,7 +211,6 @@ func TestLedgerClient_ScanFrom_RequiresLogDID(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_TreeHead_Passthrough(t *testing.T) {
-	ctx := context.Background()
 	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
@@ -231,7 +234,6 @@ func TestLedgerClient_TreeHead_Passthrough(t *testing.T) {
 // bytes) surfaces a typed error instead of being silently truncated
 // to a parse failure with no attribution.
 func TestLedgerClient_TreeHead_OversizeErrors(t *testing.T) {
-	ctx := context.Background()
 	huge := make([]byte, (64<<10)+1024)
 	for i := range huge {
 		huge[i] = '"'

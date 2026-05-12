@@ -19,6 +19,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/gossip"
+
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
@@ -26,6 +28,7 @@ import (
 	vaultks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/vault"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
+	"github.com/clearcompass-ai/judicial-network/gossipfeed"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
@@ -168,4 +171,28 @@ func buildAuthenticator(cfg config.AuthConfig) (middleware.Authenticator, error)
 	default:
 		return nil, fmt.Errorf("authenticator: unknown auth mode %q", cfg.Mode)
 	}
+}
+
+// buildGossipFeed constructs the SDK gossip feed mount when
+// cfg.GossipFeed.Enabled is true. Returns (nil, nil) when disabled
+// — api.NewServer treats a nil Gossip as "skip mount."
+//
+// The mount uses an in-memory gossip.Store. Production deployments
+// that need cross-restart durability swap this for a persistent
+// store via dep-injection on the deps struct. Keeping the boot path
+// side-effect-free (no FS / network at boot) preserves the
+// composer's "boots clean on any host" invariant.
+func buildGossipFeed(cfg config.Operational) (*gossipfeed.Feed, error) {
+	if !cfg.GossipFeed.Enabled {
+		return nil, nil
+	}
+	store := gossip.NewInMemoryStore()
+	feed, err := gossipfeed.NewFeedMount(gossipfeed.FeedConfig{
+		Store:      store,
+		PathPrefix: cfg.GossipFeed.PathPrefix,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gossip feed mount: %w", err)
+	}
+	return feed, nil
 }

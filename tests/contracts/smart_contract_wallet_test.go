@@ -48,6 +48,7 @@ SECURITY PROPERTIES PINNED:
 package contracts
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -132,6 +133,7 @@ const scwDestination = "did:web:state:tn:davidson"
 // ─── happy path: full e2e ──────────────────────────────────────
 
 func TestSCW_HappyPath_RegistryAccepts(t *testing.T) {
+	ctx := context.Background()
 	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("opaque-wallet-signature-bytes-vary")
@@ -152,6 +154,7 @@ func TestSCW_HappyPath_RegistryAccepts(t *testing.T) {
 // ─── magic-value-mismatch class (the high-stakes one) ──────────
 
 func TestSCW_RejectsSelectorWithAttackerJunk(t *testing.T) {
+	ctx := context.Background()
 	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
@@ -171,6 +174,7 @@ func TestSCW_RejectsSelectorWithAttackerJunk(t *testing.T) {
 }
 
 func TestSCW_RejectsAllZeroReturn(t *testing.T) {
+	ctx := context.Background()
 	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
@@ -188,6 +192,7 @@ func TestSCW_RejectsAllZeroReturn(t *testing.T) {
 // ─── contract-state rejection paths ────────────────────────────
 
 func TestSCW_RejectsEmptyReturn_NotDeployed(t *testing.T) {
+	ctx := context.Background()
 	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
@@ -203,6 +208,7 @@ func TestSCW_RejectsEmptyReturn_NotDeployed(t *testing.T) {
 }
 
 func TestSCW_PropagatesRevert(t *testing.T) {
+	ctx := context.Background()
 	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
@@ -223,6 +229,6 @@ func TestSCW_PropagatesRevert(t *testing.T) {
 // hitting a real network.
 type panicResolver struct{}
 
-func (panicResolver) Resolve(string) (*did.DIDDocument, error) {
+func (panicResolver) Resolve(context.Context, string) (*did.DIDDocument, error) {
 	panic("scw test: did:web resolution not expected")
 }
