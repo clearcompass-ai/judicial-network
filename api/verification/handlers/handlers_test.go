@@ -90,6 +90,7 @@ func depsWithLog(logID string, entries map[uint64]types.EntryWithMetadata) *Depe
 // ═════════════════════════════════════════════════════════════════════
 
 func TestLedgerFetcher_Fetch_Success(t *testing.T) {
+	ctx := context.Background()
 	raw := buildTestEntry(t)
 	pos := types.LogPosition{LogDID: "test", Sequence: 42}
 
@@ -113,6 +114,7 @@ func TestLedgerFetcher_Fetch_Success(t *testing.T) {
 }
 
 func TestLedgerFetcher_Fetch_NotFound(t *testing.T) {
+	ctx := context.Background()
 	mock := &mockQueryAPI{entries: map[uint64]types.EntryWithMetadata{}}
 	fetcher := &ledgerFetcher{query: mock, logDID: "test"}
 
