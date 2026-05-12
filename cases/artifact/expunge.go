@@ -31,6 +31,7 @@ KEY DEPENDENCIES:
 package artifact
 
 import (
+	"context"
 	"fmt"
 
 	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
@@ -62,8 +63,10 @@ type ExpungeResult struct {
 // ExpungeArtifact performs cryptographic erasure of an artifact.
 // Destroys key material from BOTH stores (AES-GCM and PRE delegation).
 // Either store may be nil if the artifact type is known.
-// At least one key store must be non-nil.
+// At least one key store must be non-nil. ctx bounds the content-store
+// RPCs (Exists, Delete).
 func ExpungeArtifact(
+	ctx context.Context,
 	cfg ExpungeConfig,
 	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
@@ -79,7 +82,7 @@ func ExpungeArtifact(
 	result := &ExpungeResult{}
 
 	if cfg.VerifyBeforeDelete && contentStore != nil {
-		_, err := contentStore.Exists(cfg.ArtifactCID)
+		_, err := contentStore.Exists(ctx, cfg.ArtifactCID)
 		if err != nil {
 			return nil, fmt.Errorf("artifact/expunge: verify existence: %w", err)
 		}
@@ -107,7 +110,7 @@ func ExpungeArtifact(
 
 	// Defense-in-depth: delete ciphertext from content store.
 	if contentStore != nil {
-		err := contentStore.Delete(cfg.ArtifactCID)
+		err := contentStore.Delete(ctx, cfg.ArtifactCID)
 		if err != nil {
 			result.ContentDeleteError = err
 		} else {
@@ -132,6 +135,7 @@ type BatchExpungeResult struct {
 
 // BatchExpunge expunges multiple artifacts. Continues on individual failures.
 func BatchExpunge(
+	ctx context.Context,
 	cids []storage.CID,
 	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
@@ -147,7 +151,7 @@ func BatchExpunge(
 	}
 
 	for _, cid := range cids {
-		expResult, err := ExpungeArtifact(
+		expResult, err := ExpungeArtifact(ctx,
 			ExpungeConfig{ArtifactCID: cid},
 			keyStore, delKeyStore, contentStore,
 		)

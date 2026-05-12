@@ -25,6 +25,7 @@ DESCRIPTION:
 package judicial
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -170,6 +171,7 @@ func (h *caseLookupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if signer == "" {
 		return
 	}
+	ctx := r.Context()
 	docket := r.PathValue("docket")
 	if docket == "" {
 		writeError(w, http.StatusBadRequest, "docket required")
@@ -180,7 +182,7 @@ func (h *caseLookupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	result, err := cases.LookupDocket(docket, signer, scanner, h.deps.Fetcher, h.deps.LeafReader)
+	result, err := cases.LookupDocket(ctx, docket, signer, scanner, h.deps.Fetcher, h.deps.LeafReader)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -201,17 +203,25 @@ func (h *caseLookupHandler) scannerFor(r *http.Request) (cases.DocketScanner, er
 	if !ok {
 		return nil, fmt.Errorf("no LogQueries entry for %s", logDID)
 	}
-	return docketScannerAdapter{api: q}, nil
+	return docketScannerAdapter{ctx: r.Context(), api: q}, nil
 }
 
+// docketScannerAdapter bridges a ctx-aware LedgerQueryAPI to the
+// ctx-aware cases.DocketScanner contract — both now require ctx in
+// v0.3.0, so the adapter is a pass-through that also binds the
+// per-request ctx into the underlying RPC.
 type docketScannerAdapter struct {
+	ctx context.Context
 	api interface {
-		QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)
+		QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error)
 	}
 }
 
-func (a docketScannerAdapter) QueryBySignerDID(did string) ([]types.EntryWithMetadata, error) {
-	return a.api.QueryBySignerDID(did)
+func (a docketScannerAdapter) QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error) {
+	if ctx == nil {
+		ctx = a.ctx
+	}
+	return a.api.QueryBySignerDID(ctx, did)
 }
 
 // ─────────────────────────────────────────────────────────────────────

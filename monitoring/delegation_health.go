@@ -17,6 +17,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/log
 package monitoring
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -27,6 +28,8 @@ import (
 	"github.com/clearcompass-ai/attesta/monitoring"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 const MonitorDelegationHealth monitoring.MonitorID = "judicial.delegation_health"
@@ -42,8 +45,10 @@ type DelegationHealthConfig struct {
 
 // CheckDelegationHealth walks the delegation tree and the recent entry log,
 // flagging entries signed by officers whose delegation is not live and
-// delegations whose grantor chain is broken.
+// delegations whose grantor chain is broken. ctx threads into every
+// LedgerQueryAPI / fetcher / verifier RPC.
 func CheckDelegationHealth(
+	ctx context.Context,
 	cfg DelegationHealthConfig,
 	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
@@ -54,13 +59,16 @@ func CheckDelegationHealth(
 		return nil, fmt.Errorf("monitoring/delegation: nil query API")
 	}
 
-	// 1. Walk the delegation tree.
-	tree, err := verifier.WalkDelegationTree(verifier.WalkDelegationTreeParams{
+	// 1. Walk the delegation tree. The DelegationQuerier interface
+	// is ctx-free; the adapter binds the request ctx into each
+	// underlying QueryBySignerDID RPC.
+	tree, err := verifier.WalkDelegationTree(ctx, verifier.WalkDelegationTreeParams{
 		RootEntityPos: cfg.RootEntityPos,
 		Fetcher:       fetcher,
 		LeafReader:    leafReader,
-		Querier:       queryAPI,
+		Querier:       common.NewDelegationQuerier(ctx, queryAPI),
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/delegation: walk tree: %w", err)
 	}
@@ -112,7 +120,7 @@ func CheckDelegationHealth(
 	if lookback <= 0 {
 		lookback = 500
 	}
-	recentEntries, err := queryAPI.ScanFromPosition(cfg.ScanStartSeq, lookback)
+	recentEntries, err := queryAPI.ScanFromPosition(ctx, cfg.ScanStartSeq, lookback)
 	if err != nil {
 		return alerts, fmt.Errorf("monitoring/delegation: scan recent: %w", err)
 	}
@@ -124,13 +132,14 @@ func CheckDelegationHealth(
 			continue
 		}
 		// Only flag entries that would have been Path A / B / C (state-changing).
-		classification, cErr := builder.ClassifyEntry(builder.ClassifyParams{
+		classification, cErr := builder.ClassifyEntry(ctx, builder.ClassifyParams{
 			Entry:       entry,
 			Position:    meta.Position,
 			LeafReader:  leafReader,
 			Fetcher:     fetcher,
 			LocalLogDID: cfg.LocalLogDID,
 		})
+
 		if cErr != nil || classification == nil {
 			continue
 		}

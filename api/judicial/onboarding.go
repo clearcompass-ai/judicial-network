@@ -54,6 +54,7 @@ type schemaAdoptRequest struct {
 type schemaAdoptHandler struct{ deps *Dependencies }
 
 func (h *schemaAdoptHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return
@@ -78,7 +79,7 @@ func (h *schemaAdoptHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			LogDID: req.HistoricalLogDID, Sequence: *req.HistoricalSeq,
 		}
 	}
-	report, err := onboarding.AdoptSchema(cfg, h.deps.Fetcher, h.deps.Extractor)
+	report, err := onboarding.AdoptSchema(ctx, cfg, h.deps.Fetcher, h.deps.Extractor)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -99,6 +100,7 @@ func (h *schemaAdoptHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type courtProvisionHandler struct{ deps *Dependencies }
 
 func (h *courtProvisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -111,6 +113,7 @@ func (h *courtProvisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 type anchorRegistrationHandler struct{ deps *Dependencies }
 
 func (h *anchorRegistrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -126,6 +129,7 @@ func (h *anchorRegistrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 type migrateRecordsHandler struct{ deps *Dependencies }
 
 func (h *migrateRecordsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	if requireCaller(w, r) == "" {
 		return
 	}

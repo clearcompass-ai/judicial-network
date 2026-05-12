@@ -436,9 +436,13 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "assemble signed entry: "+err.Error())
 		return
 	}
-	signed := envelope.Serialize(signedEntry)
+	signed, err := envelope.Serialize(signedEntry)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "serialize signed entry: "+err.Error())
+		return
+	}
 
-	// Submit to ledger via shared SDK-tuned client + 
+	// Submit to ledger via shared SDK-tuned client +
 	// circuit breaker +  metrics (when wired).
 	submitToLedgerProtected(w, h.deps, signed)
 }

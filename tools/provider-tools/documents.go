@@ -116,7 +116,7 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: s.cfg.ArtifactStoreURL,
 	})
-	ct, err := cs.Fetch(cid)
+	ct, err := cs.Fetch(r.Context(), cid)
 	if err != nil {
 		if errors.Is(err, storage.ErrContentNotFound) {
 			writeProviderError(w, http.StatusNotFound, "artifact not found")

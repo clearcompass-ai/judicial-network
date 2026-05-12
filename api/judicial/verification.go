@@ -17,6 +17,7 @@ DESCRIPTION:
 package judicial
 
 import (
+	"context"
 	"net/http"
 
 	sdklog "github.com/clearcompass-ai/attesta/log"
@@ -46,12 +47,13 @@ func (h *verifyCaseStatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	if requireCaller(w, r) == "" {
 		return
 	}
+	ctx := r.Context()
 	pos, err := caseRootFromQuery(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	state, err := verification.GetCaseStatus(pos, h.deps.LeafReader, h.deps.Fetcher)
+	state, err := verification.GetCaseStatus(ctx, pos, h.deps.LeafReader, h.deps.Fetcher)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -69,12 +71,13 @@ func (h *verifyEnforcementHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	if requireCaller(w, r) == "" {
 		return
 	}
+	ctx := r.Context()
 	pos, err := caseRootFromQuery(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	status, err := verification.CheckEnforcementStatus(pos, h.deps.LeafReader, h.deps.Fetcher, h.deps.Extractor)
+	status, err := verification.CheckEnforcementStatus(ctx, pos, h.deps.LeafReader, h.deps.Fetcher, h.deps.Extractor)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -96,6 +99,7 @@ func (h *verifyFilingDelegationHandler) ServeHTTP(w http.ResponseWriter, r *http
 	if requireCaller(w, r) == "" {
 		return
 	}
+	ctx := r.Context()
 	var req verifyFilingDelegationRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -110,7 +114,7 @@ func (h *verifyFilingDelegationHandler) ServeHTTP(w http.ResponseWriter, r *http
 	// previous chain validity portion (cycle detection, signer
 	// match) without scope enforcement.
 	result, err := verification.VerifyFilingDelegation(
-		toLogPositions(req.DelegationPointers), h.deps.Fetcher, h.deps.LeafReader, nil, nil,
+		ctx, toLogPositions(req.DelegationPointers), h.deps.Fetcher, h.deps.LeafReader, nil, nil,
 	)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -129,6 +133,7 @@ func (h *verifyCustodyChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	if requireCaller(w, r) == "" {
 		return
 	}
+	ctx := r.Context()
 	q := r.URL.Query()
 	cidStr := q.Get("artifact_cid")
 	logDID := q.Get("log_did")
@@ -151,7 +156,7 @@ func (h *verifyCustodyChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 	chain, err := verification.ReconstructCustodyChain(
-		cidStr, scanner, h.deps.Fetcher, h.deps.LeafReader, logDID, startSeq, int(maxEntries),
+		ctx, cidStr, scanner, h.deps.Fetcher, h.deps.LeafReader, logDID, startSeq, int(maxEntries),
 	)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -168,10 +173,14 @@ func (h *verifyCustodyChainHandler) scannerFor(logDID string) (verification.Cust
 	return custodyScannerAdapter{api: q}, true
 }
 
+// custodyScannerAdapter wraps sdklog.LedgerQueryAPI to satisfy
+// verification.CustodyScanner. Both signatures now take ctx in
+// v0.3.0; the adapter exists to constrain the embedded api to the
+// one method CustodyScanner needs.
 type custodyScannerAdapter struct{ api sdklog.LedgerQueryAPI }
 
-func (a custodyScannerAdapter) ScanFromPosition(start uint64, count int) ([]types.EntryWithMetadata, error) {
-	return a.api.ScanFromPosition(start, count)
+func (a custodyScannerAdapter) ScanFromPosition(ctx context.Context, start uint64, count int) ([]types.EntryWithMetadata, error) {
+	return a.api.ScanFromPosition(ctx, start, count)
 }
 
 // caseRootFromQuery is shared across the verify-* GET handlers that

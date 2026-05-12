@@ -1,6 +1,7 @@
 package courts
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -68,7 +69,7 @@ func (s *Server) CreateFiling(w http.ResponseWriter, r *http.Request) {
 	digest := sha256.Sum256(docBytes)
 
 	// Push to artifact store.
-	if err := s.pushToArtifactStore(ciphertext, cid.String()); err != nil {
+	if err := s.pushToArtifactStore(r.Context(), ciphertext, cid.String()); err != nil {
 		writeError(w, http.StatusBadGateway, "artifact store: "+err.Error())
 		return
 	}
@@ -152,7 +153,7 @@ func (s *Server) GetFiling(w http.ResponseWriter, r *http.Request) {
 	cidStr := r.PathValue("cid")
 
 	// Fetch ciphertext from artifact store.
-	ct, err := s.fetchFromArtifactStore(cidStr)
+	ct, err := s.fetchFromArtifactStore(r.Context(), cidStr)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "artifact not found")
 		return
@@ -173,20 +174,20 @@ func (s *Server) GetFiling(w http.ResponseWriter, r *http.Request) {
 // every wire call goes through the SDK's ContentStore interface so
 // the URL shape, X-Artifact-CID header, accepted status set, and
 // 404 → ErrContentNotFound mapping are all SDK-owned.
-func (s *Server) pushToArtifactStore(ciphertext []byte, cidStr string) error {
+func (s *Server) pushToArtifactStore(ctx context.Context, ciphertext []byte, cidStr string) error {
 	cid, err := storage.ParseCID(cidStr)
 	if err != nil {
 		return fmt.Errorf("parse CID: %w", err)
 	}
-	return s.contentStore().Push(cid, ciphertext)
+	return s.contentStore().Push(ctx, cid, ciphertext)
 }
 
-func (s *Server) fetchFromArtifactStore(cidStr string) ([]byte, error) {
+func (s *Server) fetchFromArtifactStore(ctx context.Context, cidStr string) ([]byte, error) {
 	cid, err := storage.ParseCID(cidStr)
 	if err != nil {
 		return nil, fmt.Errorf("parse CID: %w", err)
 	}
-	return s.contentStore().Fetch(cid)
+	return s.contentStore().Fetch(ctx, cid)
 }
 
 // contentStore returns a freshly-configured SDK HTTPContentStore for

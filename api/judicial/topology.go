@@ -10,7 +10,8 @@ DESCRIPTION:
 	    Builds the anchor commentary entry the ledger submits to
 	    a parent (state) log. Wraps topology.PublishAnchor which
 	    fetches the latest cosigned tree head from the source log
-	    via deps.TreeHeadClient.
+	    via deps.TreeHeadClient. v0.3.0: reads NetworkID from the
+	    encapsulated WitnessKeySet (not from a parallel map).
 
 	  GET  /v1/judicial/topology/anchor-chain
 	    Walks the anchor hierarchy from the supplied court DID up
@@ -46,6 +47,7 @@ type topologyPublishAnchorRequest struct {
 type topologyPublishAnchorHandler struct{ deps *Dependencies }
 
 func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return
@@ -66,20 +68,27 @@ func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.
 			"destination and source_log_did required")
 		return
 	}
-	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
-	if networkID.IsZero() {
+	// v0.3.0: NetworkID lives inside the encapsulated WitnessKeySet
+	// (SDK Principle 10). Reading set.NetworkID() guarantees keys+K
+	// stayed in sync for this log DID — it is impossible to read a
+	// different NetworkID than the witness key set was constructed
+	// against.
+	set, ok := h.deps.WitnessSets[req.SourceLogDID]
+	if !ok || set == nil {
 		writeError(w, http.StatusServiceUnavailable,
-			"topology.publish-anchor requires a NetworkID for source_log_did; "+
-				"populate Dependencies.WitnessNetwork at boot + restart")
+			"topology.publish-anchor requires a WitnessSets entry for source_log_did; "+
+				"populate Dependencies.WitnessSets at boot + restart")
 		return
 	}
-	res, err := topology.PublishAnchor(topology.AnchorConfig{
+	networkID := set.NetworkID()
+	res, err := topology.PublishAnchor(ctx, topology.AnchorConfig{
 		Destination:  req.Destination,
 		SignerDID:    signer,
 		SourceLogDID: req.SourceLogDID,
 		EventTime:    req.EventTime,
 		NetworkID:    networkID,
 	}, h.deps.TreeHeadClient)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -106,6 +115,7 @@ func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.
 type topologyAnchorChainHandler struct{ deps *Dependencies }
 
 func (h *topologyAnchorChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -126,7 +136,7 @@ func (h *topologyAnchorChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		writeError(w, http.StatusBadRequest, "court_did query param required")
 		return
 	}
-	res, err := topology.DiscoverAnchorChain(courtDID, h.deps.Hierarchy, h.deps.Resolver, h.deps.TreeHeadClient)
+	res, err := topology.DiscoverAnchorChain(ctx, courtDID, h.deps.Hierarchy, h.deps.Resolver, h.deps.TreeHeadClient)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

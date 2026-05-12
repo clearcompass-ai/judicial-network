@@ -54,6 +54,7 @@ type artifactPublishRequest struct {
 type artifactPublishHandler struct{ deps *Dependencies }
 
 func (h *artifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -75,10 +76,10 @@ func (h *artifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		DisclosureScope:   req.DisclosureScope,
 		InitialRecipients: req.InitialRecipients,
 	}
-	pub, err := artifact.PublishArtifact(
+	pub, err := artifact.PublishArtifact(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,
-		h.deps.Extractor, h.deps.Fetcher, h.deps.Resolver,
-	)
+		h.deps.Extractor, h.deps.Fetcher, h.deps.Resolver)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -110,6 +111,7 @@ func (h *artifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 type artifactRetrieveHandler struct{ deps *Dependencies }
 
 func (h *artifactRetrieveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	requesterDID := requireCaller(w, r)
 	if requesterDID == "" {
 		return
@@ -146,10 +148,10 @@ func (h *artifactRetrieveHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		SchemaRef:       types.LogPosition{LogDID: q.Get("schema_log_did"), Sequence: schemaSeq},
 		RetrievalExpiry: time.Duration(expirySec) * time.Second,
 	}
-	grant, err := artifact.RetrieveArtifact(
+	grant, err := artifact.RetrieveArtifact(ctx,
 		req, h.deps.KeyStore, h.deps.DelKeyStore, nil,
-		h.deps.Extractor, h.deps.LeafReader, h.deps.Fetcher, h.deps.Resolver,
-	)
+		h.deps.Extractor, h.deps.LeafReader, h.deps.Fetcher, h.deps.Resolver)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

@@ -43,6 +43,7 @@ KEY DEPENDENCIES:
 package verification
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -77,13 +78,15 @@ type DelegationVerification struct {
 // non-nil) is the domain's scope_limit check against the target's
 // SchemaRef.
 //
-//  short-circuits : if any hop fails cryptographically,
+//	short-circuits : if any hop fails cryptographically,
+//
 // scope_limit checks do not run. The cryptographic phase is the trust
 // boundary for whether DomainPayload is worth deserializing.
 //
 // A nil scopeEnforcer or nil target preserves -only behavior.
 // Production callers SHOULD pass both.
 func VerifyFilingDelegation(
+	ctx context.Context,
 	delegationPointers []types.LogPosition,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
@@ -108,7 +111,7 @@ func VerifyFilingDelegation(
 	// here. If a future SDK pin changes the contract to return an
 	// error, this call site needs the wrap-and-return branch
 	// reinstated.
-	hops, _ := verifier.VerifyDelegationProvenance(delegationPointers, fetcher, leafReader)
+	hops, _ := verifier.VerifyDelegationProvenance(ctx, delegationPointers, fetcher, leafReader)
 
 	result := &DelegationVerification{
 		Hops:    hops,
@@ -135,7 +138,7 @@ func VerifyFilingDelegation(
 
 	// : semantic scope authority.
 	result.ScopeChecked = true
-	if err := scopeEnforcer.VerifyDelegationScope(target); err != nil {
+	if err := scopeEnforcer.VerifyDelegationScope(ctx, target); err != nil {
 		var v *ScopeViolation
 		if errors.As(err, &v) {
 			result.ScopeViolation = v

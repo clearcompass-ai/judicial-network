@@ -223,7 +223,7 @@ func TestLedgerContract_ScanEndpoint_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHTTPLedgerQueryAPI: %v", err)
 	}
-	got, err := q.ScanFromPosition(5, 10)
+	got, err := q.ScanFromPosition(ctx, 5, 10)
 	if err != nil {
 		t.Fatalf("ScanFromPosition: %v", err)
 	}
@@ -311,7 +311,7 @@ func TestLedgerContract_SubmitEndpoint_HappyPath(t *testing.T) {
 }
 
 // TestLedgerContract_SubmitEndpoint_503Retried pins the wire-level
-// 503-Retry-After contract. Ledger commit dd2acd9 + JN 
+// 503-Retry-After contract. Ledger commit dd2acd9 + JN
 // shared client both require the SDK transport to retry transparently.
 // First call returns 503 + Retry-After: 1; second call succeeds.
 func TestLedgerContract_SubmitEndpoint_503Retried(t *testing.T) {

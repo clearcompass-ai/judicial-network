@@ -4,10 +4,12 @@ FILE PATH: verification/delegation_chain_test.go
 COVERAGE:
 
 	Two-phase verification — cryptographic and semantic
+
 . Tests cover: empty chain, dead delegation surfaces in
+
 	FirstDead, optional ScopeEnforcer (nil keeps -only),
 	semantic scope violation surfaces in ScopeViolation, and the
-	short-circuit that prevents  from running when 
+	short-circuit that prevents  from running when
 	fails.
 */
 package verification

@@ -26,6 +26,7 @@ type batchItem struct {
 }
 
 func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	logID := r.PathValue("logID")
 	positionsStr := r.PathValue("positions")
 
@@ -48,16 +49,16 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		item := batchItem{Position: pos}
 		leafKey := smt.DeriveKey(types.LogPosition{LogDID: logID, Sequence: pos})
 
-		origin, err := verifier.EvaluateOrigin(leafKey, h.deps.LeafReader, fetcher)
+		origin, err := verifier.EvaluateOrigin(ctx, leafKey, h.deps.LeafReader, fetcher)
 		if err != nil {
 			item.Error = err.Error()
 		} else {
 			item.Origin = origin
 		}
 
-		auth, err := verifier.EvaluateAuthority(
-			leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor,
-		)
+		auth, err := verifier.EvaluateAuthority(ctx,
+			leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor)
+
 		if err == nil {
 			item.Authority = auth
 		}

@@ -20,6 +20,7 @@ KEY DEPENDENCIES:
 package verification
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -40,6 +41,7 @@ import (
 // Output: *Authority with OK and Reason populated. Never returns
 // nil; the caller can rely on Authority.OK as the verdict.
 func (r *AuthorityResolver) Resolve(
+	ctx context.Context,
 	signerDID string,
 	signerDelegRef schemas.LogPositionRef,
 	requestedAction string,
@@ -75,7 +77,7 @@ func (r *AuthorityResolver) Resolve(
 			}
 		}
 
-		hop, rej, reason := r.fetchAndValidate(current, expectedGrantee, now)
+		hop, rej, reason := r.fetchAndValidate(ctx, current, expectedGrantee, now)
 		if rej != RejectNone {
 			return &Authority{SignerDID: signerDID, Depth: depth, Rejection: rej, Reason: reason}
 		}

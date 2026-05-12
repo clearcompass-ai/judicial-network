@@ -66,6 +66,7 @@ type sealRequest struct {
 type sealHandler struct{ deps *Dependencies }
 
 func (h *sealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	judge := requireCaller(w, r)
 	if judge == "" {
 		return
@@ -128,6 +129,7 @@ type unsealRequest struct {
 type unsealHandler struct{ deps *Dependencies }
 
 func (h *unsealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	judge := requireCaller(w, r)
 	if judge == "" {
 		return
@@ -181,6 +183,7 @@ type unsealCosignatureRequest struct {
 type unsealCosignatureHandler struct{ deps *Dependencies }
 
 func (h *unsealCosignatureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	cosigner := requireCaller(w, r)
 	if cosigner == "" {
 		return
@@ -216,6 +219,7 @@ func (h *unsealCosignatureHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 type sealingStatusHandler struct{ deps *Dependencies }
 
 func (h *sealingStatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -236,10 +240,10 @@ func (h *sealingStatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	// in a CosignatureQuerier-backed Dependencies field when the
 	// composer is wired with a richer query layer; for  first
 	// cut we trust the entry's existing cosigs in the leaf.
-	status, err := enforcement.CheckSealingActivation(
+	status, err := enforcement.CheckSealingActivation(ctx,
 		pos, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor,
-		time.Now().UTC(), nil, nil,
-	)
+		time.Now().UTC(), nil, nil)
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

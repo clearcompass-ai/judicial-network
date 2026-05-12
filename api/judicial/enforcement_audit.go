@@ -54,6 +54,7 @@ type expungeRequest struct {
 type expungeHandler struct{ deps *Dependencies }
 
 func (h *expungeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	judge := requireCaller(w, r)
 	if judge == "" {
 		return
@@ -93,10 +94,10 @@ func (h *expungeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if req.SchemaRef != nil && req.SchemaLogDID != "" {
 		cfg.SchemaRef = &types.LogPosition{LogDID: req.SchemaLogDID, Sequence: *req.SchemaRef}
 	}
-	result, err := enforcement.ExpungeCase(
+	result, err := enforcement.ExpungeCase(ctx,
 		cfg, h.deps.KeyStore, h.deps.DelKeyStore, h.deps.ContentStore,
-		h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor,
-	)
+		h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -142,6 +143,7 @@ type evidenceAccessRequest struct {
 type evidenceAccessHandler struct{ deps *Dependencies }
 
 func (h *evidenceAccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -197,10 +199,10 @@ func (h *evidenceAccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	// path (PRE arrives later). Pass nil for now; future PRE wiring
 	// adds the field to the request body.
 	cfg.Capsule = (*sdkartifact.Capsule)(nil)
-	grant, err := enforcement.GrantEvidenceAccess(
+	grant, err := enforcement.GrantEvidenceAccess(ctx,
 		cfg, h.deps.KeyStore, h.deps.DelKeyStore, nil,
-		h.deps.Extractor, h.deps.LeafReader, h.deps.Fetcher, h.deps.Resolver,
-	)
+		h.deps.Extractor, h.deps.LeafReader, h.deps.Fetcher, h.deps.Resolver)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -219,6 +221,7 @@ func (h *evidenceAccessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 type complianceHandler struct{ deps *Dependencies }
 
 func (h *complianceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -238,9 +241,9 @@ func (h *complianceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Now:           time.Now().UTC(),
 		CheckContests: true,
 	}
-	report, err := enforcement.RunComplianceCheck(
-		cfg, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor,
-	)
+	report, err := enforcement.RunComplianceCheck(ctx,
+		cfg, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

@@ -13,6 +13,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier
 package appeals
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -44,8 +45,9 @@ type MandateResult struct {
 
 // IssueMandateReverse publishes an enforcement entry on the lower court
 // log for reverse/remand outcomes. The enforcement references the appellate
-// decision via cross-log proof.
+// decision via cross-log proof. ctx threads into every SDK call.
 func IssueMandateReverse(
+	ctx context.Context,
 	cfg MandateConfig,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
@@ -61,15 +63,15 @@ func IssueMandateReverse(
 	}
 
 	// Contest check before enforcement (SDK correction #7).
-	contestResult, err := verifier.EvaluateContest(
-		cfg.LowerCourtCasePos, fetcher, leafReader, extractor,
-	)
+	contestResult, err := verifier.EvaluateContest(ctx,
+		cfg.LowerCourtCasePos, fetcher, leafReader, extractor)
+
 	if err == nil && contestResult != nil && contestResult.OperationBlocked {
 		return nil, fmt.Errorf("appeals/mandate: blocked by contest: %s", contestResult.Reason)
 	}
 
 	// Cross-log proof for appellate decision.
-	proof, err := verifier.BuildCrossLogProof(
+	proof, err := verifier.BuildCrossLogProof(ctx,
 		cfg.AppellateDecisionPos, anchorRef, fetcher,
 		sourceProver, localProver, sourceHead, localHead,
 	)

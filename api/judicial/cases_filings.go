@@ -52,6 +52,7 @@ type caseFilingRequest struct {
 type caseFilingHandler struct{ deps *Dependencies }
 
 func (h *caseFilingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return
@@ -94,10 +95,10 @@ func (h *caseFilingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		InitialRecipients:  req.InitialRecipients,
 		ExtraPayload:       req.ExtraPayload,
 	}
-	result, err := cases.File(
+	result, err := cases.File(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,
-		h.deps.Extractor, h.deps.Fetcher, h.deps.Resolver,
-	)
+		h.deps.Extractor, h.deps.Fetcher, h.deps.Resolver)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -139,6 +140,7 @@ type caseActionRequest struct {
 type caseActionHandler struct{ deps *Dependencies }
 
 func (h *caseActionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	judge := requireCaller(w, r)
 	if judge == "" {
 		return
@@ -180,10 +182,10 @@ func (h *caseActionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ExtraPayload:       req.ExtraPayload,
 		EventTime:          req.EventTime,
 	}
-	result, err := cases.RecordJudicialAction(
+	result, err := cases.RecordJudicialAction(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,
-		h.deps.Extractor, h.deps.Fetcher, h.deps.LeafReader, h.deps.Resolver,
-	)
+		h.deps.Extractor, h.deps.Fetcher, h.deps.LeafReader, h.deps.Resolver)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

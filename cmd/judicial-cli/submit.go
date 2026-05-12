@@ -229,8 +229,11 @@ func buildAndSign(spec *SubmitSpec) ([]byte, [32]byte, error) {
 		return nil, zero, fmt.Errorf("entry.Validate: %w", err)
 	}
 
-	// 8) Canonical bytes + hash.
-	canonical := sdkenv.Serialize(entry)
+	// 8) Canonical bytes + hash. v0.3.0: Serialize returns (bytes, error).
+	canonical, err := sdkenv.Serialize(entry)
+	if err != nil {
+		return nil, zero, fmt.Errorf("envelope.Serialize: %w", err)
+	}
 	hash := sha256.Sum256(canonical)
 	return canonical, hash, nil
 }

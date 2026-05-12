@@ -81,7 +81,7 @@ func (s *Scanner) Run(ctx context.Context) {
 			log.Printf("index/scanner: stopped at position %d", lastPos)
 			return
 		case <-ticker.C:
-			newPos, err := s.scanBatch(lastPos)
+			newPos, err := s.scanBatch(ctx, lastPos)
 			if err != nil {
 				log.Printf("index/scanner: scan error at %d: %v", lastPos, err)
 				continue
@@ -94,8 +94,8 @@ func (s *Scanner) Run(ctx context.Context) {
 	}
 }
 
-func (s *Scanner) scanBatch(fromPos uint64) (uint64, error) {
-	entries, err := s.queryAPI.ScanFromPosition(fromPos, int(s.batchSize))
+func (s *Scanner) scanBatch(ctx context.Context, fromPos uint64) (uint64, error) {
+	entries, err := s.queryAPI.ScanFromPosition(ctx, fromPos, int(s.batchSize))
 	if err != nil {
 		return fromPos, err
 	}

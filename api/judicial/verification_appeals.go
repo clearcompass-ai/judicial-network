@@ -12,63 +12,34 @@ DESCRIPTION:
 	needs a NextProofFn — a Go callback that fetches the next hop's
 	proof from a log; not directly mappable to one HTTP call. Production
 	callers walk hop-by-hop using cross-log-proof verification.
+
+	v0.3.0: both handlers read the per-source-log witness topology
+	from deps.WitnessSets (a single map[string]*cosign.WitnessKeySet),
+	not from three parallel maps. Keys + K + NetworkID + BLS verifier
+	are bound together at construction time; the request supplies only
+	source_log_did and the proof itself.
 */
 package judicial
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 
+	"github.com/clearcompass-ai/judicial-network/topology"
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
-
-// resolveSourceNetworkID returns the source-log NetworkID for a
-// cross-log-proof verification call. Precedence:
-//
-//  1. If the request supplied source_network_id_hex (64 lowercase
-//     hex), decode it and return.
-//  2. Otherwise return the deps fallback (may be the zero value, in
-//     which case the caller will surface a 400).
-//
-// Errors only on a malformed hex string. The empty / zero-value
-// "neither path produced anything" case is delegated to the caller
-// since "missing keys" and "missing network ID" merge into one
-// human-readable error there.
-func resolveSourceNetworkID(reqHex string, fallback cosign.NetworkID) (cosign.NetworkID, error) {
-	if reqHex == "" {
-		return fallback, nil
-	}
-	if len(reqHex) != 64 {
-		return cosign.NetworkID{}, fmt.Errorf(
-			"source_network_id_hex: want 64 hex chars, got %d", len(reqHex))
-	}
-	raw, err := hex.DecodeString(reqHex)
-	if err != nil {
-		return cosign.NetworkID{}, errors.New("source_network_id_hex: invalid hex")
-	}
-	var id cosign.NetworkID
-	copy(id[:], raw)
-	if id.IsZero() {
-		return cosign.NetworkID{}, errors.New("source_network_id_hex: zero NetworkID is reserved")
-	}
-	return id, nil
-}
 
 // ─────────────────────────────────────────────────────────────────────
 // POST /v1/judicial/verification/appeal-chain
 // ─────────────────────────────────────────────────────────────────────
 
 // Request payload carries the pre-walked AppealStep slice; this
-// handler runs the cryptographic verification (witness signatures,
-// inclusion proofs) using the WitnessKeys + Quorum + BLSVerifier
-// already on Dependencies.
+// handler runs the cryptographic verification using deps.WitnessSets
+// (the source of truth for per-log K, keys, and NetworkID).
 type verifyAppealChainRequest struct {
 	Steps json.RawMessage `json:"steps"` // []verification.AppealStep — opaque to keep package clean
 }
@@ -76,12 +47,13 @@ type verifyAppealChainRequest struct {
 type verifyAppealChainHandler struct{ deps *Dependencies }
 
 func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
-	if h.deps.BLSVerifier == nil || h.deps.WitnessKeys == nil || h.deps.WitnessQuorum == nil {
+	if len(h.deps.WitnessSets) == 0 {
 		writeError(w, http.StatusInternalServerError,
-			"BLSVerifier, WitnessKeys, and WitnessQuorum must be configured")
+			"WitnessSets must be configured for appeal-chain verification")
 		return
 	}
 	var req verifyAppealChainRequest
@@ -98,10 +70,7 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "steps required")
 		return
 	}
-	verified, err := verification.VerifyAppealChain(
-		steps, h.deps.WitnessKeys, h.deps.WitnessQuorum,
-		h.deps.WitnessNetwork, h.deps.BLSVerifier,
-	)
+	verified, err := verification.VerifyAppealChain(steps, h.deps.WitnessSets)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -113,34 +82,24 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 // POST /v1/judicial/verification/cross-log-proof
 // ─────────────────────────────────────────────────────────────────────
 
-// crossLogProofRequest accepts a serialized SDK CrossLogProof + an
-// expected source-entry hash + the witness key set for the SOURCE
-// log (the proof's anchor side is verified against keys/quorum the
-// caller MUST supply since cross-log proofs span trust boundaries).
+// crossLogProofRequest accepts a serialized SDK CrossLogProof + the
+// source-log DID. The handler looks up the source log's witness
+// topology via deps.WitnessSets — one lookup, no three-way drift
+// possible. The legacy override fields (source_witness_keys_b64,
+// source_witness_quorum, source_network_id_hex) are removed in
+// v0.3.0; per-request overrides would defeat the encapsulation
+// guarantee.
 type crossLogProofRequest struct {
-	Proof json.RawMessage `json:"proof"`
-
-	// SourceWitnessKeys + SourceWitnessQuorum + SourceNetworkIDHex
-	// override the Dependencies.WitnessKeys / WitnessQuorum /
-	// WitnessNetwork maps for THIS verification call. Reason: source
-	// log lives in a different trust boundary than the caller's; the
-	// caller MUST tell the API which key set + network to verify the
-	// source tree-head signatures against.
-	SourceLogDID           string   `json:"source_log_did"`
-	SourceWitnessKeysB64   []string `json:"source_witness_keys_b64,omitempty"`
-	SourceWitnessQuorum    int      `json:"source_witness_quorum,omitempty"`
-	SourceNetworkIDHex     string   `json:"source_network_id_hex,omitempty"` // 64-char lowercase hex
-	AnchorPayloadExtractor string   `json:"anchor_payload_extractor,omitempty"`
+	Proof                  json.RawMessage `json:"proof"`
+	SourceLogDID           string          `json:"source_log_did"`
+	AnchorPayloadExtractor string          `json:"anchor_payload_extractor,omitempty"`
 }
 
 type verifyCrossLogProofHandler struct{ deps *Dependencies }
 
 func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r.Context()
 	if requireCaller(w, r) == "" {
-		return
-	}
-	if h.deps.BLSVerifier == nil {
-		writeError(w, http.StatusInternalServerError, "BLSVerifier must be configured")
 		return
 	}
 	var req crossLogProofRequest
@@ -149,8 +108,7 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if len(req.Proof) == 0 || req.SourceLogDID == "" {
-		writeError(w, http.StatusBadRequest,
-			"proof and source_log_did required")
+		writeError(w, http.StatusBadRequest, "proof and source_log_did required")
 		return
 	}
 	var proof types.CrossLogProof
@@ -158,48 +116,21 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		writeError(w, http.StatusBadRequest, "proof must be a valid CrossLogProof JSON")
 		return
 	}
-
-	keys, err := decodeWitnessKeys(req.SourceWitnessKeysB64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if len(keys) == 0 {
-		// Fall back to Dependencies map keyed by source log DID.
-		keys = h.deps.WitnessKeys[req.SourceLogDID]
-	}
-	quorum := req.SourceWitnessQuorum
-	if quorum == 0 {
-		quorum = h.deps.WitnessQuorum[req.SourceLogDID]
-	}
-	networkID, nidErr := resolveSourceNetworkID(req.SourceNetworkIDHex,
-		h.deps.WitnessNetwork[req.SourceLogDID])
-	if nidErr != nil {
-		writeError(w, http.StatusBadRequest, nidErr.Error())
-		return
-	}
-	if len(keys) == 0 || quorum == 0 || networkID.IsZero() {
+	set, ok := h.deps.WitnessSets[req.SourceLogDID]
+	if !ok || set == nil {
 		writeError(w, http.StatusBadRequest,
-			"source_witness_keys + quorum + network_id required "+
-				"(supply via request fields or pre-configure for the source log)")
+			"no witness set for source_log_did (pre-configure via WitnessSets at boot)")
 		return
 	}
-
-	// The verifier needs an "anchor payload extractor" — a function
-	// that pulls a tree-head reference out of the anchor entry's
-	// payload.  doesn't ship a registry of such extractors;
-	// callers MAY supply one named in the request (future C6 work)
-	// or fall back to the SDK's default for relay attestations.
+	// Only the relay-attestation extractor is supported; the topology
+	// package owns the canonical JSON layout. Future extractor
+	// registries would route by AnchorPayloadExtractor here.
 	if req.AnchorPayloadExtractor != "" && req.AnchorPayloadExtractor != "relay_attestation" {
 		writeError(w, http.StatusBadRequest,
-			"anchor_payload_extractor: only \"relay_attestation\" supported ")
+			"anchor_payload_extractor: only \"relay_attestation\" supported")
 		return
 	}
-	anchorExt := defaultAnchorExtractor
-
-	verifyErr := verifier.VerifyCrossLogProof(
-		proof, keys, quorum, networkID, h.deps.BLSVerifier, anchorExt,
-	)
+	verifyErr := verifier.VerifyCrossLogProof(proof, set, topology.ExtractAnchorPayload)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"verified": false,
@@ -210,30 +141,16 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	writeJSON(w, http.StatusOK, map[string]any{"verified": true})
 }
 
-// defaultAnchorExtractor pulls the anchor tree-head reference from a
-// relay attestation payload via the SDK's ExtractAnchorPayload-shaped
-// API.  only supports relay-attestation anchor entries.
-var defaultAnchorExtractor = func(payload []byte) ([32]byte, error) {
-	// SDK exposes this on the topology side; we wrap to keep import
-	// surface minimal here.
-	if len(payload) < 32 {
-		var zero [32]byte
-		return zero, errors.New("anchor payload too short to extract tree-head ref")
-	}
-	var head [32]byte
-	copy(head[:], payload[:32])
-	return head, nil
-}
-
-// decodeWitnessKeys converts base64-encoded BLS pubkeys to the SDK
-// types.WitnessPublicKey shape. Returns an error if any entry fails
-// to decode.
+// decodeWitnessKeys is retained for ergonomic test-side construction
+// of in-memory WitnessKeySets from base64-encoded BLS pubkeys.
+// Production wiring builds WitnessSets at boot from operational
+// config; the request path no longer accepts inline keys.
 func decodeWitnessKeys(b64Keys []string) ([]types.WitnessPublicKey, error) {
 	out := make([]types.WitnessPublicKey, 0, len(b64Keys))
 	for _, s := range b64Keys {
 		raw, err := decodeBase64(s)
 		if err != nil {
-			return nil, errors.New("source_witness_keys_b64 entry not valid base64")
+			return nil, errors.New("witness_keys_b64 entry not valid base64")
 		}
 		out = append(out, types.WitnessPublicKey{PublicKey: raw})
 	}

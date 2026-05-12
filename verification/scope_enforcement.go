@@ -55,6 +55,7 @@ KEY DEPENDENCIES:
 package verification
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -133,8 +134,8 @@ type ScopeEnforcer struct {
 //
 // Path A and commentary entries (no DelegationPointers) return nil
 // without inspecting any payload — the SDK's cryptographic check
-// alone authorizes them.
-func (s *ScopeEnforcer) VerifyDelegationScope(target *envelope.Entry) error {
+// alone authorizes them. ctx bounds the fetcher RPCs walked per hop.
+func (s *ScopeEnforcer) VerifyDelegationScope(ctx context.Context, target *envelope.Entry) error {
 	if s.Fetcher == nil {
 		return ErrScopeFetcherNil
 	}
@@ -161,7 +162,7 @@ func (s *ScopeEnforcer) VerifyDelegationScope(target *envelope.Entry) error {
 	targetSchema = NormalizeSchemaName(targetSchema)
 
 	for hop, ptr := range target.Header.DelegationPointers {
-		meta, err := s.Fetcher.Fetch(ptr)
+		meta, err := s.Fetcher.Fetch(ctx, ptr)
 		if err != nil || meta == nil {
 			return fmt.Errorf("%w: hop=%d ptr=%s: %v",
 				ErrScopeDelegationFetchFailed, hop, ptr.String(), err)

@@ -39,6 +39,7 @@ KEY DEPENDENCIES:
 package consortium
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
@@ -123,8 +124,10 @@ func NewMappingEscrowManager(cfg MappingEscrowConfig) (*MappingEscrowManager, er
 // Pedersen VSS. Returns Stored/EncShares plus the EscrowSplitCommitment
 // and its signed log entry. Atomic emission per ADR-005 §3.5: every
 // success returns all four; the caller submits CommitmentEntry to
-// the log alongside the per-node share distribution.
+// the log alongside the per-node share distribution. ctx bounds the
+// SDK's StoreMappingV2 RPC chain.
 func (m *MappingEscrowManager) CreateMapping(
+	ctx context.Context,
 	identityHash [32]byte,
 	credRef identity.CredentialRef,
 	eventTime int64,
@@ -139,7 +142,7 @@ func (m *MappingEscrowManager) CreateMapping(
 		EventTime:   eventTime,
 	}
 
-	res, err := m.escrow.StoreMappingV2(record, m.nodes, cfg)
+	res, err := m.escrow.StoreMappingV2(ctx, record, m.nodes, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("consortium/mapping_escrow: store v2: %w", err)
 	}
@@ -183,6 +186,7 @@ func (m *MappingEscrowManager) RecoverMapping(
 // rotated in place; rotation is observable on-log via the new
 // commitment-entry emission.
 func (m *MappingEscrowManager) TransferMapping(
+	ctx context.Context,
 	identityHash [32]byte,
 	credRef identity.CredentialRef,
 	newCfg MappingEscrowConfig,
@@ -192,5 +196,5 @@ func (m *MappingEscrowManager) TransferMapping(
 	if err != nil {
 		return nil, fmt.Errorf("consortium/mapping_escrow: transfer init: %w", err)
 	}
-	return destMgr.CreateMapping(identityHash, credRef, eventTime)
+	return destMgr.CreateMapping(ctx, identityHash, credRef, eventTime)
 }

@@ -17,6 +17,7 @@ func NewVerifyFraudProofHandler(deps *Dependencies) *VerifyFraudProofHandler {
 }
 
 func (h *VerifyFraudProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var req struct {
 		Commitment types.SMTDerivationCommitment `json:"commitment"`
 		LogDID     string                        `json:"log_did"`
@@ -36,9 +37,9 @@ func (h *VerifyFraudProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	// optimization can persist warm prior state per log to speed up
 	// large-batch verification.
 	priorState := smt.NewInMemoryLeafStore()
-	result, err := verifier.VerifyDerivationCommitment(
-		req.Commitment, priorState, fetcher, h.deps.SchemaResolver, req.LogDID,
-	)
+	result, err := verifier.VerifyDerivationCommitment(ctx,
+		req.Commitment, priorState, fetcher, h.deps.SchemaResolver, req.LogDID)
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "fraud proof verification failed")
 		return

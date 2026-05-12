@@ -58,6 +58,7 @@ type appealDecisionRequest struct {
 type appealDecisionHandler struct{ deps *Dependencies }
 
 func (h *appealDecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	judge := requireCaller(w, r)
 	if judge == "" {
 		return
@@ -87,10 +88,10 @@ func (h *appealDecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		RemandInstructions: req.RemandInstructions,
 		EventTime:          req.EventTime,
 	}
-	result, err := appeals.RecordDecision(
+	result, err := appeals.RecordDecision(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,
-		h.deps.Extractor, h.deps.Fetcher, h.deps.LeafReader, h.deps.Resolver,
-	)
+		h.deps.Extractor, h.deps.Fetcher, h.deps.LeafReader, h.deps.Resolver)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -132,6 +133,7 @@ type appealMandateAffirmRequest struct {
 type appealMandateAffirmHandler struct{ deps *Dependencies }
 
 func (h *appealMandateAffirmHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return

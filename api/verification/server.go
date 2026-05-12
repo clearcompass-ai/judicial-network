@@ -23,22 +23,23 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
 )
 
 // ServerConfig configures the verification service.
+//
+// v0.3.0: WitnessSets replaces the legacy trio of WitnessKeys /
+// WitnessQuorum / WitnessNetwork + BLSVerifier. One *cosign.WitnessKeySet
+// per log DID carries keys, K, NetworkID, and the BLSAggregateVerifier
+// together — SDK Principle 10 (Two-Tier Quorum Encapsulation).
 type ServerConfig struct {
 	Addr           string
 	LogQueries     map[string]sdklog.LedgerQueryAPI
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
-	BLSVerifier    cosign.BLSAggregateVerifier
-	WitnessKeys    map[string][]types.WitnessPublicKey
-	WitnessQuorum  map[string]int
-	WitnessNetwork map[string]cosign.NetworkID
+	WitnessSets    map[string]*cosign.WitnessKeySet
 }
 
 // Server is the verification service HTTP server.
@@ -60,10 +61,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		LeafReader:     cfg.LeafReader,
 		Extractor:      cfg.Extractor,
 		SchemaResolver: cfg.SchemaResolver,
-		BLSVerifier:    cfg.BLSVerifier,
-		WitnessKeys:    cfg.WitnessKeys,
-		WitnessQuorum:  cfg.WitnessQuorum,
-		WitnessNetwork: cfg.WitnessNetwork,
+		WitnessSets:    cfg.WitnessSets,
 	}
 
 	mux := http.NewServeMux()

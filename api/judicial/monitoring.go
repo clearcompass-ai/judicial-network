@@ -17,6 +17,7 @@ DESCRIPTION:
 package judicial
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -51,6 +52,7 @@ type monBlobAvailRequest struct {
 type monBlobAvailHandler struct{ deps *Dependencies }
 
 func (h *monBlobAvailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -80,7 +82,7 @@ func (h *monBlobAvailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		}
 		cfg.ExpectedAbsent = append(cfg.ExpectedAbsent, c)
 	}
-	result, err := monitoring.CheckBlobAvailability(cfg, h.deps.ContentStore, time.Now().UTC())
+	result, err := monitoring.CheckBlobAvailability(ctx, cfg, h.deps.ContentStore, time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -103,6 +105,7 @@ type monDelegationHealthRequest struct {
 type monDelegationHealthHandler struct{ deps *Dependencies }
 
 func (h *monDelegationHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -127,7 +130,7 @@ func (h *monDelegationHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		ScanLookback:   req.ScanLookback,
 		ScanStartSeq:   req.ScanStartSeq,
 	}
-	alerts, err := monitoring.CheckDelegationHealth(cfg, api, h.deps.Fetcher, h.deps.LeafReader, time.Now().UTC())
+	alerts, err := monitoring.CheckDelegationHealth(ctx, cfg, api, h.deps.Fetcher, h.deps.LeafReader, time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -146,6 +149,7 @@ func (h *monDelegationHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 type monAnchorFreshnessHandler struct{ deps *Dependencies }
 
 func (h *monAnchorFreshnessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -179,7 +183,7 @@ func (h *monAnchorFreshnessHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		CriticalThreshold:    parseDurationDefault(q.Get("critical_threshold"), 3*time.Hour),
 		ParentStaleness:      witness.StalenessMonitoring,
 	}
-	alerts, err := monitoring.CheckAnchorFreshness(cfg, queryAPI, h.deps.TreeHeadClient, time.Now().UTC())
+	alerts, err := monitoring.CheckAnchorFreshness(ctx, cfg, queryAPI, h.deps.TreeHeadClient, time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -201,9 +205,11 @@ func parseDurationDefault(s string, fallback time.Duration) time.Duration {
 }
 
 // queryAPIFor resolves an LedgerQueryAPI from Dependencies.LogQueries.
-// Used by every monitoring handler that scans a single log.
+// Used by every monitoring handler that scans a single log. v0.3.0:
+// the returned interface threads ctx into QueryBySignerDID to match
+// the SDK's broad ctx-threading sweep.
 func (deps *Dependencies) queryAPIFor(logDID string) (interface {
-	QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)
+	QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error)
 }, bool) {
 	api, ok := deps.LogQueries[logDID]
 	if !ok {

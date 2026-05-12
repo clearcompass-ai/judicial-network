@@ -17,6 +17,7 @@ KEY DEPENDENCIES: attesta/builder, cases/artifact
 package parties
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -56,6 +57,7 @@ type SealedBindingResult struct {
 // identity mapping. The real DID is encrypted; only the vendor DID appears
 // on the log. Authorized officers decrypt via GrantArtifactAccess sealed mode.
 func CreateSealedBinding(
+	ctx context.Context,
 	cfg SealedBindingConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -77,6 +79,7 @@ func CreateSealedBinding(
 	})
 
 	published, err := artifact.PublishArtifact(
+		ctx,
 		artifact.PublishConfig{
 			Plaintext: mappingPlaintext,
 			SchemaRef: cfg.SchemaRef,

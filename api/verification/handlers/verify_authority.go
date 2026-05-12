@@ -17,6 +17,7 @@ func NewVerifyAuthorityHandler(deps *Dependencies) *VerifyAuthorityHandler {
 }
 
 func (h *VerifyAuthorityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	logID := r.PathValue("logID")
 	posStr := r.PathValue("pos")
 
@@ -34,9 +35,9 @@ func (h *VerifyAuthorityHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	leafKey := smt.DeriveKey(types.LogPosition{LogDID: logID, Sequence: pos})
 
-	result, err := verifier.EvaluateAuthority(
-		leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor,
-	)
+	result, err := verifier.EvaluateAuthority(ctx,
+		leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor)
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "authority evaluation failed")
 		return

@@ -17,6 +17,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/witness, attesta/crypto/cosign
 package topology
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -74,8 +75,9 @@ type AnchorResult struct {
 
 // PublishAnchor fetches the latest cosigned tree head for the source log
 // and builds an anchor commentary entry suitable for submission to the
-// parent (state) log.
+// parent (state) log. ctx bounds the FetchLatestTreeHead RPC.
 func PublishAnchor(
+	ctx context.Context,
 	cfg AnchorConfig,
 	client *witness.TreeHeadClient,
 ) (*AnchorResult, error) {
@@ -89,7 +91,7 @@ func PublishAnchor(
 		return nil, fmt.Errorf("topology/anchor: nil tree head client")
 	}
 
-	head, _, err := client.FetchLatestTreeHead(cfg.SourceLogDID)
+	head, _, err := client.FetchLatestTreeHead(ctx, cfg.SourceLogDID)
 	if err != nil {
 		return nil, fmt.Errorf("topology/anchor: fetch tree head: %w", err)
 	}

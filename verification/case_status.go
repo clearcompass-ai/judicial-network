@@ -12,6 +12,7 @@ KEY DEPENDENCIES: attesta/verifier, attesta/core/smt
 package verification
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/clearcompass-ai/attesta/core/smt"
@@ -30,13 +31,14 @@ type CaseState struct {
 // GetCaseStatus evaluates the current state of a case entity using the
 // SDK's verifier.EvaluateOrigin for origin lane + authority lane check.
 func GetCaseStatus(
+	ctx context.Context,
 	caseRootPos types.LogPosition,
 	leafReader smt.LeafReader,
 	fetcher types.EntryFetcher,
 ) (*CaseState, error) {
 	leafKey := smt.DeriveKey(caseRootPos)
 
-	eval, err := verifier.EvaluateOrigin(leafKey, leafReader, fetcher)
+	eval, err := verifier.EvaluateOrigin(ctx, leafKey, leafReader, fetcher)
 	if err != nil {
 		return nil, fmt.Errorf("verification/case_status: %w", err)
 	}
@@ -59,7 +61,7 @@ func GetCaseStatus(
 	}
 
 	// Authority lane check for sealing.
-	leaf, lErr := leafReader.Get(leafKey)
+	leaf, lErr := leafReader.Get(ctx, leafKey)
 	if lErr == nil && leaf != nil {
 		state.OriginTip = leaf.OriginTip
 		state.AuthorityTip = leaf.AuthorityTip

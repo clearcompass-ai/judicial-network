@@ -165,7 +165,7 @@ func TestCosignedFiling_AttorneyMotion_TwoSignatures(t *testing.T) {
 		}
 	}
 
-	// Payload preserves filed_by_capacity exactly; 
+	// Payload preserves filed_by_capacity exactly;
 	// aggregator reads the whole block verbatim.
 	var payload map[string]any
 	if err := json.Unmarshal(got.DomainPayload, &payload); err != nil {

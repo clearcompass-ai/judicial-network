@@ -12,6 +12,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/log
 package verification
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -30,13 +31,17 @@ type CustodyEvent struct {
 	Details   map[string]string
 }
 
+// CustodyScanner is the read-side interface for scanning a log
+// forward from a position. v0.3.0: takes ctx so HTTP-backed
+// implementations propagate the caller's deadline.
 type CustodyScanner interface {
-	ScanFromPosition(startPos uint64, count int) ([]types.EntryWithMetadata, error)
+	ScanFromPosition(ctx context.Context, startPos uint64, count int) ([]types.EntryWithMetadata, error)
 }
 
 // ReconstructCustodyChain scans entries related to an artifact CID and
 // reconstructs the chain of custody.
 func ReconstructCustodyChain(
+	ctx context.Context,
 	artifactCIDStr string,
 	scanner CustodyScanner,
 	fetcher types.EntryFetcher,
@@ -49,7 +54,7 @@ func ReconstructCustodyChain(
 		maxEntries = 1000
 	}
 
-	entries, err := scanner.ScanFromPosition(startSeq, maxEntries)
+	entries, err := scanner.ScanFromPosition(ctx, startSeq, maxEntries)
 	if err != nil {
 		return nil, fmt.Errorf("verification/evidence_chain: scan: %w", err)
 	}
@@ -78,7 +83,7 @@ func ReconstructCustodyChain(
 			continue
 		}
 
-		classification, _ := builder.ClassifyEntry(builder.ClassifyParams{
+		classification, _ := builder.ClassifyEntry(ctx, builder.ClassifyParams{
 			Entry:       entry,
 			Position:    meta.Position,
 			LeafReader:  leafReader,

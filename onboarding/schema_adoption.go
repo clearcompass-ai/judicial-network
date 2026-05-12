@@ -25,6 +25,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/schema
 package onboarding
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -73,7 +74,8 @@ type AdoptionReport struct {
 
 // AdoptSchema runs the two-phase adoption process.
 //
-//  is mandatory.  runs only if HistoricalReference is non-zero.
+//	is mandatory.  runs only if HistoricalReference is non-zero.
+//
 // A missing predecessor schema in the chain fails . Migration
 // policies that forbid the reference fail .
 //
@@ -81,6 +83,7 @@ type AdoptionReport struct {
 // entry, ready for submission. The caller is free to inspect SchemaChain
 // and Migration before submitting (e.g., for governance review).
 func AdoptSchema(
+	ctx context.Context,
 	cfg SchemaAdoptionConfig,
 	fetcher types.EntryFetcher,
 	extractor schema.SchemaParameterExtractor,
@@ -95,7 +98,7 @@ func AdoptSchema(
 	report := &AdoptionReport{}
 
 	// : Walk the predecessor chain.
-	chain, err := verifier.WalkSchemaChain(cfg.SourceSchemaRef, fetcher, extractor)
+	chain, err := verifier.WalkSchemaChain(ctx, cfg.SourceSchemaRef, fetcher, extractor)
 	if err != nil {
 		report.Reason = fmt.Sprintf("chain walk failed: %v", err)
 		return report, nil // Report-level failure, not function-level error.
@@ -116,7 +119,7 @@ func AdoptSchema(
 	}
 
 	// Build local copy from the source's Domain Payload (deterministic).
-	sourceMeta, err := fetcher.Fetch(cfg.SourceSchemaRef)
+	sourceMeta, err := fetcher.Fetch(ctx, cfg.SourceSchemaRef)
 	if err != nil || sourceMeta == nil {
 		report.Reason = "source schema entry not fetchable"
 		return report, nil

@@ -98,7 +98,7 @@ func TestLedgerFetcher_Fetch_Success(t *testing.T) {
 	}
 
 	fetcher := &ledgerFetcher{query: mock, logDID: "test"}
-	result, err := fetcher.Fetch(pos)
+	result, err := fetcher.Fetch(ctx, pos)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestLedgerFetcher_Fetch_NotFound(t *testing.T) {
 	mock := &mockQueryAPI{entries: map[uint64]types.EntryWithMetadata{}}
 	fetcher := &ledgerFetcher{query: mock, logDID: "test"}
 
-	_, err := fetcher.Fetch(types.LogPosition{LogDID: "test", Sequence: 999})
+	_, err := fetcher.Fetch(ctx, types.LogPosition{LogDID: "test", Sequence: 999})
 	if err == nil {
 		t.Fatal("expected error for missing entry")
 	}

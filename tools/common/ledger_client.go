@@ -46,6 +46,7 @@ KEY DEPENDENCIES:
 package common
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -120,9 +121,9 @@ type RawEntry struct {
 // FetchEntry retrieves a single entry by sequence. Returns (nil, nil)
 // when the ledger returns 404. Wire path: SDK HTTPEntryFetcher →
 // GET /v1/entries/{seq}/raw.
-func (c *LedgerClient) FetchEntry(seq uint64) (*RawEntry, error) {
+func (c *LedgerClient) FetchEntry(ctx context.Context, seq uint64) (*RawEntry, error) {
 	pos := types.LogPosition{LogDID: c.logDID, Sequence: seq}
-	ewm, err := c.fetcher.Fetch(pos)
+	ewm, err := c.fetcher.Fetch(ctx, pos)
 	if err != nil {
 		return nil, fmt.Errorf("ledger: fetch %d: %w", seq, err)
 	}
@@ -136,7 +137,7 @@ func (c *LedgerClient) FetchEntry(seq uint64) (*RawEntry, error) {
 // empty slice (not error) at log end. Wire path: GET /v1/query/scan
 // (SDK-canonical JSON metadata) + per-row HTTPEntryFetcher.Fetch to
 // back-fill CanonicalBytes (the deserializer requires the wire bytes).
-func (c *LedgerClient) ScanFrom(startPos uint64, count int) ([]RawEntry, error) {
+func (c *LedgerClient) ScanFrom(ctx context.Context, startPos uint64, count int) ([]RawEntry, error) {
 	if c.logDID == "" {
 		return nil, fmt.Errorf("ledger: ScanFrom requires logDID at construction")
 	}
@@ -146,7 +147,7 @@ func (c *LedgerClient) ScanFrom(startPos uint64, count int) ([]RawEntry, error) 
 	}
 	out := make([]RawEntry, 0, len(metas))
 	for _, m := range metas {
-		full, fErr := c.fetcher.Fetch(m.Position)
+		full, fErr := c.fetcher.Fetch(ctx, m.Position)
 		if fErr != nil {
 			return nil, fmt.Errorf("ledger: scan fetch seq %d: %w", m.Position.Sequence, fErr)
 		}

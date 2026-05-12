@@ -16,6 +16,7 @@ KEY DEPENDENCIES: attesta/lifecycle, cases/artifact
 package enforcement
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/clearcompass-ai/attesta/core/smt"
@@ -49,6 +50,7 @@ type EvidenceAccessConfig struct {
 // policy for sealed evidence. Resolves recipient encryption key via
 // did_keys.ResolveEncryptionKey and delegates to the SDK's sealed-mode grant.
 func GrantEvidenceAccess(
+	ctx context.Context,
 	cfg EvidenceAccessConfig,
 	keyStore lifecycleartifact.KeyStore,
 	delKeyStore artifact.DelegationKeyStore,
@@ -65,7 +67,7 @@ func GrantEvidenceAccess(
 	// Resolve requester's encryption key via did_keys (keyAgreement purpose).
 	requesterPubKey := cfg.RequesterPubKey
 	if len(requesterPubKey) == 0 && resolver != nil {
-		pk, err := artifact.ResolveEncryptionKey(cfg.RequesterDID, resolver)
+		pk, err := artifact.ResolveEncryptionKey(ctx, cfg.RequesterDID, resolver)
 		if err != nil {
 			return nil, fmt.Errorf("enforcement/evidence_access: resolve requester key: %w", err)
 		}
@@ -73,6 +75,7 @@ func GrantEvidenceAccess(
 	}
 
 	return artifact.RetrieveArtifact(
+		ctx,
 		artifact.RetrievalRequest{
 			Destination:     cfg.Destination,
 			ArtifactCID:     cfg.ArtifactCID,

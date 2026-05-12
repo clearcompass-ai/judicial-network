@@ -44,6 +44,7 @@ type partyBindingSealedRequest struct {
 type partyBindingSealedHandler struct{ deps *Dependencies }
 
 func (h *partyBindingSealedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return
@@ -71,10 +72,10 @@ func (h *partyBindingSealedHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		SchemaRef:   types.LogPosition{LogDID: req.SchemaLogDID, Sequence: req.SchemaRef},
 		EventTime:   req.EventTime,
 	}
-	result, err := parties.CreateSealedBinding(
+	result, err := parties.CreateSealedBinding(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,
-		h.deps.Extractor, h.deps.Fetcher, h.deps.Resolver,
-	)
+		h.deps.Extractor, h.deps.Fetcher, h.deps.Resolver)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

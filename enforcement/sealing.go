@@ -28,6 +28,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/schema
 package enforcement
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -43,7 +44,7 @@ import (
 // CosignatureQuerier discovers cosignature entries referencing a given
 // pending position. Satisfied by log.LedgerQueryAPI via structural typing.
 type CosignatureQuerier interface {
-	QueryByCosignatureOf(pos types.LogPosition) ([]types.EntryWithMetadata, error)
+	QueryByCosignatureOf(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error)
 }
 
 // SealingConfig configures a sealing order.
@@ -126,6 +127,7 @@ type ActivationCheck struct {
 // querier is non-nil, this function queries them via QueryByCosignatureOf.
 // If both are nil, the cosignature-threshold condition will resolve as 0/N.
 func CheckSealingActivation(
+	ctx context.Context,
 	pendingPos types.LogPosition,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
@@ -142,7 +144,7 @@ func CheckSealingActivation(
 
 	// Discover cosignatures if caller didn't provide them.
 	if cosigs == nil && querier != nil {
-		discovered, err := querier.QueryByCosignatureOf(pendingPos)
+		discovered, err := querier.QueryByCosignatureOf(ctx, pendingPos)
 		if err != nil {
 			return nil, fmt.Errorf("enforcement/sealing: query cosignatures: %w", err)
 		}
@@ -150,13 +152,14 @@ func CheckSealingActivation(
 	}
 
 	// Step 1: full condition evaluation.
-	condResult, err := verifier.EvaluateConditions(verifier.EvaluateConditionsParams{
+	condResult, err := verifier.EvaluateConditions(ctx, verifier.EvaluateConditionsParams{
 		PendingPos:   pendingPos,
 		Fetcher:      fetcher,
 		Extractor:    extractor,
 		Cosignatures: cosigs,
 		Now:          now,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/sealing: evaluate conditions: %w", err)
 	}
@@ -170,7 +173,7 @@ func CheckSealingActivation(
 	}
 
 	// Step 2: unresolved-contest check (correction #7).
-	contestResult, err := verifier.EvaluateContest(pendingPos, fetcher, leafReader, extractor)
+	contestResult, err := verifier.EvaluateContest(ctx, pendingPos, fetcher, leafReader, extractor)
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/sealing: evaluate contest: %w", err)
 	}

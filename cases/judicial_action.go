@@ -15,6 +15,7 @@ KEY DEPENDENCIES: attesta/builder, cases/artifact
 package cases
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -55,6 +56,7 @@ type JudicialActionResult struct {
 // RecordJudicialAction assembles the delegation chain and creates a
 // Path B entry for a judge-signed action on a case.
 func RecordJudicialAction(
+	ctx context.Context,
 	cfg JudicialActionConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -72,7 +74,7 @@ func RecordJudicialAction(
 	}
 
 	// Assemble delegation chain.
-	assembly, err := builder.AssemblePathB(builder.AssemblePathBParams{
+	assembly, err := builder.AssemblePathB(ctx, builder.AssemblePathBParams{
 		DelegateDID:        cfg.JudgeDID,
 		TargetRoot:         cfg.CaseRootPos,
 		LeafReader:         leafReader,
@@ -88,6 +90,7 @@ func RecordJudicialAction(
 	// Publish artifact if plaintext provided.
 	if len(cfg.Plaintext) > 0 {
 		published, pubErr := artifact.PublishArtifact(
+			ctx,
 			artifact.PublishConfig{
 				Plaintext:         cfg.Plaintext,
 				SchemaRef:         cfg.SchemaRef,

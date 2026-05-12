@@ -19,6 +19,7 @@ KEY DEPENDENCIES: cases/artifact, cases, judicial-network/schemas
 package onboarding
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -99,6 +100,7 @@ type MigrationResult struct {
 // : create filing entries (Path A, same signer).
 // : bulk-import artifacts via rate-limited loop.
 func MigrateLegacyRecords(
+	ctx context.Context,
 	cfg MigrationConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -179,6 +181,7 @@ func MigrateLegacyRecords(
 	// : artifact bulk import.
 	if len(importRecords) > 0 {
 		bulkResult, bErr := artifact.BulkImport(
+			ctx,
 			artifact.BulkImportConfig{
 				Records:         importRecords,
 				RateLimit:       cfg.RateLimit,

@@ -16,6 +16,7 @@ KEY DEPENDENCIES:
 package load_accounting
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -57,10 +58,11 @@ type SettlementBoundary struct {
 // ComputeAndPublishSettlement computes the settlement ledger for a
 // period and publishes it as a commentary entry.
 func (sm *SettlementManager) ComputeAndPublishSettlement(
+	ctx context.Context,
 	periodStart, periodEnd time.Time,
 	startPos, endPos uint64,
 ) (*envelope.Entry, error) {
-	ledger, err := sm.aggregator.ComputeSettlement(startPos, endPos)
+	ledger, err := sm.aggregator.ComputeSettlement(ctx, startPos, endPos)
 	if err != nil {
 		return nil, fmt.Errorf("load_accounting/settlement: compute: %w", err)
 	}

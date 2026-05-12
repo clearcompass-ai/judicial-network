@@ -77,9 +77,10 @@ func NewBundleChainResolver(
 // The mapping is straightforward — both types capture the same
 // information; the interface uses jurisdiction-package types so
 // the verification package isn't imported by every consumer.
-func (b *BundleChainResolver) Resolve(_ context.Context,
+func (b *BundleChainResolver) Resolve(ctx context.Context,
 	req jurisdiction.AuthorityRequest) jurisdiction.AuthorityVerdict {
 	a := b.inner.Resolve(
+		ctx,
 		req.SignerDID,
 		schemas.LogPositionRef{
 			LogDID:   req.DelegationRef.LogDID,

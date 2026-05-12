@@ -14,6 +14,7 @@ KEY DEPENDENCIES: attesta/builder, cases/artifact
 package appeals
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -47,6 +48,7 @@ type DecisionResult struct {
 }
 
 func RecordDecision(
+	ctx context.Context,
 	cfg DecisionConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -61,7 +63,7 @@ func RecordDecision(
 	}
 
 	// Assemble delegation chain.
-	assembly, err := builder.AssemblePathB(builder.AssemblePathBParams{
+	assembly, err := builder.AssemblePathB(ctx, builder.AssemblePathBParams{
 		DelegateDID:        cfg.JudgeDID,
 		TargetRoot:         cfg.AppealCaseRootPos,
 		LeafReader:         leafReader,
@@ -77,6 +79,7 @@ func RecordDecision(
 	// Publish opinion document.
 	if len(cfg.OpinionPlaintext) > 0 {
 		published, pubErr := artifact.PublishArtifact(
+			ctx,
 			artifact.PublishConfig{
 				Plaintext: cfg.OpinionPlaintext,
 				SchemaRef: cfg.SchemaRef,

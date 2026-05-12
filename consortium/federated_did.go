@@ -1,6 +1,8 @@
 package consortium
 
 import (
+	"context"
+
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/did"
 	"github.com/clearcompass-ai/attesta/types"
@@ -24,14 +26,16 @@ func NewFederatedResolver(baseResolver did.DIDResolver) *FederatedResolver {
 }
 
 // Resolve resolves a DID to its document, handling vendor DID
-// translation transparently.
-func (fr *FederatedResolver) Resolve(didStr string) (*did.DIDDocument, error) {
-	return fr.resolver.Resolve(didStr)
+// translation transparently. ctx bounds the resolver RPC.
+func (fr *FederatedResolver) Resolve(ctx context.Context, didStr string) (*did.DIDDocument, error) {
+	return fr.resolver.Resolve(ctx, didStr)
 }
 
 // BuildCrossCourtProof constructs a compound proof that an entry on
 // one court's log is verifiable from another court's perspective.
+// ctx threads into the fetcher / prover RPCs.
 func BuildCrossCourtProof(
+	ctx context.Context,
 	sourceRef types.LogPosition,
 	anchorRef types.LogPosition,
 	fetcher types.EntryFetcher,
@@ -40,7 +44,7 @@ func BuildCrossCourtProof(
 	sourceHead types.CosignedTreeHead,
 	localHead types.CosignedTreeHead,
 ) (*types.CrossLogProof, error) {
-	return verifier.BuildCrossLogProof(
+	return verifier.BuildCrossLogProof(ctx,
 		sourceRef, anchorRef, fetcher,
 		sourceProver, localProver,
 		sourceHead, localHead,
@@ -48,13 +52,13 @@ func BuildCrossCourtProof(
 }
 
 // VerifyCrossCourtProof verifies a compound proof across courts.
+// v0.3.0: the (keys, K, networkID, blsVerifier) parameter group is
+// encapsulated into a single *cosign.WitnessKeySet representing the
+// SOURCE network's witness topology, preventing the class of bug
+// where K and the key set drift out of sync for a given log.
 func VerifyCrossCourtProof(
 	proof types.CrossLogProof,
-	sourceWitnessKeys []types.WitnessPublicKey,
-	sourceQuorumK int,
-	sourceNetworkID cosign.NetworkID,
-	blsVerifier cosign.BLSAggregateVerifier,
+	sourceSet *cosign.WitnessKeySet,
 ) error {
-	return verifier.VerifyCrossLogProof(proof, sourceWitnessKeys, sourceQuorumK,
-		sourceNetworkID, blsVerifier, topology.ExtractAnchorPayload)
+	return verifier.VerifyCrossLogProof(proof, sourceSet, topology.ExtractAnchorPayload)
 }
