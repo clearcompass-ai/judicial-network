@@ -108,6 +108,8 @@ func Verify(ctx context.Context, event gossip.Event, vc VerificationContext) err
 		return verifySigner(ctx, event, vc)
 	case ClassMerkle:
 		return verifyMerkle(ctx, event, vc)
+	case ClassSelfAttested:
+		return verifySelfAttested(event)
 	default:
 		return fmt.Errorf("%w: Class %q not implemented", ErrRouter, class)
 	}
@@ -148,6 +150,25 @@ func verifySigner(ctx context.Context, event gossip.Event, vc VerificationContex
 	}
 	if err := sa.Verify(ctx, vc.SignerVerifier); err != nil {
 		return fmt.Errorf("%w: signer verify: %w", ErrRouter, err)
+	}
+	return nil
+}
+
+// verifySelfAttested handles every ClassSelfAttested event
+// (attesta v0.5.0+). The gossip envelope's own cosign signature
+// is the authority; by the time the router sees the event the
+// gossip layer has already verified that envelope. The router
+// runs the SDK Event's structural Validate() — a no-op for
+// already-admitted events but a defence-in-depth check against a
+// future caller that hands the router an unsigned event.
+//
+// Trust Alignment 14: one verifier surface — ClassSelfAttested
+// fits the same Verify(ctx, event, vc) seam as every other class,
+// so dashboards and admission code never need to branch on
+// "envelope-only vs per-side" verification.
+func verifySelfAttested(event gossip.Event) error {
+	if err := event.Validate(); err != nil {
+		return fmt.Errorf("%w: self-attested validate: %w", ErrRouter, err)
 	}
 	return nil
 }

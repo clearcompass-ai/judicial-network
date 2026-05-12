@@ -35,6 +35,18 @@ type FeedConfig struct {
 	Store      gossip.Store
 	PathPrefix string // defaults to gossip.DefaultFeedPathPrefix
 	Logger     *slog.Logger
+
+	// Instruments wires the SDK's OTel panic counter to the
+	// feed-handler-side recoverPanic (attesta v0.5.0+). When
+	// non-nil, panics in feed serving increment the shared
+	// attesta_gossip_panic_total counter alongside POST-side
+	// panics — production deployments share one *Instruments
+	// across feed and push so the dashboard sees one metric for
+	// the whole gossip surface (Trust Alignment 14: one
+	// telemetry seam). Nil-tolerant: every *Instruments method
+	// is a no-op on a nil receiver, so leaving this field zero
+	// preserves the v0.4.x behaviour byte-for-byte.
+	Instruments *gossip.Instruments
 }
 
 // ErrFeedConfig surfaces NewFeedMount validation faults.
@@ -63,9 +75,10 @@ func NewFeedMount(cfg FeedConfig) (*Feed, error) {
 		logger = slog.Default()
 	}
 	h, err := gossip.NewFeedHandler(gossip.FeedHandlerConfig{
-		Store:      cfg.Store,
-		PathPrefix: prefix,
-		Logger:     logger,
+		Store:       cfg.Store,
+		PathPrefix:  prefix,
+		Logger:      logger,
+		Instruments: cfg.Instruments,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrFeedConfig, err)

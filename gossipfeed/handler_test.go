@@ -6,6 +6,8 @@
 //  3. ServeHTTP delegates to the SDK handler (auditor GET reaches
 //     the underlying gossip.Store via an in-memory store).
 //  4. Close is idempotent and safe on a nil mount.
+//  5. v0.5.0 Instruments field — accepted nil-tolerantly and
+//     forwarded to the SDK FeedHandlerConfig.
 package gossipfeed
 
 import (
@@ -17,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/clearcompass-ai/attesta/gossip"
+	attestalog "github.com/clearcompass-ai/attesta/log"
 )
 
 func TestNewFeedMount_RejectsNilStore(t *testing.T) {
@@ -101,5 +104,56 @@ func TestFeedClose_NilMount(t *testing.T) {
 	var f *Feed
 	if err := f.Close(context.Background()); err != nil {
 		t.Fatalf("nil receiver Close should be a no-op, got %v", err)
+	}
+}
+
+// ─── v0.5.0 Instruments passthrough ──────────────────────────────
+
+// TestFeedMount_NilInstruments_StillBoots pins back-compat with
+// every pre-v0.5.0 call site: leaving FeedConfig.Instruments
+// zero must NOT regress NewFeedMount or ServeHTTP — every method
+// on *gossip.Instruments tolerates a nil receiver per the SDK
+// CHANGELOG.
+func TestFeedMount_NilInstruments_StillBoots(t *testing.T) {
+	f, err := NewFeedMount(FeedConfig{Store: gossip.NewInMemoryStore()})
+	if err != nil {
+		t.Fatalf("NewFeedMount with nil Instruments: %v", err)
+	}
+	defer f.Close(context.Background())
+
+	req := httptest.NewRequest(http.MethodGet, f.Prefix()+"/since?limit=1", nil)
+	rec := httptest.NewRecorder()
+	f.ServeHTTP(rec, req)
+	if rec.Code >= 500 {
+		t.Fatalf("nil-Instruments ServeHTTP returned 5xx: %d", rec.Code)
+	}
+}
+
+// TestFeedMount_Instruments_Forwarded confirms a non-nil
+// Instruments wired through FeedConfig reaches the SDK feed
+// handler — the surface contract the v0.5.0 SDK adds. We exercise
+// the happy path (GET /since on an empty store) and assert the
+// mount serves under 500. The SDK's metrics_test pins the actual
+// counter shape; this test only pins JN's passthrough seam.
+func TestFeedMount_Instruments_Forwarded(t *testing.T) {
+	mp, _ := attestalog.NewInMemoryMeterProvider()
+	store := gossip.NewInMemoryStore()
+	inst, err := gossip.NewInstruments(mp.Meter("test"), store)
+	if err != nil {
+		t.Fatalf("NewInstruments: %v", err)
+	}
+
+	f, err := NewFeedMount(FeedConfig{Store: store, Instruments: inst})
+	if err != nil {
+		t.Fatalf("NewFeedMount with Instruments: %v", err)
+	}
+	defer f.Close(context.Background())
+
+	req := httptest.NewRequest(http.MethodGet, f.Prefix()+"/since?limit=1", nil)
+	rec := httptest.NewRecorder()
+	f.ServeHTTP(rec, req)
+	if rec.Code >= 500 {
+		t.Fatalf("Instruments-wired ServeHTTP returned 5xx: %d body=%q",
+			rec.Code, strings.TrimSpace(rec.Body.String()))
 	}
 }

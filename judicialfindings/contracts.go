@@ -30,6 +30,7 @@
 package judicialfindings
 
 import (
+	"github.com/clearcompass-ai/attesta/gossip"
 	"github.com/clearcompass-ai/attesta/gossip/findings"
 )
 
@@ -61,6 +62,24 @@ const (
 	// no concrete implementer in v0.3.0; JN reserves this
 	// constant for future cross-log proof gossip events.
 	ClassMerkle Class = "merkle_attested"
+
+	// ClassSelfAttested — Envelope Reality. The gossip envelope's
+	// own cosign signature is the authority; there is no embedded
+	// per-side proof to verify. The router runs the SDK Event's
+	// Validate() structural check (already invoked by the gossip
+	// layer before the envelope is admitted) and returns nil.
+	//
+	// A ledger fabricating a self-attested event signs its own
+	// forgery — the envelope-level signature is the same primitive
+	// every other gossip event uses; the difference is that for
+	// self-attested kinds there is nothing further to cross-check.
+	//
+	// Introduced by attesta v0.5.0 for KindGhostLeaf
+	// (gossip/findings/ghost_leaf.go): a ledger's public
+	// confession of a benign crash-recovery duplicate Tessera
+	// leaf. Auditor-facing transparency only — JN's equivocation
+	// scanner explicitly does NOT consume this Class.
+	ClassSelfAttested Class = "self_attested"
 )
 
 // Registry maps gossip.Kind → Class. Used by the JN admission
@@ -69,11 +88,12 @@ const (
 // The map is hand-curated and intentionally small; new finding
 // types add one line.
 var Registry = map[string]Class{
-	"AT-GOSSIP-STH-V1":             ClassWitness, // CosignedTreeHeadFinding
-	"AT-GOSSIP-EQUIV-V1":           ClassWitness, // EquivocationFinding
-	"AT-GOSSIP-ESCROW-V1":          ClassWitness, // EscrowOverrideFinding
-	"AT-GOSSIP-ROT-V1":             ClassWitness, // OriginatorRotationFinding (signed by the existing quorum)
-	"AT-GOSSIP-COMMIT-EQUIV-V1":    ClassSigner,  // EntryCommitmentEquivocationFinding (Trust Alignment 8)
+	"AT-GOSSIP-STH-V1":          ClassWitness,      // CosignedTreeHeadFinding
+	"AT-GOSSIP-EQUIV-V1":        ClassWitness,      // EquivocationFinding
+	"AT-GOSSIP-ESCROW-V1":       ClassWitness,      // EscrowOverrideFinding
+	"AT-GOSSIP-ROT-V1":          ClassWitness,      // OriginatorRotationFinding (signed by the existing quorum)
+	"AT-GOSSIP-COMMIT-EQUIV-V1": ClassSigner,       // EntryCommitmentEquivocationFinding (Trust Alignment 8)
+	"AT-GOSSIP-GHOST-V1":        ClassSelfAttested, // GhostLeafFinding (attesta v0.5.0)
 }
 
 // LookupClass returns the cryptographic reality for the given
@@ -105,6 +125,16 @@ var _ findings.WitnessAttested = (*findings.EquivocationFinding)(nil)
 // SignerAttested (each side is signed by the equivocator's DID
 // directly — see Trust Alignment 8).
 var _ findings.SignerAttested = (*findings.EntryCommitmentEquivocationFinding)(nil)
+
+// GhostLeafFinding (attesta v0.5.0) satisfies only the universal
+// gossip.Event contract — deliberately NOT WitnessAttested or
+// SignerAttested. The SDK's compile-time pin
+// (gossip/findings/ghost_leaf.go: `var _ gossip.Event =
+// (*GhostLeafFinding)(nil)`) is mirrored here so a future SDK that
+// removes Validate() / CanonicalBytes() / Bindings() / Kind()
+// surfaces at JN build time. ClassSelfAttested in Registry above
+// gates the router behaviour for this Kind.
+var _ gossip.Event = (*findings.GhostLeafFinding)(nil)
 
 // Future finding types add their guard here. Examples:
 //   var _ findings.WitnessAttested = (*findings.EscrowOverrideFinding)(nil)
