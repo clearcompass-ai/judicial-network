@@ -38,6 +38,7 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/gossip"
 	"github.com/clearcompass-ai/attesta/gossip/findings"
+	sdkschema "github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	tessera_client "github.com/transparency-dev/tessera/client"
 )
@@ -72,6 +73,19 @@ type VerificationContext struct {
 	// today; field reserved for future findings).
 	SourceHead  types.TreeHead
 	TileFetcher tessera_client.TileFetcherFunc
+
+	// SchemaRegistry (attesta v0.4.0+) is the optional
+	// admission-router registry. When non-nil and the finding's
+	// gossip.Kind appears in the SDK Registry as a SchemaID,
+	// the router consults ValidateEntry BEFORE running the
+	// cryptographic Verify. This is a defense-in-depth gate —
+	// the cryptographic check is the source of truth, but a
+	// schema-level structural check rejects malformed
+	// payloads with a typed error before any signature work
+	// happens. Trust Alignment 14 (Universal SDK Verification
+	// Surface): one verifier surface, no per-deployment
+	// dialect.
+	SchemaRegistry *sdkschema.Registry
 }
 
 // Verify dispatches the supplied gossip.Event through the
