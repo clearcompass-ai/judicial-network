@@ -56,6 +56,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
 	"github.com/clearcompass-ai/judicial-network/api/openapi"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
+	"github.com/clearcompass-ai/judicial-network/gossipfeed"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -98,6 +99,14 @@ type Config struct {
 	// /v1/judicial/. Optional — empty Deps.Registry means handlers
 	// boot with no destinations registered (every route surfaces 401).
 	Judicial judicial.ServerConfig
+
+	// Gossip is the optional gossip-feed mount (Phase 4). nil → no
+	// /v1/gossip/* surface. When non-nil, the composer registers the
+	// mount under its configured PathPrefix and ALWAYS exposes it
+	// unauthenticated so external auditors and CDNs can pull
+	// findings without client certs. Trust Alignment 11: pure-pull
+	// gossip with standard HTTP cache semantics.
+	Gossip *gossipfeed.Feed
 
 	// Auth is the optional composer-level authenticator (mTLS / JWT).
 	// nil → no composer auth; constituent handlers' own auth still
@@ -228,6 +237,27 @@ func NewServer(cfg Config) (*Server, error) {
 	// without a client cert. The spec bytes are embedded into the
 	// binary at build time from api/openapi/openapi.yaml.
 	mux.Handle("GET /v1/openapi.yaml", openapi.Handler())
+
+	// Phase 4 — gossip pull feed. Mounted ONLY when explicitly
+	// configured. The prefix is whatever the Feed was constructed
+	// with; production deployments use gossip.DefaultFeedPathPrefix
+	// ("/v1/gossip"). The feed is unauthenticated by design — its
+	// payloads are already cryptographically self-verifying (every
+	// SignedEvent carries its originator's signature), and the read
+	// path is meant to be CDN-cacheable. Composer-level auth +
+	// reliability middleware are intentionally NOT applied here.
+	if cfg.Gossip != nil {
+		prefix := cfg.Gossip.Prefix()
+		if prefix == "" {
+			prefix = "/v1/gossip"
+		}
+		// Trailing-slash form so net/http.ServeMux routes the full
+		// /v1/gossip/since, /v1/gossip/by-binding, etc. subtree.
+		if prefix[len(prefix)-1] != '/' {
+			prefix += "/"
+		}
+		mux.Handle(prefix, cfg.Gossip)
+	}
 
 	// Default timeouts mirror api/exchange's stand-alone values.
 	read := cfg.ReadTimeout
