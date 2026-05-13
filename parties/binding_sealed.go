@@ -30,6 +30,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // SealedBindingConfig configures a sealed party binding.
@@ -45,6 +46,12 @@ type SealedBindingConfig struct {
 	OwnerDID    string // Owner of the PRE encryption (scope authority)
 	SchemaRef   types.LogPosition
 	EventTime   int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named sealing-authority policy declared on
+	// tn-party-binding-sealed-v1 (see
+	// schemas.PolicyPartyBindingSealAuthority). nil = no policy.
+	AttestationPolicyName *string
 }
 
 // SealedBindingResult holds the binding entry and published encrypted mapping.
@@ -120,6 +127,7 @@ func CreateSealedBinding(
 	if err != nil {
 		return nil, fmt.Errorf("parties/binding_sealed: build root entity: %w", err)
 	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 
 	return &SealedBindingResult{
 		Entry:            entry,

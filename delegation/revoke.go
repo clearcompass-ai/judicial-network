@@ -74,6 +74,12 @@ type RevokeRequest struct {
 	// EventReason is the wallet-UX confirmation string. Optional;
 	// defaults to "Revoke delegation <target>".
 	EventReason string
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named policy declared on judicial-revocation-v1's
+	// SchemaParameters.AttestationPolicies. Typical value:
+	// schemas.PolicyJudicialRevocationBoardConcurrence.
+	AttestationPolicyName *string
 }
 
 // RevokeResult is the output of Revoke.
@@ -117,6 +123,7 @@ func Revoke(ctx context.Context, bc *BuildContext, req RevokeRequest) (*RevokeRe
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBuildFailed, err)
 	}
+	schemas.SetAttestationPolicy(entry, req.AttestationPolicyName)
 
 	display := revokeDisplay(bc.InstitutionalDID, payload)
 	reason := req.EventReason

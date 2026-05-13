@@ -91,6 +91,12 @@ type SuccessionRequest struct {
 
 	// EventReason is the wallet-UX confirmation string. Optional.
 	EventReason string
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named policy declared on judicial-succession-v1's
+	// SchemaParameters.AttestationPolicies. Typical value:
+	// schemas.PolicyJudicialSuccessionConcurrence.
+	AttestationPolicyName *string
 }
 
 // SuccessionResult is the output of Succeed.
@@ -140,6 +146,7 @@ func Succeed(ctx context.Context, bc *BuildContext, req SuccessionRequest) (*Suc
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBuildFailed, err)
 	}
+	schemas.SetAttestationPolicy(entry, req.AttestationPolicyName)
 
 	display := successionDisplay(bc.InstitutionalDID, payload)
 	reason := req.EventReason

@@ -23,6 +23,8 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 type MandateConfig struct {
@@ -36,6 +38,11 @@ type MandateConfig struct {
 	RemandInstructions   string
 	SchemaRef            *types.LogPosition
 	EventTime            int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts a
+	// named policy declared on the enforcement schema (applies to
+	// IssueMandateReverse). nil = no policy.
+	AttestationPolicyName *string
 }
 
 type MandateResult struct {
@@ -98,6 +105,7 @@ func IssueMandateReverse(
 	if err != nil {
 		return nil, fmt.Errorf("appeals/mandate: build enforcement: %w", err)
 	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 
 	return &MandateResult{MandateEntry: entry, CrossLogProof: proof}, nil
 }
