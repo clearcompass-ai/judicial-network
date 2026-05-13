@@ -36,9 +36,10 @@ func mkApproval(t *testing.T, signerDID string, recoveryPos types.LogPosition) t
 		t.Fatalf("BuildCosignature: %v", err)
 	}
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
+	canonical, _ := envelope.Serialize(signed)
 	return types.EntryWithMetadata{
 		Position:       types.LogPosition{LogDID: "did:web:l", Sequence: 100},
-		CanonicalBytes: envelope.Serialize(signed),
+		CanonicalBytes: canonical,
 	}
 }
 

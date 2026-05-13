@@ -26,21 +26,17 @@ func (h *VerifyCrossLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Look up witness keys for the source log.
-	keys, ok := h.deps.WitnessKeys[req.SourceLogDID]
-	if !ok {
-		writeError(w, http.StatusBadRequest, "no witness keys for source log")
-		return
-	}
-	quorum := h.deps.WitnessQuorum[req.SourceLogDID]
-	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
-	if networkID.IsZero() {
-		writeError(w, http.StatusBadRequest, "no network ID for source log")
+	// v0.3.0: one lookup yields the source log's full witness topology
+	// (keys + K + NetworkID + BLS verifier) — replacing the three
+	// parallel maps and eliminating the class of bug where K and keys
+	// drift out of sync for the same log DID.
+	set, ok := h.deps.WitnessSets[req.SourceLogDID]
+	if !ok || set == nil {
+		writeError(w, http.StatusBadRequest, "no witness set for source log")
 		return
 	}
 
-	err := verifier.VerifyCrossLogProof(req.Proof, keys, quorum, networkID,
-		h.deps.BLSVerifier, topology.ExtractAnchorPayload)
+	err := verifier.VerifyCrossLogProof(req.Proof, set, topology.ExtractAnchorPayload)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"valid": false,

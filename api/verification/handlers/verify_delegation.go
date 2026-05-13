@@ -6,6 +6,8 @@ import (
 
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // VerifyDelegationHandler handles GET /v1/verify/delegation/{logID}/{pos}.
@@ -25,6 +27,7 @@ type delegationHop struct {
 }
 
 func (h *VerifyDelegationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	logID := r.PathValue("logID")
 	posStr := r.PathValue("pos")
 
@@ -42,12 +45,16 @@ func (h *VerifyDelegationHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	query, _ := h.deps.resolveLog(logID)
 
-	tree, err := verifier.WalkDelegationTree(verifier.WalkDelegationTreeParams{
+	// v0.3.0: the verifier's DelegationQuerier interface is ctx-free
+	// by design; common.NewDelegationQuerier binds the request ctx
+	// into the underlying sdklog.LedgerQueryAPI RPCs.
+	tree, err := verifier.WalkDelegationTree(ctx, verifier.WalkDelegationTreeParams{
 		RootEntityPos: types.LogPosition{LogDID: logID, Sequence: pos},
 		Fetcher:       fetcher,
 		LeafReader:    h.deps.LeafReader,
-		Querier:       query,
+		Querier:       common.NewDelegationQuerier(ctx, query),
 	})
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "delegation walk failed")
 		return

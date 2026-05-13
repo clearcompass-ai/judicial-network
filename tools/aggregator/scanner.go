@@ -73,7 +73,7 @@ func (s *Scanner) scanLog(ctx context.Context, logDID string) error {
 		startPos = 0
 	}
 
-	entries, err := s.ledger.ScanFrom(startPos, s.batchSize)
+	entries, err := s.ledger.ScanFrom(ctx, startPos, s.batchSize)
 	if err != nil {
 		return err
 	}

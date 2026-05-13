@@ -21,6 +21,7 @@ KEY DEPENDENCIES:
 package load_accounting
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -84,7 +85,7 @@ func (r *FireDrillRunner) RunEscrowDrill(nodeDID string) DrillResult {
 // RunBlobAvailabilityDrill checks whether a specific CID is available
 // on the content store. Used to verify structural blob pinning
 // obligations.
-func (r *FireDrillRunner) RunBlobAvailabilityDrill(cidStr string) DrillResult {
+func (r *FireDrillRunner) RunBlobAvailabilityDrill(ctx context.Context, cidStr string) DrillResult {
 	start := time.Now()
 
 	parsedCID, parseErr := storage.ParseCID(cidStr)
@@ -97,7 +98,7 @@ func (r *FireDrillRunner) RunBlobAvailabilityDrill(cidStr string) DrillResult {
 		}
 	}
 
-	exists, err := r.contentStore.Exists(parsedCID)
+	exists, err := r.contentStore.Exists(ctx, parsedCID)
 	elapsed := time.Since(start)
 
 	result := DrillResult{

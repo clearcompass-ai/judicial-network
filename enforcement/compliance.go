@@ -26,6 +26,7 @@ KEY DEPENDENCIES: attesta/verifier, attesta/core/smt, attesta/schema
 package enforcement
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -77,6 +78,7 @@ type ComplianceReport struct {
 // for court compliance monitoring. Optionally evaluates per-constraint
 // contest state (correction #7).
 func RunComplianceCheck(
+	ctx context.Context,
 	cfg ComplianceConfig,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
@@ -93,7 +95,7 @@ func RunComplianceCheck(
 
 	leafKey := smt.DeriveKey(cfg.CaseRootPos)
 
-	authEval, err := verifier.EvaluateAuthority(leafKey, leafReader, fetcher, extractor)
+	authEval, err := verifier.EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/compliance: evaluate authority: %w", err)
 	}
@@ -120,9 +122,9 @@ func RunComplianceCheck(
 		}
 
 		if cfg.CheckContests {
-			contestResult, cErr := verifier.EvaluateContest(
-				c.Position, fetcher, leafReader, extractor,
-			)
+			contestResult, cErr := verifier.EvaluateContest(ctx,
+				c.Position, fetcher, leafReader, extractor)
+
 			if cErr == nil && contestResult != nil {
 				if contestResult.OperationBlocked {
 					cr.RequiresAttention = true

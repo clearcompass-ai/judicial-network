@@ -59,6 +59,7 @@ import (
 // A regression in the ledger's serveWALInline / serveBytestoreRedirect
 // (ledger commit 8afc27b) that drops the headers fails this test.
 func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	logTime := time.Date(2027, 4, 29, 12, 0, 0, 0, time.UTC)
 	wire := []byte("test-canonical-wire-bytes")
 
@@ -81,10 +82,11 @@ func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
 		Timeout: 5 * time.Second,
 	})
 
-	got, err := f.Fetch(types.LogPosition{
+	got, err := f.Fetch(ctx, types.LogPosition{
 		LogDID:   "did:web:courts.davidson:cases",
 		Sequence: 42,
 	})
+
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -107,6 +109,7 @@ func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
 // JN's fetcher must fall back to a zero-valued LogTime rather than
 // erroring, so legacy /raw routes remain consumable.
 func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
+	ctx := context.Background()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("X-Sequence", "1")
@@ -121,7 +124,7 @@ func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
 		LogDID:  "did:test",
 		Timeout: 5 * time.Second,
 	})
-	got, err := f.Fetch(types.LogPosition{LogDID: "did:test", Sequence: 1})
+	got, err := f.Fetch(ctx, types.LogPosition{LogDID: "did:test", Sequence: 1})
 	if err != nil {
 		t.Fatalf("Fetch tolerated absence: %v", err)
 	}
@@ -138,6 +141,7 @@ func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
 // Consumers (JN's tools/aggregator/scanner.go) rely on this to
 // distinguish "no entry at this seq" from "ledger unreachable."
 func TestLedgerContract_RawEndpoint_404(t *testing.T) {
+	ctx := context.Background()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.NotFound(w, nil)
 	}))
@@ -146,7 +150,7 @@ func TestLedgerContract_RawEndpoint_404(t *testing.T) {
 	f := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
 		BaseURL: srv.URL, LogDID: "x", Timeout: 5 * time.Second,
 	})
-	got, err := f.Fetch(types.LogPosition{LogDID: "x", Sequence: 999})
+	got, err := f.Fetch(ctx, types.LogPosition{LogDID: "x", Sequence: 999})
 	if err != nil {
 		t.Fatalf("404 should not error: %v", err)
 	}
@@ -181,6 +185,7 @@ func TestLedgerContract_RawEndpoint_404(t *testing.T) {
 //	    "count": <int>
 //	  }
 func TestLedgerContract_ScanEndpoint_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	logTime := time.Date(2027, 4, 29, 8, 0, 0, 0, time.UTC)
 	wantEntries := []map[string]any{
 		{
@@ -223,7 +228,7 @@ func TestLedgerContract_ScanEndpoint_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHTTPLedgerQueryAPI: %v", err)
 	}
-	got, err := q.ScanFromPosition(5, 10)
+	got, err := q.ScanFromPosition(ctx, 5, 10)
 	if err != nil {
 		t.Fatalf("ScanFromPosition: %v", err)
 	}
@@ -311,7 +316,7 @@ func TestLedgerContract_SubmitEndpoint_HappyPath(t *testing.T) {
 }
 
 // TestLedgerContract_SubmitEndpoint_503Retried pins the wire-level
-// 503-Retry-After contract. Ledger commit dd2acd9 + JN 
+// 503-Retry-After contract. Ledger commit dd2acd9 + JN
 // shared client both require the SDK transport to retry transparently.
 // First call returns 503 + Retry-After: 1; second call succeeds.
 func TestLedgerContract_SubmitEndpoint_503Retried(t *testing.T) {

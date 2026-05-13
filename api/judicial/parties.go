@@ -54,6 +54,7 @@ type partyBindingCreateRequest struct {
 type partyBindingCreateHandler struct{ deps *Dependencies }
 
 func (h *partyBindingCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return
@@ -110,6 +111,7 @@ type partyBindingUpdateRequest struct {
 type partyBindingUpdateHandler struct{ deps *Dependencies }
 
 func (h *partyBindingUpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return
@@ -168,6 +170,7 @@ type partyCaseLinkRequest struct {
 type partyCaseLinkHandler struct{ deps *Dependencies }
 
 func (h *partyCaseLinkHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	signer := requireCaller(w, r)
 	if signer == "" {
 		return

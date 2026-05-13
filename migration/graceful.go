@@ -76,12 +76,14 @@ func PlanGracefulMigration(cfg GracefulMigrationConfig) (*GracefulMigrationPlan,
 			"timestamp":       time.Now().UTC(),
 		})
 
+		// v0.3.0: SuccessionParams.NewSignerDID was removed; the successor
+		// DID lives in Payload (dest_exchange field) where downstream
+		// callers already read it.
 		entry, err := builder.BuildSuccession(builder.SuccessionParams{
-			Destination:  cfg.Destination,
-			SignerDID:    cfg.CourtDID,
-			TargetRoot:   entityPos,
-			NewSignerDID: cfg.DestExchangeDID,
-			Payload:      payload,
+			Destination: cfg.Destination,
+			SignerDID:   cfg.CourtDID,
+			TargetRoot:  entityPos,
+			Payload:     payload,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("migration/graceful: succession for %s: %w", logDID, err)

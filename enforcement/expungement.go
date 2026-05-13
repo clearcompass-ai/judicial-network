@@ -14,6 +14,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier, cases/artifact
 package enforcement
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -50,6 +51,7 @@ type ExpungementResult struct {
 // ExpungeCase publishes an expungement enforcement entry and performs
 // cryptographic erasure of all case artifacts.
 func ExpungeCase(
+	ctx context.Context,
 	cfg ExpungementConfig,
 	keyStore lifecycleartifact.KeyStore,
 	delKeyStore artifact.DelegationKeyStore,
@@ -64,9 +66,9 @@ func ExpungeCase(
 
 	// Check for unresolved contest before proceeding (SDK correction #7).
 	// Expungement is irreversible — contest check is critical.
-	contestResult, err := verifier.EvaluateContest(
-		cfg.CaseRootPos, fetcher, leafReader, extractor,
-	)
+	contestResult, err := verifier.EvaluateContest(ctx,
+		cfg.CaseRootPos, fetcher, leafReader, extractor)
+
 	if err == nil && contestResult != nil && contestResult.OperationBlocked {
 		return nil, fmt.Errorf("enforcement/expungement: blocked by contest: %s", contestResult.Reason)
 	}
@@ -97,7 +99,7 @@ func ExpungeCase(
 	}
 
 	// : Cryptographic erasure.
-	batchResult, batchErr := artifact.BatchExpunge(
+	batchResult, batchErr := artifact.BatchExpunge(ctx,
 		cfg.ArtifactCIDs, keyStore, delKeyStore, contentStore,
 	)
 

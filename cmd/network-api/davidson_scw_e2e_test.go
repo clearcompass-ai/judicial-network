@@ -22,7 +22,7 @@ DESCRIPTION:
 	  3. Test POSTs to http://<binary-addr>/v1/judicial/cases.
 	  4. BuildResponse signing_payload is verified to match an
 	     independent envelope rebuild (drift detector).
-	  5. Test SHA-256 hashes the payload, signs via 
+	  5. Test SHA-256 hashes the payload, signs via
 	     signer.Adapter, packs MinimalSCW, runs through the SDK
 	     verifier registry with stub eth_call.
 	  6. SIGINT triggers graceful shutdown; test confirms run()
@@ -35,6 +35,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -59,6 +60,7 @@ import (
 )
 
 func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	// 1. Stub ledger + free port for the binary.
 	op := stubLedger(t)
 	defer op.Close()
@@ -70,7 +72,7 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	addr := ln.Addr().String()
 	ln.Close()
 
-	// 2. Pre-allocate the keystore so the test can wire a 
+	// 2. Pre-allocate the keystore so the test can wire a
 	// signer.Adapter against the same keystore the binary holds.
 	ks := keystore.NewMemoryKeyStore()
 	if _, err := ks.GenerateSecp256k1(binE2EOwnerDID, "signing"); err != nil {
@@ -197,7 +199,7 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
 	rpc.BindEthCall(binE2EAddr(), calldata, binE2EMagicReturn())
 	registry := did.DefaultVerifierRegistryWithRPC(tndavidson.ExchangeDID, panicResolver{}, rpc)
-	if err := registry.VerifyEntry(rebuilt); err != nil {
+	if err := registry.VerifyEntry(ctx, rebuilt); err != nil {
 		t.Fatalf("verifier registry rejected binary-built entry: %v", err)
 	}
 

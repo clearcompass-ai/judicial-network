@@ -28,6 +28,7 @@ KEY DEPENDENCIES:
 package artifact
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -83,7 +84,9 @@ type BulkImportResult struct {
 
 // BulkImport processes a batch of historical records.
 // keyStore: AES-GCM keys. delKeyStore: PRE delegation keys. Either may be nil.
+// ctx threads into every PublishArtifact RPC.
 func BulkImport(
+	ctx context.Context,
 	cfg BulkImportConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -112,6 +115,7 @@ func BulkImport(
 		opStart := time.Now()
 
 		published, err := PublishArtifact(
+			ctx,
 			PublishConfig{
 				Plaintext:         record.Plaintext,
 				SchemaRef:         record.SchemaRef,

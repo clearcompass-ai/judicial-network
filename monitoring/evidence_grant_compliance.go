@@ -22,6 +22,7 @@ KEY DEPENDENCIES: attesta/crypto/artifact, attesta/verifier, attesta/builder
 package monitoring
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -63,6 +64,7 @@ type GrantComplianceResult struct {
 // CheckGrantCompliance walks grant commentary entries in a range and verifies
 // each grant's CFrags (if PRE) and activation preconditions.
 func CheckGrantCompliance(
+	ctx context.Context,
 	cfg GrantComplianceConfig,
 	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
@@ -78,7 +80,7 @@ func CheckGrantCompliance(
 		count = 500
 	}
 
-	entries, err := queryAPI.ScanFromPosition(cfg.ScanStartSeq, count)
+	entries, err := queryAPI.ScanFromPosition(ctx, cfg.ScanStartSeq, count)
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/grant: scan: %w", err)
 	}
@@ -116,12 +118,13 @@ func CheckGrantCompliance(
 		result.GrantsScanned++
 
 		// Activation precondition check: was the grant defensible at grant time?
-		condResult, ceErr := verifier.EvaluateConditions(verifier.EvaluateConditionsParams{
+		condResult, ceErr := verifier.EvaluateConditions(ctx, verifier.EvaluateConditionsParams{
 			PendingPos: meta.Position,
 			Fetcher:    fetcher,
 			Extractor:  extractor,
 			Now:        meta.LogTime,
 		})
+
 		if ceErr == nil && condResult != nil && !condResult.AllMet {
 			result.GrantsFailed++
 			result.Alerts = append(result.Alerts, monitoring.Alert{

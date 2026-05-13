@@ -12,6 +12,7 @@ COVERAGE:
 package verification
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -29,7 +30,7 @@ type stubFetcher struct {
 	err     error
 }
 
-func (s *stubFetcher) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
+func (s *stubFetcher) Fetch(ctx context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -42,7 +43,11 @@ func mustSerialize(t *testing.T, entry *envelope.Entry) []byte {
 	// "no Serialize on unsigned entries". The signing key here is
 	// throwaway; chain semantics don't depend on signer identity.
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
-	return envelope.Serialize(signed)
+	b, err := envelope.Serialize(signed)
+	if err != nil {
+		t.Fatalf("envelope.Serialize: %v", err)
+	}
+	return b
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────
@@ -50,7 +55,7 @@ func mustSerialize(t *testing.T, entry *envelope.Entry) []byte {
 func TestVerifyDelegationScope_NoChain_ReturnsNil(t *testing.T) {
 	enf := &ScopeEnforcer{Fetcher: &stubFetcher{}}
 	target := &envelope.Entry{Header: envelope.ControlHeader{}}
-	if err := enf.VerifyDelegationScope(target); err != nil {
+	if err := enf.VerifyDelegationScope(context.Background(), target); err != nil {
 		t.Errorf("no chain should pass: %v", err)
 	}
 }
@@ -62,14 +67,14 @@ func TestVerifyDelegationScope_NilFetcher_Errors(t *testing.T) {
 			DelegationPointers: []types.LogPosition{{LogDID: "did:web:l", Sequence: 1}},
 		},
 	}
-	if err := enf.VerifyDelegationScope(target); !errors.Is(err, ErrScopeFetcherNil) {
+	if err := enf.VerifyDelegationScope(context.Background(), target); !errors.Is(err, ErrScopeFetcherNil) {
 		t.Errorf("err = %v, want ErrScopeFetcherNil", err)
 	}
 }
 
 func TestVerifyDelegationScope_NilTarget_Errors(t *testing.T) {
 	enf := &ScopeEnforcer{Fetcher: &stubFetcher{}}
-	if err := enf.VerifyDelegationScope(nil); err == nil {
+	if err := enf.VerifyDelegationScope(context.Background(), nil); err == nil {
 		t.Error("nil target must error")
 	}
 }
@@ -81,7 +86,7 @@ func TestVerifyDelegationScope_NoSchemaRef_RejectsClosed(t *testing.T) {
 			DelegationPointers: []types.LogPosition{{LogDID: "did:web:l", Sequence: 1}},
 		},
 	}
-	if err := enf.VerifyDelegationScope(target); !errors.Is(err, ErrScopeNoSchemaRef) {
+	if err := enf.VerifyDelegationScope(context.Background(), target); !errors.Is(err, ErrScopeNoSchemaRef) {
 		t.Errorf("err = %v, want ErrScopeNoSchemaRef", err)
 	}
 }
@@ -95,7 +100,7 @@ func TestVerifyDelegationScope_NilResolver_Errors(t *testing.T) {
 			DelegationPointers: []types.LogPosition{{LogDID: "did:web:l", Sequence: 2}},
 		},
 	}
-	if err := enf.VerifyDelegationScope(target); err == nil ||
+	if err := enf.VerifyDelegationScope(context.Background(), target); err == nil ||
 		!strings.Contains(err.Error(), "nil schema resolver") {
 		t.Errorf("err = %v, want nil resolver error", err)
 	}
@@ -113,7 +118,7 @@ func TestVerifyDelegationScope_ResolverError_Wraps(t *testing.T) {
 			DelegationPointers: []types.LogPosition{{LogDID: "did:web:l", Sequence: 99}},
 		},
 	}
-	err := enf.VerifyDelegationScope(target)
+	err := enf.VerifyDelegationScope(context.Background(), target)
 	if err == nil || !strings.Contains(err.Error(), "resolve target schema") {
 		t.Errorf("err = %v, want resolve-error wrap", err)
 	}
@@ -134,7 +139,7 @@ func TestVerifyDelegationScope_DeserializeError_Sentinel(t *testing.T) {
 			DelegationPointers: []types.LogPosition{delPos},
 		},
 	}
-	err := enf.VerifyDelegationScope(target)
+	err := enf.VerifyDelegationScope(context.Background(), target)
 	if !errors.Is(err, ErrScopeDelegationMalformed) {
 		t.Errorf("err = %v, want ErrScopeDelegationMalformed (deserialize fail)", err)
 	}
@@ -152,7 +157,7 @@ func TestVerifyDelegationScope_FetchError_WrapsSentinel(t *testing.T) {
 			DelegationPointers: []types.LogPosition{{LogDID: "did:web:l", Sequence: 99}},
 		},
 	}
-	err := enf.VerifyDelegationScope(target)
+	err := enf.VerifyDelegationScope(context.Background(), target)
 	if !errors.Is(err, ErrScopeDelegationFetchFailed) {
 		t.Errorf("err = %v, want ErrScopeDelegationFetchFailed", err)
 	}
@@ -181,7 +186,7 @@ func TestVerifyDelegationScope_MalformedDelegationPayload_Sentinel(t *testing.T)
 			DelegationPointers: []types.LogPosition{delPos},
 		},
 	}
-	err := enf.VerifyDelegationScope(target)
+	err := enf.VerifyDelegationScope(context.Background(), target)
 	if !errors.Is(err, ErrScopeDelegationMalformed) {
 		t.Errorf("err = %v, want ErrScopeDelegationMalformed", err)
 	}
@@ -209,7 +214,7 @@ func TestVerifyDelegationScope_UnrestrictedDelegation_Permits(t *testing.T) {
 			DelegationPointers: []types.LogPosition{delPos},
 		},
 	}
-	if err := enf.VerifyDelegationScope(target); err != nil {
+	if err := enf.VerifyDelegationScope(context.Background(), target); err != nil {
 		t.Errorf("unrestricted scope must permit any schema: %v", err)
 	}
 }
@@ -237,7 +242,7 @@ func TestVerifyDelegationScope_ArrayShape_PermitsListed(t *testing.T) {
 			DelegationPointers: []types.LogPosition{delPos},
 		},
 	}
-	if err := enf.VerifyDelegationScope(target); err != nil {
+	if err := enf.VerifyDelegationScope(context.Background(), target); err != nil {
 		t.Errorf("listed schema must permit: %v", err)
 	}
 }
@@ -265,7 +270,7 @@ func TestVerifyDelegationScope_CSVShape_PermitsListed(t *testing.T) {
 			DelegationPointers: []types.LogPosition{delPos},
 		},
 	}
-	if err := enf.VerifyDelegationScope(target); err != nil {
+	if err := enf.VerifyDelegationScope(context.Background(), target); err != nil {
 		t.Errorf("CSV scope must permit: %v", err)
 	}
 }
@@ -294,7 +299,7 @@ func TestVerifyDelegationScope_SchemaNotInScope_Violation(t *testing.T) {
 		},
 	}
 
-	err := enf.VerifyDelegationScope(target)
+	err := enf.VerifyDelegationScope(context.Background(), target)
 	if !errors.Is(err, ErrScopeViolation) {
 		t.Fatalf("err = %v, want ErrScopeViolation", err)
 	}
@@ -346,7 +351,7 @@ func TestVerifyDelegationScope_NarrowingChain_RejectsAtNarrowestHop(t *testing.T
 			DelegationPointers: []types.LogPosition{courtPos, judgePos, clerkPos},
 		},
 	}
-	err := enf.VerifyDelegationScope(target)
+	err := enf.VerifyDelegationScope(context.Background(), target)
 	var v *ScopeViolation
 	if !errors.As(err, &v) {
 		t.Fatalf("expected *ScopeViolation, got %v", err)
@@ -382,7 +387,7 @@ func TestVerifyDelegationScope_CaseInsensitive(t *testing.T) {
 			DelegationPointers: []types.LogPosition{delPos},
 		},
 	}
-	if err := enf.VerifyDelegationScope(target); err != nil {
+	if err := enf.VerifyDelegationScope(context.Background(), target); err != nil {
 		t.Errorf("case-insensitive match must pass: %v", err)
 	}
 }

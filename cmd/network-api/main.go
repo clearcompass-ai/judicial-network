@@ -181,6 +181,19 @@ func run(argv []string, d deps) error {
 	// to gate traffic to a replica that can fulfill its job.
 	readyzChecks := buildReadyzChecks(cfg)
 
+	// Phase 4 gossip feed mount. When enabled, registers
+	// /v1/gossip/since on the composer mux so independent
+	// auditors and peer ledgers can pull cosigned-tree-head /
+	// equivocation findings via standard HTTP with ETag +
+	// Cache-Control semantics (Trust Alignment 11). The in-memory
+	// store keeps the boot path side-effect-free; production
+	// deployments swap in a durable store via dep-injection
+	// once the persistence shape is finalised.
+	gossipFeed, err := buildGossipFeed(cfg)
+	if err != nil {
+		return fmt.Errorf("gossip feed: %w", err)
+	}
+
 	srv, err := api.NewServer(api.Config{
 		Addr:          cfg.ListenAddr,
 		TLSCertFile:   cfg.Auth.TLSCertFile,
@@ -207,6 +220,7 @@ func run(argv []string, d deps) error {
 			// "unknown log" error rather than a panic.
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
+		Gossip:   gossipFeed,
 	})
 	if err != nil {
 		return fmt.Errorf("compose server: %w", err)

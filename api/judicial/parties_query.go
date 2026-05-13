@@ -17,6 +17,7 @@ DESCRIPTION:
 package judicial
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -25,9 +26,30 @@ import (
 	"github.com/clearcompass-ai/judicial-network/parties"
 )
 
+// partiesQuerierAdapter wraps a ctx-aware LedgerQueryAPI so it
+// satisfies the parties.PartiesQuerier interface (which also takes
+// ctx in v0.3.0). Both signatures match; the adapter exists only to
+// constrain the embedded api to the two methods PartiesQuerier
+// requires.
+type partiesQuerierAdapter struct {
+	api interface {
+		QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error)
+		QueryByTargetRoot(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error)
+	}
+}
+
+func (a partiesQuerierAdapter) QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error) {
+	return a.api.QueryBySignerDID(ctx, did)
+}
+
+func (a partiesQuerierAdapter) QueryByTargetRoot(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error) {
+	return a.api.QueryByTargetRoot(ctx, pos)
+}
+
 type partyBindingListHandler struct{ deps *Dependencies }
 
 func (h *partyBindingListHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -45,7 +67,7 @@ func (h *partyBindingListHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	links, err := parties.ListCaseParties(signerDID, q)
+	links, err := parties.ListCaseParties(ctx, signerDID, q)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -68,6 +90,7 @@ func (h *partyBindingListHandler) partiesQuerier(r *http.Request) (parties.Parti
 type partyBindingFindHandler struct{ deps *Dependencies }
 
 func (h *partyBindingFindHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -86,7 +109,7 @@ func (h *partyBindingFindHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	link, err := parties.FindPartyByBindingID(signerDID, bindingID, q)
+	link, err := parties.FindPartyByBindingID(ctx, signerDID, bindingID, q)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -106,19 +129,5 @@ func (h *partyBindingFindHandler) partiesQuerier(r *http.Request) (parties.Parti
 	return partiesQuerierAdapter{api: q}, nil
 }
 
-// partiesQuerierAdapter satisfies parties.PartiesQuerier on top of an
-// sdklog.LedgerQueryAPI (structural typing — same shape).
-type partiesQuerierAdapter struct {
-	api interface {
-		QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)
-		QueryByTargetRoot(pos types.LogPosition) ([]types.EntryWithMetadata, error)
-	}
-}
-
-func (a partiesQuerierAdapter) QueryBySignerDID(did string) ([]types.EntryWithMetadata, error) {
-	return a.api.QueryBySignerDID(did)
-}
-
-func (a partiesQuerierAdapter) QueryByTargetRoot(pos types.LogPosition) ([]types.EntryWithMetadata, error) {
-	return a.api.QueryByTargetRoot(pos)
-}
+// (Legacy adapter definition removed; consolidated at top of file
+// under ctx-aware v0.3.0 signatures.)

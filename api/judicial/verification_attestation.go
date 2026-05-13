@@ -24,6 +24,7 @@ DESCRIPTION:
 package judicial
 
 import (
+	"context"
 	"net/http"
 
 	sdklog "github.com/clearcompass-ai/attesta/log"
@@ -42,6 +43,7 @@ func (h *verifyBackgroundCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.
 	if requireCaller(w, r) == "" {
 		return
 	}
+	ctx := r.Context()
 	q := r.URL.Query()
 	partyDID := q.Get("party_did")
 	if partyDID == "" {
@@ -58,7 +60,7 @@ func (h *verifyBackgroundCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusInternalServerError, "no LogQueries entry for "+logDID)
 		return
 	}
-	assoc, err := verification.BackgroundCheck(partyDID, backgroundQuerierAdapter{api: api}, h.deps.LeafReader)
+	assoc, err := verification.BackgroundCheck(ctx, partyDID, backgroundQuerierAdapter{api: api}, h.deps.LeafReader)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -66,10 +68,13 @@ func (h *verifyBackgroundCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, assoc)
 }
 
+// backgroundQuerierAdapter wraps a ctx-aware LedgerQueryAPI so it
+// satisfies the verification.BackgroundQuerier interface (which now
+// takes ctx in v0.3.0).
 type backgroundQuerierAdapter struct{ api sdklog.LedgerQueryAPI }
 
-func (a backgroundQuerierAdapter) QueryBySignerDID(did string) ([]types.EntryWithMetadata, error) {
-	return a.api.QueryBySignerDID(did)
+func (a backgroundQuerierAdapter) QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error) {
+	return a.api.QueryBySignerDID(ctx, did)
 }
 
 // ─────────────────────────────────────────────────────────────────────

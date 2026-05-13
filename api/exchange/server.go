@@ -80,7 +80,7 @@ type ServerConfig struct {
 	// is down.  reliability primitive. nil → no breaker.
 	LedgerBreaker *reliability.Breaker
 
-	// LedgerMetrics records per-submit metrics. 
+	// LedgerMetrics records per-submit metrics.
 	// observability primitive. nil → no metrics observed.
 	LedgerMetrics *observability.LedgerSubmitMetrics
 }

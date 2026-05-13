@@ -130,6 +130,30 @@ type Operational struct {
 	// component signature verification depends on byte-identical
 	// bootstrap inputs.
 	NetworkBootstrapFile string `json:"network_bootstrap_file"`
+
+	// GossipFeed enables the SDK gossip feed mount at /v1/gossip/*.
+	// Zero-value leaves the mount disabled (no /v1/gossip routes).
+	// Trust Alignment 11 — CDN-offloaded anti-entropy.
+	GossipFeed GossipFeedConfig `json:"gossip_feed"`
+}
+
+// GossipFeedConfig configures the SDK gossip feed mount.
+//
+// Phase 4 — wires gossipfeed.Feed (over the SDK's
+// gossip.NewFeedHandler) under /v1/gossip/*. The mount is opt-in
+// because publishing a feed requires operators to commit to the
+// implied indefinite retention contract; dev / single-node
+// deployments leave it disabled.
+type GossipFeedConfig struct {
+	// Enabled gates the mount. Disabled → no /v1/gossip routes
+	// register on the API mux.
+	Enabled bool `json:"enabled"`
+
+	// PathPrefix overrides the default gossip path prefix
+	// (gossip.DefaultFeedPathPrefix = "/v1/gossip"). Leave empty
+	// to use the SDK default; misconfiguring this breaks
+	// interoperability with off-the-shelf gossip clients.
+	PathPrefix string `json:"path_prefix,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────────────

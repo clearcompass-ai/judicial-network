@@ -26,18 +26,26 @@ DESCRIPTION:
 	  KeyStore (AES-GCM artifact keys)
 	  DelKeyStore (PRE delegation keys)
 
-	Things wired as `nil` when not configured:
-	  BLSVerifier    — only consumed by cross-log proof verify
-	  WitnessKeys    — populated by future witness-roster config
-	  WitnessQuorum  — same
-	  SourceProver   — only consumed by ops-tooling cross-log compose
+	Things wired as empty when not configured:
+	  WitnessSets   — per-log witness topology (keys + K + NetworkID +
+	                  BLSVerifier together inside *cosign.WitnessKeySet).
+	                  Empty map → handlers that need it return 503.
+	  SourceProver  — only consumed by ops-tooling cross-log compose
 
 	Each nil case yields a 500/501 from the specific handler that
 	needs it; the rest of the surface keeps working.
+
+	v0.3.0: SDK Principle 10 (Two-Tier Quorum Encapsulation) replaces
+	the legacy WitnessKeys / WitnessQuorum / WitnessNetwork trio with
+	a single map[string]*cosign.WitnessKeySet. The constructor
+	(cosign.NewWitnessKeySet) catches duplicate IDs, zero NetworkID,
+	and K outside [1, N] at boot — failures that previously surfaced
+	at HTTP-request time.
 */
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -72,14 +80,16 @@ import (
 // dependent handlers return 500 with a clear error.
 func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) (judicial.Dependencies, error) {
 	deps := judicial.Dependencies{
-		Registry:       registry,
-		Extractor:      schemas.NewRegistry(),
-		ContentStore:   newContentStore(cfg.ArtifactStoreEndpoint),
-		KeyStore:       lifecycleartifact.NewInMemoryKeyStore(),
-		DelKeyStore:    artifact.NewInMemoryDelegationKeyStore(),
-		WitnessKeys:    map[string][]types.WitnessPublicKey{},
-		WitnessQuorum:  map[string]int{},
-		WitnessNetwork: map[string]cosign.NetworkID{},
+		Registry:     registry,
+		Extractor:    schemas.NewRegistry(),
+		ContentStore: newContentStore(cfg.ArtifactStoreEndpoint),
+		KeyStore:     lifecycleartifact.NewInMemoryKeyStore(),
+		DelKeyStore:  artifact.NewInMemoryDelegationKeyStore(),
+		// v0.3.0: one *cosign.WitnessKeySet per log DID, populated by
+		// future witness-roster operational config. Empty map → handlers
+		// that need cross-log verification surface 503 with a clear
+		// "no witness set for source_log_did" error.
+		WitnessSets: map[string]*cosign.WitnessKeySet{},
 	}
 
 	if cfg.LedgerEndpoint == "" {
@@ -228,6 +238,6 @@ type schemaResolverShim struct{}
 
 func newSchemaResolverShim() builder.SchemaResolver { return schemaResolverShim{} }
 
-func (schemaResolverShim) Resolve(_ types.LogPosition, _ types.EntryFetcher) (*types.SchemaResolution, error) {
+func (schemaResolverShim) Resolve(_ context.Context, _ types.LogPosition, _ types.EntryFetcher) (*types.SchemaResolution, error) {
 	return nil, fmt.Errorf("schema resolver not configured (boot-time shim — wire schemas-log resolver in production)")
 }

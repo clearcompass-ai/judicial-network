@@ -69,7 +69,7 @@ func (r *Reconciler) reconcileLog(ctx context.Context, logDID string, checkCount
 		startPos = watermark - uint64(checkCount)
 	}
 
-	entries, err := r.ledger.ScanFrom(startPos, checkCount)
+	entries, err := r.ledger.ScanFrom(ctx, startPos, checkCount)
 	if err != nil {
 		return nil, err
 	}

@@ -4,15 +4,18 @@ FILE PATH: verification/delegation_chain_test.go
 COVERAGE:
 
 	Two-phase verification — cryptographic and semantic
+
 . Tests cover: empty chain, dead delegation surfaces in
+
 	FirstDead, optional ScopeEnforcer (nil keeps -only),
 	semantic scope violation surfaces in ScopeViolation, and the
-	short-circuit that prevents  from running when 
+	short-circuit that prevents  from running when
 	fails.
 */
 package verification
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -29,7 +32,7 @@ import (
 
 type liveLeafReader struct{}
 
-func (liveLeafReader) Get(key [32]byte) (*types.SMTLeaf, error) {
+func (liveLeafReader) Get(ctx context.Context, key [32]byte) (*types.SMTLeaf, error) {
 	// Return a leaf whose OriginTip equals the position the SMT
 	// derives the key from. Since smt.DeriveKey(pos) is what the SDK
 	// uses, returning a leaf with OriginTip=anyPos here is enough
@@ -45,7 +48,7 @@ func liveSMTFor(positions ...types.LogPosition) smt.LeafReader {
 	store := smt.NewInMemoryLeafStore()
 	for _, p := range positions {
 		key := smt.DeriveKey(p)
-		_ = store.Set(key, types.SMTLeaf{OriginTip: p, AuthorityTip: p})
+		_ = store.Set(context.Background(), key, types.SMTLeaf{OriginTip: p, AuthorityTip: p})
 	}
 	return store
 }
@@ -54,11 +57,11 @@ func liveSMTFor(positions ...types.LogPosition) smt.LeafReader {
 // revoked (OriginTip != position).
 func deadSMTFor(live, dead types.LogPosition) smt.LeafReader {
 	store := smt.NewInMemoryLeafStore()
-	_ = store.Set(smt.DeriveKey(live), types.SMTLeaf{OriginTip: live, AuthorityTip: live})
+	_ = store.Set(context.Background(), smt.DeriveKey(live), types.SMTLeaf{OriginTip: live, AuthorityTip: live})
 	// Dead leaf: OriginTip points elsewhere — different sequence — to
 	// signal revocation/supersession.
 	supersededTo := types.LogPosition{LogDID: dead.LogDID, Sequence: dead.Sequence + 100}
-	_ = store.Set(smt.DeriveKey(dead), types.SMTLeaf{
+	_ = store.Set(context.Background(), smt.DeriveKey(dead), types.SMTLeaf{
 		OriginTip:    supersededTo,
 		AuthorityTip: supersededTo,
 	})
@@ -68,7 +71,7 @@ func deadSMTFor(live, dead types.LogPosition) smt.LeafReader {
 // fetcherFromEntries fetches by exact LogPosition match.
 type fetcherFromEntries map[types.LogPosition]*types.EntryWithMetadata
 
-func (f fetcherFromEntries) Fetch(pos types.LogPosition) (*types.EntryWithMetadata, error) {
+func (f fetcherFromEntries) Fetch(ctx context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
 	if e, ok := f[pos]; ok {
 		return e, nil
 	}
@@ -92,7 +95,7 @@ func mkDelegation(t *testing.T, signerDID, delegateDID, scopeJSON string) *envel
 // ─── : empty chain ───────────────────────────────────────────
 
 func TestVerifyFilingDelegation_EmptyChain_AllPhasesOK(t *testing.T) {
-	res, err := VerifyFilingDelegation(nil, nil, nil, nil, nil)
+	res, err := VerifyFilingDelegation(context.Background(), nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -107,7 +110,7 @@ func TestVerifyFilingDelegation_EmptyChain_AllPhasesOK(t *testing.T) {
 func TestVerifyFilingDelegation_EmptyChain_WithEnforcer_ReportsScopeChecked(t *testing.T) {
 	enf := &ScopeEnforcer{}
 	target := &envelope.Entry{Header: envelope.ControlHeader{}}
-	res, err := VerifyFilingDelegation(nil, nil, nil, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), nil, nil, nil, enf, target)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -127,11 +130,11 @@ func TestVerifyFilingDelegation_NoEnforcer_OnlyPhase1Runs(t *testing.T) {
 	delPos := types.LogPosition{LogDID: "did:web:l", Sequence: 50}
 
 	fetcher := fetcherFromEntries{
-		delPos: {Position: delPos, CanonicalBytes: envelope.Serialize(signed)},
+		delPos: {Position: delPos, CanonicalBytes: mustSerialize(t, signed)},
 	}
 	reader := liveSMTFor(delPos)
 
-	res, err := VerifyFilingDelegation([]types.LogPosition{delPos}, fetcher, reader, nil, nil)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -151,7 +154,7 @@ func TestVerifyFilingDelegation_BothPhases_HappyPath(t *testing.T) {
 	schemaPos := types.LogPosition{LogDID: "did:web:l", Sequence: 99}
 
 	fetcher := fetcherFromEntries{
-		delPos: {Position: delPos, CanonicalBytes: envelope.Serialize(signed)},
+		delPos: {Position: delPos, CanonicalBytes: mustSerialize(t, signed)},
 	}
 	reader := liveSMTFor(delPos)
 
@@ -163,7 +166,7 @@ func TestVerifyFilingDelegation_BothPhases_HappyPath(t *testing.T) {
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "tn-criminal-case-v1", nil },
 	}
-	res, err := VerifyFilingDelegation([]types.LogPosition{delPos}, fetcher, reader, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -186,7 +189,7 @@ func TestVerifyFilingDelegation_ScopeViolation_ReturnsViolationFlag(t *testing.T
 	schemaPos := types.LogPosition{LogDID: "did:web:l", Sequence: 100}
 
 	fetcher := fetcherFromEntries{
-		delPos: {Position: delPos, CanonicalBytes: envelope.Serialize(signed)},
+		delPos: {Position: delPos, CanonicalBytes: mustSerialize(t, signed)},
 	}
 	reader := liveSMTFor(delPos)
 
@@ -198,7 +201,7 @@ func TestVerifyFilingDelegation_ScopeViolation_ReturnsViolationFlag(t *testing.T
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "tn-sealing-order-v1", nil },
 	}
-	res, err := VerifyFilingDelegation([]types.LogPosition{delPos}, fetcher, reader, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -227,7 +230,7 @@ func TestVerifyFilingDelegation_DeadHop_Phase2Skipped(t *testing.T) {
 	schemaPos := types.LogPosition{LogDID: "did:web:l", Sequence: 99}
 
 	fetcher := fetcherFromEntries{
-		delPos: {Position: delPos, CanonicalBytes: envelope.Serialize(signed)},
+		delPos: {Position: delPos, CanonicalBytes: mustSerialize(t, signed)},
 	}
 	// Dead reader: pretend the leaf is revoked (OriginTip != delPos).
 	reader := deadSMTFor(types.LogPosition{LogDID: "did:web:l", Sequence: 1}, delPos)
@@ -240,7 +243,7 @@ func TestVerifyFilingDelegation_DeadHop_Phase2Skipped(t *testing.T) {
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "tn-criminal-case-v1", nil },
 	}
-	res, err := VerifyFilingDelegation([]types.LogPosition{delPos}, fetcher, reader, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -262,13 +265,14 @@ func TestVerifyFilingDelegation_DeadHop_Phase2Skipped(t *testing.T) {
 // degrades to AllLive=false rather than panicking or hanging.
 type errFetcher struct{ msg string }
 
-func (e errFetcher) Fetch(types.LogPosition) (*types.EntryWithMetadata, error) {
+func (e errFetcher) Fetch(context.Context, types.LogPosition) (*types.EntryWithMetadata, error) {
 	return nil, errors.New(e.msg)
 }
 
 func TestVerifyFilingDelegation_Phase1FetcherError_DegradesToDead(t *testing.T) {
 	reader := liveSMTFor()
 	res, err := VerifyFilingDelegation(
+		context.Background(),
 		[]types.LogPosition{{LogDID: "did:web:l", Sequence: 1}},
 		errFetcher{msg: "infra down"}, reader, nil, nil,
 	)
@@ -291,7 +295,7 @@ func TestVerifyFilingDelegation_Phase2InfraError_Returned(t *testing.T) {
 	schemaPos := types.LogPosition{LogDID: "did:web:l", Sequence: 99}
 
 	fetcher := fetcherFromEntries{
-		delPos: {Position: delPos, CanonicalBytes: envelope.Serialize(signed)},
+		delPos: {Position: delPos, CanonicalBytes: mustSerialize(t, signed)},
 	}
 	reader := liveSMTFor(delPos)
 
@@ -304,7 +308,7 @@ func TestVerifyFilingDelegation_Phase2InfraError_Returned(t *testing.T) {
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "", errors.New("registry down") },
 	}
-	_, err := VerifyFilingDelegation([]types.LogPosition{delPos}, fetcher, reader, enf, target)
+	_, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
 	if err == nil {
 		t.Fatal("expected error from infra failure")
 	}

@@ -12,6 +12,7 @@ COVERAGE:
 package consortium
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"testing"
 
@@ -125,12 +126,13 @@ func TestNewMappingEscrowManager_EmptyDestination(t *testing.T) {
 // ─── CreateMapping happy path: atomic emission invariant ───────────
 
 func TestCreateMapping_V2_AtomicCommitmentEmission(t *testing.T) {
+	ctx := context.Background()
 	mgr, err := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	if err != nil {
 		t.Fatalf("ctor: %v", err)
 	}
 	identityHash, credRef := mkRecord()
-	res, err := mgr.CreateMapping(identityHash, credRef, 1700000000)
+	res, err := mgr.CreateMapping(ctx, identityHash, credRef, 1700000000)
 	if err != nil {
 		t.Fatalf("CreateMapping: %v", err)
 	}
@@ -160,17 +162,18 @@ func TestCreateMapping_V2_AtomicCommitmentEmission(t *testing.T) {
 // ─── Distinct CreateMapping calls produce distinct SplitIDs ────────
 
 func TestCreateMapping_DistinctCalls_DistinctSplitIDs(t *testing.T) {
+	ctx := context.Background()
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	idA, refA := mkRecord()
 	idB, refB := mkRecord()
 	idB[0] = 0xFF // make distinct
 	refB.Sequence = 200
 
-	resA, err := mgr.CreateMapping(idA, refA, 1700000000)
+	resA, err := mgr.CreateMapping(ctx, idA, refA, 1700000000)
 	if err != nil {
 		t.Fatalf("A: %v", err)
 	}
-	resB, err := mgr.CreateMapping(idB, refB, 1700000000)
+	resB, err := mgr.CreateMapping(ctx, idB, refB, 1700000000)
 	if err != nil {
 		t.Fatalf("B: %v", err)
 	}
@@ -183,10 +186,11 @@ func TestCreateMapping_DistinctCalls_DistinctSplitIDs(t *testing.T) {
 // ─── TransferMapping creates a fresh, distinct mapping ─────────────
 
 func TestTransferMapping_FreshNodeSet(t *testing.T) {
+	ctx := context.Background()
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	identityHash, credRef := mkRecord()
 
-	original, err := mgr.CreateMapping(identityHash, credRef, 1700000000)
+	original, err := mgr.CreateMapping(ctx, identityHash, credRef, 1700000000)
 	if err != nil {
 		t.Fatalf("orig: %v", err)
 	}
@@ -195,7 +199,7 @@ func TestTransferMapping_FreshNodeSet(t *testing.T) {
 	newCfg.DealerDID = "did:web:successor-dealer"
 	newCfg.Destination = "did:web:successor-exchange"
 
-	transferred, err := mgr.TransferMapping(identityHash, credRef, newCfg, 1700000001)
+	transferred, err := mgr.TransferMapping(ctx, identityHash, credRef, newCfg, 1700000001)
 	if err != nil {
 		t.Fatalf("transfer: %v", err)
 	}
@@ -214,10 +218,11 @@ func TestTransferMapping_FreshNodeSet(t *testing.T) {
 // ─── TransferMapping init failure surfaces ─────────────────────────
 
 func TestTransferMapping_InitFailure_Errors(t *testing.T) {
+	ctx := context.Background()
 	mgr, _ := NewMappingEscrowManager(freshConfig(t, 3, 5))
 	identityHash, credRef := mkRecord()
 	bad := freshConfig(t, 0, 5) // threshold=0
-	if _, err := mgr.TransferMapping(identityHash, credRef, bad, 0); err == nil {
+	if _, err := mgr.TransferMapping(ctx, identityHash, credRef, bad, 0); err == nil {
 		t.Error("TransferMapping must surface bad-config error")
 	}
 }
@@ -278,11 +283,12 @@ func TestRecoverMapping_HappyPath_RoundTrip(t *testing.T) {
 // ─── CreateMapping: SDK error from underlying StoreMappingV2 ──────
 
 func TestCreateMapping_SDKError_Surfaces(t *testing.T) {
+	ctx := context.Background()
 	cfg := freshConfig(t, 3, 5)
 	mgr, _ := NewMappingEscrowManager(cfg)
 	// CredentialRef with empty LogDID violates the SDK precondition.
 	identityHash := [32]byte{0x01}
-	_, err := mgr.CreateMapping(identityHash, identity.CredentialRef{}, 0)
+	_, err := mgr.CreateMapping(ctx, identityHash, identity.CredentialRef{}, 0)
 	if err == nil {
 		t.Error("SDK should reject empty CredentialRef.LogDID")
 	}

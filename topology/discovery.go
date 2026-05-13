@@ -15,6 +15,7 @@ KEY DEPENDENCIES: attesta/did, attesta/witness
 package topology
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/clearcompass-ai/attesta/did"
@@ -40,8 +41,9 @@ type AnchorChainResult struct {
 
 // DiscoverAnchorChain walks the anchor hierarchy from a court DID to
 // the state root. Each step resolves the DID Document to find the
-// ledger endpoint and parent anchor DID.
+// ledger endpoint and parent anchor DID. ctx bounds the resolver RPCs.
 func DiscoverAnchorChain(
+	ctx context.Context,
 	courtDID string,
 	hierarchy *Hierarchy,
 	resolver did.DIDResolver,
@@ -73,7 +75,7 @@ func DiscoverAnchorChain(
 
 		// Resolve ledger URL from DID Document.
 		if resolver != nil {
-			doc, err := resolver.Resolve(current)
+			doc, err := resolver.Resolve(ctx, current)
 			if err == nil {
 				url, urlErr := doc.LedgerEndpointURL()
 				if urlErr == nil {

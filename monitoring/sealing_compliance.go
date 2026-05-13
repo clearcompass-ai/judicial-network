@@ -20,6 +20,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/log
 package monitoring
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -50,6 +51,7 @@ type SealingComplianceConfig struct {
 //   - Activation entries whose referenced order's conditions weren't met
 //     at activation time (premature; protocol violation).
 func CheckSealingCompliance(
+	ctx context.Context,
 	cfg SealingComplianceConfig,
 	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
@@ -65,7 +67,7 @@ func CheckSealingCompliance(
 		count = 500
 	}
 
-	entries, err := queryAPI.ScanFromPosition(cfg.ScanStartSeq, count)
+	entries, err := queryAPI.ScanFromPosition(ctx, cfg.ScanStartSeq, count)
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/sealing: scan: %w", err)
 	}
@@ -78,27 +80,29 @@ func CheckSealingCompliance(
 			continue
 		}
 
-		classification, cErr := builder.ClassifyEntry(builder.ClassifyParams{
+		classification, cErr := builder.ClassifyEntry(ctx, builder.ClassifyParams{
 			Entry:       entry,
 			Position:    meta.Position,
 			LeafReader:  leafReader,
 			Fetcher:     fetcher,
 			LocalLogDID: cfg.LocalLogDID,
 		})
+
 		if cErr != nil || classification == nil || classification.Path != builder.PathResultPathC {
 			continue
 		}
 
 		// Fetch cosignatures referencing this entry (required for threshold checks).
-		cosigs, _ := queryAPI.QueryByCosignatureOf(meta.Position)
+		cosigs, _ := queryAPI.QueryByCosignatureOf(ctx, meta.Position)
 
-		condResult, ceErr := verifier.EvaluateConditions(verifier.EvaluateConditionsParams{
+		condResult, ceErr := verifier.EvaluateConditions(ctx, verifier.EvaluateConditionsParams{
 			PendingPos:   meta.Position,
 			Fetcher:      fetcher,
 			Extractor:    extractor,
 			Cosignatures: cosigs,
 			Now:          now,
 		})
+
 		if ceErr != nil || condResult == nil {
 			continue
 		}
@@ -133,13 +137,14 @@ func CheckSealingCompliance(
 		// OWN log-time but it's in the authority chain anyway, the ledger
 		// admitted it prematurely. This is detected by re-evaluating at
 		// meta.LogTime.
-		earlyCheck, _ := verifier.EvaluateConditions(verifier.EvaluateConditionsParams{
+		earlyCheck, _ := verifier.EvaluateConditions(ctx, verifier.EvaluateConditionsParams{
 			PendingPos:   meta.Position,
 			Fetcher:      fetcher,
 			Extractor:    extractor,
 			Cosignatures: cosigs,
 			Now:          meta.LogTime,
 		})
+
 		if earlyCheck != nil && !earlyCheck.AllMet {
 			// Conditions weren't met at publication time. For pending entries this
 			// is normal. For entries that have advanced AuthorityTip (already in
@@ -152,7 +157,7 @@ func CheckSealingCompliance(
 			// this position and conditions still aren't met.
 			if entry.Header.TargetRoot != nil && !condResult.AllMet {
 				leafKey := smt.DeriveKey(*entry.Header.TargetRoot)
-				if leaf, _ := leafReader.Get(leafKey); leaf != nil &&
+				if leaf, _ := leafReader.Get(ctx, leafKey); leaf != nil &&
 					leaf.AuthorityTip.Equal(meta.Position) {
 					alerts = append(alerts, makeComplianceAlert(
 						monitoring.Critical,

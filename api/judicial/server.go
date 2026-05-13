@@ -62,15 +62,21 @@ type Dependencies struct {
 	SchemaResolver builder.SchemaResolver
 	Extractor      schema.SchemaParameterExtractor
 	Resolver       did.DIDResolver
-	BLSVerifier    cosign.BLSAggregateVerifier
-	WitnessKeys    map[string][]types.WitnessPublicKey
-	WitnessQuorum  map[string]int
-	WitnessNetwork map[string]cosign.NetworkID // logDID → NetworkID
+
+	// WitnessSets is the per-log witness topology — v0.3.0 replaces
+	// the legacy trio of WitnessKeys / WitnessQuorum / WitnessNetwork
+	// (plus BLSVerifier). Each *cosign.WitnessKeySet binds keys + K
+	// + NetworkID + BLSAggregateVerifier together at construction
+	// time. SDK Principle 10 (Two-Tier Quorum Encapsulation).
+	WitnessSets map[string]*cosign.WitnessKeySet
 
 	// NetworkID is the deployment's 32-byte cosign-domain identifier
 	// derived from the network bootstrap document. Threaded into
 	// every cosign.Verify / cosign.TreeHeadDigest call site that
-	// runs through the judicial verification surface.
+	// runs through the judicial verification surface. Distinct from
+	// per-log NetworkIDs inside WitnessSets — this is the local log's
+	// own network identity; WitnessSets[did].NetworkID() is the
+	// source log's identity for cross-log verification.
 	NetworkID cosign.NetworkID
 
 	// Storage / artifact stores. Used by handlers that publish or

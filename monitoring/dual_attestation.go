@@ -18,6 +18,7 @@ KEY DEPENDENCIES: attesta/log, attesta/verifier
 package monitoring
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -28,6 +29,8 @@ import (
 	"github.com/clearcompass-ai/attesta/monitoring"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 const MonitorDualAttestation monitoring.MonitorID = "judicial.dual_attestation"
@@ -42,7 +45,9 @@ type DualAttestationConfig struct {
 }
 
 // CheckDualAttestation walks live delegations and verifies attestation coverage.
+// ctx threads into every LedgerQueryAPI / fetcher RPC.
 func CheckDualAttestation(
+	ctx context.Context,
 	cfg DualAttestationConfig,
 	queryAPI sdklog.LedgerQueryAPI,
 	fetcher types.EntryFetcher,
@@ -54,12 +59,13 @@ func CheckDualAttestation(
 		minAttesters = 2
 	}
 
-	tree, err := verifier.WalkDelegationTree(verifier.WalkDelegationTreeParams{
+	tree, err := verifier.WalkDelegationTree(ctx, verifier.WalkDelegationTreeParams{
 		RootEntityPos: cfg.RootEntityPos,
 		Fetcher:       fetcher,
 		LeafReader:    leafReader,
-		Querier:       queryAPI,
+		Querier:       common.NewDelegationQuerier(ctx, queryAPI),
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/dual_attestation: walk tree: %w", err)
 	}
@@ -67,7 +73,7 @@ func CheckDualAttestation(
 	var alerts []monitoring.Alert
 
 	for _, node := range verifier.LiveDelegations(tree) {
-		attesters, err := countAttestersFor(node.DelegateDID, queryAPI)
+		attesters, err := countAttestersFor(ctx, node.DelegateDID, queryAPI)
 		if err != nil {
 			continue // query error is not an attestation failure
 		}
@@ -105,6 +111,7 @@ func CheckDualAttestation(
 // Attestation convention (domain-specific, not SDK): commentary entries
 // with Domain Payload containing {"attestation_type": "...", "subject_did": "<target>"}.
 func countAttestersFor(
+	ctx context.Context,
 	targetDID string,
 	queryAPI sdklog.LedgerQueryAPI,
 ) (map[string]bool, error) {
@@ -116,7 +123,7 @@ func countAttestersFor(
 	// For the monitor's purposes, we use the pragmatic pattern: scan
 	// a reasonable window (caller-provided via ScanStartSeq would be
 	// a future enhancement; for now scan 2000 recent entries).
-	entries, err := queryAPI.ScanFromPosition(0, 2000)
+	entries, err := queryAPI.ScanFromPosition(ctx, 0, 2000)
 	if err != nil {
 		return nil, err
 	}

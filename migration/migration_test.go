@@ -215,7 +215,7 @@ func TestBulkImport_RootEntities(t *testing.T) {
 		}
 
 		signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
-		raw := envelope.Serialize(signed)
+		raw, _ := envelope.Serialize(signed)
 		if _, err := envelope.Deserialize(raw); err != nil {
 			t.Errorf("case %d: roundtrip failed: %v", i, err)
 		}
@@ -230,10 +230,9 @@ func TestSuccessionEntry_Shape(t *testing.T) {
 	entityPos := types.LogPosition{LogDID: officersLog, Sequence: 1}
 
 	entry, err := builder.BuildSuccession(builder.SuccessionParams{
-		Destination:  "did:web:exchange.test",
-		SignerDID:    courtDID,
-		TargetRoot:   entityPos,
-		NewSignerDID: destExchange,
+		Destination: "did:web:exchange.test",
+		SignerDID:   courtDID,
+		TargetRoot:  entityPos,
 		Payload: mustJSON(t, map[string]any{
 			"migration_type": "graceful",
 			"new_exchange":   destExchange,

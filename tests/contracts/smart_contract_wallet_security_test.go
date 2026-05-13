@@ -28,6 +28,7 @@ SECURITY PROPERTIES PINNED:
 package contracts
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -40,6 +41,7 @@ import (
 // ─── cross-exchange replay defense (registry-level) ────────────
 
 func TestSCW_DestinationMismatchRejectsBeforeRPC(t *testing.T) {
+	ctx := context.Background()
 	// Build entry bound to a DIFFERENT destination, then verify
 	// against a registry bound to scwDestination. The registry
 	// MUST reject before issuing any eth_call.
@@ -53,7 +55,7 @@ func TestSCW_DestinationMismatchRejectsBeforeRPC(t *testing.T) {
 	// notices the leak.)
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, did.ErrDestinationMismatch) {
 		t.Fatalf("cross-destination entry MUST reject with ErrDestinationMismatch; got %v", err)
 	}
@@ -82,6 +84,7 @@ func TestSCW_AlgoIDIsRegistered(t *testing.T) {
 // stub binding misses and we'd see misleading "no binding" errors
 // instead of the magic-value semantics we're actually validating.
 func TestSCW_CalldataMatchesSDKEncoding(t *testing.T) {
+	ctx := context.Background()
 	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("test-binding-key")
@@ -102,7 +105,7 @@ func TestSCW_CalldataMatchesSDKEncoding(t *testing.T) {
 	rpc.BindEthCall(addr, wrongCalldata, scwMagicReturn())
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	err := registry.VerifyEntry(entry)
+	err := registry.VerifyEntry(ctx, entry)
 	if err == nil {
 		t.Fatal("calldata mismatch MUST cause stub to miss binding")
 	}

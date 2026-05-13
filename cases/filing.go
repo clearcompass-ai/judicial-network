@@ -18,6 +18,7 @@ KEY DEPENDENCIES: attesta/builder, cases/artifact
 package cases
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -58,6 +59,7 @@ type FilingResult struct {
 // Path A when no DelegationPointers (same-signer amendment).
 // Path B when DelegationPointers provided (delegated filing).
 func File(
+	ctx context.Context,
 	cfg FilingConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -83,6 +85,7 @@ func File(
 		}
 
 		published, err := artifact.PublishArtifact(
+			ctx,
 			artifact.PublishConfig{
 				Plaintext:         cfg.Plaintext,
 				SchemaRef:         cfg.SchemaRef,

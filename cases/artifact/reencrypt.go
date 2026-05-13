@@ -28,6 +28,7 @@ KEY DEPENDENCIES:
 package artifact
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -73,6 +74,7 @@ type BatchReencryptResult struct {
 // -------------------------------------------------------------------------------------------------
 
 func ReencryptArtifact(
+	ctx context.Context,
 	cfg ReencryptConfig,
 	keyStore lifecycleartifact.KeyStore,
 	contentStore storage.ContentStore,
@@ -80,7 +82,7 @@ func ReencryptArtifact(
 	if cfg.OldCID.IsZero() {
 		return nil, fmt.Errorf("artifact/reencrypt: zero old CID")
 	}
-	sdkResult, err := lifecycleartifact.ReEncrypt(lifecycleartifact.ReEncryptParams{
+	sdkResult, err := lifecycleartifact.ReEncrypt(ctx, lifecycleartifact.ReEncryptParams{
 		OldCID:              cfg.OldCID,
 		KeyStore:            keyStore,
 		ContentStore:        contentStore,
@@ -101,6 +103,7 @@ func ReencryptArtifact(
 // -------------------------------------------------------------------------------------------------
 
 func BatchReencrypt(
+	ctx context.Context,
 	cfg BatchReencryptConfig,
 	keyStore lifecycleartifact.KeyStore,
 	contentStore storage.ContentStore,
@@ -122,7 +125,7 @@ func BatchReencrypt(
 	}
 	if concurrency == 1 {
 		for i, cid := range cfg.CIDs {
-			reResult, err := reencryptWithRetry(cid, cfg, keyStore, contentStore)
+			reResult, err := reencryptWithRetry(ctx, cid, cfg, keyStore, contentStore)
 			if err != nil {
 				result.Failed++
 				result.Errors[cid.String()] = err
@@ -146,7 +149,7 @@ func BatchReencrypt(
 		go func(c storage.CID) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			reResult, err := reencryptWithRetry(c, cfg, keyStore, contentStore)
+			reResult, err := reencryptWithRetry(ctx, c, cfg, keyStore, contentStore)
 			mu.Lock()
 			completed++
 			current := completed
@@ -168,6 +171,7 @@ func BatchReencrypt(
 }
 
 func reencryptWithRetry(
+	ctx context.Context,
 	cid storage.CID,
 	cfg BatchReencryptConfig,
 	keyStore lifecycleartifact.KeyStore,
@@ -183,7 +187,7 @@ func reencryptWithRetry(
 		delay = 1 * time.Second
 	}
 	for attempt := 0; attempt < attempts; attempt++ {
-		result, err := ReencryptArtifact(
+		result, err := ReencryptArtifact(ctx,
 			ReencryptConfig{OldCID: cid, DeleteOldCiphertext: cfg.DeleteOldCiphertext},
 			keyStore, contentStore,
 		)

@@ -35,6 +35,7 @@ import (
 type artifactExpungeHandler struct{ deps *Dependencies }
 
 func (h *artifactExpungeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -54,9 +55,9 @@ func (h *artifactExpungeHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		ArtifactCID:        cid,
 		VerifyBeforeDelete: verifyBefore,
 	}
-	result, err := artifact.ExpungeArtifact(
-		cfg, h.deps.KeyStore, h.deps.DelKeyStore, h.deps.ContentStore,
-	)
+	result, err := artifact.ExpungeArtifact(ctx,
+		cfg, h.deps.KeyStore, h.deps.DelKeyStore, h.deps.ContentStore)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -89,6 +90,7 @@ type artifactReencryptRequest struct {
 type artifactReencryptHandler struct{ deps *Dependencies }
 
 func (h *artifactReencryptHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -110,9 +112,9 @@ func (h *artifactReencryptHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		OldCID:              cid,
 		DeleteOldCiphertext: req.DeleteOldCiphertext,
 	}
-	result, err := artifact.ReencryptArtifact(
-		cfg, h.deps.KeyStore, h.deps.ContentStore,
-	)
+	result, err := artifact.ReencryptArtifact(ctx,
+		cfg, h.deps.KeyStore, h.deps.ContentStore)
+
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

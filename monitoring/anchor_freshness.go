@@ -18,6 +18,7 @@ KEY DEPENDENCIES: attesta/witness, attesta/log, attesta/monitoring
 package monitoring
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -65,6 +66,7 @@ type AnchorFreshnessConfig struct {
 // Returns up to two alerts: one for anchor lag, one for parent staleness.
 // Empty slice means everything is fine.
 func CheckAnchorFreshness(
+	ctx context.Context,
 	cfg AnchorFreshnessConfig,
 	queryAPI sdklog.LedgerQueryAPI,
 	treeHeadClient *witness.TreeHeadClient,
@@ -80,7 +82,7 @@ func CheckAnchorFreshness(
 	var alerts []monitoring.Alert
 
 	// Check 1: when did we last publish an anchor?
-	entries, err := queryAPI.QueryBySignerDID(cfg.LedgerSignerDID)
+	entries, err := queryAPI.QueryBySignerDID(ctx, cfg.LedgerSignerDID)
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/anchor: query anchors: %w", err)
 	}

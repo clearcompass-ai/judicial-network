@@ -239,7 +239,10 @@ func validateSerializeSubmit(
 	if err := entry.Validate(); err != nil {
 		return schemas.LogPositionRef{}, fmt.Errorf("%w: post-sign validate: %v", ErrBuildFailed, err)
 	}
-	canonical := envelope.Serialize(entry)
+	canonical, err := envelope.Serialize(entry)
+	if err != nil {
+		return schemas.LogPositionRef{}, fmt.Errorf("%w: serialize: %v", ErrBuildFailed, err)
+	}
 	pos, err := bc.Submitter.SubmitCanonical(ctx, canonical)
 	if err != nil {
 		return schemas.LogPositionRef{}, fmt.Errorf("%w: %v", ErrSubmitFailed, err)

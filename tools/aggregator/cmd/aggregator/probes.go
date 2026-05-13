@@ -16,7 +16,7 @@ DESCRIPTION:
 	    replica that can't fulfill its job stops receiving traffic.
 
 	  GET /metrics
-	    Prometheus scrape endpoint. Reuses the 
+	    Prometheus scrape endpoint. Reuses the
 	    api/middleware/observability.MetricsRegistry so the metric
 	    name conventions match cmd/network-api (jn_http_*).
 
@@ -41,7 +41,7 @@ import (
 // errMissingDB / errMissingLedger are surfaced from run() when
 // boot config is incomplete.
 var (
-	errMissingDB       = errors.New("aggregator: cfg.database_url required")
+	errMissingDB     = errors.New("aggregator: cfg.database_url required")
 	errMissingLedger = errors.New("aggregator: cfg.ledger_url required")
 )
 

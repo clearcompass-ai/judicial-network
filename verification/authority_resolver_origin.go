@@ -45,6 +45,7 @@ KEY DEPENDENCIES:
 package verification
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -60,6 +61,7 @@ import (
 // payload, and runs the per-hop checks. Returns the resolved hop on
 // success, or a typed rejection.
 func (r *AuthorityResolver) fetchAndValidate(
+	ctx context.Context,
 	ref schemas.LogPositionRef,
 	expectedGrantee string,
 	now time.Time,
@@ -68,7 +70,7 @@ func (r *AuthorityResolver) fetchAndValidate(
 		LogDID:   ref.LogDID,
 		Sequence: ref.Sequence,
 	}
-	meta, err := r.Fetcher.Fetch(pos)
+	meta, err := r.Fetcher.Fetch(ctx, pos)
 	if err != nil {
 		return nil, RejectFetchFailed, fmt.Sprintf("fetch %s: %v", pos.String(), err)
 	}
@@ -111,7 +113,7 @@ func (r *AuthorityResolver) fetchAndValidate(
 				now.Format(time.RFC3339))
 	}
 
-	if rej, reason := r.evaluateOrigin(pos); rej != RejectNone {
+	if rej, reason := r.evaluateOrigin(ctx, pos); rej != RejectNone {
 		return nil, rej, reason
 	}
 
@@ -140,12 +142,12 @@ func classifyTip(payload []byte) string {
 //
 // Returns RejectNone when origin is Original or Amended; rejection
 // when revoked/succeeded.
-func (r *AuthorityResolver) evaluateOrigin(pos types.LogPosition) (AuthorityRejection, string) {
+func (r *AuthorityResolver) evaluateOrigin(ctx context.Context, pos types.LogPosition) (AuthorityRejection, string) {
 	if r.LeafReader == nil {
 		return RejectNone, ""
 	}
 	key := smt.DeriveKey(pos)
-	eval, err := verifier.EvaluateOrigin(key, r.LeafReader, r.Fetcher)
+	eval, err := verifier.EvaluateOrigin(ctx, key, r.LeafReader, r.Fetcher)
 	if err != nil {
 		// Leaf not found is the common "fresh delegation, no
 		// amendments" case — treat as live.

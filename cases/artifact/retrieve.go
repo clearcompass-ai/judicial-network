@@ -33,6 +33,7 @@ KEY DEPENDENCIES: attesta/builder, lifecycle, smt, verifier, judicial-network/sc
 package artifact
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,6 +96,7 @@ type RetrievalRequest struct {
 }
 
 func RetrieveArtifact(
+	ctx context.Context,
 	req RetrievalRequest,
 	keyStore lifecycleartifact.KeyStore,
 	delKeyStore DelegationKeyStore,
@@ -111,7 +113,7 @@ func RetrieveArtifact(
 	// DRIFT 1 FIX: Use SDK verifier.EvaluateOrigin for entity state check.
 	// Handles path compression (TargetIntermediate), revocation, succession.
 	// Then check authority lane for sealing (enforcement-specific).
-	blocked, err := checkEntityAccess(req.CaseRootPos, leafReader, fetcher)
+	blocked, err := checkEntityAccess(ctx, req.CaseRootPos, leafReader, fetcher)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/retrieve: access check: %w", err)
 	}
@@ -119,12 +121,12 @@ func RetrieveArtifact(
 		return nil, blocked
 	}
 
-	schemaParams, err := resolveSchemaParams(req.SchemaRef, extractor, fetcher)
+	schemaParams, err := resolveSchemaParams(ctx, req.SchemaRef, extractor, fetcher)
 	if err != nil {
 		schemaParams = &types.SchemaParameters{ArtifactEncryption: types.EncryptionAESGCM}
 	}
 
-	authorizedRecipients, err := resolveAuthorizedRecipients(
+	authorizedRecipients, err := resolveAuthorizedRecipients(ctx,
 		req.FilingEntryPos, req.CaseRootPos, req.ArtifactCID, fetcher, leafReader,
 	)
 	if err != nil {
@@ -177,7 +179,7 @@ func RetrieveArtifact(
 		grantParams.Capsule = req.Capsule
 	}
 
-	result, err := lifecycleartifact.Grant(grantParams)
+	result, err := lifecycleartifact.Grant(ctx, grantParams)
 	if err != nil {
 		if isAuthorizationError(err) {
 			return nil, ErrUnauthorized
@@ -218,6 +220,7 @@ func RetrieveArtifact(
 //     fails (cryptographic signature of tampering or SDK bug).
 //   - Any other non-sentinel error indicates an infrastructure failure.
 func VerifyArtifactCommitmentOnLog(
+	ctx context.Context,
 	commitmentFetcher types.CommitmentFetcher,
 	grantorDID, recipientDID string,
 	artifactCID storage.CID,
@@ -225,7 +228,7 @@ func VerifyArtifactCommitmentOnLog(
 	if commitmentFetcher == nil {
 		return fmt.Errorf("artifact/retrieve: VerifyArtifactCommitmentOnLog: nil fetcher")
 	}
-	cmt, err := sdkartifact.FetchPREGrantCommitment(
+	cmt, err := sdkartifact.FetchPREGrantCommitment(ctx,
 		commitmentFetcher, grantorDID, recipientDID, artifactCID,
 	)
 	if err != nil {
@@ -251,6 +254,7 @@ func VerifyArtifactCommitmentOnLog(
 // then checks the authority lane for sealing enforcement entries.
 // Returns nil if access is allowed, or a typed error if blocked.
 func checkEntityAccess(
+	ctx context.Context,
 	caseRootPos types.LogPosition,
 	leafReader smt.LeafReader,
 	fetcher types.EntryFetcher,
@@ -263,7 +267,7 @@ func checkEntityAccess(
 
 	// Step 1: SDK origin evaluation — catches revocation, succession, and
 	// path compression that raw AuthorityTip comparisons miss.
-	eval, err := verifier.EvaluateOrigin(leafKey, leafReader, fetcher)
+	eval, err := verifier.EvaluateOrigin(ctx, leafKey, leafReader, fetcher)
 	if err != nil {
 		// Entity not found is not an error — case may not exist yet.
 		if errors.Is(err, verifier.ErrLeafNotFound) {
@@ -281,7 +285,7 @@ func checkEntityAccess(
 
 	// Step 2: Authority lane check — sealing is an enforcement concern.
 	// AuthorityTip diverged from both self AND OriginTip = enforcement active.
-	leaf, err := leafReader.Get(leafKey)
+	leaf, err := leafReader.Get(ctx, leafKey)
 	if err != nil || leaf == nil {
 		return nil, nil
 	}
@@ -297,12 +301,13 @@ func checkEntityAccess(
 // -------------------------------------------------------------------------------------------------
 
 func resolveAuthorizedRecipients(
+	ctx context.Context,
 	filingPos, caseRootPos types.LogPosition, artifactCID storage.CID,
 	fetcher types.EntryFetcher, leafReader smt.LeafReader,
 ) ([]string, error) {
 	recipients := make(map[string]bool)
 	if !filingPos.IsNull() {
-		filingMeta, err := fetcher.Fetch(filingPos)
+		filingMeta, err := fetcher.Fetch(ctx, filingPos)
 		if err == nil && filingMeta != nil {
 			for _, d := range extractInitialRecipients(filingMeta.CanonicalBytes) {
 				recipients[d] = true
@@ -310,7 +315,7 @@ func resolveAuthorizedRecipients(
 		}
 	}
 	if !caseRootPos.IsNull() {
-		for _, d := range scanDisclosureOrders(caseRootPos, artifactCID.String(), fetcher, leafReader) {
+		for _, d := range scanDisclosureOrders(ctx, caseRootPos, artifactCID.String(), fetcher, leafReader) {
 			recipients[d] = true
 		}
 	}
@@ -345,11 +350,12 @@ func extractInitialRecipients(canonicalBytes []byte) []string {
 const maxAuthorityChainScan = 200
 
 func scanDisclosureOrders(
+	ctx context.Context,
 	caseRootPos types.LogPosition, artifactCIDStr string,
 	fetcher types.EntryFetcher, leafReader smt.LeafReader,
 ) []string {
 	key := smt.DeriveKey(caseRootPos)
-	leaf, err := leafReader.Get(key)
+	leaf, err := leafReader.Get(ctx, key)
 	if err != nil || leaf == nil || leaf.AuthorityTip.Equal(caseRootPos) {
 		return nil
 	}
@@ -362,7 +368,7 @@ func scanDisclosureOrders(
 			break
 		}
 		visited[current] = true
-		meta, fErr := fetcher.Fetch(current)
+		meta, fErr := fetcher.Fetch(ctx, current)
 		if fErr != nil || meta == nil {
 			break
 		}

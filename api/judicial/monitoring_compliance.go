@@ -34,6 +34,7 @@ type monDualAttestationRequest struct {
 type monDualAttestationHandler struct{ deps *Dependencies }
 
 func (h *monDualAttestationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -55,7 +56,7 @@ func (h *monDualAttestationHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		RootEntityPos:    req.RootEntityPos.toLogPosition(),
 		MinimumAttesters: req.MinimumAttesters,
 	}
-	alerts, err := monitoring.CheckDualAttestation(cfg, api, h.deps.Fetcher, h.deps.LeafReader, time.Now().UTC())
+	alerts, err := monitoring.CheckDualAttestation(ctx, cfg, api, h.deps.Fetcher, h.deps.LeafReader, time.Now().UTC())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -77,6 +78,7 @@ type monMirrorConsistencyRequest struct {
 type monMirrorConsistencyHandler struct{ deps *Dependencies }
 
 func (h *monMirrorConsistencyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -105,9 +107,9 @@ func (h *monMirrorConsistencyHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		CasesLogDID:     req.CasesLogDID,
 		MirrorSignerDID: req.MirrorSignerDID,
 	}
-	alerts, err := monitoring.CheckMirrorConsistency(
-		cfg, officers, cases, h.deps.Fetcher, h.deps.LeafReader, time.Now().UTC(),
-	)
+	alerts, err := monitoring.CheckMirrorConsistency(ctx,
+		cfg, officers, cases, h.deps.Fetcher, h.deps.LeafReader, time.Now().UTC())
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -129,6 +131,7 @@ type monSealingComplianceRequest struct {
 type monSealingComplianceHandler struct{ deps *Dependencies }
 
 func (h *monSealingComplianceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -152,9 +155,9 @@ func (h *monSealingComplianceHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		ScanCount:    req.ScanCount,
 		OverdueSlack: time.Duration(req.OverdueSlackSeconds) * time.Second,
 	}
-	alerts, err := monitoring.CheckSealingCompliance(
-		cfg, api, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor, time.Now().UTC(),
-	)
+	alerts, err := monitoring.CheckSealingCompliance(ctx,
+		cfg, api, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor, time.Now().UTC())
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -177,6 +180,7 @@ type monGrantComplianceRequest struct {
 type monGrantComplianceHandler struct{ deps *Dependencies }
 
 func (h *monGrantComplianceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if requireCaller(w, r) == "" {
 		return
 	}
@@ -201,9 +205,9 @@ func (h *monGrantComplianceHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		ScanCount:         req.ScanCount,
 		AttesterSignerDID: req.AttesterSignerDID,
 	}
-	result, err := monitoring.CheckGrantCompliance(
-		cfg, api, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor, time.Now().UTC(),
-	)
+	result, err := monitoring.CheckGrantCompliance(ctx,
+		cfg, api, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor, time.Now().UTC())
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -225,6 +229,7 @@ type monDashboardRequest struct {
 type monDashboardHandler struct{ deps *Dependencies }
 
 func (h *monDashboardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r
 	if requireCaller(w, r) == "" {
 		return
 	}

@@ -10,6 +10,7 @@ package judicial
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -141,11 +142,11 @@ func TestMonAnchorFreshness_NoCaller_401(t *testing.T) {
 // need a non-nil store reference.
 type stubContent struct{}
 
-func (stubContent) Push(_ storage.CID, _ []byte) error  { return nil }
-func (stubContent) Fetch(_ storage.CID) ([]byte, error) { return nil, nil }
-func (stubContent) Pin(_ storage.CID) error             { return nil }
-func (stubContent) Exists(_ storage.CID) (bool, error)  { return false, nil }
-func (stubContent) Delete(_ storage.CID) error          { return nil }
+func (stubContent) Push(_ context.Context, _ storage.CID, _ []byte) error  { return nil }
+func (stubContent) Fetch(_ context.Context, _ storage.CID) ([]byte, error) { return nil, nil }
+func (stubContent) Pin(_ context.Context, _ storage.CID) error             { return nil }
+func (stubContent) Exists(_ context.Context, _ storage.CID) (bool, error)  { return false, nil }
+func (stubContent) Delete(_ context.Context, _ storage.CID) error          { return nil }
 
 // silence unused-import warnings if monitoring is referenced only in
 // fixtures.

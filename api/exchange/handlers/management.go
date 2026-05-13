@@ -468,7 +468,11 @@ func (h *ScopeExecuteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 // signAndSubmit serializes an entry, signs it, and forwards to the ledger.
 func signAndSubmit(w http.ResponseWriter, deps *Dependencies, signerDID string, entry *envelope.Entry) {
-	entryBytes := envelope.Serialize(entry)
+	entryBytes, err := envelope.Serialize(entry)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "serialize entry: "+err.Error())
+		return
+	}
 
 	sig, err := deps.KeyStore.Sign(signerDID, entryBytes)
 	if err != nil {
@@ -502,7 +506,8 @@ func proposalTypeFromString(s string) lifecycle.ProposalType {
 // One client, one conn pool, one retry policy — no behavior drift
 // across the 4 sites.
 //
-//  ships api/middleware/reliability.NewTunedClient as a
+//	ships api/middleware/reliability.NewTunedClient as a
+//
 // MaxConnsPerHost-capped alternative (256 idle / 1024 max). Wiring
 // it here requires composing it with sdklog.RetryAfterRoundTripper
 // so ledger-backpressure handling is preserved; deferred until

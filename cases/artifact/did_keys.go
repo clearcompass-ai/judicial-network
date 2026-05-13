@@ -16,6 +16,7 @@ KEY DEPENDENCIES: attesta/did
 package artifact
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -35,11 +36,11 @@ var assertionMethodIDPatterns = []string{"assertion", "assertionmethod", "signin
 // ResolveEncryptionKey resolves a DID to a public key for encryption
 // (PRE owner key, ECIES wrapping). Prefers keyAgreement verification
 // methods. Falls back to WitnessKeys()[0] if none found.
-func ResolveEncryptionKey(didStr string, resolver did.DIDResolver) ([]byte, error) {
+func ResolveEncryptionKey(ctx context.Context, didStr string, resolver did.DIDResolver) ([]byte, error) {
 	if resolver == nil {
 		return nil, fmt.Errorf("artifact/did_keys: nil DID resolver")
 	}
-	doc, err := resolver.Resolve(didStr)
+	doc, err := resolver.Resolve(ctx, didStr)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/did_keys: resolve %s: %w", didStr, err)
 	}
@@ -55,11 +56,11 @@ func ResolveEncryptionKey(didStr string, resolver did.DIDResolver) ([]byte, erro
 
 // ResolveSigningKey resolves a DID to a public key for signature verification.
 // Prefers assertionMethod verification methods.
-func ResolveSigningKey(didStr string, resolver did.DIDResolver) ([]byte, error) {
+func ResolveSigningKey(ctx context.Context, didStr string, resolver did.DIDResolver) ([]byte, error) {
 	if resolver == nil {
 		return nil, fmt.Errorf("artifact/did_keys: nil DID resolver")
 	}
-	doc, err := resolver.Resolve(didStr)
+	doc, err := resolver.Resolve(ctx, didStr)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/did_keys: resolve %s: %w", didStr, err)
 	}

@@ -23,22 +23,23 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
 )
 
 // ServerConfig configures the verification service.
+//
+// v0.3.0: WitnessSets replaces the legacy trio of WitnessKeys /
+// WitnessQuorum / WitnessNetwork + BLSVerifier. One *cosign.WitnessKeySet
+// per log DID carries keys, K, NetworkID, and the BLSAggregateVerifier
+// together — SDK Principle 10 (Two-Tier Quorum Encapsulation).
 type ServerConfig struct {
 	Addr           string
 	LogQueries     map[string]sdklog.LedgerQueryAPI
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
-	BLSVerifier    cosign.BLSAggregateVerifier
-	WitnessKeys    map[string][]types.WitnessPublicKey
-	WitnessQuorum  map[string]int
-	WitnessNetwork map[string]cosign.NetworkID
+	WitnessSets    map[string]*cosign.WitnessKeySet
 }
 
 // Server is the verification service HTTP server.
@@ -60,10 +61,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		LeafReader:     cfg.LeafReader,
 		Extractor:      cfg.Extractor,
 		SchemaResolver: cfg.SchemaResolver,
-		BLSVerifier:    cfg.BLSVerifier,
-		WitnessKeys:    cfg.WitnessKeys,
-		WitnessQuorum:  cfg.WitnessQuorum,
-		WitnessNetwork: cfg.WitnessNetwork,
+		WitnessSets:    cfg.WitnessSets,
 	}
 
 	mux := http.NewServeMux()
@@ -74,6 +72,12 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	mux.Handle("GET /v1/verify/delegation/{logID}/{pos}", handlers.NewVerifyDelegationHandler(deps))
 	mux.Handle("POST /v1/verify/cross-log", handlers.NewVerifyCrossLogHandler(deps))
 	mux.Handle("POST /v1/verify/fraud-proof", handlers.NewVerifyFraudProofHandler(deps))
+	// Phase 8 — Static-CT consistency endpoint. Trust Alignment 6
+	// (Zero-Trust Dual Verification): external auditors pull
+	// tiles and run the SDK verifier themselves; we expose the
+	// same verifier here so callers without a local SDK build
+	// can issue an HTTP request and get a cryptographic answer.
+	mux.Handle("POST /v1/verify/consistency", handlers.NewVerifyConsistencyHandler(deps))
 
 	// Health (no auth). Stand-alone deployments use this directly;
 	// composed deployments are routed by the parent mux at api/server.go.

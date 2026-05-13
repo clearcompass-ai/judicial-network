@@ -15,6 +15,7 @@ COVERAGE:
 package artifact
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"testing"
@@ -40,7 +41,7 @@ type fakeCommitmentFetcher struct {
 }
 
 func (f *fakeCommitmentFetcher) FindCommitmentEntries(
-	schemaID string, splitID [32]byte,
+	_ context.Context, schemaID string, splitID [32]byte,
 ) ([]*types.EntryWithMetadata, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -51,25 +52,28 @@ func (f *fakeCommitmentFetcher) FindCommitmentEntries(
 // ─── VerifyArtifactCommitmentOnLog ──────────────────────────────────
 
 func TestVerifyArtifactCommitmentOnLog_NilFetcher_Errors(t *testing.T) {
-	err := VerifyArtifactCommitmentOnLog(nil, "did:web:g", "did:web:r", storage.CID{})
+	ctx := context.Background()
+	err := VerifyArtifactCommitmentOnLog(ctx, nil, "did:web:g", "did:web:r", storage.CID{})
 	if err == nil {
 		t.Error("nil fetcher must error")
 	}
 }
 
 func TestVerifyArtifactCommitmentOnLog_NoEntry_NotOnLog(t *testing.T) {
+	ctx := context.Background()
 	fetcher := &fakeCommitmentFetcher{entries: map[[32]byte][]*types.EntryWithMetadata{}}
 	cid := storage.Compute([]byte("artifact-bytes"))
-	err := VerifyArtifactCommitmentOnLog(fetcher, "did:web:g", "did:web:r", cid)
+	err := VerifyArtifactCommitmentOnLog(ctx, fetcher, "did:web:g", "did:web:r", cid)
 	if !errors.Is(err, ErrCommitmentNotOnLog) {
 		t.Errorf("err = %v, want ErrCommitmentNotOnLog", err)
 	}
 }
 
 func TestVerifyArtifactCommitmentOnLog_FetcherError_Wrapped(t *testing.T) {
+	ctx := context.Background()
 	fetcher := &fakeCommitmentFetcher{err: errors.New("infra")}
 	cid := storage.Compute([]byte("artifact-bytes"))
-	err := VerifyArtifactCommitmentOnLog(fetcher, "did:web:g", "did:web:r", cid)
+	err := VerifyArtifactCommitmentOnLog(ctx, fetcher, "did:web:g", "did:web:r", cid)
 	if err == nil {
 		t.Fatal("expected wrapped fetcher error")
 	}
@@ -115,6 +119,7 @@ func syntheticPoint(t *testing.T, k int64) [33]byte {
 }
 
 func TestVerifyArtifactCommitmentOnLog_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	grantor := "did:web:exchange:grantor"
 	recipient := "did:web:exchange:recipient"
 	cid := storage.Compute([]byte("artifact-bytes"))
@@ -140,7 +145,7 @@ func TestVerifyArtifactCommitmentOnLog_HappyPath(t *testing.T) {
 		t.Fatalf("BuildPREGrantCommitmentEntry: %v", err)
 	}
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
-	canonical := envelope.Serialize(signed)
+	canonical, _ := envelope.Serialize(signed)
 
 	fetcher := &fakeCommitmentFetcher{
 		entries: map[[32]byte][]*types.EntryWithMetadata{
@@ -150,7 +155,7 @@ func TestVerifyArtifactCommitmentOnLog_HappyPath(t *testing.T) {
 			}},
 		},
 	}
-	if err := VerifyArtifactCommitmentOnLog(fetcher, grantor, recipient, cid); err != nil {
+	if err := VerifyArtifactCommitmentOnLog(ctx, fetcher, grantor, recipient, cid); err != nil {
 		t.Errorf("happy-path verification must pass: %v", err)
 	}
 }
@@ -158,6 +163,7 @@ func TestVerifyArtifactCommitmentOnLog_HappyPath(t *testing.T) {
 // ─── Mismatch path: tuple differs from what commitment was issued for ─
 
 func TestVerifyArtifactCommitmentOnLog_TupleMismatch_Mismatch(t *testing.T) {
+	ctx := context.Background()
 	// Build a commitment under splitID(g1, r1, cid). Inject the entry
 	// into the fetcher under splitID(g2, r2, cid) (a different
 	// SplitID). The caller queries (g2, r2, cid). FetchPREGrantCommitment
@@ -198,7 +204,7 @@ func TestVerifyArtifactCommitmentOnLog_TupleMismatch_Mismatch(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
-	canonical := envelope.Serialize(signed)
+	canonical, _ := envelope.Serialize(signed)
 
 	fetcher := &fakeCommitmentFetcher{
 		entries: map[[32]byte][]*types.EntryWithMetadata{
@@ -211,7 +217,7 @@ func TestVerifyArtifactCommitmentOnLog_TupleMismatch_Mismatch(t *testing.T) {
 			}},
 		},
 	}
-	err = VerifyArtifactCommitmentOnLog(fetcher, grantorQuery, recipientQuery, cid)
+	err = VerifyArtifactCommitmentOnLog(ctx, fetcher, grantorQuery, recipientQuery, cid)
 	// The SDK's Fetch already cross-checks the on-log SplitID against
 	// the caller-derived SplitID and rejects mismatch as a fetch
 	// error (not our ErrCommitmentMismatch). Either error category
@@ -224,6 +230,7 @@ func TestVerifyArtifactCommitmentOnLog_TupleMismatch_Mismatch(t *testing.T) {
 // ─── Equivocation surfaces (two entries under same SplitID) ───────
 
 func TestVerifyArtifactCommitmentOnLog_Equivocation_Surfaces(t *testing.T) {
+	ctx := context.Background()
 	// FetchPREGrantCommitment rejects with CommitmentEquivocationError
 	// when more than one entry shares the same SplitID. Our wrapper
 	// passes that through as the wrapped fetch error (NOT a sentinel).
@@ -241,7 +248,7 @@ func TestVerifyArtifactCommitmentOnLog_Equivocation_Surfaces(t *testing.T) {
 			},
 		},
 	}
-	err = VerifyArtifactCommitmentOnLog(fetcher, "did:web:g", "did:web:r", cid)
+	err = VerifyArtifactCommitmentOnLog(ctx, fetcher, "did:web:g", "did:web:r", cid)
 	if err == nil {
 		t.Error("equivocation must surface as error")
 	}

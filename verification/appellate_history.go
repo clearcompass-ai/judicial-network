@@ -124,29 +124,24 @@ func WalkAppealChain(origin AppealStep, next NextProofFn) ([]AppealStep, error) 
 // the source-log witness key set. Returns the chain with
 // ProofVerified set per step; halts on the first broken link.
 //
-// witnessKeysByLog and quorumByLog are keyed by LogDID. A step
-// whose LogDID is unknown to the maps is treated as
-// ProofVerified=false.
+// v0.3.0: witnessSetByLog replaces the v0.1.0 three-map
+// (keys/quorum/networkID) shape. K and NetworkID are encapsulated
+// inside *cosign.WitnessKeySet at construction time so this
+// function cannot read the wrong K for a given source log.
 func VerifyAppealChain(
 	steps []AppealStep,
-	witnessKeysByLog map[string][]types.WitnessPublicKey,
-	quorumByLog map[string]int,
-	networkIDByLog map[string]cosign.NetworkID,
-	blsVerifier cosign.BLSAggregateVerifier,
+	witnessSetByLog map[string]*cosign.WitnessKeySet,
 ) ([]AppealStep, error) {
 	for i := range steps {
 		if steps[i].Proof == nil {
 			continue
 		}
-		sourceKeys := witnessKeysByLog[steps[i].LogDID]
-		quorum := quorumByLog[steps[i].LogDID]
-		networkID := networkIDByLog[steps[i].LogDID]
-		if len(sourceKeys) == 0 || quorum == 0 || networkID.IsZero() {
+		set, ok := witnessSetByLog[steps[i].LogDID]
+		if !ok || set == nil {
 			steps[i].ProofVerified = false
 			continue
 		}
-		err := verifier.VerifyCrossLogProof(*steps[i].Proof,
-			sourceKeys, quorum, networkID, blsVerifier,
+		err := verifier.VerifyCrossLogProof(*steps[i].Proof, set,
 			topology.ExtractAnchorPayload)
 		if err != nil {
 			steps[i].ProofVerified = false

@@ -122,19 +122,25 @@ func (h *consortiumProposeRemoveHandler) ServeHTTP(w http.ResponseWriter, r *htt
 // wire-equivalent.
 type consortiumVerifyCrossCourtHandler struct{ deps *Dependencies }
 
+// ServeHTTP — v0.3.0 collapse of the cross-court verify wire shape.
+//
+// Old (v0.1.0): accepted source_witness_keys_b64 + source_witness_quorum +
+// source_network_id and re-assembled them per request. This duplicated
+// the boot-time WitnessSets[did] entry and admitted the class of bug
+// where the per-request K/keys drifted from the deployment topology.
+//
+// New (v0.3.0): the request supplies only source_log_did. The deps'
+// WitnessSets[did] is the single source of truth for K, keys, and
+// NetworkID (SDK Principle 10, Two-Tier Quorum Encapsulation). If the
+// source log is unknown to the deployment, the request fails fast
+// with 400 — no opportunity for inconsistent overrides.
 func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if requireCaller(w, r) == "" {
 		return
 	}
-	if h.deps.BLSVerifier == nil {
-		writeError(w, http.StatusInternalServerError, "BLSVerifier must be configured")
-		return
-	}
 	var req struct {
-		Proof                json.RawMessage `json:"proof"`
-		SourceLogDID         string          `json:"source_log_did"`
-		SourceWitnessKeysB64 []string        `json:"source_witness_keys_b64,omitempty"`
-		SourceWitnessQuorum  int             `json:"source_witness_quorum,omitempty"`
+		Proof        json.RawMessage `json:"proof"`
+		SourceLogDID string          `json:"source_log_did"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -149,25 +155,13 @@ func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *
 		writeError(w, http.StatusBadRequest, "proof must be a valid CrossLogProof JSON")
 		return
 	}
-	keys, err := decodeWitnessKeys(req.SourceWitnessKeysB64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if len(keys) == 0 {
-		keys = h.deps.WitnessKeys[req.SourceLogDID]
-	}
-	quorum := req.SourceWitnessQuorum
-	if quorum == 0 {
-		quorum = h.deps.WitnessQuorum[req.SourceLogDID]
-	}
-	networkID := h.deps.WitnessNetwork[req.SourceLogDID]
-	if len(keys) == 0 || quorum == 0 || networkID.IsZero() {
+	set, ok := h.deps.WitnessSets[req.SourceLogDID]
+	if !ok || set == nil {
 		writeError(w, http.StatusBadRequest,
-			"source_witness_keys + quorum + network_id required (or pre-configured for the source log)")
+			"no witness set for source_log_did (pre-configure via WitnessSets at boot)")
 		return
 	}
-	verifyErr := consortium.VerifyCrossCourtProof(proof, keys, quorum, networkID, h.deps.BLSVerifier)
+	verifyErr := consortium.VerifyCrossCourtProof(proof, set)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"verified": false, "error": verifyErr.Error()})
 		return

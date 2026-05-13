@@ -12,6 +12,7 @@ KEY DEPENDENCIES: attesta/verifier, attesta/schema
 package verification
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/clearcompass-ai/attesta/core/smt"
@@ -31,6 +32,7 @@ type EnforcementStatus struct {
 
 // CheckEnforcementStatus evaluates the authority chain for a case entity.
 func CheckEnforcementStatus(
+	ctx context.Context,
 	caseRootPos types.LogPosition,
 	leafReader smt.LeafReader,
 	fetcher types.EntryFetcher,
@@ -38,7 +40,7 @@ func CheckEnforcementStatus(
 ) (*EnforcementStatus, error) {
 	leafKey := smt.DeriveKey(caseRootPos)
 
-	authEval, err := verifier.EvaluateAuthority(leafKey, leafReader, fetcher, extractor)
+	authEval, err := verifier.EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
 	if err != nil {
 		return nil, fmt.Errorf("verification/sealing_check: %w", err)
 	}
@@ -52,9 +54,9 @@ func CheckEnforcementStatus(
 
 	// Check for pending contests on active enforcement entries (SDK correction #7).
 	for _, constraint := range authEval.ActiveConstraints {
-		contestResult, cErr := verifier.EvaluateContest(
-			constraint.Position, fetcher, leafReader, extractor,
-		)
+		contestResult, cErr := verifier.EvaluateContest(ctx,
+			constraint.Position, fetcher, leafReader, extractor)
+
 		if cErr == nil && contestResult != nil && contestResult.OperationBlocked {
 			status.HasPendingContest = true
 			status.ContestReason = contestResult.Reason

@@ -34,6 +34,7 @@ KEY DEPENDENCIES:
 package parties
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -46,8 +47,8 @@ import (
 // PartiesQuerier discovers party binding entries.
 // Satisfied by log.LedgerQueryAPI (structural typing).
 type PartiesQuerier interface {
-	QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)
-	QueryByTargetRoot(pos types.LogPosition) ([]types.EntryWithMetadata, error)
+	QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error)
+	QueryByTargetRoot(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error)
 }
 
 // PartyLink represents a discovered party-case association.
@@ -105,10 +106,11 @@ func LinkPartyToCase(cfg LinkPartyCaseConfig) (*envelope.Entry, error) {
 // ListCaseParties queries the parties log for all bindings the
 // caller signed. Returns discovered party links.
 func ListCaseParties(
+	ctx context.Context,
 	signerDID string,
 	querier PartiesQuerier,
 ) ([]PartyLink, error) {
-	entries, err := querier.QueryBySignerDID(signerDID)
+	entries, err := querier.QueryBySignerDID(ctx, signerDID)
 	if err != nil {
 		return nil, fmt.Errorf("parties/roster: query: %w", err)
 	}
@@ -156,13 +158,14 @@ func ListCaseParties(
 // case-local BindingID. The querier scans entries the caller
 // signed; matching is on payload.binding_id.
 func FindPartyByBindingID(
+	ctx context.Context,
 	signerDID, bindingID string,
 	querier PartiesQuerier,
 ) (*PartyLink, error) {
 	if bindingID == "" {
 		return nil, fmt.Errorf("parties/roster: empty binding_id")
 	}
-	links, err := ListCaseParties(signerDID, querier)
+	links, err := ListCaseParties(ctx, signerDID, querier)
 	if err != nil {
 		return nil, err
 	}

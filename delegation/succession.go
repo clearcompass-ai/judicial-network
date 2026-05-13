@@ -129,12 +129,13 @@ func Succeed(ctx context.Context, bc *BuildContext, req SuccessionRequest) (*Suc
 		LogDID:   req.TargetDelegation.LogDID,
 		Sequence: req.TargetDelegation.Sequence,
 	}
+	// v0.3.0: SuccessionParams.NewSignerDID was removed; the successor
+	// DID is already carried in payloadBytes as JudicialSuccessionPayload.SuccessorDID.
 	entry, err := builder.BuildSuccession(builder.SuccessionParams{
-		Destination:  bc.ExchangeDID,
-		SignerDID:    req.SignerDID,
-		TargetRoot:   target,
-		NewSignerDID: req.SuccessorDID,
-		Payload:      payloadBytes,
+		Destination: bc.ExchangeDID,
+		SignerDID:   req.SignerDID,
+		TargetRoot:  target,
+		Payload:     payloadBytes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBuildFailed, err)

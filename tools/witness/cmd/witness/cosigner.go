@@ -118,7 +118,7 @@ func (l *cosignLoop) tickOnce(ctx context.Context) {
 // DID. Returns nil when the head hasn't advanced since the last
 // processed tick (no-op cosignature suppression).
 func (l *cosignLoop) processLog(ctx context.Context, logDID string) error {
-	head, _, err := l.cfg.Client.FetchLatestTreeHead(logDID)
+	head, _, err := l.cfg.Client.FetchLatestTreeHead(ctx, logDID)
 	if err != nil {
 		return fmt.Errorf("fetch head: %w", err)
 	}

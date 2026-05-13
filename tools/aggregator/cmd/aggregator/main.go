@@ -48,7 +48,7 @@ import (
 type deps struct {
 	loadConfig    func(string) (common.Config, error)
 	openDB        func(string) (*common.DB, error)
-	newLedger   func(string, string) *common.LedgerClient
+	newLedger     func(string, string) *common.LedgerClient
 	startScanner  func(context.Context, *aggregator.Scanner) error
 	listenAndServ func(*http.Server) error
 }
@@ -57,7 +57,7 @@ func realDeps() deps {
 	return deps{
 		loadConfig:    common.LoadConfig,
 		openDB:        common.NewDB,
-		newLedger:   func(url, did string) *common.LedgerClient { return common.NewLedgerClient(url, did) },
+		newLedger:     func(url, did string) *common.LedgerClient { return common.NewLedgerClient(url, did) },
 		startScanner:  func(ctx context.Context, s *aggregator.Scanner) error { return s.Run(ctx) },
 		listenAndServ: func(srv *http.Server) error { return srv.ListenAndServe() },
 	}

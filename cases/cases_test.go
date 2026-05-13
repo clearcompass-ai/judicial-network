@@ -291,12 +291,12 @@ func TestSuccession_ExchangeMigration(t *testing.T) {
 	entityPos := types.LogPosition{LogDID: casesLogDID, Sequence: 1}
 
 	entry, err := builder.BuildSuccession(builder.SuccessionParams{
-		Destination:  "did:web:exchange.test",
-		SignerDID:    courtDID,
-		TargetRoot:   entityPos,
-		NewSignerDID: "did:web:exchange-b.courts.tn.gov",
+		Destination: "did:web:exchange.test",
+		SignerDID:   courtDID,
+		TargetRoot:  entityPos,
 		Payload: mustJSON(t, map[string]any{
 			"migration_type": "graceful",
+			"new_signer_did": "did:web:exchange-b.courts.tn.gov",
 			"new_exchange":   "did:web:exchange-b.courts.tn.gov",
 		}),
 	})

@@ -17,6 +17,7 @@ KEY DEPENDENCIES: attesta/core/smt, attesta/log, attesta/verifier
 package monitoring
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -27,6 +28,8 @@ import (
 	"github.com/clearcompass-ai/attesta/monitoring"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 const MonitorMirrorConsistency monitoring.MonitorID = "judicial.mirror_consistency"
@@ -50,6 +53,7 @@ type MirrorConsistencyConfig struct {
 // CheckMirrorConsistency walks the delegation tree and verifies each
 // live delegation has a matching mirror on the cases log.
 func CheckMirrorConsistency(
+	ctx context.Context,
 	cfg MirrorConsistencyConfig,
 	officersQuerier sdklog.LedgerQueryAPI,
 	casesQuerier sdklog.LedgerQueryAPI,
@@ -61,13 +65,16 @@ func CheckMirrorConsistency(
 		return nil, fmt.Errorf("monitoring/mirror: both queriers required")
 	}
 
-	// 1. Walk the officers log delegation tree.
-	tree, err := verifier.WalkDelegationTree(verifier.WalkDelegationTreeParams{
+	// 1. Walk the officers log delegation tree. The verifier's
+	// DelegationQuerier interface is ctx-free; the adapter binds the
+	// request ctx into each QueryBySignerDID RPC.
+	tree, err := verifier.WalkDelegationTree(ctx, verifier.WalkDelegationTreeParams{
 		RootEntityPos: cfg.RootEntityPos,
 		Fetcher:       officersFetcher,
 		LeafReader:    officersLeafReader,
-		Querier:       officersQuerier,
+		Querier:       common.NewDelegationQuerier(ctx, officersQuerier),
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/mirror: walk tree: %w", err)
 	}
@@ -79,7 +86,7 @@ func CheckMirrorConsistency(
 	}
 
 	// 2. Fetch mirror entries from the cases log signed by the ledger.
-	mirrorEntries, err := casesQuerier.QueryBySignerDID(cfg.MirrorSignerDID)
+	mirrorEntries, err := casesQuerier.QueryBySignerDID(ctx, cfg.MirrorSignerDID)
 	if err != nil {
 		return nil, fmt.Errorf("monitoring/mirror: query mirrors: %w", err)
 	}

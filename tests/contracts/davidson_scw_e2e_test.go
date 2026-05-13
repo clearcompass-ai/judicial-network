@@ -37,6 +37,7 @@ package contracts
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -58,6 +59,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────
 
 func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
+	ctx := context.Background()
 	h := newSCWE2EHarness(t)
 
 	// 1. Drive POST /v1/judicial/cases as the SCW caller.
@@ -137,7 +139,7 @@ func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 	rpc.BindEthCall(scwE2EAddr(), calldata, scwE2EMagicReturn())
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
-	if err := registry.VerifyEntry(rebuilt); err != nil {
+	if err := registry.VerifyEntry(ctx, rebuilt); err != nil {
 		t.Fatalf("verifier registry rejected JN-built EIP-1271 entry: %v", err)
 	}
 	if got := rpc.CallCount("eth_call"); got != 1 {
@@ -150,6 +152,7 @@ func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 func TestDavidsonSCW_E2E_RejectsBadMagic(t *testing.T) {
+	ctx := context.Background()
 	h := newSCWE2EHarness(t)
 
 	body := []byte(`{
@@ -196,7 +199,7 @@ func TestDavidsonSCW_E2E_RejectsBadMagic(t *testing.T) {
 	rpc.BindEthCall(scwE2EAddr(), calldata, make([]byte, 32))
 
 	registry := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
-	verr := registry.VerifyEntry(rebuilt)
+	verr := registry.VerifyEntry(ctx, rebuilt)
 	if !errors.Is(verr, signatures.ErrEIP1271InvalidMagic) {
 		t.Fatalf("bad magic value MUST reject with ErrEIP1271InvalidMagic; got %v", verr)
 	}

@@ -149,7 +149,7 @@ func TestSDKContract_EnvelopeRoundTrip(t *testing.T) {
 		t.Fatalf("BuildRootEntity: %v", err)
 	}
 	signed := signEntry(t, entry, priv, signerDID)
-	wire := envelope.Serialize(signed)
+	wire, _ := envelope.Serialize(signed)
 
 	got, err := envelope.Deserialize(wire)
 	if err != nil {

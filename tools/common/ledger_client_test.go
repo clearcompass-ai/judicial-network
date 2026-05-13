@@ -17,6 +17,7 @@ DESCRIPTION:
 package common
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -99,6 +100,7 @@ func newFakeLedger(t *testing.T) (*httptest.Server, *fakeLedger) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
+	ctx := context.Background()
 	srv, op := newFakeLedger(t)
 	defer srv.Close()
 
@@ -106,7 +108,7 @@ func TestLedgerClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
 	op.storedTime[42] = time.Date(2026, 4, 29, 12, 0, 0, 0, time.UTC)
 
 	c := NewLedgerClient(srv.URL, testLogDID)
-	got, err := c.FetchEntry(42)
+	got, err := c.FetchEntry(ctx, 42)
 	if err != nil {
 		t.Fatalf("FetchEntry: %v", err)
 	}
@@ -133,11 +135,12 @@ func TestLedgerClient_FetchEntry_HitsRawEndpoint(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
+	ctx := context.Background()
 	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
 	c := NewLedgerClient(srv.URL, testLogDID)
-	got, err := c.FetchEntry(999)
+	got, err := c.FetchEntry(ctx, 999)
 	if err != nil {
 		t.Fatalf("FetchEntry: %v", err)
 	}
@@ -151,6 +154,7 @@ func TestLedgerClient_FetchEntry_NotFound_ReturnsNilNil(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
+	ctx := context.Background()
 	srv, op := newFakeLedger(t)
 	defer srv.Close()
 
@@ -163,7 +167,7 @@ func TestLedgerClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
 	}
 
 	c := NewLedgerClient(srv.URL, testLogDID)
-	rows, err := c.ScanFrom(0, 100)
+	rows, err := c.ScanFrom(ctx, 0, 100)
 	if err != nil {
 		t.Fatalf("ScanFrom: %v", err)
 	}
@@ -188,11 +192,12 @@ func TestLedgerClient_ScanFrom_BackFillsCanonicalBytes(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestLedgerClient_ScanFrom_RequiresLogDID(t *testing.T) {
+	ctx := context.Background()
 	srv, _ := newFakeLedger(t)
 	defer srv.Close()
 
 	c := NewLedgerClient(srv.URL) // no logDID
-	_, err := c.ScanFrom(0, 10)
+	_, err := c.ScanFrom(ctx, 0, 10)
 	if err == nil {
 		t.Fatal("expected error for ScanFrom without logDID")
 	}
@@ -256,6 +261,7 @@ func TestLedgerClient_TreeHead_OversizeErrors(t *testing.T) {
 // junk past the cap; ScanFrom must surface "exceeds" error rather
 // than truncate-and-parse-fail.
 func TestLedgerClient_ScanFrom_OversizeErrors(t *testing.T) {
+	ctx := context.Background()
 	huge := make([]byte, maxScanResponseBytes+1024)
 	for i := range huge {
 		huge[i] = '"'
@@ -272,7 +278,7 @@ func TestLedgerClient_ScanFrom_OversizeErrors(t *testing.T) {
 	defer srv.Close()
 
 	c := NewLedgerClient(srv.URL, testLogDID)
-	_, err := c.ScanFrom(0, 100)
+	_, err := c.ScanFrom(ctx, 0, 100)
 	if err == nil {
 		t.Fatal("expected error for oversize scan response")
 	}

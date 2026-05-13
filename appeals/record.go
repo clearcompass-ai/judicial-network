@@ -27,6 +27,7 @@ KEY DEPENDENCIES: attesta/builder, log.LedgerQueryAPI, cases/artifact
 package appeals
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -45,7 +46,7 @@ import (
 // RecordQuerier discovers entries by target root on the lower court log.
 // Satisfied by log.LedgerQueryAPI (structural typing).
 type RecordQuerier interface {
-	QueryByTargetRoot(pos types.LogPosition) ([]types.EntryWithMetadata, error)
+	QueryByTargetRoot(ctx context.Context, pos types.LogPosition) ([]types.EntryWithMetadata, error)
 }
 
 // SourceDecryptor decrypts a source-court artifact to plaintext.
@@ -107,6 +108,7 @@ type RecordTransferResult struct {
 // re-encrypts under appellate keys via artifact.PublishArtifact, and
 // produces a manifest commentary entry for the appellate log.
 func TransferRecord(
+	ctx context.Context,
 	cfg RecordTransferConfig,
 	querier RecordQuerier,
 	decryptor SourceDecryptor,
@@ -122,7 +124,7 @@ func TransferRecord(
 		return nil, fmt.Errorf("appeals/record: nil source decryptor")
 	}
 
-	entries, err := querier.QueryByTargetRoot(cfg.LowerCourtCasePos)
+	entries, err := querier.QueryByTargetRoot(ctx, cfg.LowerCourtCasePos)
 	if err != nil {
 		return nil, fmt.Errorf("appeals/record: query lower court: %w", err)
 	}
@@ -164,6 +166,7 @@ func TransferRecord(
 
 		// 2. Re-publish under appellate configuration.
 		published, pubErr := artifact.PublishArtifact(
+			ctx,
 			artifact.PublishConfig{
 				Plaintext: plaintext,
 				SchemaRef: cfg.AppellateSchemaRef,
@@ -232,6 +235,11 @@ type DirectKeySourceDecryptor struct {
 }
 
 // DecryptSource fetches ciphertext, looks up the AES key, and decrypts.
+// v0.3.0: the SourceDecryptor interface remains ctx-free for backwards
+// compat, but the underlying ContentStore.Fetch needs a ctx; we use
+// context.Background() here since the trust-boundary direct-key path
+// runs entirely on the source ledger's trust side. Caller-bounded
+// flows should implement their own ctx-aware SourceDecryptor.
 func (d *DirectKeySourceDecryptor) DecryptSource(
 	sourceCID storage.CID,
 	_ *envelope.Entry,
@@ -249,7 +257,7 @@ func (d *DirectKeySourceDecryptor) DecryptSource(
 	if key == nil {
 		return nil, fmt.Errorf("key not found for %s (PRE or expunged)", sourceCID)
 	}
-	ciphertext, err := d.ContentStore.Fetch(sourceCID)
+	ciphertext, err := d.ContentStore.Fetch(context.Background(), sourceCID)
 	if err != nil {
 		return nil, fmt.Errorf("fetch ciphertext: %w", err)
 	}

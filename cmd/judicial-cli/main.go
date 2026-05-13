@@ -133,6 +133,11 @@ func dispatch(subcmd string, args []string) error {
 		return runInclusion(args)
 	case "wait":
 		return runWait(args)
+	case "onboard":
+		if code := runOnboard(args, os.Stdout, os.Stderr); code != 0 {
+			return &cliError{kind: code, err: fmt.Errorf("onboard failed")}
+		}
+		return nil
 	case "version":
 		fmt.Println(Version)
 		return nil

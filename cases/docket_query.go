@@ -14,6 +14,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/core/smt, attesta/verifier
 package cases
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -36,12 +37,13 @@ type DocketQueryResult struct {
 }
 
 type DocketScanner interface {
-	QueryBySignerDID(did string) ([]types.EntryWithMetadata, error)
+	QueryBySignerDID(ctx context.Context, did string) ([]types.EntryWithMetadata, error)
 }
 
 // LookupDocket searches for a case by docket number using EvaluateOrigin
 // for state evaluation (SDK correction #2).
 func LookupDocket(
+	ctx context.Context,
 	docketNumber string,
 	signerDID string,
 	scanner DocketScanner,
@@ -52,7 +54,7 @@ func LookupDocket(
 		return nil, fmt.Errorf("cases/docket_query: empty docket number")
 	}
 
-	entries, err := scanner.QueryBySignerDID(signerDID)
+	entries, err := scanner.QueryBySignerDID(ctx, signerDID)
 	if err != nil {
 		return nil, fmt.Errorf("cases/docket_query: query: %w", err)
 	}
@@ -88,7 +90,7 @@ func LookupDocket(
 		// SDK correction #2: Use EvaluateOrigin for entity state.
 		// Handles path compression, revocation, succession that raw reads miss.
 		leafKey := smt.DeriveKey(meta.Position)
-		eval, evalErr := verifier.EvaluateOrigin(leafKey, leafReader, fetcher)
+		eval, evalErr := verifier.EvaluateOrigin(ctx, leafKey, leafReader, fetcher)
 		if evalErr == nil && eval != nil {
 			result.OriginState = eval.State
 			result.OriginTip = eval.TipPosition
@@ -98,7 +100,7 @@ func LookupDocket(
 		}
 
 		// Authority lane for sealing.
-		leaf, leafErr := leafReader.Get(leafKey)
+		leaf, leafErr := leafReader.Get(ctx, leafKey)
 		if leafErr == nil && leaf != nil {
 			result.AuthorityTip = leaf.AuthorityTip
 			if !leaf.AuthorityTip.Equal(meta.Position) &&

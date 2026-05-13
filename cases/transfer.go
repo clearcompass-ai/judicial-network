@@ -15,6 +15,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier, delegation/mirror
 package cases
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -90,8 +91,9 @@ type CountyTransferResult struct {
 
 // TransferCounty initiates a cross-county transfer. Builds cross-log proof,
 // marks source case as transferred, and produces delegation mirror entries
-// for the target county log.
+// for the target county log. ctx threads into the fetcher / prover RPCs.
 func TransferCounty(
+	ctx context.Context,
 	cfg CountyTransferConfig,
 	fetcher types.EntryFetcher,
 	sourceProver verifier.MerkleProver,
@@ -109,7 +111,7 @@ func TransferCounty(
 	}
 
 	// Build cross-log proof.
-	proof, err := verifier.BuildCrossLogProof(
+	proof, err := verifier.BuildCrossLogProof(ctx,
 		cfg.SourceCasePos, anchorRef, fetcher,
 		sourceProver, localProver, sourceHead, localHead,
 	)

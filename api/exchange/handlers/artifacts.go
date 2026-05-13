@@ -53,7 +53,8 @@ func NewArtifactPublishHandler(deps *Dependencies) *ArtifactPublishHandler {
 const maxArtifactPlaintextBytes int64 = 64 << 20
 
 func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	_ = auth.SignerDIDFromContext(r.Context())
+	ctx := r.Context()
+	_ = auth.SignerDIDFromContext(ctx)
 
 	// Read plaintext from request body. http.MaxBytesReader caps at
 	// maxArtifactPlaintextBytes; oversize requests surface as
@@ -100,7 +101,7 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	contentStore := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: h.deps.ArtifactStoreEndpoint,
 	})
-	if err := contentStore.Push(cid, ciphertext); err != nil {
+	if err := contentStore.Push(ctx, cid, ciphertext); err != nil {
 		writeError(w, http.StatusBadGateway, "artifact store: "+err.Error())
 		return
 	}
@@ -164,7 +165,11 @@ func (h *ArtifactGrantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	entryBytes := envelope.Serialize(entry)
+	entryBytes, err := envelope.Serialize(entry)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "grant serialize failed")
+		return
+	}
 
 	// Sign with granter's custodied key.
 	sig, err := h.deps.KeyStore.Sign(req.GranterDID, entryBytes)

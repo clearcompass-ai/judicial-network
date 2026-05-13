@@ -38,7 +38,7 @@ import (
 func buildAndHex(t *testing.T, entry *envelope.Entry) common.RawEntry {
 	t.Helper()
 	signed := testutil.SignEntry(t, entry, testutil.GenerateSigningKey(t))
-	raw := envelope.Serialize(signed)
+	raw, _ := envelope.Serialize(signed)
 	return common.RawEntry{
 		Sequence:     42,
 		CanonicalHex: hex.EncodeToString(raw),

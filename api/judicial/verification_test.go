@@ -10,14 +10,11 @@ package judicial
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/types"
 )
 
@@ -272,7 +269,7 @@ func TestVerifyCrossLogProof_NoCaller_401(t *testing.T) {
 
 func TestVerifyCrossLogProof_MissingFields_400(t *testing.T) {
 	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{BLSVerifier: stubBLS{}})
+	h := newTestHandler(Dependencies{})
 	body := mustJSON(t, crossLogProofRequest{Proof: []byte(`{}`)})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,
@@ -296,63 +293,24 @@ func TestVerifyCrossLogProof_MissingFields_400(t *testing.T) {
 // caller-supplied path. The fix routes the handler through
 // resolveSourceNetworkID, which prefers the request override and
 // falls back to the deps map only when present.
-func TestVerifyCrossLogProof_CallerSuppliedNetworkID(t *testing.T) {
+// v0.3.0+: cross-log proof verification now reads from
+// deps.WitnessSets (one *cosign.WitnessKeySet per source log).
+// The handler 400s when no entry exists for the requested
+// source_log_did — the test below pins that contract.
+func TestVerifyCrossLogProof_UnknownSourceLog_400(t *testing.T) {
 	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{
-		BLSVerifier:    stubBLS{},
-		WitnessNetwork: map[string]cosign.NetworkID{}, // empty deps map — caller MUST supply
-	})
-	// Build a minimum proof so we get past the proof-shape gate.
-	// The verifier will reject this proof (it's all zeros) but we
-	// only care that we got to the verifier, not before.
+	h := newTestHandler(Dependencies{})
 	proofJSON := mustJSON(t, types.CrossLogProof{})
-	hexNID := strings.Repeat("ab", 32) // 64-char lowercase hex, non-zero
 	body := mustJSON(t, crossLogProofRequest{
-		Proof:                proofJSON,
-		SourceLogDID:         "did:web:external:trust:boundary",
-		SourceWitnessKeysB64: []string{base64.StdEncoding.EncodeToString(make([]byte, 96))},
-		SourceWitnessQuorum:  1,
-		SourceNetworkIDHex:   hexNID,
-	})
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost,
-		"/v1/judicial/verification/cross-log-proof", bytes.NewReader(body))
-	h.ServeHTTP(rec, req)
-	// We expect the handler to PROCEED past key/quorum/network
-	// validation and reach VerifyCrossLogProof, which will return
-	// `verified: false` for this synthetic proof. 200 OK with a
-	// `verified` field in the body is the success-path signal that
-	// the gate did NOT 400 us out before crypto.
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 (handler must reach verifier when "+
-			"caller supplies all source-side material); body = %s",
-			rec.Code, rec.Body.String())
-	}
-	var resp map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if _, ok := resp["verified"]; !ok {
-		t.Errorf("response missing `verified` field; got %v", resp)
-	}
-}
-
-// TestVerifyCrossLogProof_RejectsMalformedNetworkID rejects a
-// SourceNetworkIDHex that isn't 64 lowercase hex chars. Pins the
-// resolveSourceNetworkID input-validation contract.
-func TestVerifyCrossLogProof_RejectsMalformedNetworkID(t *testing.T) {
-	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{BLSVerifier: stubBLS{}})
-	body := mustJSON(t, crossLogProofRequest{
-		Proof:              []byte(`{}`),
-		SourceLogDID:       "did:web:external",
-		SourceNetworkIDHex: "not-hex",
+		Proof:        proofJSON,
+		SourceLogDID: "did:web:external:trust:boundary",
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,
 		"/v1/judicial/verification/cross-log-proof", bytes.NewReader(body))
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", rec.Code)
+		t.Fatalf("status = %d, want 400 (no witness set for source_log_did); body = %s",
+			rec.Code, rec.Body.String())
 	}
 }

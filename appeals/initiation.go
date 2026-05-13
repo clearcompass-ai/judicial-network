@@ -13,6 +13,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/verifier
 package appeals
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -40,7 +41,9 @@ type AppealInitiationResult struct {
 
 // FileAppeal creates a notice of appeal on the appellate court's cases log.
 // Includes a cross-log proof demonstrating the lower court case exists.
+// ctx threads into the fetcher / prover RPCs that compose the cross-log proof.
 func FileAppeal(
+	ctx context.Context,
 	cfg AppealInitiationConfig,
 	fetcher types.EntryFetcher,
 	sourceProver verifier.MerkleProver,
@@ -54,7 +57,7 @@ func FileAppeal(
 	}
 
 	// Build cross-log proof for the lower court case.
-	proof, err := verifier.BuildCrossLogProof(
+	proof, err := verifier.BuildCrossLogProof(ctx,
 		cfg.LowerCourtCasePos, anchorRef, fetcher,
 		sourceProver, localProver, sourceHead, localHead,
 	)

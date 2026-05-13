@@ -18,6 +18,7 @@ KEY DEPENDENCIES: attesta/builder, attesta/witness, attesta/crypto/cosign
 package onboarding
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -67,6 +68,7 @@ type AnchorRegistrationResult struct {
 // If the county's tree head isn't available yet, this returns an error —
 // the caller retries after the county ledger publishes its first head.
 func RegisterFirstAnchor(
+	ctx context.Context,
 	cfg AnchorRegistrationConfig,
 	treeHeadClient *witness.TreeHeadClient,
 ) (*AnchorRegistrationResult, error) {
@@ -86,7 +88,7 @@ func RegisterFirstAnchor(
 	}
 
 	// Fetch the county log's current tree head.
-	head, _, err := treeHeadClient.FetchLatestTreeHead(cfg.CountyLogDID)
+	head, _, err := treeHeadClient.FetchLatestTreeHead(ctx, cfg.CountyLogDID)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"onboarding/anchor_registration: county log %s has no available tree head yet: %w",

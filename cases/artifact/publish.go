@@ -18,6 +18,7 @@ KEY DEPENDENCIES: attesta/builder, crypto/artifact, lifecycle, storage, did
 package artifact
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 
@@ -74,6 +75,7 @@ type PublishedArtifact struct {
 // -------------------------------------------------------------------------------------------------
 
 func PublishArtifact(
+	ctx context.Context,
 	cfg PublishConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -91,7 +93,7 @@ func PublishArtifact(
 
 	contentDigest := storage.Compute(cfg.Plaintext)
 
-	schemaParams, err := resolveSchemaParams(cfg.SchemaRef, extractor, fetcher)
+	schemaParams, err := resolveSchemaParams(ctx, cfg.SchemaRef, extractor, fetcher)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/publish: resolve schema: %w", err)
 	}
@@ -102,12 +104,12 @@ func PublishArtifact(
 		if keyStore == nil {
 			return nil, fmt.Errorf("artifact/publish: nil ArtifactKeyStore for AES-GCM")
 		}
-		result, err = publishAESGCM(cfg, contentStore, keyStore, contentDigest)
+		result, err = publishAESGCM(ctx, cfg, contentStore, keyStore, contentDigest)
 	case types.EncryptionUmbralPRE:
 		if delKeyStore == nil {
 			return nil, fmt.Errorf("artifact/publish: nil DelegationKeyStore for umbral_pre")
 		}
-		result, err = publishUmbralPRE(cfg, contentStore, delKeyStore, contentDigest, resolver)
+		result, err = publishUmbralPRE(ctx, cfg, contentStore, delKeyStore, contentDigest, resolver)
 	default:
 		return nil, fmt.Errorf("artifact/publish: unknown encryption scheme %d", schemaParams.ArtifactEncryption)
 	}
@@ -126,6 +128,7 @@ func PublishArtifact(
 // -------------------------------------------------------------------------------------------------
 
 func publishAESGCM(
+	ctx context.Context,
 	cfg PublishConfig,
 	contentStore storage.ContentStore,
 	keyStore lifecycleartifact.KeyStore,
@@ -136,7 +139,7 @@ func publishAESGCM(
 		return nil, fmt.Errorf("artifact/publish: encrypt aes_gcm: %w", err)
 	}
 	artifactCID := storage.Compute(ciphertext)
-	if err := contentStore.Push(artifactCID, ciphertext); err != nil {
+	if err := contentStore.Push(ctx, artifactCID, ciphertext); err != nil {
 		return nil, fmt.Errorf("artifact/publish: push: %w", err)
 	}
 	if err := keyStore.Store(artifactCID, artKey); err != nil {
@@ -154,6 +157,7 @@ func publishAESGCM(
 // -------------------------------------------------------------------------------------------------
 
 func publishUmbralPRE(
+	ctx context.Context,
 	cfg PublishConfig,
 	contentStore storage.ContentStore,
 	delKeyStore DelegationKeyStore,
@@ -169,7 +173,7 @@ func publishUmbralPRE(
 
 	// FLAG 1 FIX: Use ResolveEncryptionKey (keyAgreement purpose) instead of
 	// WitnessKeys()[0]. Falls back to first available key for backward compat.
-	ownerPK, err := ResolveEncryptionKey(cfg.OwnerDID, resolver)
+	ownerPK, err := ResolveEncryptionKey(ctx, cfg.OwnerDID, resolver)
 	if err != nil {
 		return nil, fmt.Errorf("artifact/publish: resolve owner pk: %w", err)
 	}
@@ -185,7 +189,7 @@ func publishUmbralPRE(
 	}
 
 	artifactCID := storage.Compute(ciphertext)
-	if err := contentStore.Push(artifactCID, ciphertext); err != nil {
+	if err := contentStore.Push(ctx, artifactCID, ciphertext); err != nil {
 		return nil, fmt.Errorf("artifact/publish: push: %w", err)
 	}
 
@@ -211,6 +215,7 @@ func publishUmbralPRE(
 // -------------------------------------------------------------------------------------------------
 
 func resolveSchemaParams(
+	ctx context.Context,
 	schemaRef types.LogPosition,
 	extractor schema.SchemaParameterExtractor,
 	fetcher types.EntryFetcher,
@@ -220,7 +225,7 @@ func resolveSchemaParams(
 			ArtifactEncryption: types.EncryptionAESGCM,
 		}, nil
 	}
-	meta, err := fetcher.Fetch(schemaRef)
+	meta, err := fetcher.Fetch(ctx, schemaRef)
 	if err != nil || meta == nil {
 		return nil, fmt.Errorf("schema entry not found at %s", schemaRef)
 	}

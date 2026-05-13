@@ -21,6 +21,7 @@ KEY DEPENDENCIES:
 package load_accounting
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -68,7 +69,7 @@ func NewAggregator(queryAPI log.LedgerQueryAPI) *Aggregator {
 
 // ComputeSettlement scans entries between startPos and endPos and
 // produces a deterministic settlement ledger.
-func (a *Aggregator) ComputeSettlement(startPos, endPos uint64) (*SettlementLedger, error) {
+func (a *Aggregator) ComputeSettlement(ctx context.Context, startPos, endPos uint64) (*SettlementLedger, error) {
 	if startPos >= endPos {
 		return nil, fmt.Errorf("load_accounting/aggregator: start %d >= end %d", startPos, endPos)
 	}
@@ -80,7 +81,7 @@ func (a *Aggregator) ComputeSettlement(startPos, endPos uint64) (*SettlementLedg
 	}
 
 	// Scan entries in the bounded range.
-	entries, err := a.queryAPI.ScanFromPosition(startPos, int(endPos-startPos))
+	entries, err := a.queryAPI.ScanFromPosition(ctx, startPos, int(endPos-startPos))
 	if err != nil {
 		return nil, fmt.Errorf("load_accounting/aggregator: scan: %w", err)
 	}
@@ -135,6 +136,7 @@ func (l *SettlementLedger) ToJSON() ([]byte, error) {
 // doesn't know about artifact_cid fields (SDK-D6: Domain Payload
 // opacity is absolute).
 func (a *Aggregator) ComputeArtifactUsage(
+	ctx context.Context,
 	startPos, endPos uint64,
 	extractCID func(entry types.EntryWithMetadata) (string, int64, bool),
 ) (map[string]int64, error) {
@@ -144,7 +146,7 @@ func (a *Aggregator) ComputeArtifactUsage(
 
 	usage := make(map[string]int64) // member DID → total bytes
 
-	entries, err := a.queryAPI.ScanFromPosition(startPos, int(endPos-startPos))
+	entries, err := a.queryAPI.ScanFromPosition(ctx, startPos, int(endPos-startPos))
 	if err != nil {
 		return nil, fmt.Errorf("load_accounting/aggregator: artifact scan: %w", err)
 	}

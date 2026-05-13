@@ -18,6 +18,7 @@ KEY DEPENDENCIES: attesta/storage, attesta/monitoring
 package monitoring
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -54,6 +55,7 @@ type BlobAvailabilityResult struct {
 // A present ExpectedAbsent CID fires Critical (erasure failed).
 // Errors on individual HEAD requests fire Warning.
 func CheckBlobAvailability(
+	ctx context.Context,
 	cfg BlobCheckConfig,
 	contentStore storage.ContentStore,
 	now time.Time,
@@ -66,7 +68,7 @@ func CheckBlobAvailability(
 
 	for _, cid := range cfg.ExpectedPresent {
 		result.Checked++
-		exists, err := contentStore.Exists(cid)
+		exists, err := contentStore.Exists(ctx, cid)
 		if err != nil {
 			result.Alerts = append(result.Alerts, monitoring.Alert{
 				Monitor:     MonitorBlobAvailability,
@@ -93,7 +95,7 @@ func CheckBlobAvailability(
 
 	for _, cid := range cfg.ExpectedAbsent {
 		result.Checked++
-		exists, err := contentStore.Exists(cid)
+		exists, err := contentStore.Exists(ctx, cid)
 		if err != nil {
 			// HEAD errors on expunged CIDs are expected on some backends.
 			continue
