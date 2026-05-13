@@ -54,7 +54,10 @@ func TestSCW_DestinationMismatchRejectsBeforeRPC(t *testing.T) {
 	// want it to surface a clear "no binding" error so the test
 	// notices the leak.)
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, did.ErrDestinationMismatch) {
 		t.Fatalf("cross-destination entry MUST reject with ErrDestinationMismatch; got %v", err)
@@ -76,7 +79,7 @@ func TestSCW_AlgoIDIsRegistered(t *testing.T) {
 	}
 }
 
-// ─── ABI calldata pinning at the JN seam ───────────────────────
+// ─── ABI calldata pinning at the JN seam ─────────────────────
 
 // TestSCW_CalldataMatchesSDKEncoding pins that the calldata the JN
 // test computes is byte-for-byte the SAME calldata the SDK
@@ -104,7 +107,10 @@ func TestSCW_CalldataMatchesSDKEncoding(t *testing.T) {
 	wrongCalldata[len(wrongCalldata)-1] ^= 0xFF
 	rpc.BindEthCall(addr, wrongCalldata, scwMagicReturn())
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	err := registry.VerifyEntry(ctx, entry)
 	if err == nil {
 		t.Fatal("calldata mismatch MUST cause stub to miss binding")
@@ -134,7 +140,7 @@ var (
 	_ signatures.EthereumRPCClient = (*signatures.StubEthereumRPC)(nil)
 )
 
-// ─── byte-equality helper ──────────────────────────────────────
+// ─── byte-equality helper ────────────────────────────────
 
 func bytesEqual(a, b []byte) bool {
 	if len(a) != len(b) {

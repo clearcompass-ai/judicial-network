@@ -94,6 +94,8 @@ var Registry = map[string]Class{
 	"AT-GOSSIP-ROT-V1":          ClassWitness,      // OriginatorRotationFinding (signed by the existing quorum)
 	"AT-GOSSIP-COMMIT-EQUIV-V1": ClassSigner,       // EntryCommitmentEquivocationFinding (Trust Alignment 8)
 	"AT-GOSSIP-GHOST-V1":        ClassSelfAttested, // GhostLeafFinding (attesta v0.5.0)
+	"AT-GOSSIP-WITROT-V1":       ClassWitness,      // WitnessRotationFinding (attesta v0.6.0; K-of-N over (old set, new set))
+	"AT-GOSSIP-XLOG-INCL-V1":    ClassMerkle,       // CrossLogInclusionFinding (attesta v0.7.0; first MerkleAttested implementer)
 }
 
 // LookupClass returns the cryptographic reality for the given
@@ -136,10 +138,19 @@ var _ findings.SignerAttested = (*findings.EntryCommitmentEquivocationFinding)(n
 // gates the router behaviour for this Kind.
 var _ gossip.Event = (*findings.GhostLeafFinding)(nil)
 
-// Future finding types add their guard here. Examples:
-//   var _ findings.WitnessAttested = (*findings.EscrowOverrideFinding)(nil)
-//   var _ findings.WitnessAttested = (*findings.OriginatorRotationFinding)(nil)
-// (Currently these are commented because the SDK v0.3.0 may
-// not yet have method sets that satisfy the interface — JN
-// adds the guard the moment the SDK ships the corresponding
-// Verify method.)
+// WitnessRotationFinding (attesta v0.6.0) must satisfy
+// WitnessAttested. The rotation event is signed by the existing
+// K-of-N quorum authorising the topology change; its
+// Verify(*cosign.WitnessKeySet) delegates to
+// witness.VerifyRotation. Pinned here so a future SDK that
+// breaks the K-of-N rotation Verify signature surfaces at JN
+// build time, not at runtime when the gossip envelope arrives.
+var _ findings.WitnessAttested = (*findings.WitnessRotationFinding)(nil)
+
+// CrossLogInclusionFinding (attesta v0.7.0) is the SDK's first
+// concrete MerkleAttested implementer — replays an RFC 6962
+// inclusion proof of a foreign log's leaf against a source
+// TreeHead via a Static-CT tile fetcher.
+var _ findings.MerkleAttested = (*findings.CrossLogInclusionFinding)(nil)
+
+// Future finding types add their guard here.

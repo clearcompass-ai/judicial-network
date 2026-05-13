@@ -198,7 +198,10 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	rpc := signatures.NewStubEthereumRPC()
 	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
 	rpc.BindEthCall(binE2EAddr(), calldata, binE2EMagicReturn())
-	registry := did.DefaultVerifierRegistryWithRPC(tndavidson.ExchangeDID, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(tndavidson.ExchangeDID, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	if err := registry.VerifyEntry(ctx, rebuilt); err != nil {
 		t.Fatalf("verifier registry rejected binary-built entry: %v", err)
 	}
