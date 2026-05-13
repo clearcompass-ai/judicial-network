@@ -1742,6 +1742,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/VerifyResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
+  /v1/verify/complete/{logID}/{pos}:
+    get:
+      tags: [Verify]
+      summary: Run the SDK Path C composite (Signatures + Authority + Origin) on the entry at the given position.
+      operationId: verifyComplete
+      parameters:
+        - name: logID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: pos
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Unified per-stage report. `all_green` is true iff every opted-in stage passed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerifyResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/BadRequest' }
   /v1/verify/cross-log:
     post:
       tags: [Verify]
