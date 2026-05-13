@@ -50,14 +50,15 @@ func registerCaseRoutes(mux *http.ServeMux, deps *Dependencies) {
 // ─────────────────────────────────────────────────────────────────────
 
 type caseInitiateRequest struct {
-	Destination  string         `json:"destination"`
-	DocketNumber string         `json:"docket_number"`
-	CaseType     string         `json:"case_type"` // criminal | civil | family | juvenile
-	FiledDate    string         `json:"filed_date"`
-	SchemaRef    *uint64        `json:"schema_ref,omitempty"`
-	SchemaLogDID string         `json:"schema_log_did,omitempty"`
-	ExtraPayload map[string]any `json:"extra_payload,omitempty"`
-	EventTime    int64          `json:"event_time,omitempty"`
+	Destination           string         `json:"destination"`
+	DocketNumber          string         `json:"docket_number"`
+	CaseType              string         `json:"case_type"` // criminal | civil | family | juvenile
+	FiledDate             string         `json:"filed_date"`
+	SchemaRef             *uint64        `json:"schema_ref,omitempty"`
+	SchemaLogDID          string         `json:"schema_log_did,omitempty"`
+	ExtraPayload          map[string]any `json:"extra_payload,omitempty"`
+	EventTime             int64          `json:"event_time,omitempty"`
+	AttestationPolicyName *string        `json:"attestation_policy_name,omitempty"`
 }
 
 type caseInitiateHandler struct{ deps *Dependencies }
@@ -77,13 +78,14 @@ func (h *caseInitiateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	cfg := cases.InitiationConfig{
-		Destination:  req.Destination,
-		SignerDID:    signer,
-		DocketNumber: req.DocketNumber,
-		CaseType:     req.CaseType,
-		FiledDate:    req.FiledDate,
-		ExtraPayload: req.ExtraPayload,
-		EventTime:    req.EventTime,
+		Destination:           req.Destination,
+		SignerDID:             signer,
+		DocketNumber:          req.DocketNumber,
+		CaseType:              req.CaseType,
+		FiledDate:             req.FiledDate,
+		ExtraPayload:          req.ExtraPayload,
+		EventTime:             req.EventTime,
+		AttestationPolicyName: req.AttestationPolicyName,
 	}
 	if req.SchemaRef != nil && req.SchemaLogDID != "" {
 		cfg.SchemaRef = &types.LogPosition{LogDID: req.SchemaLogDID, Sequence: *req.SchemaRef}
@@ -101,16 +103,17 @@ func (h *caseInitiateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 // ─────────────────────────────────────────────────────────────────────
 
 type caseAmendRequest struct {
-	Destination      string           `json:"destination"`
-	CaseRootLogDID   string           `json:"case_root_log_did"`
-	AmendmentType    string           `json:"amendment_type"` // status_change | reassignment | artifact_update
-	NewStatus        string           `json:"new_status,omitempty"`
-	NewArtifactCID   string           `json:"new_artifact_cid,omitempty"`
-	SchemaRef        *uint64          `json:"schema_ref,omitempty"`
-	SchemaLogDID     string           `json:"schema_log_did,omitempty"`
-	EvidencePointers []logPositionRef `json:"evidence_pointers,omitempty"`
-	ExtraPayload     map[string]any   `json:"extra_payload,omitempty"`
-	EventTime        int64            `json:"event_time,omitempty"`
+	Destination           string           `json:"destination"`
+	CaseRootLogDID        string           `json:"case_root_log_did"`
+	AmendmentType         string           `json:"amendment_type"` // status_change | reassignment | artifact_update
+	NewStatus             string           `json:"new_status,omitempty"`
+	NewArtifactCID        string           `json:"new_artifact_cid,omitempty"`
+	SchemaRef             *uint64          `json:"schema_ref,omitempty"`
+	SchemaLogDID          string           `json:"schema_log_did,omitempty"`
+	EvidencePointers      []logPositionRef `json:"evidence_pointers,omitempty"`
+	ExtraPayload          map[string]any   `json:"extra_payload,omitempty"`
+	EventTime             int64            `json:"event_time,omitempty"`
+	AttestationPolicyName *string          `json:"attestation_policy_name,omitempty"`
 }
 
 type caseAmendHandler struct{ deps *Dependencies }
@@ -139,15 +142,16 @@ func (h *caseAmendHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := cases.AmendmentConfig{
-		Destination:      req.Destination,
-		SignerDID:        signer,
-		CaseRootPos:      types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: caseRootSeq},
-		AmendmentType:    req.AmendmentType,
-		NewStatus:        req.NewStatus,
-		NewArtifactCID:   req.NewArtifactCID,
-		EvidencePointers: toLogPositions(req.EvidencePointers),
-		ExtraPayload:     req.ExtraPayload,
-		EventTime:        req.EventTime,
+		Destination:           req.Destination,
+		SignerDID:             signer,
+		CaseRootPos:           types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: caseRootSeq},
+		AmendmentType:         req.AmendmentType,
+		NewStatus:             req.NewStatus,
+		NewArtifactCID:        req.NewArtifactCID,
+		EvidencePointers:      toLogPositions(req.EvidencePointers),
+		ExtraPayload:          req.ExtraPayload,
+		EventTime:             req.EventTime,
+		AttestationPolicyName: req.AttestationPolicyName,
 	}
 	if req.SchemaRef != nil && req.SchemaLogDID != "" {
 		cfg.SchemaRef = &types.LogPosition{LogDID: req.SchemaLogDID, Sequence: *req.SchemaRef}
