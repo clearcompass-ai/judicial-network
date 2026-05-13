@@ -39,6 +39,8 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // CosignatureQuerier discovers cosignature entries referencing a given
@@ -60,6 +62,12 @@ type SealingConfig struct {
 	Reason         string
 	ArtifactCIDs   []string
 	EventTime      int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named policy declared on the sealing-order schema's
+	// SchemaParameters.AttestationPolicies. Typical value:
+	// schemas.PolicySealingOrderConcurrence. nil = no policy.
+	AttestationPolicyName *string
 }
 
 // SealingResult holds the sealing enforcement entry.
@@ -102,6 +110,7 @@ func SealCase(cfg SealingConfig) (*SealingResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/sealing: build enforcement: %w", err)
 	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 	return &SealingResult{EnforcementEntry: entry}, nil
 }
 

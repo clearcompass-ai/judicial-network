@@ -5,6 +5,11 @@ KEY ARCHITECTURAL DECISIONS:
   - BuildRootEntity creates SMT leaf with OriginTip=self, AuthorityTip=self.
   - Docket number, initial status, filed_date in Domain Payload.
   - Returns root entity position for all subsequent filings.
+  - AttestationPolicyName is OPTIONAL: when set the entry adopts the
+    named policy declared on the case schema (see
+    schemas/attestation_policies.go); when nil the entry is admitted
+    on the primary signature alone. The ledger's self-gating
+    admission gate enforces the K-of-N composite.
 
 OVERVIEW: InitiateCase → root entity entry with case schema payload.
 KEY DEPENDENCIES: attesta/builder
@@ -18,6 +23,8 @@ import (
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // InitiationConfig configures a new case filing.
@@ -30,6 +37,14 @@ type InitiationConfig struct {
 	SchemaRef    *types.LogPosition
 	ExtraPayload map[string]interface{} // charges, plaintiff, defendant, etc.
 	EventTime    int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named policy declared on the case schema's
+	// SchemaParameters.AttestationPolicies. Typical values for case
+	// filings: schemas.PolicyCivilPanelReview,
+	// schemas.PolicyCriminalSeniorJudgeConcurrence. nil = no policy
+	// (default behavior: primary signature alone admits the entry).
+	AttestationPolicyName *string
 }
 
 // InitiationResult holds the root entity entry.
@@ -71,6 +86,8 @@ func InitiateCase(cfg InitiationConfig) (*InitiationResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cases/initiation: build root entity: %w", err)
 	}
+
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 
 	return &InitiationResult{Entry: entry}, nil
 }
