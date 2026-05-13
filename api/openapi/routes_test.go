@@ -152,6 +152,7 @@ var registeredRoutes = []routePattern{
 	{method: "GET", path: "/v1/verify/authority/{logID}/{pos}"},
 	{method: "GET", path: "/v1/verify/batch/{logID}/{positions}"},
 	{method: "GET", path: "/v1/verify/delegation/{logID}/{pos}"},
+	{method: "GET", path: "/v1/verify/complete/{logID}/{pos}"},
 	{method: "POST", path: "/v1/verify/cross-log"},
 	{method: "POST", path: "/v1/verify/fraud-proof"},
 }
