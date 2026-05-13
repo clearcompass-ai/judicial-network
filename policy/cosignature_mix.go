@@ -3,8 +3,9 @@ FILE PATH: policy/cosignature_mix.go
 
 DESCRIPTION:
 
-	 cosignature-mix policy module. The data-driven answer
-	to the v1.4 Event Dictionary's developer flags:
+	JN-DOMAIN intra-entry signature-mix policy module. The
+	data-driven answer to the v1.4 Event Dictionary's developer
+	flags:
 
 	  Flag #1 — Tier 2 cosignature mix.
 	            Which ActorSigner role may cosign which event_type
@@ -15,6 +16,27 @@ DESCRIPTION:
 	            only (e.g., judicial_appointment) or permits
 	            CROSS-exchange cosignatures (e.g., case transfers,
 	            relay attestations).
+
+	# SCOPE — NOT to be confused with attesta v1.2.0 attestation.Policy
+
+	This file governs MULTIPLE SIGNATURES INSIDE A SINGLE ENTRY:
+	one entry, N inline signatures in entry.Signatures, role-
+	filtered threshold per event_type.
+
+	The SDK v1.2.0 ships a SEPARATE primitive — attestation.Policy
+	+ attestation.VerifyEntryAttestationPolicy — which governs
+	SEPARATE attestation entries pointing at a primary entry via
+	`ControlHeader.CosignatureOf`. JN's adapter for that lives in
+	verification/attestation_collection.go.
+
+	Both mechanics coexist; this file enforces the v1.4 Tier-2 mix
+	on individual filings, while the SDK attestation primitive
+	enforces per-entry attestation collections (en-banc panels,
+	Board cosignatures, sealing-supervisor concurrences). The
+	wire-level "cosignature" terminology is preserved here for
+	v1.4 Event Dictionary compatibility; the SDK now reserves
+	"cosignature" for the wire field name and uses "attestation"
+	for the new mechanic.
 
 	The policy is a closed-set table. The verifier
 	(verification/cosignature_check.go) calls Lookup(eventType)
@@ -157,7 +179,7 @@ type CosignatureMixPolicy interface {
 	List() []*CosignatureRule
 }
 
-// ─── Sentinel errors ────────────────────────────────────────────────
+// ─── Sentinel errors ──────────────────────────────────────────────────
 
 var (
 	// ErrRuleNotFound fires from Lookup when eventType is unknown.
@@ -209,7 +231,7 @@ func validateRule(r CosignatureRule) error {
 	return nil
 }
 
-// ─── InMemoryPolicy ────────────────────────────────────────────────
+// ─── InMemoryPolicy ──────────────────────────────────────────────────────
 
 // InMemoryPolicy is the default CosignatureMixPolicy. RWMutex-
 // protected; safe for concurrent use. Method bodies live in

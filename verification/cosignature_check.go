@@ -3,8 +3,47 @@ FILE PATH: verification/cosignature_check.go
 
 DESCRIPTION:
 
-	 cosignature-mix verifier. Read-side enforcement of
-	the v1.4 Event Dictionary's Tier 2 cosignature requirement.
+	JN-DOMAIN INTRA-ENTRY signature-mix verifier. Read-side
+	enforcement of the v1.4 Event Dictionary's Tier 2 cosignature
+	requirement.
+
+	# SCOPE — NOT to be confused with attesta v1.2.0 attestation/
+
+	This file verifies signatures INSIDE A SINGLE entry's
+	`entry.Signatures` slice against a JN-domain role / exchange /
+	threshold rule. It is NOT the same as the SDK's v1.2.0
+	`attestation/` package, which verifies SEPARATE attestation
+	entries pointing at a primary via `ControlHeader.CosignatureOf`.
+
+	The two mechanics:
+
+	  - JN signature-mix (this file): one entry, N inline
+	    signatures, role/exchange/threshold rules from
+	    policy.CosignatureMixPolicy. Verifies AFTER admission has
+	    already done cryptographic validation; this file's job is
+	    role-aware threshold and capacity enforcement.
+
+	  - SDK attestation (attestation.VerifyEntryAttestationPolicy,
+	    v1.2.0+): one primary entry + N separate attestation
+	    entries, each carrying `Header.CosignatureOf = primary_pos`,
+	    signed by attesters. Verifies binding + signature + Window
+	    + Constraint + K-of-N atomically. See
+	    verification/attestation_collection.go for JN's adapter
+	    over that SDK primitive.
+
+	Both are valid; neither replaces the other. JN exchanges use
+	BOTH: Tier 2 signature-mix to enforce role-based filing rules
+	on individual entries, and SDK attestation for multi-judge
+	concurrences / en-banc panels / Board cosignatures on
+	delegations, where the attesters sign their OWN entries.
+
+	The historical name "cosignature" is preserved here for wire
+	compatibility (Event Dictionary v1.4 uses that vocabulary). The
+	v1.2.0 SDK reserves "cosignature" for the wire field
+	`CosignatureOf`; this file is the JN-domain Tier 2 rule
+	enforcer and intentionally does not import attesta/attestation.
+
+	# INPUTS
 
 	The verifier walks four inputs:
 

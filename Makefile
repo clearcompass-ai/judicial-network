@@ -20,7 +20,7 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
 
 .PHONY: help build test test-short test-race vet tidy clean version \
         audit-sdk lint judicial-cli network-api court-tools provider-tools \
-        aggregator witness install-bins \
+        aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
         smoke
 
@@ -33,9 +33,9 @@ version: ## Print judicial-network version + dep pins
 	@echo "attesta (Go module) $$($(GO) list -m -f '{{.Version}}' $(SDK_MODULE))"
 	@echo "ledger (HTTP)       v0.1.0  (run via 'make walkthrough-up')"
 
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 # Build
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 
 build: ## Compile every package (sanity, no binaries written)
 	$(GO) build ./...
@@ -62,18 +62,23 @@ aggregator: ## Build tools/aggregator into ./bin/
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/aggregator ./tools/aggregator/cmd/aggregator
 
-witness: ## Build tools/witness into ./bin/
-	@mkdir -p $(BIN_DIR)
-	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/witness ./tools/witness/cmd/witness
+# The standalone witness daemon lives in its own repo
+# (github.com/clearcompass-ai/standalone-witness — extracted from
+# clearcompass-ai/ledger at v1.2.0). judicial-network does NOT
+# ship a witness binary; deployments consume the standalone-witness
+# module directly:
+#     go install github.com/clearcompass-ai/standalone-witness@<ver>
+# JN's previous tools/witness/cmd/witness/ daemon (923 LOC) duplicated
+# that module's source and was removed at the v1.2.0 alignment.
 
-install-bins: judicial-cli network-api court-tools provider-tools aggregator witness ## Build all 6 binaries into ./bin/
+install-bins: judicial-cli network-api court-tools provider-tools aggregator ## Build all 5 binaries into ./bin/
 	@echo ""
 	@echo "binaries in $(BIN_DIR)/:"
 	@ls -la $(BIN_DIR)/
 
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 # Test
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 
 test: ## Full test suite (53 packages)
 	$(GO) test -count=1 ./...
@@ -97,9 +102,9 @@ clean: ## Remove ./bin/ + test caches
 	rm -rf $(BIN_DIR)
 	$(GO) clean -testcache
 
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 # SDK mutation-gate audit
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 
 # audit-sdk ensures NO muEnable* gate has been flipped to false in
 # the SDK that judicial-network depends on. Every muEnable constant
@@ -126,9 +131,9 @@ audit-sdk: ## Fail if the pinned SDK ships any muEnable*=false
 
 lint: vet audit-sdk ## All static checks (vet + audit-sdk)
 
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 # Walkthrough topology (JN-side tools layered atop the ledger compose)
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 #
 # The walkthrough at docs/walkthrough/ is the canonical end-to-end
 # integration story. It runs:
@@ -160,9 +165,9 @@ walkthrough-logs: ## Tail logs from court-tools + provider-tools
 walkthrough-status: ## Show service status
 	$(WALK_COMPOSE) ps
 
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 # Smoke test — proves the walkthrough's CLI flow is actionable
-# ─────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────
 #
 # Builds the binaries, exercises the CLI's offline subcommands
 # (keygen, version, help) without requiring a running ledger. The
