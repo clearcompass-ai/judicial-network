@@ -308,7 +308,7 @@ func TestVerifyBatch_UnknownLog(t *testing.T) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// VerifyCompleteHandler — Path C composite admission gate
+// VerifyCompleteHandler — read-side Path C composite verifier
 // ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyComplete_InvalidPosition(t *testing.T) {
