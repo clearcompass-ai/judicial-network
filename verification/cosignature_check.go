@@ -97,9 +97,12 @@ KEY DEPENDENCIES:
 package verification
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/attestation"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -122,6 +125,11 @@ const (
 	CosigRejectInsufficientSigners CosignatureRejection = "insufficient_signers"
 	CosigRejectExchangeMismatch    CosignatureRejection = "exchange_mismatch"
 	CosigRejectMissingCredential   CosignatureRejection = "missing_credential"
+	// CosigRejectCryptoInvalid fires only from CheckCosignatureWithVerifier
+	// when one or more signatures fail cryptographic verification.
+	// Carries Reason of the form "signer #N (did=...) crypto:
+	// <wrapped SDK sentinel>".
+	CosigRejectCryptoInvalid CosignatureRejection = "crypto_invalid"
 )
 
 // CosignatureVerdict is the typed result. OK==true iff
@@ -267,3 +275,87 @@ func rejectVerdict(eventType string, rej CosignatureRejection, reason string) *C
 		Reason:    reason,
 	}
 }
+
+// ─── SDK seam: attestation.VerifyEntrySignatures + JN role mix ─
+
+// ErrCosignatureCryptoSDK wraps the SDK envelope-level error path
+// from CheckCosignatureWithVerifier. SDK sentinels
+// (attestation.ErrNilEntry, ErrNilSignatureVerifier, ErrEmptySignatures,
+// ErrPrimaryDIDMismatch) remain reachable via errors.Is.
+var ErrCosignatureCryptoSDK = errors.New("verification/cosignature_check: SDK signature verify")
+
+// CheckCosignatureWithVerifier is the crypto-aware sibling of
+// CheckCosignature. The existing CheckCosignature assumes
+// upstream admission has already validated every signature
+// cryptographically; this variant CLOSES that assumption by
+// running attestation.VerifyEntrySignatures FIRST and rejecting
+// closed-set on any per-signature failure before the role /
+// exchange / threshold filter runs.
+//
+// SCOPE — intra-entry signature mix (entry.Signatures) with
+// cryptographic verification delegated to the SDK. NOT the SDK's
+// attestation.VerifyCollection mechanic (which evaluates SEPARATE
+// attestation entries pointing at a primary via Header.CosignatureOf).
+// See verification/attestation_collection.go for that adapter.
+//
+// FLOW:
+//
+//	1. Delegate per-signature crypto to attestation.VerifyEntrySignatures.
+//	   - Envelope-level err (nil entry / verifier / empty sigs /
+//	     primary-DID mismatch) → return ErrCosignatureCryptoSDK wrapping
+//	     the SDK sentinel.
+//	   - Per-signature failures → return *CosignatureVerdict with
+//	     Rejection=CosigRejectCryptoInvalid and Reason naming the
+//	     first failing signer. No fallthrough.
+//	2. On full cryptographic success, delegate to CheckCosignature
+//	   for the role / exchange / threshold filter — the existing
+//	   JN-domain pipeline, unchanged.
+//
+// The two-step composition keeps JN's domain logic intact while
+// adding the cryptographic pre-gate that v1.2.0+'s
+// attestation.VerifyEntrySignatures cleanly supplies.
+//
+// IDEMPOTENT. Pure function of (entry, pol, resolver, exchangeDID,
+// sigVerifier, ctx).
+func CheckCosignatureWithVerifier(
+	ctx context.Context,
+	entry *envelope.Entry,
+	pol policy.CosignatureMixPolicy,
+	resolver RoleResolver,
+	exchangeDID string,
+	sigVerifier attestation.SignatureVerifier,
+) (*CosignatureVerdict, error) {
+	report, err := attestation.VerifyEntrySignatures(ctx, entry, sigVerifier)
+	if err != nil {
+		// Envelope-level rejection — caller cannot retry. Return
+		// the wrapped SDK sentinel so callers errors.Is on
+		// attestation.ErrNilEntry / ErrNilSignatureVerifier /
+		// ErrEmptySignatures / ErrPrimaryDIDMismatch.
+		return nil, fmt.Errorf("%w: %w", ErrCosignatureCryptoSDK, err)
+	}
+	if report.FirstError != nil {
+		// Per-signature crypto failure. Name the first failing
+		// signer in Reason; surface as a closed-set rejection.
+		failingDID := ""
+		for _, r := range report.Results {
+			if r.Err != nil {
+				failingDID = r.SignerDID
+				break
+			}
+		}
+		return rejectVerdict("", CosigRejectCryptoInvalid,
+			fmt.Sprintf("signer %q crypto: %v", failingDID, report.FirstError)), nil
+	}
+	// All signatures cryptographically valid. Run the existing
+	// JN-domain role / threshold / exchange filter — unchanged.
+	return CheckCosignature(entry, pol, resolver, exchangeDID), nil
+}
+
+// Compile-time pin — attestation.VerifyEntrySignatures + result
+// types. A future SDK rename or signature break surfaces at the JN
+// build, not at runtime.
+var (
+	_ = attestation.VerifyEntrySignatures
+	_ = (*attestation.SignatureReport)(nil)
+	_ = (*attestation.SignatureResult)(nil)
+)
