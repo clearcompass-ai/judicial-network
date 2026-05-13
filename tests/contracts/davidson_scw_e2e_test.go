@@ -54,9 +54,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 )
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Happy path
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 	ctx := context.Background()
@@ -138,7 +138,10 @@ func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
 	rpc.BindEthCall(scwE2EAddr(), calldata, scwE2EMagicReturn())
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	if err := registry.VerifyEntry(ctx, rebuilt); err != nil {
 		t.Fatalf("verifier registry rejected JN-built EIP-1271 entry: %v", err)
 	}
@@ -147,9 +150,9 @@ func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Negative — wrong magic-value return rejected
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestDavidsonSCW_E2E_RejectsBadMagic(t *testing.T) {
 	ctx := context.Background()
@@ -198,16 +201,19 @@ func TestDavidsonSCW_E2E_RejectsBadMagic(t *testing.T) {
 	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
 	rpc.BindEthCall(scwE2EAddr(), calldata, make([]byte, 32))
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	verr := registry.VerifyEntry(ctx, rebuilt)
 	if !errors.Is(verr, signatures.ErrEIP1271InvalidMagic) {
 		t.Fatalf("bad magic value MUST reject with ErrEIP1271InvalidMagic; got %v", verr)
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // 401 — caller resolver returns empty string
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestDavidsonSCW_E2E_NoCaller_401(t *testing.T) {
 	h := newSCWE2EHarness(t)
