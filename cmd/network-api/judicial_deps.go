@@ -16,7 +16,8 @@ DESCRIPTION:
 	  ArtifactStoreEndpoint → HTTPContentStore
 	  EthRPCEndpoint        → not consumed here; PKHVerifier picks it
 	                          up at the SDK boundary
-	  DIDResolver           → CachingResolver(WebDIDResolver(...))
+	  DIDResolver           → CachingResolver(VendorDIDResolver(
+	                          MethodRouter{web, key, pkh}, JN vendor mappings))
 	  Schema extractor      → JN schemas.Registry (knows every
 	                          JN schema's SchemaParameters layout)
 
@@ -68,6 +69,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
+	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
@@ -105,7 +107,11 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	deps.LogQueries = logQueries
 	deps.Fetcher = buildEntryFetcher(cfg.LedgerEndpoint)
 	deps.LeafReader = buildLeafReader(cfg.LedgerEndpoint)
-	deps.Resolver = buildDIDResolver()
+	resolver, err := buildDIDResolver()
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("build DID resolver: %w", err)
+	}
+	deps.Resolver = resolver
 	deps.SchemaResolver = newSchemaResolverShim()
 	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
 	return deps, nil
@@ -202,19 +208,79 @@ func buildLeafReader(ledgerEndpoint string) smt.LeafReader {
 	})
 }
 
-// buildDIDResolver returns a caching WebDIDResolver. did:web is the
-// only method JN handlers resolve at runtime; did:pkh and did:key
-// are address/key based and need no Resolve() call. The cache
-// shaves the resolver hot-path to ~zero on warm runs.
-func buildDIDResolver() did.DIDResolver {
+// buildDIDResolver composes the FULL DID-resolution pipeline JN
+// needs at runtime. Layered top-down:
+//
+//	CachingResolver (5-minute TTL)
+//	    └── VendorDIDResolver (judicial-network vendor methods:
+//	                           did:court:*, did:jnet:*, did:ccr:*)
+//	          └── MethodRouter
+//	                ├── "web" → WebDIDResolver  (HTTPS doc fetch)
+//	                ├── "key" → KeyResolver     (multicodec-derived pubkey)
+//	                └── "pkh" → PKHResolver     (CAIP-2 account address)
+//
+// # WHY ALL METHODS NEED A RESOLVER
+//
+// An earlier note here said did:pkh and did:key "are address/key
+// based and need no Resolve() call." That was wrong for the
+// v1.2.0 architecture: every JN verification path that calls
+// resolver.Resolve(ctx, didStr) — including the SDK's
+// attestation.VerifyEntryAttestationPolicy when a Constraint
+// requires a DelegationResolver walk, and any audit / replay
+// flow — needs the resolver to handle EVERY DID method the
+// network might receive. Skipping did:key resolution means a
+// did:key signer's pubkey extraction fails; skipping did:pkh
+// means Ethereum-address signers cannot be looked up.
+//
+// # VENDOR-METHOD LAYER
+//
+// VendorDIDResolver translates JN-domain DID methods
+// (did:court:tn:davidson → did:web:davidson.tn.court.gov,
+//  did:jnet:tn:appellate → did:web:appellate.tn.jnet.gov,
+//  did:ccr:agency:fbi-ncic → did:web:fbi-ncic.agency.ccr.org)
+// to the SDK's canonical methods. Mappings live in
+// judicial-network/did/mappings.go; the vendor resolver consults
+// the inner MethodRouter for the translated DID.
+//
+// # CACHING
+//
+// Resolution is the verifier hot-path; an uncached
+// WebDIDResolver issues a fresh HTTPS round-trip per lookup.
+// 5-minute TTL is the SDK's CachingResolver default for production
+// — short enough that key rotations propagate quickly, long enough
+// to amortise repeated lookups of the same DID across many
+// handlers within a single request batch.
+func buildDIDResolver() (did.DIDResolver, error) {
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
 		},
 	}
+
 	web := did.NewWebDIDResolver(httpClient)
-	return did.NewCachingResolver(web, 5*time.Minute)
+	key := did.NewKeyResolver()
+	pkh, err := did.NewPKHResolverWithNamespaces(did.NamespaceEIP155)
+	if err != nil {
+		return nil, fmt.Errorf("buildDIDResolver: PKHResolver: %w", err)
+	}
+
+	router := did.NewMethodRouter()
+	if err := router.Register("web", web); err != nil {
+		return nil, fmt.Errorf("buildDIDResolver: register web: %w", err)
+	}
+	if err := router.Register("key", key); err != nil {
+		return nil, fmt.Errorf("buildDIDResolver: register key: %w", err)
+	}
+	if err := router.Register("pkh", pkh); err != nil {
+		return nil, fmt.Errorf("buildDIDResolver: register pkh: %w", err)
+	}
+
+	// Vendor layer translates judicial-network DID methods to
+	// the SDK canonical methods registered above.
+	vendor := did.NewVendorDIDResolver(router, judicialdid.AllMappings())
+
+	return did.NewCachingResolver(vendor, 5*time.Minute), nil
 }
 
 // newContentStore returns an HTTP content store when the artifact
