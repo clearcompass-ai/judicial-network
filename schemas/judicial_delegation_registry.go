@@ -28,7 +28,7 @@ import (
 	"fmt"
 )
 
-// ─── Delegation marshal/unmarshal ───────────────────────────────────
+// ─── Delegation marshal/unmarshal ──────────────────────────────────────
 
 // MarshalJudicialDelegationPayload is a convenience helper for the
 // IssueDelegation builder.
@@ -52,7 +52,7 @@ func UnmarshalJudicialDelegationPayload(data []byte) (*JudicialDelegationPayload
 	return &p, nil
 }
 
-// ─── Revocation marshal/unmarshal ───────────────────────────────────
+// ─── Revocation marshal/unmarshal ──────────────────────────────────────
 
 // MarshalJudicialRevocationPayload serializes after validating.
 func MarshalJudicialRevocationPayload(p *JudicialRevocationPayload) ([]byte, error) {
@@ -74,7 +74,7 @@ func UnmarshalJudicialRevocationPayload(data []byte) (*JudicialRevocationPayload
 	return &p, nil
 }
 
-// ─── Succession marshal/unmarshal ───────────────────────────────────
+// ─── Succession marshal/unmarshal ──────────────────────────────────────
 
 // MarshalJudicialSuccessionPayload serializes after validating.
 func MarshalJudicialSuccessionPayload(p *JudicialSuccessionPayload) ([]byte, error) {
@@ -122,6 +122,9 @@ func DefaultJudicialRevocationParams() []byte {
 		"identifier_scope":          "real_did",
 		"override_requires_witness": false,
 		"migration_policy":          "amendment",
+		// v1.3.0 wire field — Board concurrence on revocation.
+		// See schemas/attestation_policies.go.
+		"attestation_policies": judicialRevocationPolicies(),
 	}
 	b, _ := json.Marshal(params)
 	return b
@@ -136,12 +139,15 @@ func DefaultJudicialSuccessionParams() []byte {
 		"identifier_scope":          "real_did",
 		"override_requires_witness": true,
 		"migration_policy":          "amendment",
+		// v1.3.0 wire field — incoming-officer concurrence on
+		// succession. See schemas/attestation_policies.go.
+		"attestation_policies": judicialSuccessionPolicies(),
 	}
 	b, _ := json.Marshal(params)
 	return b
 }
 
-// ─── Registry entries ───────────────────────────────────────────────
+// ─── Registry entries ────────────────────────────────────────────────
 
 func judicialDelegationRegistration() *SchemaRegistration {
 	return &SchemaRegistration{

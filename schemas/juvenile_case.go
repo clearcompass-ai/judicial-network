@@ -37,7 +37,7 @@ import "encoding/json"
 
 // JuvenileCasePayload is the Domain Payload for tn-juvenile-case-v1.
 type JuvenileCasePayload struct {
-	// ── SDK well-known fields ────────────────────────────────────────
+	// ── SDK well-known fields ──────────────────────────────────────
 	ActivationDelay         int64           `json:"activation_delay,omitempty"`
 	CosignatureThreshold    int             `json:"cosignature_threshold,omitempty"`
 	OverrideRequiresWitness bool            `json:"override_requires_witness,omitempty"`
@@ -48,7 +48,7 @@ type JuvenileCasePayload struct {
 	GrantRequiresAuditEntry bool            `json:"grant_requires_audit_entry,omitempty"`
 	PredecessorSchema       *SchemaPosition `json:"predecessor_schema,omitempty"`
 
-	// ── Judicial fields ──────────────────────────────────────────────
+	// ── Judicial fields ─────────────────────────────────────────────
 	DocketNumber    string `json:"docket_number"`
 	CaseType        string `json:"case_type"`
 	FiledDate       string `json:"filed_date"`
@@ -57,7 +57,7 @@ type JuvenileCasePayload struct {
 	DispositionDate string `json:"disposition_date,omitempty"`
 	DocumentCID     string `json:"document_cid,omitempty"`
 
-	// ── Auto-seal metadata ───────────────────────────────────────────
+	// ── Auto-seal metadata ──────────────────────────────────────────
 	AutoSealAuthority     string `json:"auto_seal_authority,omitempty"`
 	AutoSealAtDisposition bool   `json:"auto_seal_at_disposition,omitempty"`
 }
@@ -81,6 +81,8 @@ func DefaultJuvenileCaseParams() []byte {
 			"sealing_order":   map[string]interface{}{"activation_delay": 0, "cosignatures": 0},
 			"unsealing_order": map[string]interface{}{"activation_delay": 604800, "cosignatures": 1},
 		},
+		// v1.3.0 wire field — see schemas/attestation_policies.go.
+		"attestation_policies": juvenileCasePolicies(),
 	}
 	b, _ := json.Marshal(params)
 	return b

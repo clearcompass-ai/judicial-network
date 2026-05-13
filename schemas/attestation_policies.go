@@ -82,6 +82,51 @@ const (
 	// panel concurrence on opinion publication. 2 attestors within
 	// 30 days (i.e. 1 primary author + 2 panel attesters).
 	PolicyAppellatePanelConcurrence = "appellate_panel_concurrence"
+
+	// PolicyAppellateDispositionConcurrence — appellate disposition
+	// (affirm / reverse / remand / dismiss) carries the same panel
+	// shape as opinion publication; declared on the disposition
+	// schema so the disposition entry can adopt the policy
+	// independently of the opinion publication.
+	PolicyAppellateDispositionConcurrence = "appellate_disposition_concurrence"
+
+	// PolicyFamilyCasePanelReview — used when a contested family
+	// matter (custody, sealed adoption) is referred to a panel.
+	// 2 attestors within 30 days.
+	PolicyFamilyCasePanelReview = "family_case_panel_review"
+
+	// PolicyJuvenileCaseConcurrence — used when a juvenile matter
+	// carries a senior-magistrate concurrence (e.g., placement
+	// orders, detention). 1 attestor within 14 days.
+	PolicyJuvenileCaseConcurrence = "juvenile_case_concurrence"
+
+	// PolicyEvidenceChainOfCustody — used when an evidence artifact
+	// requires a chain-of-custody attestation (typically by the
+	// court clerk + the lodging officer). 1 attestor within 30
+	// days; informational by default.
+	PolicyEvidenceChainOfCustody = "evidence_chain_of_custody"
+
+	// PolicyCounselAppearanceClerkConcurrence — counsel appearance
+	// entries typically require the clerk to cosign. 1 attestor
+	// within 24 hours of the appearance.
+	PolicyCounselAppearanceClerkConcurrence = "counsel_appearance_clerk_concurrence"
+
+	// PolicyPartyBindingSealAuthority — sealed party bindings
+	// (protected populations: juveniles, victims) require sealing-
+	// authority concurrence beyond the clerk's primary signature.
+	// 1 attestor within 7 days.
+	PolicyPartyBindingSealAuthority = "party_binding_seal_authority"
+
+	// PolicyJudicialSuccessionConcurrence — scoped judicial
+	// succession requires concurrence from the incoming judicial
+	// officer in addition to the outgoing one (both signers). 1
+	// attestor within 7 days.
+	PolicyJudicialSuccessionConcurrence = "judicial_succession_concurrence"
+
+	// PolicyJudicialRevocationBoardConcurrence — delegation
+	// revocation typically requires Board concurrence parallel to
+	// issuance. 2 attestors within 72 hours.
+	PolicyJudicialRevocationBoardConcurrence = "judicial_revocation_board_concurrence"
 )
 
 // attestationPolicyJSON is the wire shape of a single
@@ -150,5 +195,69 @@ func sealingOrderPolicies() []attestationPolicyJSON {
 func appellateOpinionPolicies() []attestationPolicyJSON {
 	return []attestationPolicyJSON{
 		policy(PolicyAppellatePanelConcurrence, 2, 30*24*time.Hour),
+	}
+}
+
+// appellateDispositionPolicies returns the AttestationPolicies
+// declared on tn-appellate-disposition-v1.
+func appellateDispositionPolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyAppellateDispositionConcurrence, 2, 30*24*time.Hour),
+	}
+}
+
+// familyCasePolicies returns the AttestationPolicies declared on
+// tn-family-case-v1.
+func familyCasePolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyFamilyCasePanelReview, 2, 30*24*time.Hour),
+	}
+}
+
+// juvenileCasePolicies returns the AttestationPolicies declared on
+// tn-juvenile-case-v1.
+func juvenileCasePolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyJuvenileCaseConcurrence, 1, 14*24*time.Hour),
+	}
+}
+
+// evidenceArtifactPolicies returns the AttestationPolicies declared
+// on tn-evidence-artifact-v1.
+func evidenceArtifactPolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyEvidenceChainOfCustody, 1, 30*24*time.Hour),
+	}
+}
+
+// counselAppearancePolicies returns the AttestationPolicies
+// declared on tn-counsel-appearance-v1.
+func counselAppearancePolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyCounselAppearanceClerkConcurrence, 1, 24*time.Hour),
+	}
+}
+
+// partyBindingSealedPolicies returns the AttestationPolicies
+// declared on tn-party-binding-sealed-v1.
+func partyBindingSealedPolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyPartyBindingSealAuthority, 1, 7*24*time.Hour),
+	}
+}
+
+// judicialSuccessionPolicies returns the AttestationPolicies
+// declared on judicial-succession-v1.
+func judicialSuccessionPolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyJudicialSuccessionConcurrence, 1, 7*24*time.Hour),
+	}
+}
+
+// judicialRevocationPolicies returns the AttestationPolicies
+// declared on judicial-revocation-v1.
+func judicialRevocationPolicies() []attestationPolicyJSON {
+	return []attestationPolicyJSON{
+		policy(PolicyJudicialRevocationBoardConcurrence, 2, 72*time.Hour),
 	}
 }

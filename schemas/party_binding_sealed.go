@@ -18,7 +18,7 @@ package schemas
 import "encoding/json"
 
 type PartyBindingSealedPayload struct {
-	// ── SDK well-known fields ────────────────────────────────────────
+	// ── SDK well-known fields ──────────────────────────────────────
 	ActivationDelay         int64            `json:"activation_delay,omitempty"`
 	OverrideRequiresWitness bool             `json:"override_requires_witness,omitempty"`
 	MigrationPolicy         string           `json:"migration_policy,omitempty"`
@@ -29,7 +29,7 @@ type PartyBindingSealedPayload struct {
 	ReEncryptionThreshold   *ThresholdConfig `json:"re_encryption_threshold,omitempty"`
 	PredecessorSchema       *SchemaPosition  `json:"predecessor_schema,omitempty"`
 
-	// ── Sealed party binding fields ──────────────────────────────────
+	// ── Sealed party binding fields ───────────────────────────────────
 	VendorDID           string `json:"vendor_did"` // opaque DID on the log
 	CaseRef             string `json:"case_ref"`
 	Role                string `json:"role"`
@@ -51,6 +51,9 @@ func DefaultPartyBindingSealedParams() []byte {
 		"re_encryption_threshold":    map[string]interface{}{"m": 3, "n": 5},
 		"override_requires_witness":  true,
 		"migration_policy":           "amendment",
+		// v1.3.0 wire field — sealing-authority cosigner slot.
+		// See schemas/attestation_policies.go.
+		"attestation_policies": partyBindingSealedPolicies(),
 	})
 	return b
 }

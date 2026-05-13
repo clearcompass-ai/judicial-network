@@ -69,6 +69,54 @@ func TestAppellateOpinionAttestationPolicies_RoundTrip(t *testing.T) {
 	})
 }
 
+func TestAppellateDispositionAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "appellate_disposition", DefaultDispositionParams(), []expectedPolicy{
+		{PolicyAppellateDispositionConcurrence, 2, 30 * 24 * time.Hour},
+	})
+}
+
+func TestFamilyCaseAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "family_case", DefaultFamilyCaseParams(), []expectedPolicy{
+		{PolicyFamilyCasePanelReview, 2, 30 * 24 * time.Hour},
+	})
+}
+
+func TestJuvenileCaseAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "juvenile_case", DefaultJuvenileCaseParams(), []expectedPolicy{
+		{PolicyJuvenileCaseConcurrence, 1, 14 * 24 * time.Hour},
+	})
+}
+
+func TestEvidenceArtifactAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "evidence_artifact", DefaultEvidenceArtifactParams(), []expectedPolicy{
+		{PolicyEvidenceChainOfCustody, 1, 30 * 24 * time.Hour},
+	})
+}
+
+func TestCounselAppearanceAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "counsel_appearance", DefaultCounselAppearanceParams(), []expectedPolicy{
+		{PolicyCounselAppearanceClerkConcurrence, 1, 24 * time.Hour},
+	})
+}
+
+func TestPartyBindingSealedAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "party_binding_sealed", DefaultPartyBindingSealedParams(), []expectedPolicy{
+		{PolicyPartyBindingSealAuthority, 1, 7 * 24 * time.Hour},
+	})
+}
+
+func TestJudicialSuccessionAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "judicial_succession", DefaultJudicialSuccessionParams(), []expectedPolicy{
+		{PolicyJudicialSuccessionConcurrence, 1, 7 * 24 * time.Hour},
+	})
+}
+
+func TestJudicialRevocationAttestationPolicies_RoundTrip(t *testing.T) {
+	assertPolicies(t, "judicial_revocation", DefaultJudicialRevocationParams(), []expectedPolicy{
+		{PolicyJudicialRevocationBoardConcurrence, 2, 72 * time.Hour},
+	})
+}
+
 // assertPolicies runs the SDK extractor and compares the decoded
 // policies against expected. Every policy declared in this file is
 // Required=false at first declaration (see

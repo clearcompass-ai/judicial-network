@@ -49,7 +49,7 @@ const SchemaCounselAppearanceV1 = "tn-counsel-appearance-v1"
 
 // CounselAppearancePayload is the v1.8 counsel_appearance shape.
 type CounselAppearancePayload struct {
-	// ── SDK well-known fields ────────────────────────────────────────
+	// ── SDK well-known fields ──────────────────────────────────────
 	ActivationDelay         int64           `json:"activation_delay,omitempty"`
 	OverrideRequiresWitness bool            `json:"override_requires_witness,omitempty"`
 	MigrationPolicy         string          `json:"migration_policy,omitempty"`
@@ -89,7 +89,7 @@ type CounselAppearancePayload struct {
 	CaseSeq   uint64 `json:"case_seq,omitempty"`
 }
 
-// ─── Sentinel errors ────────────────────────────────────────────────
+// ─── Sentinel errors ──────────────────────────────────────────────
 
 var (
 	ErrCounselAppearanceInvalid = errors.New("schemas/counsel_appearance: invalid")
@@ -142,11 +142,14 @@ func DefaultCounselAppearanceParams() []byte {
 		"grant_requires_audit_entry": false,
 		"override_requires_witness":  false,
 		"migration_policy":           "amendment",
+		// v1.3.0 wire field — clerk-concurrence slot.
+		// See schemas/attestation_policies.go.
+		"attestation_policies": counselAppearancePolicies(),
 	})
 	return b
 }
 
-// ─── Serialize / Deserialize ────────────────────────────────────────
+// ─── Serialize / Deserialize ─────────────────────────────────────────
 
 // SerializeCounselAppearancePayload validates p and JSON-encodes
 // it. Defaults Status to "active" if empty.
@@ -178,7 +181,7 @@ func DeserializeCounselAppearancePayload(data []byte) (*CounselAppearancePayload
 	return &p, nil
 }
 
-// ─── Registry entry ─────────────────────────────────────────────────
+// ─── Registry entry ────────────────────────────────────────────────
 
 // counselAppearanceRegistration returns the SchemaRegistration
 // for tn-counsel-appearance-v1.
