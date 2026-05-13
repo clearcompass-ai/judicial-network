@@ -59,7 +59,7 @@ import (
 	"github.com/clearcompass-ai/attesta/did"
 )
 
-// ─── helpers ────────────────────────────────────────────────────
+// ─── helpers ─────────────────────────────────────────
 
 // scwSampleAddr returns a deterministic 20-byte Ethereum contract
 // address used as the wallet contract's address.
@@ -130,7 +130,7 @@ func scwBuildEntryFromContract(
 
 const scwDestination = "did:web:state:tn:davidson"
 
-// ─── happy path: full e2e ──────────────────────────────────────
+// ─── happy path: full e2e ────────────────────────────────
 
 func TestSCW_HappyPath_RegistryAccepts(t *testing.T) {
 	ctx := context.Background()
@@ -141,7 +141,10 @@ func TestSCW_HappyPath_RegistryAccepts(t *testing.T) {
 	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 	rpc.BindEthCall(addr, calldata, scwMagicReturn())
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 
 	if err := registry.VerifyEntry(ctx, entry); err != nil {
 		t.Fatalf("happy path EIP-1271 entry MUST verify; got %v", err)
@@ -166,7 +169,10 @@ func TestSCW_RejectsSelectorWithAttackerJunk(t *testing.T) {
 	}
 	rpc.BindEthCall(addr, calldata, junk)
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEIP1271InvalidMagic) {
 		t.Fatalf("selector + attacker-junk MUST surface ErrEIP1271InvalidMagic; got %v", err)
@@ -182,14 +188,17 @@ func TestSCW_RejectsAllZeroReturn(t *testing.T) {
 	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 	rpc.BindEthCall(addr, calldata, make([]byte, 32))
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEIP1271InvalidMagic) {
 		t.Fatalf("all-zero return MUST reject; got %v", err)
 	}
 }
 
-// ─── contract-state rejection paths ────────────────────────────
+// ─── contract-state rejection paths ──────────────────────────
 
 func TestSCW_RejectsEmptyReturn_NotDeployed(t *testing.T) {
 	ctx := context.Background()
@@ -200,7 +209,10 @@ func TestSCW_RejectsEmptyReturn_NotDeployed(t *testing.T) {
 	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 	rpc.BindEthCall(addr, calldata, []byte{})
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEIP1271ContractEmpty) {
 		t.Fatalf("empty return MUST surface ErrEIP1271ContractEmpty; got %v", err)
@@ -216,7 +228,10 @@ func TestSCW_PropagatesRevert(t *testing.T) {
 	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 	rpc.BindEthCallError(addr, calldata, signatures.ErrEthCallReverted)
 
-	registry := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
+	if regErr != nil {
+		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+	}
 	err := registry.VerifyEntry(ctx, entry)
 	if !errors.Is(err, signatures.ErrEthCallReverted) {
 		t.Fatalf("revert MUST propagate as ErrEthCallReverted; got %v", err)
