@@ -79,10 +79,11 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	mux.Handle("GET /v1/verify/authority/{logID}/{pos}", handlers.NewVerifyAuthorityHandler(deps))
 	mux.Handle("GET /v1/verify/batch/{logID}/{positions}", handlers.NewVerifyBatchHandler(deps))
 	mux.Handle("GET /v1/verify/delegation/{logID}/{pos}", handlers.NewVerifyDelegationHandler(deps))
-	// PR D — SDK Path C composite admission gate. Runs every
+	// PR D — read-side SDK Path C composite verifier. Runs every
 	// opted-in stage in one frame (Signatures → Authority → Origin)
-	// and returns a unified report. Per-stage failures populate the
-	// report; envelope-level errors return 500.
+	// on an already-committed entry. NOT the write-side admission
+	// gate — that lives in the ledger. Per-stage failures populate
+	// the report; envelope-level errors return 500.
 	mux.Handle("GET /v1/verify/complete/{logID}/{pos}", handlers.NewVerifyCompleteHandler(deps))
 	mux.Handle("POST /v1/verify/cross-log", handlers.NewVerifyCrossLogHandler(deps))
 	mux.Handle("POST /v1/verify/fraud-proof", handlers.NewVerifyFraudProofHandler(deps))

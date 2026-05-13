@@ -3,10 +3,20 @@ FILE PATH: api/verification/handlers/verify_complete.go
 
 DESCRIPTION:
 
-	GET /v1/verify/complete/{logID}/{pos} — the SDK Path C composite
-	admission gate. Runs every opted-in verification stage in one
-	frame (Signatures → Authority → Origin) and returns a unified
-	per-stage report.
+	GET /v1/verify/complete/{logID}/{pos} — read-side SDK Path C
+	composite verification endpoint. Runs every opted-in verification
+	stage in one frame (Signatures → Authority → Origin) on an
+	already-on-log entry and returns a unified per-stage report.
+
+	# SCOPE — NOT the ledger admission gate
+
+	This handler is a READ-side verifier for external auditors that
+	don't have a local SDK build. It runs on an entry that has
+	ALREADY been committed to the ledger. Write-side admission
+	(rejecting invalid submissions before commit) lives in the
+	LEDGER process — JN does not gate writes. The two surfaces
+	share the same SDK composite (verifier.VerifyComplete) but at
+	different process boundaries and different cost models.
 
 	The handler delegates to the JN seam verification.VerifyEntryViaSDK
 	(added in PR C), which itself wraps the SDK's
@@ -23,9 +33,9 @@ DESCRIPTION:
 
 	The Conditions and Cosignature stages require caller-supplied
 	parameters (candidate-set, threshold, schema parameters) that
-	don't make sense at the boot-time admission gate; callers needing
-	those run the per-stage endpoints (/v1/verify/cosignature in
-	future, or call the JN seam directly).
+	don't make sense at a position-keyed read endpoint; callers
+	needing those run the per-stage endpoints or call the JN seam
+	directly.
 
 	# RESPONSE SHAPE
 
