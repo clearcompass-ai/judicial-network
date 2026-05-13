@@ -107,6 +107,9 @@ func DefaultJudicialDelegationParams() []byte {
 		"identifier_scope":          "real_did",
 		"override_requires_witness": false,
 		"migration_policy":          "amendment",
+		// v1.3.0 wire field — Board concurrence on delegation issuance.
+		// See schemas/attestation_policies.go.
+		"attestation_policies": judicialDelegationPolicies(),
 	}
 	b, _ := json.Marshal(params)
 	return b
