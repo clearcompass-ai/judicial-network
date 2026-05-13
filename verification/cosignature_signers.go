@@ -3,12 +3,22 @@ FILE PATH: verification/cosignature_signers.go
 
 DESCRIPTION:
 
-	Helper for cosignature_check.go: walks the entry's signatures,
+	Helper for cosignature_check.go: walks the entry's signatures
+	(INTRA-ENTRY multi-sig, NOT separate attestation entries),
 	excludes the primary signer (Signatures[0]) and the filer's own
 	signature (capacity.DID), looks each up via RoleResolver to
 	learn their Signer role + exchange, and reports back a
 	SignerCosigner slice plus a verdict for the
 	rule.MinSignerCosigners + rule.IntraExchangeOnly checks.
+
+	# SCOPE NOTE
+
+	This file operates on `entry.Signatures` — the inline
+	multi-signer slice on ONE entry. It is NOT the SDK v1.2.0
+	attestation/ collection mechanic, which evaluates SEPARATE
+	attestation entries pointing at a primary via
+	`Header.CosignatureOf`. See verification/attestation_collection.go
+	for the SDK-attestation adapter.
 
 	Why not inline in cosignature_check.go: that file already
 	handles the multi-step pipeline; the per-cosigner walk is its
