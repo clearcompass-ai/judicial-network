@@ -15,8 +15,23 @@ with the exact commands that produce each step on your laptop.
 | Component | Version | Source |
 |---|---|---|
 | `judicial-network` (this repo) | `0.0.1` | `make version` |
-| `attesta` (SDK Go module) | `0.1.0` | `go.mod` require line |
-| `ledger` (HTTP service binary) | `0.1.0` | `clearcompass-ai/ledger` repo |
+| `attesta` (SDK Go module) | `v1.5.2` | `go.mod` require line |
+| `ledger` (HTTP service binary) | `main` | `clearcompass-ai/ledger` repo |
+
+attesta v1.5.2 ships three changes that this walkthrough exercises:
+
+- **v1.4.0** — `verifier.VerifyComplete` gained Stage 6
+  (`PolicyStageParams`). The JN endpoint
+  `/v1/verify/complete/{logID}/{pos}` drives this stage when
+  `JN_VERIFY_POLICY_STAGE_ENABLE=true`.
+- **v1.5.0** — `AttestationPolicy.AdmissionEnforced bool` is the
+  schema-declared evaluation point. JN's schemas declare every
+  policy `AdmissionEnforced=false` (async / read-time); the SDK
+  fixture-discipline test (v1.5.1) pins this invariant.
+- **v1.5.2** — `crypto/signatures.SignEntry` is now RFC 6979
+  deterministic. Re-signing the same envelope produces
+  byte-identical bytes; the ledger's `log_time_micros` replay
+  branch dedupes retries without false-positive drift.
 
 The walkthrough's commands assume those three components match. If
 you're on a fork or branch that bumps any of them, expect minor
@@ -183,10 +198,10 @@ when those paths are ready to be exercised.
 
 ## Status
 
-- SDK: `v0.8.0` (EIP-1271 supported but not exercised here)
+- SDK: `v1.5.2` (PRs #24-#27: AdmissionEnforced, Stage 6, RFC 6979 SignEntry)
 - Ledger topology: `deployment/local/docker-compose.dev.yml` in
-  the ledger repo
+  the ledger repo (post PR #82/#83)
 - CLI: `judicial-network/cmd/judicial-cli/`
-- Branch: `claude/notice-of-appearance-event-rsEGt` (all three repos)
+- Branch: `main` (`claude/update-attesta-sdk-alignment-TOII0` for PR #26)
 
 Ready? Open **[01-environment.md](01-environment.md)**.

@@ -143,8 +143,8 @@ $ ./bin/judicial-cli version
 0.0.1
 $ make version
 judicial-network    0.0.1
-attesta (Go module) v0.1.0
-ledger (HTTP)       v0.1.0  (run via 'make walkthrough-up')
+attesta (Go module) v1.5.2
+ledger (HTTP)       main    (run via 'make walkthrough-up')
 ```
 
 Add `./bin` to your `$PATH` (or copy `judicial-cli` to
@@ -187,8 +187,8 @@ Bookmark these:
 | Signing primitive (did:key) | `sdk/crypto/signatures/entry_verify.go:342` (`SignEntry`) |
 | Signing primitive (did:pkh) | `sdk/crypto/signatures/eth_sign.go` (`SignEthereumRecoverable`) |
 | Cross-exchange seam (`EvidencePointers`) | `sdk/core/envelope/control_header.go:127` |
-| Civil-case payload struct | `jn/schemas/civil_case.go:29` |
-| Family-case payload struct | `jn/schemas/family_case.go:31` |
+| Civil-case payload struct | `jn/schemas/civil_case.go:32` |
+| Family-case payload struct | `jn/schemas/family_case.go:35` |
 
 ## Recap
 

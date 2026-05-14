@@ -18,7 +18,7 @@ defaults. The juvenile schema sets `auto_seal_at_disposition: true`
 to enforce TN code §37-1-153's automatic sealing of juvenile
 disposition records.
 
-**Schema:** `jn/schemas/juvenile_case.go:35` / `:90`.
+**Schema:** `jn/schemas/juvenile_case.go:39` / `:90`.
 
 ```bash
 cat > juvenile-filing.spec.json <<EOF
@@ -58,7 +58,7 @@ protocol's answer is a **scoped succession** with `inheritance:
 "narrowed"` — Owens succeeds Lewis only for docket
 `2024-JUV-004`, not for `2024-FAM-003`.
 
-**Schema:** `jn/schemas/judicial_amendments.go:48`.
+**Schema:** `jn/schemas/judicial_amendments.go:51`.
 
 ```bash
 cat > succession.spec.json <<EOF
@@ -106,7 +106,7 @@ we narrate the revocation as terminating Lewis's delegation itself
 to keep the cast at four. In production the target would be a
 `mediator` delegation with its own `S_MEDIATOR` sequence number.
 
-**Schema:** `jn/schemas/judicial_amendments.go:28`.
+**Schema:** `jn/schemas/judicial_amendments.go:31`.
 
 ```bash
 cat > revocation.spec.json <<EOF

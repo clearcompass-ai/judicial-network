@@ -36,7 +36,7 @@ log because that's where the appellate authority sits, but it must
 also pin the trial-court entry it disposes of — that pin is the
 `EvidencePointers` reference.
 
-**Schema:** `jn/schemas/appellate_disposition.go:34` / `:115`.
+**Schema:** `jn/schemas/appellate_disposition.go:36` / `:115`.
 
 **Spec:**
 
@@ -139,7 +139,7 @@ read). The entry carries:
 - An `evidence_pointers` reference to the disposition this opinion
   explains (intra-log this time — both at COA).
 
-**Schema:** `jn/schemas/appellate_opinion_publication.go:33` /
+**Schema:** `jn/schemas/appellate_opinion_publication.go:35` /
 `:119`.
 
 ```bash

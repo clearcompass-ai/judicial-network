@@ -15,7 +15,7 @@ on receipt and the responsible attorney attesting as counsel of
 record. In our narrative the mother's attorney files; in a real
 case both parties would file separately.
 
-**Schema:** `jn/schemas/family_case.go:31` / `:79`.
+**Schema:** `jn/schemas/family_case.go:35` / `:79`.
 
 ```bash
 cd ~/attesta/keys
@@ -57,7 +57,7 @@ encrypted real-name mapping under controlled re-encryption (umbral
 proxy re-encryption keys held by court personnel under judicial
 order).
 
-**Schema:** `jn/schemas/party_binding_sealed.go:17` / `:55`.
+**Schema:** `jn/schemas/party_binding_sealed.go:20` / `:55`.
 
 ```bash
 cat > bind-minor-sealed.spec.json <<EOF
@@ -140,7 +140,7 @@ We model this with Lewis self-binding because we don't have a CJ
 DID in this 4-actor cast; in a real deployment the granter would
 be `did:key:zQ3sh-CJ-...`.
 
-**Schema:** `jn/schemas/judicial_delegation.go:76`.
+**Schema:** `jn/schemas/judicial_delegation.go:79`.
 
 ```bash
 cat > delegation-lewis.spec.json <<EOF

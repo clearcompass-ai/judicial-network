@@ -7,18 +7,18 @@ intentionally skipped, and how to add the missing pieces.
 
 | # | Schema | File | Case 1 (civil) | Case 2 (family) |
 |---|---|---|:-:|:-:|
-| 1 | `CivilCasePayload` | `schemas/civil_case.go:29` | ✓ trial step 1 | — |
-| 2 | `FamilyCasePayload` | `schemas/family_case.go:31` | — | ✓ filing step 1 |
-| 3 | `JuvenileCasePayload` | `schemas/juvenile_case.go:35` | — | ✓ succession step 5 |
-| 4 | `PartyBindingPayload` | `schemas/party_binding.go:66` | ✓ ×2 trial step 2 | — |
-| 5 | `PartyBindingSealedPayload` | `schemas/party_binding_sealed.go:17` | — | ✓ filing step 2 |
-| 6 | `CounselAppearancePayload` | `schemas/counsel_appearance.go:48` | ✓ ×2 trial step 3 | ✓ filing step 3 |
-| 7 | `JudicialDelegationPayload` | `schemas/judicial_delegation.go:76` | (collapsed in narration) | ✓ filing step 4 |
-| 8 | `JudicialSuccessionPayload` | `schemas/judicial_amendments.go:48` | — | ✓ succession step 6 |
-| 9 | `JudicialRevocationPayload` | `schemas/judicial_amendments.go:28` | — | ✓ succession step 7 |
-| 10 | `AppellateDispositionPayload` | `schemas/appellate_disposition.go:34` | ✓ appeal step 5 | — |
-| 11 | `AppellateOpinionPublicationPayload` | `schemas/appellate_opinion_publication.go:33` | ✓ appeal step 6 | — |
-| 12 | `EvidenceArtifactPayload` | `schemas/evidence_artifact.go:71` | ✓ trial step 4 (CEO affidavit, web3) | — |
+| 1 | `CivilCasePayload` | `schemas/civil_case.go:32` | ✓ trial step 1 | — |
+| 2 | `FamilyCasePayload` | `schemas/family_case.go:35` | — | ✓ filing step 1 |
+| 3 | `JuvenileCasePayload` | `schemas/juvenile_case.go:39` | — | ✓ succession step 5 |
+| 4 | `PartyBindingPayload` | `schemas/party_binding.go:69` | ✓ ×2 trial step 2 | — |
+| 5 | `PartyBindingSealedPayload` | `schemas/party_binding_sealed.go:20` | — | ✓ filing step 2 |
+| 6 | `CounselAppearancePayload` | `schemas/counsel_appearance.go:51` | ✓ ×2 trial step 3 | ✓ filing step 3 |
+| 7 | `JudicialDelegationPayload` | `schemas/judicial_delegation.go:79` | (collapsed in narration) | ✓ filing step 4 |
+| 8 | `JudicialSuccessionPayload` | `schemas/judicial_amendments.go:51` | — | ✓ succession step 6 |
+| 9 | `JudicialRevocationPayload` | `schemas/judicial_amendments.go:31` | — | ✓ succession step 7 |
+| 10 | `AppellateDispositionPayload` | `schemas/appellate_disposition.go:36` | ✓ appeal step 5 | — |
+| 11 | `AppellateOpinionPublicationPayload` | `schemas/appellate_opinion_publication.go:35` | ✓ appeal step 6 | — |
+| 12 | `EvidenceArtifactPayload` | `schemas/evidence_artifact.go:75` | ✓ trial step 4 (CEO affidavit, web3) | — |
 
 12 of the 17 payload schemas exercised. The remaining 5 are listed
 below with a one-paragraph "how to add" each.
@@ -48,32 +48,32 @@ Each is a one-spec add. Drop a new spec file alongside the existing
 ones; the CLI handles them identically.
 
 #### `CriminalCasePayload`
-`schemas/criminal_case.go:49`. Same shape as `CivilCasePayload`,
+`schemas/criminal_case.go:53`. Same shape as `CivilCasePayload`,
 plus `charges []string`, `victim_info`, `sealed_exhibits`. Pair with
 a `PartyBindingSealedPayload` for the victim. **Suggested add:** a
 third case, *State v. Wilson* — felony assault with a sealed-victim
 binding and an evidence chain.
 
 #### `KeyAttestationPayload`
-`schemas/key_attestation.go:87`. Attests that an entity's key was
+`schemas/key_attestation.go:89`. Attests that an entity's key was
 generated inside an enclave (e.g., Intel SGX). Used to defend
 chain-of-custody for evidence collected by enclaved devices.
 **Suggested add:** in the criminal case, attest the extraction-
 terminal's key when the detective files digital evidence.
 
 #### `DisclosureOrderPayload`
-`schemas/disclosure_order.go:39`. Order from a judge granting named
+`schemas/disclosure_order.go:42`. Order from a judge granting named
 recipients access to otherwise sealed material. **Suggested add:**
 in the criminal case, the judge orders disclosure of the sealed
 victim binding to the public defender for trial preparation.
 
 #### `SealingOrderPayload`
-`schemas/sealing_order.go:16`. Restrictive order — narrows access to
+`schemas/sealing_order.go:17`. Restrictive order — narrows access to
 specific artifacts. **Suggested add:** in the criminal case, seal
 records identifying a juvenile witness mid-trial.
 
 #### `AppellateOpinionParticipationPayload`
-`schemas/appellate_opinion_participation.go:30`. Used when a panel
+`schemas/appellate_opinion_participation.go:32`. Used when a panel
 has multiple judges; each non-author judge files a participation
 entry (joined / concurred-in-part / dissented). Our 1-judge COA
 panel doesn't trigger it. **Suggested add:** expand Case 1's COA

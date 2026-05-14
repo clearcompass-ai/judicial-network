@@ -2,8 +2,13 @@
 #
 # Versioning:
 #   judicial-network v0.0.1
-#     requires attesta v0.1.0 (Go module)
-#     requires ledger   v0.1.0 (HTTP, run via deployment/local/)
+#     requires attesta v1.5.2 (Go module — bumped from v0.1.0 over
+#                              PRs #24-#27: AdmissionEnforced (v1.5.0),
+#                              VerifyComplete Stage 6 (v1.4.0), RFC 6979
+#                              SignEntry (v1.5.2))
+#     requires ledger   main  (HTTP, run via deployment/local/; the
+#                              ledger self-gates Stage 6 admission via
+#                              admission.LedgerPolicyResolver, default ON)
 #
 # All targets use POSIX sh and are intended to run in CI without
 # relying on developer tooling.
@@ -31,7 +36,7 @@ help: ## List available targets
 version: ## Print judicial-network version + dep pins
 	@echo "judicial-network    $(JN_VERSION)"
 	@echo "attesta (Go module) $$($(GO) list -m -f '{{.Version}}' $(SDK_MODULE))"
-	@echo "ledger (HTTP)       v0.1.0  (run via 'make walkthrough-up')"
+	@echo "ledger (HTTP)       main    (run via 'make walkthrough-up')"
 
 # ────────────────────────────────────────────────────────────────────
 # Build

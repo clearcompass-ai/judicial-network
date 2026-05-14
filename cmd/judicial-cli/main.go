@@ -102,7 +102,14 @@ For walkthrough usage see:
 // pin documented in the top-level README:
 //
 //	judicial-network v0.0.1
-//	    requires attesta v0.1.0 + ledger v0.1.0
+//	    requires attesta v1.5.2 (Go module)
+//	    requires ledger main (HTTP service)
+//
+// attesta v1.5.2 ships: AttestationPolicy.AdmissionEnforced (v1.5.0),
+// VerifyComplete Stage 6 PolicyParams (v1.4.0), and RFC 6979
+// deterministic ECDSA signing in SignEntry (v1.5.2). The
+// judicial-cli submit path benefits from determinism on signed-
+// envelope replay (canonical_hash + signature both byte-stable).
 //
 // Builds may override via -ldflags "-X main.Version=...".
 var Version = "0.0.1"

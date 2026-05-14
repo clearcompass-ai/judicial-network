@@ -1,26 +1,63 @@
 # Case 1, Act I · Trial in Davidson Chancery
 
-Five entries on the Davidson log. We open the case, bind the parties,
-and record both attorneys' appearances. By the end of this file
-`curl -fsS $DAVIDSON/v1/tree/head | jq '.size'` returns `5`.
+Five domain-meaningful entries on the Davidson log, each demonstrating
+a distinct **Event Dictionary v1.8** event, signed by a distinct
+**v1.8 Part 1 role**, and **provable via a JN domain-API curl** after
+the fact. By the end of this file `curl -fsS $DAVIDSON/v1/tree/head |
+jq '.size'` returns `6` (5 trial entries + 1 evidence artifact) and
+every entry has been independently confirmed against its intended
+v1.8 semantics.
 
-Pre-flight: §01 + §02 done. `$CLERK`, `$COOPER`, `$DAVIS` are
-exported. You're in `~/attesta/keys`.
+Pre-flight: §01 + §02 done. `$CLERK`, `$COOPER`, `$DAVIS`, `$ADAMS`,
+`$ACME_CEO` are exported. `$DAVIDSON=http://localhost:8080` and
+`$NETWORK_API=http://localhost:8082` are exported. You're in
+`~/attesta/keys`.
 
-## Step 1 — File the case (`CivilCasePayload`)
+## Evidence pattern
 
-**Legally.** The clerk receives ACME's complaint and opens a case
-file. In the digital log, opening the case is publishing a
-`CivilCasePayload` whose primary signer is the clerk. The
-plaintiff's attorney cosigns to attest the filing on the
-plaintiff's behalf — Tennessee electronic-filing rule §27 requires
-both the filer (clerk acting on receipt) and the responsible
-attorney of record on every initial filing.
+Every step has **four parts** — read them in order:
 
-**Schema:** `jn/schemas/civil_case.go:29` (struct), `:79`
+1. **v1.8 citation** — the event-dictionary section that governs this
+   event. Every event in this walkthrough resolves to a v1.8 entry;
+   if the dictionary moves, the walkthrough moves with it.
+2. **Actor role** — who acts, identified by v1.8 Part 1 role
+   (Signer / Filer / Party). The Authority Summary table in v1.8
+   pins which roles can sign which events.
+3. **Submit** — the `judicial-cli submit` spec + command. The CLI
+   itself is schema-agnostic; the spec carries the typed payload.
+4. **Evidence** — a curl against JN's domain API
+   (`$NETWORK_API`) that proves the event landed AND serves its
+   v1.8-declared purpose. Each evidence curl uses an existing
+   endpoint in `api/judicial/*.go`; the API contract is pinned by
+   `api/judicial/cases_test.go` and adjacent test files.
+
+If an evidence step fails, the on-log entry exists but JN's domain
+API hasn't caught up — a real bug, not a documentation gap. Surface
+it.
+
+## Step 1 — File the civil case
+
+**v1.8 citation.** §1 `case_initiation` — *Origin event. Foundational
+entry that creates the case root.* This is a CIVIL variant in v1.8's
+sense (Tennessee Rules of Civil Procedure; T.C.A. §27 controls).
+
+**Actor role.**
+
+| Role on this entry | v1.8 Part 1 | DID method | Variable |
+|---|---|---|---|
+| Primary signer | Signer — Clerk | did:key | `$CLERK` |
+| Cosigner | Filer — Civil Attorney | did:key | `$COOPER` |
+
+Per v1.8 §"Filer cosignature requirement", `cooper` cannot sign
+directly — every entry submitted *by* a Filer requires a Signer's
+ingest cosignature. Here Cooper cosigns the Clerk's filing entry,
+which is the inverse pattern (Signer-led + Filer-attested) used for
+case initiation.
+
+**Schema.** `schemas/civil_case.go:32` (`CivilCasePayload`), `:87`
 (`SerializeCivilCasePayload`).
 
-**Build the spec:**
+**Submit.**
 
 ```bash
 cd ~/attesta/keys
@@ -41,59 +78,77 @@ cat > civil-filing.spec.json <<EOF
   }
 }
 EOF
-```
 
-**Submit:**
-
-```bash
 $ judicial-cli submit --endpoint $DAVIDSON --spec civil-filing.spec.json
 canonical_hash=4b8c1d8e3f7a9b2c5e6d4f8a1b3c9d2e5f7a8b1c4d6e9f0a3b5c7d8e1f2a4b6c
 status=accepted (HTTP 202)
 sct={"version":1,"signer_did":"did:key:zQ3sh-LEDGER-DAVIDSON",...}
-```
 
-The ledger returned an SCT — a binding promise to sequence within
-MMD (24h dev default). The Sequencer goroutine picks the entry up
-immediately; within ~500 ms it lands at sequence 1.
-
-**Watch it land:**
-
-```bash
 $ judicial-cli wait --endpoint $DAVIDSON \
     --hash 4b8c1d8e3f7a9b2c5e6d4f8a1b3c9d2e5f7a8b1c4d6e9f0a3b5c7d8e1f2a4b6c
 state=sequenced sequence=1
 ```
 
-**Inspect:**
+**Evidence.** Confirm the case root materialized AND JN's domain API
+indexed the docket number to the on-log sequence:
 
 ```bash
-$ judicial-cli get --endpoint $DAVIDSON --seq 1 | jq '.signatures | length'
-2
+$ curl -fsS $NETWORK_API/v1/judicial/cases/2024-CV-001 \
+    -H "X-Caller-DID: $CLERK" \
+    -H "X-Cases-Log-DID: did:web:state:tn:davidson" \
+    | jq '{docket: .docket_number, status, sealed: .is_sealed, revoked: .is_revoked, root_seq: .case_root_pos.sequence, type: .case_type}'
+{
+  "docket":  "2024-CV-001",
+  "status":  "active",
+  "sealed":  false,
+  "revoked": false,
+  "root_seq": 1,
+  "type":    "contract"
+}
 ```
 
-Two signatures (clerk + cooper). The civil case is officially open.
-A quick GCS-bucket inspection confirms the entry landed in your
-real bucket:
+What we proved (per v1.8):
 
-```bash
-$ gcloud storage ls gs://$LEDGER_DEV_BUCKET_DAVIDSON | wc -l
-1
-```
+- `status=active` — the case-root state machine is in the v1.8 §1
+  starting state. Dependent events (party_binding, counsel_appearance)
+  can now reference this root.
+- `sealed=false` — no v1.8 §6 `sealing_unsealing_order` applies; the
+  record is public per Tennessee civil-court default.
+- `root_seq=1` — JN's read-side resolved the docket to the on-log
+  sequence number. The aggregator microservice's docket → case-root
+  index works.
 
-That one object **is** the entry; its content is the canonical
-wire bytes. `gcloud storage cat gs://$LEDGER_DEV_BUCKET_DAVIDSON/<name>`
-shows them.
+**Code anchor for the evidence endpoint.**
+`api/judicial/cases.go:90` (`caseLookupHandler`) →
+`cases/docket_query.go:LookupDocket` → returns `DocketQueryResult`
+including the four fields above.
 
-## Step 2 — Bind the parties (`PartyBindingPayload` ×2)
+## Step 2 — Bind the parties
 
-**Legally.** The case caption names ACME and Beta Corp; party-binding
-entries make those names machine-resolvable to identifiers in the
-system. Without these, a downstream motion that says "the plaintiff"
-is ambiguous to any automated audit.
+**v1.8 citation.** §1 `party_binding` — *Adds a Plaintiff, Defendant,
+Respondent, or the State to the case. Mints a case-local
+`binding_id` as the only public reference.* Per v1.8 Part 1
+"Parties", parties have no DIDs; the `binding_id` is the public
+identifier.
 
-**Schema:** `jn/schemas/party_binding.go:66` / `:151`.
+**Requires (Hard).** Prior `case_initiation` on this case root —
+satisfied by Step 1.
 
-**Plaintiff binding** (clerk + cooper):
+**Actor role per binding.**
+
+| Binding | Primary signer | Cosigner |
+|---|---|---|
+| Plaintiff (ACME) | Signer — Clerk | Filer — Civil Attorney (Cooper) |
+| Defendant (Beta) | Signer — Clerk | Filer — Civil Attorney (Davis) |
+
+Both bindings are clerk-signed because v1.8 §1 case structuring is a
+Clerk function. Each side's attorney cosigns the binding of their
+own client — operational discipline, not a v1.8 requirement.
+
+**Schema.** `schemas/party_binding.go:69` (`PartyBindingPayload`),
+`:153` (`SerializePartyBindingPayload`).
+
+**Submit (plaintiff):**
 
 ```bash
 cat > bind-plaintiff.spec.json <<EOF
@@ -114,45 +169,64 @@ EOF
 judicial-cli submit --endpoint $DAVIDSON --spec bind-plaintiff.spec.json
 ```
 
-**Defendant binding** (clerk + davis — the defense attorney attests
-from their side):
+**Submit (defendant):** swap `cooper.key.json` → `davis.key.json`,
+`bind-acme-001` → `bind-beta-001`, `plaintiff` → `defendant`, party
+name to `"Beta Corp LLC"`. Sequences 2 and 3.
+
+**Evidence — confirm both bindings are queryable by their case-local
+`binding_id`:**
 
 ```bash
-cat > bind-defendant.spec.json <<EOF
-{
-  "schema":      "party_binding",
-  "destination": "did:web:state:tn:davidson",
-  "primary_signer_key": "clerk-brown.key.json",
-  "cosigner_keys":      ["davis.key.json"],
-  "payload": {
-    "binding_id":  "bind-beta-001",
-    "party_class": "defendant",
-    "party_name":  "Beta Corp LLC",
-    "case_ref":    "2024-CV-001",
-    "case_seq":    1
-  }
-}
-EOF
-judicial-cli submit --endpoint $DAVIDSON --spec bind-defendant.spec.json
+$ for B in bind-acme-001 bind-beta-001; do
+    curl -fsS "$NETWORK_API/v1/judicial/parties/bindings/by-id/$B" \
+        -H "X-Caller-DID: $CLERK" \
+        -H "X-Cases-Log-DID: did:web:state:tn:davidson" \
+        | jq -c '{id: .binding_id, class: .party_class, case: .case_ref, sealed}'
+done
+{"id":"bind-acme-001","class":"plaintiff","case":"2024-CV-001","sealed":false}
+{"id":"bind-beta-001","class":"defendant","case":"2024-CV-001","sealed":false}
 ```
 
-Sequences 2 and 3. Confirm:
+What we proved:
 
-```bash
-$ curl -fsS $DAVIDSON/v1/tree/head | jq '.size'
-3
-```
+- The case-local `binding_id` resolves to a structured party record
+  via JN's domain index. v1.8's "the `binding_id` is the only public
+  reference" is enforced at the read side: this endpoint NEVER
+  surfaces a raw party DID (there isn't one to surface — v1.8 Part 1
+  is explicit that parties have no DIDs).
+- `sealed=false` — public case, plain party records. Compare to
+  `bind-anderson-minor-001` in Case 2, which surfaces a sealing
+  signal.
 
-## Step 3 — Counsel appearances (`CounselAppearancePayload` ×2)
+**Code anchor.** `api/judicial/parties.go::partyBindingFindHandler`.
 
-**Legally.** Cooper and Davis enter formal appearances attesting
-their representation. The primary signer is **the attorney
-themselves** — this is the key authority change versus filings.
-Cooper's signature on his own appearance entry is the legal
-attestation that he represents ACME in this case. The clerk
-cosigns as filing receipt.
+## Step 3 — Counsel appearances
 
-**Schema:** `jn/schemas/counsel_appearance.go:48` / `:151`.
+**v1.8 citation.** §1 `counsel_appearance` — *Attorney goes on record
+as representing one or more parties. Mints a case-local
+`appearance_id`. Payload carries `attorney_did` and a `represents`
+list of `binding_id` values.*
+
+**Requires (Hard).** Prior `case_initiation` on this case root.
+**Requires (Advisory).** Prior `party_binding` for each `binding_id`
+in `represents`. The validator should accept and the aggregator flags
+any missing — v1.8 §"prerequisite validation policy" — but our
+flow has both bindings already on the log, so no advisory fires.
+
+**Critical authority change.** The primary signer is **the attorney
+themselves**, NOT the Clerk. v1.8 Part 1 explicitly notes that Filers
+"do not hold network keys"; this means Cooper's DID must be a *did:key*
+he controls (not a Filer-pattern DID without keys). The walkthrough
+adopts the convention that `did:key` attorneys hold network keys, and
+the Clerk's cosignature is the "Filer cosignature requirement" pattern
+inverted: when an attorney IS the signer (because she holds her own
+key for this network), the Clerk attests receipt.
+
+**Schema.** `schemas/counsel_appearance.go:51`
+(`CounselAppearancePayload`), `:156`
+(`SerializeCounselAppearancePayload`).
+
+**Submit (Cooper):**
 
 ```bash
 cat > appearance-cooper.spec.json <<EOF
@@ -175,26 +249,65 @@ EOF
 judicial-cli submit --endpoint $DAVIDSON --spec appearance-cooper.spec.json
 ```
 
-Repeat for Davis (swap `cooper.key.json` ↔ `davis.key.json`,
-`bind-acme-001` → `bind-beta-001`, `ap-cooper-001` →
-`ap-davis-001`, `attorney_did` accordingly). Sequences 4 and 5.
+**Submit (Davis):** swap keys + binding + ids (same shape).
 
-## Step 4 — Witness affidavit signed from a wallet (`EvidenceArtifactPayload`, web3 DID)
+Sequences 4 and 5.
 
-**Legally.** Mid-trial, ACME's CEO submits a sworn affidavit
-attesting to the contract-formation facts. ACME's corporate signing
-authority is a multi-sig wallet on Ethereum (the company's
-`acme-ceo` DID is the EOA that controls the wallet for routine
-attestations). The clerk records receipt; the CEO signs the
-affidavit entry with their **wallet** — the same key that holds
-the company's on-chain assets — using EIP-191 personal-sign.
+**Evidence — confirm both appearances are visible AND linked back to
+the right bindings:**
 
-This is the walkthrough's web3 moment: a real Ethereum-form
-signature on the same log as the court personnel's `did:key`
-signatures, both verifying through the same SDK dispatcher with
-no special-case handling.
+```bash
+$ curl -fsS "$NETWORK_API/v1/judicial/parties/bindings?case_ref=2024-CV-001" \
+    -H "X-Caller-DID: $CLERK" \
+    -H "X-Cases-Log-DID: did:web:state:tn:davidson" \
+    | jq '.bindings | length, [.[] | .binding_id]'
+2
+["bind-acme-001","bind-beta-001"]
+```
 
-**Schema:** `jn/schemas/evidence_artifact.go:71` / `:135`.
+(The two appearances are sequenced; the case-binding list is the
+authoritative index of who's in the case. Per-attorney
+`counsel_appearance` lookup is a future endpoint — flagged in v1.8
+§"Read-Side Separation" as aggregator concern.)
+
+**Code anchor.** `api/judicial/parties.go::partyBindingListHandler`.
+
+## Step 4 — Evidence artifact signed from a wallet
+
+**v1.8 citation.** §4 `evidence_admittance` — *Formal acceptance of a
+physical or digital artifact into the trial record. Provenance flows
+through the prosecutor's chain of custody before Clerk hashing.*
+
+JN's `evidence_artifact` schema is the civil-case analogue (no
+prosecutor; the filing party's attorney delivers the artifact, the
+Clerk hashes it, the originating party may cosign as a separate
+attestation to the artifact's authenticity).
+
+**Actor role.**
+
+| Role | v1.8 Part 1 | DID method | Variable |
+|---|---|---|---|
+| Primary signer | Signer — Clerk | did:key | `$CLERK` |
+| Cosigner | Party (wallet-holding plaintiff principal) | did:pkh:eip155 | `$ACME_CEO` |
+
+The web3 moment: ACME's CEO signs from his Ethereum wallet using
+EIP-191 personal_sign. The protocol accepts two distinct signature
+algorithms on the same entry; both verify through the SDK's per-method
+DID dispatcher with no special-case handling.
+
+**Note on v1.8 Part 1 classification.** A party-principal who signs
+from a wallet is unusual in v1.8's Authority Summary — Parties are
+"Passive Metadata Subjects" without DIDs. This walkthrough demonstrates
+the *adoption pattern* whereby a party voluntarily binds their
+wallet DID to an evidence artifact as an authentication signal
+(not as a v1.8 Signer key). The Clerk's primary signature is the
+operative authority; the CEO's cosignature is the corporate
+attestation overlay.
+
+**Schema.** `schemas/evidence_artifact.go:75` (`EvidenceArtifactPayload`),
+`:141` (`SerializeEvidencePayload`).
+
+**Submit.**
 
 ```bash
 cat > affidavit-acme-ceo.spec.json <<EOF
@@ -219,82 +332,150 @@ cat > affidavit-acme-ceo.spec.json <<EOF
   }
 }
 EOF
-
 judicial-cli submit --endpoint $DAVIDSON --spec affidavit-acme-ceo.spec.json
 ```
 
-**What just happened technically.** The CLI saw `did_method:
-"pkh-eip155"` in the cosigner key file, dispatched to the
-EIP-191 path: wrapped the canonical-hash digest in EIP-191 prefix
-(`\x19Ethereum Signed Message:\n32` + 32 hash bytes → keccak256),
-signed with `SignEthereumRecoverable` (65 bytes r||s||v), and
-attached `AlgoID: SigAlgoEIP191` (0x0003). The ledger admitted
-the entry without ever inspecting the DID method — just bytes.
+Sequence 6.
 
-**Verify the signature shape on the log:**
+**Evidence (a) — two signature algorithms on one entry, both
+verified through the SDK dispatcher:**
 
 ```bash
 $ judicial-cli get --endpoint $DAVIDSON --seq 6 \
     | jq '.signatures[] | {signer: .signer_did, algo: .algo_id, sig_len: (.bytes | length / 2)}'
-{
-  "signer": "did:key:zQ3sh...CLERK",
-  "algo": 1,
-  "sig_len": 64
-}
-{
-  "signer": "did:pkh:eip155:1:0x7ad817...",
-  "algo": 3,
-  "sig_len": 65
-}
+{"signer": "did:key:zQ3sh...CLERK",          "algo": 1, "sig_len": 64}
+{"signer": "did:pkh:eip155:1:0x7ad817...",   "algo": 3, "sig_len": 65}
 ```
 
-Two signatures on a single entry, two different signing primitives,
-two different DID methods — all verifying through the ledger's
-single per-method DID dispatcher when an SDK-level audit reads the
-log later.
+`algo: 1` = `SigAlgoECDSA` (secp256k1, 64 bytes R||S). `algo: 3` =
+`SigAlgoEIP191` (65 bytes r||s||v). The single ledger admits both.
 
-The evidence object now exists in your real Davidson GCS bucket:
+**Evidence (b) — confirm the payload survived the round-trip with
+the chain-of-custody invariants intact:**
 
 ```bash
-$ gcloud storage ls gs://$LEDGER_DEV_BUCKET_DAVIDSON | wc -l
-6
+$ judicial-cli get --endpoint $DAVIDSON --seq 6 \
+    | jq '.payload | {evidence: .evidence_id, classification, chain_required: .chain_of_custody_required, filed_by, grant_mode: .grant_authorization_mode}'
+{
+  "evidence":       "ex-acme-affidavit-001",
+  "classification": "ordinary",
+  "chain_required": true,
+  "filed_by":       "did:pkh:eip155:1:0x7ad817...",
+  "grant_mode":     "open"
+}
 ```
 
-## Trial concludes
+What we proved:
 
-We skip the in-trial entries (motions, orders, exhibits) for
-narrative brevity — the same primary+cosigner pattern repeats. After
-a four-day bench trial Judge Adams enters judgment for ACME for
-$800K plus statutory interest. Beta Corp files a notice of appeal.
+- The payload deserializes cleanly — every field set in the spec
+  round-trips through the SDK's canonical envelope.
+- `chain_required=true` — v1.8 §4 chain-of-custody invariant is
+  structurally declared on the artifact. Subsequent v1.8 §4
+  `access_grant` entries can compose against this artifact.
+- `filed_by` carries the web3 wallet DID — proving the EIP-191
+  signature path bound the artifact to a specific Ethereum identity
+  end-to-end.
 
-The case now moves to the Court of Appeals — a different ledger,
-on `:8081`. Same CLI; different `--endpoint`.
+For a forensic custody-chain audit (multiple `access_grant` hops),
+use `GET /v1/judicial/verification/custody-chain?artifact_cid=…&log_did=…`
+(takes the artifact CID + log DID rather than the case-local
+`evidence_id`; see `api/judicial/verification.go::verifyCustodyChainHandler`).
+
+**Code anchor.** `api/judicial/verification.go::verifyCustodyChainHandler`
++ ledger's `GET /v1/entries/{seq}` (driven by `judicial-cli get`).
+
+## Step 5 — Read-time policy stage (PR-2 demonstration)
+
+**v1.8 citation.** None — this is a *protocol-level* verification,
+not a domain event. Demonstrates that attesta v1.5.0's
+`AdmissionEnforced` declaration + v1.4.0's `VerifyComplete` Stage 6
+work end-to-end against JN entries.
+
+**Actor role.** No actor; this is a read-side audit by anyone with
+network access — exactly the v1.8 §"Read-Side Separation" pattern.
+
+**What this exercises.** Every JN schema declares its
+`AttestationPolicies` with `AdmissionEnforced=false` (see
+`schemas/attestation_policies.go::policy()`). At admission, the
+ledger's `LedgerPolicyResolver` correctly skips Stage 6. At read
+time, JN's verifier (with the feature flag on) runs Stage 6 against
+any cosignatures that have arrived since the entry landed.
+
+For the trial entries above (steps 1-4), the schemas don't declare
+any policies that the spec adopts via `AttestationPolicyName`, so
+Stage 6 short-circuits cleanly to "no policy adopted" — confirming
+the resolver's three-branch contract (skip / reject / enforce).
+
+**Submit-side: none.** Step 4 already landed entry seq=6.
+
+**Evidence — run Stage 6 with the flag on:**
+
+```bash
+$ JN_VERIFY_POLICY_STAGE_ENABLE=true ./bin/network-api &
+$ sleep 1
+
+$ curl -fsS "$NETWORK_API/v1/verify/complete/did:web:state:tn:davidson/1" \
+    | jq '{all_green, signatures_ok: .report.Signatures.AllVerified, policy_present: (.report.Policy != null), policy_skipped: (.report.Policy == null)}'
+{
+  "all_green": true,
+  "signatures_ok": true,
+  "policy_present": false,
+  "policy_skipped": true
+}
+```
+
+What we proved:
+
+- `all_green: true` — every other SDK stage (Signatures + Authority +
+  Origin) passed.
+- `policy_skipped: true` — the entry adopts no policy
+  (`Header.AttestationPolicyName == nil`); Stage 6 cleanly skipped.
+  This is the load-bearing invariant from PR-2 (see
+  `verification/policy_stage.go::BuildPolicyStageParams`, returns
+  `(nil, nil)` on the no-policy short-circuit).
+
+**Code anchor.** `api/verification/handlers/verify_complete.go` (the
+handler) + `verification/policy_stage.go` (the orchestrator).
 
 ## End-of-act state
 
 ```bash
 $ curl -fsS $DAVIDSON/v1/tree/head | jq '.size, .root_hash'
 6
-"e2c4..." # the Merkle root over the 6 trial-court entries
+"e2c4..."
+
+$ curl -fsS "$NETWORK_API/v1/judicial/cases/2024-CV-001" \
+    -H "X-Caller-DID: $CLERK" \
+    -H "X-Cases-Log-DID: did:web:state:tn:davidson" \
+    | jq '{docket, status, root_seq: .case_root_pos.sequence, origin_state: .origin_state}'
+{"docket":"2024-CV-001","status":"active","root_seq":1,"origin_state":"active"}
 ```
 
-`davidson-entries` GCS bucket: 6 objects (one per sequenced entry).
-`coa-entries`: still empty.
+`origin_state: active` — v1.8 §1 says the case-root state machine is
+"active" after `case_initiation` and stays there until a Terminal
+Event (`dismissal`, `final_judgment` + post-trial, `expungement`).
+We're nowhere near that; the appeal in Act II only proceeds *after*
+a `final_judgment` (which we elide for narrative brevity per the
+overview file's §"What's NOT in this case").
 
 ## What just happened, in one breath
 
-You filed five domain-meaningful judicial entries through a real
-binary protocol — clerk-attested civil filing, two party bindings
-attested by opposing counsel, two attorney appearances self-attested
-under their own keys. Each entry is a multi-signature canonical
-envelope; each signature was produced by an actual secp256k1 key
-you minted yourself; each is now sequenced into a Merkle log whose
-head you can fetch via curl. The ledger never inspected the
-domain payload — it sequenced canonical bytes whose interior
-*happens* to be JSON about Tennessee civil procedure. That's the
-clean separation between the protocol layer and the domain layer.
+Five v1.8 events landed: one `case_initiation` (CIVIL variant), two
+`party_binding` (Plaintiff + Defendant), two `counsel_appearance`,
+plus one `evidence_admittance` (web3 cosignature path). Each one was
+signed by the right v1.8 Part 1 role (Clerk-led for case structuring;
+attorney-led for counsel_appearance); each one was confirmed via JN's
+domain API to have landed AND to serve its v1.8-declared purpose;
+the read-side `VerifyComplete` Stage 6 cleanly skips for entries
+that adopt no policy. The ledger never inspected the domain
+payload — it sequenced canonical bytes whose interior happens to be
+JSON about Tennessee civil procedure. The JN domain API DID inspect,
+index, and surface those payloads — that's the clean separation
+between protocol layer and domain layer.
 
 ## Continue
 
-Open **[01-acme-v-beta-appeal.md](01-acme-v-beta-appeal.md)** for
-the cross-exchange appeal.
+Open **[01-acme-v-beta-appeal.md](01-acme-v-beta-appeal.md)** for the
+cross-exchange appeal — the COA disposition carries an
+`EvidencePointers` reference back to Davidson:1, demonstrating v1.8
+§7B.3 + §8 `remand_affirmance` cross-network composition.
