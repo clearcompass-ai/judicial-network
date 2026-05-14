@@ -47,6 +47,40 @@ type Dependencies struct {
 	// this field. Empty (nil) keeps boot clean for deployments that
 	// don't expose /v1/verify/complete.
 	SignatureVerifier attestation.SignatureVerifier
+
+	// PR-2 (attesta v1.5.1 / issue #75 read-time Stage 6).
+	// PolicyStage holds per-log dependencies for the SDK Path C
+	// composite's Policy stage. When the feature flag
+	// JN_VERIFY_POLICY_STAGE_ENABLE is true AND PolicyStage has an
+	// entry for the request's logID, VerifyCompleteHandler builds
+	// verifier.PolicyStageParams via verification.BuildPolicyStageParams
+	// and attaches it to the SDK call.
+	//
+	// Absent for any log (or feature flag off) keeps the three-stage
+	// (Signatures + Authority + Origin) behavior the handler shipped
+	// with in PR D. Both axes are independent: a wired log with the
+	// flag off is silent; a flag-on log with no PolicyStage entry is
+	// silent.
+	PolicyStage map[string]PolicyStageDeps
+
+	// PolicyStageEnabled gates the Policy stage. Read at boot from
+	// JN_VERIFY_POLICY_STAGE_ENABLE. Default off until real
+	// cosignature traffic exists to validate against.
+	PolicyStageEnabled bool
+}
+
+// PolicyStageDeps is the per-log injection point for read-time
+// Stage 6 (attesta v1.5.1). One per logID. Production wiring builds:
+//
+//   - Query:              *sdklog.HTTPLedgerQueryAPI (cosignature_of)
+//   - Fetcher:            *sdklog.HTTPEntryFetcher (/raw bytes)
+//   - DelegationResolver: *verification.LedgerDelegationResolver
+//
+// Tests inject fakes.
+type PolicyStageDeps struct {
+	Query              sdklog.LedgerQueryAPI
+	Fetcher            types.EntryFetcher
+	DelegationResolver attestation.DelegationResolver
 }
 
 // resolveLog finds the ledger query API for a given log identifier.
@@ -118,7 +152,7 @@ func (h *VerifyOriginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, result)
 }
 
-// ─── Shared helpers ─────────────────────────────────────────────────
+// ─── Shared helpers ──────────────────────────────────────────
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
