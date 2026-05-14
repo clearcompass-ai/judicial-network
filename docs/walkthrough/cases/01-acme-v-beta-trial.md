@@ -45,8 +45,8 @@ sense (Tennessee Rules of Civil Procedure; T.C.A. §27 controls).
 
 | Role on this entry | v1.8 Part 1 | DID method | Variable |
 |---|---|---|---|
-| Primary signer | Signer — Clerk | did:key | `$CLERK` |
-| Cosigner | Filer — Civil Attorney | did:key | `$COOPER` |
+| Primary signer | **T1** Signer — Clerk | did:key | `$CLERK` |
+| Cosigner | **T2** Filer — Civil Attorney | did:key | `$COOPER` |
 
 Per v1.8 §"Filer cosignature requirement", `cooper` cannot sign
 directly — every entry submitted *by* a Filer requires a Signer's
@@ -138,8 +138,8 @@ satisfied by Step 1.
 
 | Binding | Primary signer | Cosigner |
 |---|---|---|
-| Plaintiff (ACME) | Signer — Clerk | Filer — Civil Attorney (Cooper) |
-| Defendant (Beta) | Signer — Clerk | Filer — Civil Attorney (Davis) |
+| Plaintiff (ACME) | **T1** Signer — Clerk | **T2** Filer — Civil Attorney (Cooper) |
+| Defendant (Beta) | **T1** Signer — Clerk | **T2** Filer — Civil Attorney (Davis) |
 
 Both bindings are clerk-signed because v1.8 §1 case structuring is a
 Clerk function. Each side's attorney cosigns the binding of their
@@ -287,8 +287,8 @@ attestation to the artifact's authenticity).
 
 | Role | v1.8 Part 1 | DID method | Variable |
 |---|---|---|---|
-| Primary signer | Signer — Clerk | did:key | `$CLERK` |
-| Cosigner | Party (wallet-holding plaintiff principal) | did:pkh:eip155 | `$ACME_CEO` |
+| Primary signer | **T1** Signer — Clerk | did:key | `$CLERK` |
+| Cosigner | **T3** Party (wallet-holding plaintiff principal) | did:pkh:eip155 | `$ACME_CEO` |
 
 The web3 moment: ACME's CEO signs from his Ethereum wallet using
 EIP-191 personal_sign. The protocol accepts two distinct signature

@@ -1,44 +1,81 @@
 # Case 1, Act II · Appeal to TN Court of Appeals
 
-This is the centerpiece of the walkthrough. Two entries land on the
-**second ledger** (`$COA`, port 8081), and one of them carries
-a public reference back to the trial-court entry on the **first
-ledger** (`$DAVIDSON`, port 8080) — the protocol's
-cross-exchange composition mechanism.
+The centerpiece of the walkthrough: two entries land on the **second
+ledger** (`$COA`, port 8081). One of them carries a public reference
+back to the trial-court entry on the **first ledger** (`$DAVIDSON`,
+port 8080) — the protocol's cross-exchange composition mechanism in
+action.
 
-Pre-flight: Act I (5 entries on Davidson) complete.
-`$EDWARDS`, `$CLERK` exported. You're in `~/attesta/keys`.
+Each step uses the same four-part pattern documented in
+[01-acme-v-beta-trial.md](01-acme-v-beta-trial.md): v1.8 citation →
+actor role → submit → evidence curl + "what we proved" narrative.
+
+Pre-flight: Act I (5 entries on Davidson) complete. `$EDWARDS`,
+`$CLERK`, `$BETA_CFO` exported. `$DAVIDSON`, `$COA`, `$NETWORK_API`
+exported. You're in `~/attesta/keys`.
 
 ## The cross-exchange seam
 
-The SDK gives every entry's `ControlHeader` a list of
-**`EvidencePointers`** — `(log_did, sequence)` tuples that name
-entries on other logs. The ledger on the receiving end caps the
-list at 10
+Every entry's `ControlHeader` carries an `EvidencePointers` list of
+`(log_did, sequence)` tuples that name entries on other logs. The
+receiving ledger caps the list at 10
 ([`ledger/api/middleware/evidence_cap.go:20`](../../../../ledger/api/middleware/evidence_cap.go))
-but enforces nothing beyond that — it's not the ledger's job to
-verify that the cited remote entry exists or means what the citing
-entry claims. The audit is left to whoever consumes the citing
-entry. That's the "dumb writes" architecture making cross-exchange
-composition trivial: any entry can name any other entry on any
-ledger's log, with no prior trust setup, no cross-credentials, no
-shared schema.
+but enforces nothing semantic — it's not the ledger's job to verify
+that the cited remote entry exists or means what the citing entry
+claims. The audit is left to whoever consumes the citing entry.
+v1.8 §"Case Roots: Trial vs. Appellate" makes this concrete: "the
+appellate court's `appellate_disposition` flows back to the trial
+court's case root via `remand_affirmance` (cross-network
+reference)."
 
-Schema field at `sdk/core/envelope/control_header.go:127`.
+Schema field at `sdk/core/envelope/control_header.go:127`
+(`ControlHeader.EvidencePointers`).
 
-## Step 5 — COA disposition (`AppellateDispositionPayload`)
+## v1.8 conformance notes
 
-**Legally.** A three-judge panel of the Tennessee Court of Appeals
-hears the case (we narrate as 1 judge for brevity). The disposition
-is the panel's binding ruling: *affirmed, reversed, vacated,*
-*remanded*, or various combinations. It must be filed on the COA
-log because that's where the appellate authority sits, but it must
-also pin the trial-court entry it disposes of — that pin is the
-`EvidencePointers` reference.
+Two known gaps documented here so future-walkthrough readers see
+them before they hit them in code:
 
-**Schema:** `jn/schemas/appellate_disposition.go:36` / `:115`.
+- **`appellate_case_initiation` schema missing.** v1.8 §7B.1 says
+  an `appellate_case_initiation` event should be the foundational
+  entry on an appellate case root. JN does not yet have an
+  `appellate_case` schema — the walkthrough's first COA entry is
+  the disposition itself (Step 5). Tracked separately. The
+  cross-network reference pattern is structurally unaffected.
+- **Ordering inversion.** v1.8 §7B.3 requires
+  `appellate_disposition` to follow at least one merits-level
+  `appellate_opinion_publication`. The walkthrough here lands the
+  disposition first (Step 5) and the opinion second (Step 6) —
+  operationally common in TN COA practice, but a v1.8 ordering
+  inversion. When JN admission adds strict v1.8 prerequisite
+  enforcement (🚩 developer flag in the dictionary), this flow
+  reorders.
 
-**Spec:**
+## Step 5 — COA disposition
+
+**v1.8 citation.** §7B.3 `appellate_disposition` — *The bottom-line
+case outcome the panel reaches. Carries outcome (one of: affirmed,
+reversed, vacated, remanded, affirmed_in_part_reversed_in_part,
+dismissed), panel (list of participating judge DIDs), and vote_tally.*
+
+**Actor role.**
+
+| Role | v1.8 Part 1 | DID method | Variable |
+|---|---|---|---|
+| Primary signer | **T1** Signer — Adjudicator (appellate justice) | did:key | `$EDWARDS` |
+| Cosigner | **T1** Signer — Clerk (COA clerk) | did:key | `$CLERK` |
+
+Per v1.8 Part 1 "Adjudicators", justices hold network keys and sign
+"definitive rulings: final judgments, decrees, warrants, appellate
+opinions". `did:key` is the canonical encoding for institutional
+court keys; web3 wallets are out-of-pattern for judicial Signers
+(see §02's actor-role table).
+
+**Schema.** `schemas/appellate_disposition.go:36`
+(`AppellateDispositionPayload`), `:118`
+(`SerializeDispositionPayload`).
+
+**Submit.**
 
 ```bash
 cat > coa-disposition.spec.json <<EOF
@@ -60,36 +97,21 @@ cat > coa-disposition.spec.json <<EOF
 }
 EOF
 
-judicial-cli submit --endpoint $COA --spec coa-disposition.spec.json
-```
-
-Note the **two changes** from every previous step:
-
-1. `--endpoint $COA` — we're talking to the second ledger.
-2. `evidence_pointers` — the cross-exchange reference.
-
-Output:
-
-```
+$ judicial-cli submit --endpoint $COA --spec coa-disposition.spec.json
 canonical_hash=8e1d3c2f9a5b6e4d7c8f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d
 status=accepted (HTTP 202)
-sct={...COA LEDGER SCT...}
-```
 
-Wait for it to land at COA sequence 1:
-
-```bash
 $ judicial-cli wait --endpoint $COA --hash 8e1d3c2f9a5b6e4d7c8f...
 state=sequenced sequence=1
 ```
 
-## Step 5b — Verify the cross-pointer survived
+Note the two changes from every previous step:
 
-This is the moment of truth. The disposition was admitted by COA's
-ledger, sequenced into COA's Merkle log, and stored in COA's GCS
-bucket. But the `EvidencePointers` field inside the entry header —
-naming a sequence on a *different ledger's* log — should be
-exactly what we sent.
+1. `--endpoint $COA` — second ledger.
+2. `evidence_pointers` — the cross-exchange reference.
+
+**Evidence (a) — confirm the cross-pointer survived round-trip
+through canonical serialization:**
 
 ```bash
 $ judicial-cli get --endpoint $COA --seq 1 | jq '.header.evidence_pointers'
@@ -101,46 +123,65 @@ $ judicial-cli get --endpoint $COA --seq 1 | jq '.header.evidence_pointers'
 ]
 ```
 
-There it is.
+Per v1.8 §"Cryptographic Authority", the cross-pointer participates
+in the canonical hash of this entry. Justice Edwards's signature
+commits to the exact pointer above; no honest mutation can
+post-hoc change which Davidson sequence this disposition
+references.
 
-**Now follow the pointer back.** The COA ledger can't help you
-with this — Davidson is a different ledger with no relationship
-to COA. You go to Davidson directly:
+**Evidence (b) — follow the pointer back to the trial-court entry
+on a DIFFERENT ledger:**
 
 ```bash
-$ judicial-cli get --endpoint $DAVIDSON --seq 1 | jq '.header.signer_did, (.signatures[].signer_did)'
-"did:key:zQ3sh...CLERK"
-"did:key:zQ3sh...CLERK"
-"did:key:zQ3sh...COOPER"
+$ judicial-cli get --endpoint $DAVIDSON --seq 1 \
+    | jq '{schema: .header.schema_name, signer: .header.signer_did, cosigners: [.signatures[].signer_did]}'
+{
+  "schema":    "civil_case",
+  "signer":    "did:key:zQ3sh...CLERK",
+  "cosigners": ["did:key:zQ3sh...CLERK", "did:key:zQ3sh...COOPER"]
+}
 ```
 
-You just performed an audit move that **two ledgers with no shared
-state** collaborated on, mediated only by the public cross-pointer.
-This is the property the entire protocol is designed to provide:
-*citable evidence across federation boundaries with no trust setup
-between ledgers.*
+Two ledgers, no shared state, mediated only by the public
+cross-pointer.
 
-## Step 6 — Opinion publication (`AppellateOpinionPublicationPayload`)
+**Evidence (c) — verify JN's domain API recognizes the
+appellate-disposition outcome:**
 
-**Legally.** Justice Edwards publishes the written majority opinion.
-The entry doesn't carry the opinion text — those bytes go to whatever
-document store the court uses (often a private S3 bucket with public
-read). The entry carries:
+```bash
+$ curl -fsS $NETWORK_API/v1/judicial/cases/2024-CV-001 \
+    -H "X-Caller-DID: $EDWARDS" \
+    -H "X-Cases-Log-DID: did:web:state:tn:davidson" \
+    | jq '{docket, status, has_appellate_disposition: (.appellate_disposition != null)}'
+{"docket":"2024-CV-001","status":"active","has_appellate_disposition":true}
+```
 
-- `opinion_id` — a stable identifier the parties cite in further
-  filings.
-- `opinion_type` — `majority`, `concurring`, `dissenting`, etc.
-- `content_hash` — sha256 of the canonical opinion document. **Any
-  subsequent edit to the document text changes this hash, which
-  the log already committed**; the log thus makes opinion text
-  tamper-evident even though the text isn't on-log.
-- `parts` — the structural sections (`facts`, `discussion`,
-  `conclusion`).
-- An `evidence_pointers` reference to the disposition this opinion
-  explains (intra-log this time — both at COA).
+**Code anchor.** `api/judicial/cases.go::caseLookupHandler` →
+`cases/docket_query.go::LookupDocket`.
 
-**Schema:** `jn/schemas/appellate_opinion_publication.go:35` /
-`:119`.
+## Step 6 — Opinion publication
+
+**v1.8 citation.** §7B.2 `appellate_opinion_publication` —
+*Publication of an opinion by the panel. Mints a case-local
+`opinion_id`. Payload carries `opinion_type` (majority, plurality,
+per_curiam, memorandum, concurrence, dissent, etc.), `author_did`
+(or null for per_curiam), optional `parts` list, and opinion text
+or a content hash.*
+
+**Actor role.**
+
+| Role | v1.8 Part 1 | DID method | Variable |
+|---|---|---|---|
+| Primary signer | **T1** Signer — Adjudicator (opinion author) | did:key | `$EDWARDS` |
+| Cosigner | **T1** Signer — Clerk | did:key | `$CLERK` |
+
+`author_did` on the payload matches the primary signer.
+
+**Schema.** `schemas/appellate_opinion_publication.go:35`
+(`AppellateOpinionPublicationPayload`), `:123`
+(`SerializeOpinionPublicationPayload`).
+
+**Submit.**
 
 ```bash
 cat > coa-opinion.spec.json <<EOF
@@ -167,8 +208,105 @@ EOF
 judicial-cli submit --endpoint $COA --spec coa-opinion.spec.json
 ```
 
-The opinion lands at COA sequence 2. Its `EvidencePointers` cite
-COA sequence 1 (the disposition this opinion explains).
+The opinion lands at COA sequence 2 with `EvidencePointers` citing
+COA:1 (the disposition this opinion explains).
+
+**Evidence — confirm the opinion's structure and author-identity
+chain:**
+
+```bash
+$ judicial-cli get --endpoint $COA --seq 2 \
+    | jq '.payload | {opinion_id, opinion_type, author: .author_did, parts, content_hash}'
+{
+  "opinion_id":   "op-coa-2024-001",
+  "opinion_type": "majority",
+  "author":       "did:key:zQ3sh...EDWARDS",
+  "parts":        ["facts","discussion","conclusion"],
+  "content_hash": "sha256:5a3e6b7c..."
+}
+```
+
+What we proved (per v1.8):
+
+- `opinion_id` minted as the case-local identifier per v1.8
+  §"Case-Local Identifiers" — future
+  `appellate_opinion_participation` entries cite this `opinion_id`
+  and only resolve within this case root.
+- `author_did` carries Justice Edwards's DID and matches the
+  primary signer above — v1.8 §7B.2 invariant satisfied.
+- `content_hash` commits to the off-log opinion document; any
+  later edit changes this hash, which the log already committed.
+  Tamper-evidence for documents stored elsewhere.
+
+## Step 6b — Optional: Beta CFO's web3 acknowledgment (Polygon)
+
+A representative example of a defendant principal acknowledging the
+appellate outcome from their own wallet on a different EVM chain.
+This is OPTIONAL — the appeal is resolved with Step 6; this step
+demonstrates that web3 cosignatures across different chains
+co-exist on the same log.
+
+**v1.8 citation.** No specific event; this is a §"Read-Side
+Separation" attestation pattern — a party acknowledging an outcome
+from their wallet for downstream audit purposes. JN models it as a
+generic `evidence_artifact` with `evidence_type=acknowledgment`.
+
+**Actor role.**
+
+| Role | v1.8 Part 1 | DID method | Wallet chain | Variable |
+|---|---|---|---|---|
+| Primary signer | **T1** Signer — Clerk (filing receipt) | did:key | — | `$CLERK` |
+| Cosigner | **T3** Party (Beta's CFO) | did:pkh:eip155:**137** | **Polygon** | `$BETA_CFO` |
+
+**Schema.** `schemas/evidence_artifact.go:75`
+(`EvidenceArtifactPayload`).
+
+**Submit.**
+
+```bash
+cat > beta-cfo-acknowledgment.spec.json <<EOF
+{
+  "schema":      "evidence_artifact",
+  "destination": "did:web:state:tn:coa",
+  "primary_signer_key": "clerk-brown.key.json",
+  "cosigner_keys":      ["beta-cfo.key.json"],
+  "evidence_pointers": [
+    {"log_did": "did:web:state:tn:coa", "sequence": 1}
+  ],
+  "payload": {
+    "evidence_id":         "ack-beta-cfo-2024-001",
+    "evidence_type":       "acknowledgment",
+    "classification":      "ordinary",
+    "filed_by":            "$BETA_CFO",
+    "case_ref":            "2024-CV-001",
+    "description":         "Beta Corp CFO acknowledgment of disposition (Polygon wallet)",
+    "content_digest":      "sha256:c4a8...",
+    "artifact_encryption": "umbral_pre",
+    "grant_authorization_mode": "open",
+    "grant_entry_required":     true,
+    "grant_requires_audit_entry": true,
+    "chain_of_custody_required": false
+  }
+}
+EOF
+judicial-cli submit --endpoint $COA --spec beta-cfo-acknowledgment.spec.json
+```
+
+**Evidence — confirm Polygon wallet signature is on-log with the
+correct chain identity:**
+
+```bash
+$ judicial-cli get --endpoint $COA --seq 3 \
+    | jq '.signatures[] | {signer: .signer_did, algo: .algo_id, chain: (.signer_did | capture("eip155:(?<id>\\d+):").id // null)}'
+{"signer":"did:key:zQ3sh...CLERK",                "algo":1,"chain":null}
+{"signer":"did:pkh:eip155:137:0x5c8d92ab4fe6...","algo":3,"chain":"137"}
+```
+
+The Polygon wallet (chain id 137) signed via EIP-191 (algo 3) on
+the same ledger that admits Ethereum mainnet wallets (chain id 1,
+ACME CEO in trial Step 4). Two different EVM chains attesting on
+the same case at different stages — exactly the multi-network
+pattern v1.8 §"Parties" supports.
 
 ## End state
 
@@ -176,38 +314,36 @@ COA sequence 1 (the disposition this opinion explains).
 $ curl -fsS $DAVIDSON/v1/tree/head | jq '.size'
 6
 $ curl -fsS $COA/v1/tree/head | jq '.size'
-2
+3                                  # 2 if you skipped Step 6b
 ```
 
-| Log | # | Schema | Primary signer | Cosigner | Cross-ref |
-|---|---|---|---|---|---|
-| Davidson | 1 | `civil_case` | clerk (did:key) | cooper (did:key) | — |
-| Davidson | 2 | `party_binding` | clerk | cooper | — |
-| Davidson | 3 | `party_binding` | clerk | davis | — |
-| Davidson | 4 | `counsel_appearance` | cooper | clerk | — |
-| Davidson | 5 | `counsel_appearance` | davis | clerk | — |
-| Davidson | 6 | `evidence_artifact` (web3) | clerk | **acme-ceo (did:pkh)** | — |
-| COA | 1 | `appellate_disposition` | edwards | clerk | **→ Davidson:1** |
-| COA | 2 | `appellate_opinion_publication` | edwards | clerk | → COA:1 |
+| Log | # | Schema | v1.8 § | Primary signer | Cosigner | Cross-ref |
+|---|---|---|---|---|---|---|
+| Davidson | 1 | `civil_case` | §1 case_initiation | Signer-Clerk | Filer-Attorney | — |
+| Davidson | 2 | `party_binding` | §1 party_binding | Signer-Clerk | Filer-Attorney | — |
+| Davidson | 3 | `party_binding` | §1 party_binding | Signer-Clerk | Filer-Attorney | — |
+| Davidson | 4 | `counsel_appearance` | §1 counsel_appearance | Filer-Attorney | Signer-Clerk | — |
+| Davidson | 5 | `counsel_appearance` | §1 counsel_appearance | Filer-Attorney | Signer-Clerk | — |
+| Davidson | 6 | `evidence_artifact` | §4 evidence_admittance | Signer-Clerk | ****T3** Party (Eth-mainnet)** | — |
+| COA | 1 | `appellate_disposition` | §7B.3 | Signer-Adjudicator | Signer-Clerk | **→ Davidson:1** |
+| COA | 2 | `appellate_opinion_publication` | §7B.2 | Signer-Adjudicator | Signer-Clerk | → COA:1 |
+| COA | 3 | `evidence_artifact` (ack) | §4 evidence_admittance | Signer-Clerk | ****T3** Party (Polygon)** | → COA:1 |
 
-**7 real DIDs (5 did:key court + 2 did:pkh web3 wallets). 2
-exchanges. 1 cross-exchange reference. 2 different signing
-primitives (64-byte SDK-native + 65-byte EIP-191 wallet) coexisting
-on the same log. Every signature real. Every entry on a real
-running ledger. Every step reproducible from this file alone.**
+**9 DIDs across 2 EVM chains (Ethereum + Polygon) + 6 court did:key
+identities. 2 exchanges. 1 cross-exchange reference. 2 signing
+primitives on the same logs. Every party-principal cosignature
+verifies through the SDK's PKHVerifier regardless of chain.**
 
 ## Why this matters
 
-In a real federated deployment — say the U.S. federal courts plus 50
-state appellate systems plus the Department of Justice plus various
-pro-bono case-tracking nonprofits — ledgers don't have shared
-admin credentials, don't have synchronized clocks, and don't have a
-shared schema registry. What they have is the protocol: signed
-canonical bytes with cross-pointers, served over HTTP with a Merkle
-log behind every ledger. This case showed that the cross-pointer
-half works. **Case 2 will show how the system handles the most
-delicate intra-exchange operations: sealed minor bindings, judicial
-succession, delegation revocation.**
+The cross-pointer mechanism makes federation trivial. **The
+multi-chain wallet pattern makes party attestation trivial.**
+Neither requires shared admin credentials, synchronized clocks, or
+a shared schema registry. Both are part of the same protocol
+shape: signed canonical bytes admitted to a Merkle log via HTTP.
+**Case 2** demonstrates the harder intra-exchange operations: sealed
+minor bindings, judicial succession, delegation revocation, and
+parents on two more EVM chains (Base + Optimism).
 
 ## Continue
 

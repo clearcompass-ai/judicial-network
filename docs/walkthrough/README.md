@@ -50,20 +50,31 @@ a real secp256k1 keypair you generate yourself in §02.
 
 ## DID methods you'll use
 
-The walkthrough exercises **two** real DID methods:
+The walkthrough exercises **two** real DID methods, mapped to **three
+actor tiers** per [Event Dictionary v1.8 Part 1](../event_dictionary_v1.8.md):
 
-- **`did:key`** (W3C-spec multibase form). Used by court personnel
-  whose identity isn't tied to an Ethereum wallet — clerks, judges,
-  attorneys with bar-issued keys.
-- **`did:pkh:eip155:<chainId>:0x<addr>`** (CAIP-10 form). Used by
-  parties whose primary identity lives in an Ethereum-compatible
-  wallet — corporate plaintiffs/defendants, outside witnesses,
-  any actor who already has a wallet identity. Signs via EIP-191
-  (the standard `personal_sign` flow every wallet implements).
+| Tier | v1.8 label | Examples | DID method | Web3 wallet? |
+|---|---|---|---|---|
+| **T1** | Signer | Adjudicators, Clerks, Court Reporters | `did:key` | No (institutional key) |
+| **T2** | Filer | Civil Attorneys, Prosecutors, Defense Counsel, Fiduciaries | `did:key` (court capacity) | Optional (personal capacity) |
+| **T3** | Party | Plaintiffs, Defendants, Respondents, the State | Strictly v1.8 = no DID; JN adoption-overlay extension allows `did:pkh:eip155:*` for parties that already hold a wallet | **Yes (recommended for key players)** |
+
+- **`did:key`** (W3C-spec multibase form) — institutional court keys.
+- **`did:pkh:eip155:<chainId>:0x<addr>`** (CAIP-10 form) — wallet
+  identities. **Multi-chain by design**: chain id 1 = Ethereum
+  mainnet, 137 = Polygon, 10 = Optimism, 8453 = Base, 42161 =
+  Arbitrum. The walkthrough enrolls four party-principal wallets
+  across four different EVM chains to demonstrate that the protocol
+  admits all of them identically.
 
 Both are minted by `judicial-cli keygen` (just pass `--method
-pkh-eip155` for the wallet path); both verify through the SDK's
-DID dispatcher.
+pkh-eip155 --chain-id <N>` for the wallet path); both verify through
+the SDK's DID dispatcher. T3 wallet adoption is documented in §02 as
+a JN extension to v1.8 — Parties are formally "Passive Metadata
+Subjects" without DIDs, but a Party that already holds a wallet can
+attach wallet-signed `evidence_artifact` acknowledgments as
+authentication overlays. The `binding_id` minted by `party_binding`
+remains the v1.8-mandated public reference.
 
 ## What's running
 
