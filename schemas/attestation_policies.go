@@ -21,32 +21,57 @@ DESCRIPTION:
 	the read-side bridge that runs the SDK composite from a JN HTTP
 	context.
 
-	Every policy here is Required=false. Schemas opt INTO hard
-	reject explicitly via schema amendment; "schema declares a
-	policy" should never accidentally lock out otherwise-valid
-	entries that don't reference it. SignerConstraint is empty by
+	Every policy here is Required=false AND AdmissionEnforced=false.
+	Schemas opt INTO hard reject (Required=true) or atomic admission-
+	time enforcement (AdmissionEnforced=true) explicitly via schema
+	amendment; "schema declares a policy" should never accidentally
+	lock out otherwise-valid entries that don't reference it, nor
+	should it reject a primary entry at admission time when its
+	cosignatures haven't yet arrived. SignerConstraint is empty by
 	default — deployments restrict attestor authority via schema
 	amendment when they need to.
 
-	# CANONICAL JSON SHAPE
+	# CANONICAL JSON SHAPE (v1.5.1)
 
-	Per types/attestation_policy_json.go, each policy serializes as:
+	Per types/attestation_policy_json.go (attesta v1.5.0), each
+	policy serializes as:
 
 	  {
-	    "name":              "<identifier>",
-	    "min_attestors":     <int>,
-	    "window_seconds":    <int64>,
-	    "required":          false,
-	    "signer_constraint": {}
+	    "name":               "<identifier>",
+	    "min_attestors":      <int>,
+	    "window_seconds":     <int64>,
+	    "required":           false,
+	    "admission_enforced": false,
+	    "signer_constraint":  {}
 	  }
 
 	The SDK's schema.JSONParameterExtractor reads the
 	"attestation_policies" key on the schema entry's Domain Payload
 	and decodes the slice via AttestationPolicy.UnmarshalJSON.
 
+	# AdmissionEnforced (v1.5.1)
+
+	AdmissionEnforced=false (the JN default) means the policy
+	evaluates at READ time — the primary entry can be admitted before
+	its cosignatures exist, and the threshold becomes met
+	retroactively as cosignatures arrive. This matches the
+	"concurrence" semantics of every policy declared here: a panel
+	review, a senior-judge concurrence, a Board concurrence on a
+	delegation issuance — all are post-hoc agreements that take time
+	(24h to 30 days per the window declarations below).
+
+	AdmissionEnforced=true would mean the primary entry CANNOT be
+	admitted until the threshold is met (same submission round). That
+	pattern is reserved for atomic operations (e.g., Board-signed
+	delegation issuances that must not exist in "issued but
+	unconcurred" state). No such policy is declared today; when one
+	is added, the helper atomicPolicy() below produces the correct
+	wire shape.
+
 KEY DEPENDENCIES:
-  - attesta v1.3.0 types.SchemaParameters.AttestationPolicies (wire)
-  - attesta v1.3.0 types.AttestationPolicy.MarshalJSON (round-trip
+  - attesta v1.5.1 types.SchemaParameters.AttestationPolicies (wire)
+  - attesta v1.5.1 types.AttestationPolicy.AdmissionEnforced (wire)
+  - attesta v1.5.1 types.AttestationPolicy.MarshalJSON (round-trip
     pin in test)
 */
 package schemas
@@ -141,20 +166,47 @@ const (
 // constraint (allowlist of attestor DIDs, scope filter) is added
 // per-deployment by amending the schema.
 type attestationPolicyJSON struct {
-	Name             string            `json:"name"`
-	MinAttestors     int               `json:"min_attestors"`
-	WindowSeconds    int64             `json:"window_seconds"`
-	Required         bool              `json:"required"`
-	SignerConstraint map[string]string `json:"signer_constraint"`
+	Name              string            `json:"name"`
+	MinAttestors      int               `json:"min_attestors"`
+	WindowSeconds     int64             `json:"window_seconds"`
+	Required          bool              `json:"required"`
+	AdmissionEnforced bool              `json:"admission_enforced"`
+	SignerConstraint  map[string]string `json:"signer_constraint"`
 }
 
+// policy declares an async (read-time) AttestationPolicy. Cosignatures
+// arrive after the primary; the threshold becomes met retroactively
+// during the window. Every JN policy declared today is async because
+// every cosignature pattern in the judiciary (panel review, senior-
+// judge concurrence, Board concurrence on a delegation) is post-hoc.
 func policy(name string, minAttestors int, window time.Duration) attestationPolicyJSON {
 	return attestationPolicyJSON{
-		Name:             name,
-		MinAttestors:     minAttestors,
-		WindowSeconds:    int64(window / time.Second),
-		Required:         false,
-		SignerConstraint: map[string]string{},
+		Name:              name,
+		MinAttestors:      minAttestors,
+		WindowSeconds:     int64(window / time.Second),
+		Required:          false,
+		AdmissionEnforced: false,
+		SignerConstraint:  map[string]string{},
+	}
+}
+
+// atomicPolicy declares an admission-enforced AttestationPolicy: the
+// primary cannot be admitted until the threshold is met (same
+// submission round). Reserved for operations that must not exist in a
+// pending state — none today on JN; the helper is here so future
+// atomic policies are visually distinct at the call site and don't
+// accidentally inherit the async default.
+//
+//nolint:unused // declared for future atomic policies; intentionally
+// unused until JN adopts one.
+func atomicPolicy(name string, minAttestors int, window time.Duration) attestationPolicyJSON {
+	return attestationPolicyJSON{
+		Name:              name,
+		MinAttestors:      minAttestors,
+		WindowSeconds:     int64(window / time.Second),
+		Required:          false,
+		AdmissionEnforced: true,
+		SignerConstraint:  map[string]string{},
 	}
 }
 
