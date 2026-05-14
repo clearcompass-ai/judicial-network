@@ -68,6 +68,7 @@ KEY DEPENDENCIES:
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -80,6 +81,23 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
+
+// PR-2 — read-time Stage 6 wiring.
+//
+// When deps.PolicyStageEnabled is true AND deps.PolicyStage carries
+// an entry for the request's logID, this handler resolves the primary
+// entry's adopted policy, fetches its candidates from the ledger's
+// cosignature_of index, and threads the result through the SDK's
+// VerifyComplete composite as PolicyParams.
+//
+// The Stage 6 path is best-effort: any failure preparing the stage
+// (schema fetch, extractor, candidate hydration) is reported via the
+// handler's standard error channel; per-stage policy outcomes (met /
+// unmet, constraint violations) flow back to the caller inside the
+// SDK's VerifyReport.Policy field.
+//
+// The handler's three-stage behavior (Signatures + Authority + Origin)
+// is unchanged when the flag is off or no PolicyStageDeps are wired.
 
 // VerifyCompleteHandler handles GET /v1/verify/complete/{logID}/{pos}.
 //
@@ -139,6 +157,30 @@ func (h *VerifyCompleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		},
 	}
 
+	// PR-2 — Policy stage (read-time Stage 6). Gated by feature flag
+	// + per-log injection (see deps.PolicyStage commentary). Both
+	// axes must be present; either-off keeps the handler's three-
+	// stage shape from PR D.
+	if h.deps.PolicyStageEnabled {
+		if psDeps, ok := h.deps.PolicyStage[logID]; ok {
+			policyParams, perr := buildPolicyStageParams(
+				ctx, entry, meta, psDeps, h.deps.Extractor,
+			)
+			if perr != nil {
+				writeError(w, http.StatusInternalServerError,
+					fmt.Sprintf("policy stage prep failed: %v", perr))
+				return
+			}
+			// policyParams is nil when the primary adopts no policy
+			// or has no SchemaRef — both are valid "skip Stage 6"
+			// outcomes and leave params.PolicyParams unset, which
+			// the SDK composite treats as Stage 6 not requested.
+			if policyParams != nil {
+				params.PolicyParams = policyParams
+			}
+		}
+	}
+
 	result, err := verification.VerifyEntryViaSDK(ctx, params)
 	if err != nil {
 		// Envelope-level rejection from the SDK — caller-fixable
@@ -157,4 +199,42 @@ func (h *VerifyCompleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		"all_green": result.AllGreen,
 		"report":    result.Report,
 	})
+}
+
+// buildPolicyStageParams is a small handler-local helper that
+// composes verification.ResolveSchemaParametersForEntry with
+// verification.BuildPolicyStageParams. Kept here (rather than in the
+// verification package) so the handler owns the schema-resolution
+// step — verification/ is the SDK seam and stays free of HTTP-handler
+// orchestration details.
+func buildPolicyStageParams(
+	ctx context.Context,
+	entry *envelope.Entry,
+	primary *types.EntryWithMetadata,
+	deps PolicyStageDeps,
+	extractor schemaParameterExtractor,
+) (*verifier.PolicyStageParams, error) {
+	// Resolve the primary's schema parameters (including
+	// AttestationPolicies). nil-params is a clean skip: the entry
+	// has no schema (Path A) and therefore no policy to evaluate.
+	schemaParams, err := verification.ResolveSchemaParametersForEntry(
+		ctx, entry, deps.Fetcher, extractor,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if schemaParams == nil {
+		return nil, nil
+	}
+	return verification.BuildPolicyStageParams(
+		ctx, *primary, schemaParams, deps.Query, deps.Fetcher, deps.DelegationResolver,
+	)
+}
+
+// schemaParameterExtractor is the local alias for the SDK's
+// schema.SchemaParameterExtractor. Aliasing here keeps
+// buildPolicyStageParams's signature short without dragging another
+// SDK import into the handler file (the alias is consumed only here).
+type schemaParameterExtractor interface {
+	Extract(*envelope.Entry) (*types.SchemaParameters, error)
 }
