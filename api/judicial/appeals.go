@@ -43,16 +43,17 @@ func registerAppealsRoutes(mux *http.ServeMux, deps *Dependencies) {
 // ─────────────────────────────────────────────────────────────────────
 
 type appealDecisionRequest struct {
-	Destination         string           `json:"destination"`
-	AppealCaseLogDID    string           `json:"appeal_case_log_did"`
-	AppealCaseSeq       uint64           `json:"appeal_case_seq"`
-	CandidatePositions  []logPositionRef `json:"candidate_positions,omitempty"`
-	Outcome             string           `json:"outcome"` // affirm | reverse | remand | dismiss
-	OpinionPlaintextB64 string           `json:"opinion_plaintext_b64,omitempty"`
-	SchemaRef           uint64           `json:"schema_ref"`
-	SchemaLogDID        string           `json:"schema_log_did"`
-	RemandInstructions  string           `json:"remand_instructions,omitempty"`
-	EventTime           int64            `json:"event_time,omitempty"`
+	Destination           string           `json:"destination"`
+	AppealCaseLogDID      string           `json:"appeal_case_log_did"`
+	AppealCaseSeq         uint64           `json:"appeal_case_seq"`
+	CandidatePositions    []logPositionRef `json:"candidate_positions,omitempty"`
+	Outcome               string           `json:"outcome"` // affirm | reverse | remand | dismiss
+	OpinionPlaintextB64   string           `json:"opinion_plaintext_b64,omitempty"`
+	SchemaRef             uint64           `json:"schema_ref"`
+	SchemaLogDID          string           `json:"schema_log_did"`
+	RemandInstructions    string           `json:"remand_instructions,omitempty"`
+	EventTime             int64            `json:"event_time,omitempty"`
+	AttestationPolicyName *string          `json:"attestation_policy_name,omitempty"`
 }
 
 type appealDecisionHandler struct{ deps *Dependencies }
@@ -78,15 +79,16 @@ func (h *appealDecisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	cfg := appeals.DecisionConfig{
-		Destination:        req.Destination,
-		JudgeDID:           judge,
-		AppealCaseRootPos:  types.LogPosition{LogDID: req.AppealCaseLogDID, Sequence: req.AppealCaseSeq},
-		CandidatePositions: toLogPositions(req.CandidatePositions),
-		Outcome:            req.Outcome,
-		OpinionPlaintext:   plaintext,
-		SchemaRef:          types.LogPosition{LogDID: req.SchemaLogDID, Sequence: req.SchemaRef},
-		RemandInstructions: req.RemandInstructions,
-		EventTime:          req.EventTime,
+		Destination:           req.Destination,
+		JudgeDID:              judge,
+		AppealCaseRootPos:     types.LogPosition{LogDID: req.AppealCaseLogDID, Sequence: req.AppealCaseSeq},
+		CandidatePositions:    toLogPositions(req.CandidatePositions),
+		Outcome:               req.Outcome,
+		OpinionPlaintext:      plaintext,
+		SchemaRef:             types.LogPosition{LogDID: req.SchemaLogDID, Sequence: req.SchemaRef},
+		RemandInstructions:    req.RemandInstructions,
+		EventTime:             req.EventTime,
+		AttestationPolicyName: req.AttestationPolicyName,
 	}
 	result, err := appeals.RecordDecision(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,

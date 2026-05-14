@@ -16,9 +16,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // Mock LedgerQueryAPI
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 // mockQueryAPI satisfies sdklog.LedgerQueryAPI.
 type mockQueryAPI struct {
@@ -52,9 +52,9 @@ func (m *mockQueryAPI) QueryBySchemaRef(ctx context.Context, pos types.LogPositi
 // Compile-time check.
 var _ sdklog.LedgerQueryAPI = (*mockQueryAPI)(nil)
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // Test helpers
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func buildTestEntry(t *testing.T) []byte {
 	t.Helper()
@@ -85,9 +85,9 @@ func depsWithLog(logID string, entries map[uint64]types.EntryWithMetadata) *Depe
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // ledgerFetcher adapter
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestLedgerFetcher_Fetch_Success(t *testing.T) {
 	ctx := context.Background()
@@ -124,9 +124,9 @@ func TestLedgerFetcher_Fetch_NotFound(t *testing.T) {
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // VerifyOriginHandler — error paths
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyOrigin_InvalidPosition(t *testing.T) {
 	handler := NewVerifyOriginHandler(emptyDeps())
@@ -156,9 +156,9 @@ func TestVerifyOrigin_UnknownLog(t *testing.T) {
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // VerifyAuthorityHandler — error paths
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyAuthority_InvalidPosition(t *testing.T) {
 	handler := NewVerifyAuthorityHandler(emptyDeps())
@@ -188,9 +188,9 @@ func TestVerifyAuthority_UnknownLog(t *testing.T) {
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // VerifyDelegationHandler — error paths
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyDelegation_InvalidPosition(t *testing.T) {
 	handler := NewVerifyDelegationHandler(emptyDeps())
@@ -220,9 +220,9 @@ func TestVerifyDelegation_UnknownLog(t *testing.T) {
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // VerifyCrossLogHandler — missing witness keys
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyCrossLog_MissingWitnessKeys(t *testing.T) {
 	deps := &Dependencies{
@@ -256,9 +256,9 @@ func TestVerifyCrossLog_InvalidBody(t *testing.T) {
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // VerifyFraudProofHandler — error paths
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyFraudProof_UnknownLog(t *testing.T) {
 	handler := NewVerifyFraudProofHandler(emptyDeps())
@@ -289,9 +289,9 @@ func TestVerifyFraudProof_InvalidBody(t *testing.T) {
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // VerifyBatchHandler — error paths
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyBatch_UnknownLog(t *testing.T) {
 	handler := NewVerifyBatchHandler(emptyDeps())
@@ -307,9 +307,58 @@ func TestVerifyBatch_UnknownLog(t *testing.T) {
 	}
 }
 
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+// VerifyCompleteHandler — read-side Path C composite verifier
+// ══════════════════════════════════════════════════════════════════════
+
+func TestVerifyComplete_InvalidPosition(t *testing.T) {
+	handler := NewVerifyCompleteHandler(emptyDeps())
+
+	req := httptest.NewRequest("GET", "/v1/verify/complete/test-log/abc", nil)
+	req.SetPathValue("logID", "test-log")
+	req.SetPathValue("pos", "abc")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestVerifyComplete_UnknownLog(t *testing.T) {
+	handler := NewVerifyCompleteHandler(emptyDeps())
+
+	req := httptest.NewRequest("GET", "/v1/verify/complete/missing/1", nil)
+	req.SetPathValue("logID", "missing")
+	req.SetPathValue("pos", "1")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestVerifyComplete_EntryNotAtPosition(t *testing.T) {
+	// Log known but position empty — fetcher returns "entry not
+	// found at <pos>", handler maps to 404.
+	deps := depsWithLog("test-log", map[uint64]types.EntryWithMetadata{})
+	handler := NewVerifyCompleteHandler(deps)
+
+	req := httptest.NewRequest("GET", "/v1/verify/complete/test-log/42", nil)
+	req.SetPathValue("logID", "test-log")
+	req.SetPathValue("pos", "42")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", w.Code)
+	}
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // Response format
-// ═════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 
 func TestWriteJSON_Format(t *testing.T) {
 	w := httptest.NewRecorder()

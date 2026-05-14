@@ -31,6 +31,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 type FilingConfig struct {
@@ -47,6 +48,11 @@ type FilingConfig struct {
 	DisclosureScope    string
 	InitialRecipients  []string
 	ExtraPayload       map[string]interface{}
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts a
+	// named policy declared on the filing's schema. Applied to both
+	// Path A and Path B entries. nil = no policy.
+	AttestationPolicyName *string
 }
 
 type FilingResult struct {
@@ -148,6 +154,7 @@ func File(
 		result.Path = "B"
 	}
 
+	schemas.SetAttestationPolicy(result.Entry, cfg.AttestationPolicyName)
 	return result, nil
 }
 

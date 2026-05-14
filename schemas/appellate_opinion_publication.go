@@ -110,6 +110,9 @@ func DefaultOpinionPublicationParams() []byte {
 		"grant_requires_audit_entry": false,
 		"override_requires_witness":  false,
 		"migration_policy":           "amendment",
+		// v1.3.0 wire field — panel concurrence on opinion publication.
+		// See schemas/attestation_policies.go.
+		"attestation_policies": appellateOpinionPolicies(),
 	})
 	return b
 }

@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/attestation"
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
@@ -40,6 +41,13 @@ type ServerConfig struct {
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
 	WitnessSets    map[string]*cosign.WitnessKeySet
+
+	// SignatureVerifier feeds /v1/verify/complete's SDK Path C
+	// composite. Optional at boot — leaving it nil keeps the rest
+	// of the verification surface live; the /v1/verify/complete
+	// route will return 500 on calls because the SDK rejects nil
+	// verifier at envelope level.
+	SignatureVerifier attestation.SignatureVerifier
 }
 
 // Server is the verification service HTTP server.
@@ -57,11 +65,12 @@ type Server struct {
 // should use NewServer instead.
 func BuildHandler(cfg ServerConfig) http.Handler {
 	deps := &handlers.Dependencies{
-		LogQueries:     cfg.LogQueries,
-		LeafReader:     cfg.LeafReader,
-		Extractor:      cfg.Extractor,
-		SchemaResolver: cfg.SchemaResolver,
-		WitnessSets:    cfg.WitnessSets,
+		LogQueries:        cfg.LogQueries,
+		LeafReader:        cfg.LeafReader,
+		Extractor:         cfg.Extractor,
+		SchemaResolver:    cfg.SchemaResolver,
+		WitnessSets:       cfg.WitnessSets,
+		SignatureVerifier: cfg.SignatureVerifier,
 	}
 
 	mux := http.NewServeMux()
@@ -70,6 +79,12 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	mux.Handle("GET /v1/verify/authority/{logID}/{pos}", handlers.NewVerifyAuthorityHandler(deps))
 	mux.Handle("GET /v1/verify/batch/{logID}/{positions}", handlers.NewVerifyBatchHandler(deps))
 	mux.Handle("GET /v1/verify/delegation/{logID}/{pos}", handlers.NewVerifyDelegationHandler(deps))
+	// PR D — read-side SDK Path C composite verifier. Runs every
+	// opted-in stage in one frame (Signatures → Authority → Origin)
+	// on an already-committed entry. NOT the write-side admission
+	// gate — that lives in the ledger. Per-stage failures populate
+	// the report; envelope-level errors return 500.
+	mux.Handle("GET /v1/verify/complete/{logID}/{pos}", handlers.NewVerifyCompleteHandler(deps))
 	mux.Handle("POST /v1/verify/cross-log", handlers.NewVerifyCrossLogHandler(deps))
 	mux.Handle("POST /v1/verify/fraud-proof", handlers.NewVerifyFraudProofHandler(deps))
 	// Phase 8 — Static-CT consistency endpoint. Trust Alignment 6

@@ -19,6 +19,8 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/lifecycle"
 	"github.com/clearcompass-ai/attesta/types"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 type UnsealingConfig struct {
@@ -30,6 +32,11 @@ type UnsealingConfig struct {
 	SchemaRef      *types.LogPosition
 	Reason         string
 	EventTime      int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named policy declared on the sealing-order schema. Typical
+	// value: schemas.PolicySealingOrderConcurrence.
+	AttestationPolicyName *string
 }
 
 // UnsealCase publishes an unsealing enforcement entry (Path C).
@@ -62,6 +69,7 @@ func UnsealCase(cfg UnsealingConfig) (*SealingResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/unsealing: build enforcement: %w", err)
 	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 
 	return &SealingResult{EnforcementEntry: entry}, nil
 }

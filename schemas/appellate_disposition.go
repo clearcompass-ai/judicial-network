@@ -34,7 +34,7 @@ const SchemaAppellateDispositionV1 = "tn-appellate-disposition-v1"
 
 // AppellateDispositionPayload is the v1.8 §7B.3 shape.
 type AppellateDispositionPayload struct {
-	// ── SDK well-known fields ────────────────────────────────────────
+	// ── SDK well-known fields ──────────────────────────────────────
 	ActivationDelay         int64           `json:"activation_delay,omitempty"`
 	OverrideRequiresWitness bool            `json:"override_requires_witness,omitempty"`
 	MigrationPolicy         string          `json:"migration_policy,omitempty"`
@@ -43,7 +43,7 @@ type AppellateDispositionPayload struct {
 	GrantEntryRequired      bool            `json:"grant_entry_required,omitempty"`
 	PredecessorSchema       *SchemaPosition `json:"predecessor_schema,omitempty"`
 
-	// ── v1.8 §7B.3 fields ─────────────────────────────────────────────
+	// ── v1.8 §7B.3 fields ──────────────────────────────────────────
 
 	// Outcome is the closed-set v1.8 §7B.3 enum value.
 	// Per-jurisdiction membership validated by the verifier
@@ -108,6 +108,8 @@ func DefaultDispositionParams() []byte {
 		"grant_requires_audit_entry": false,
 		"override_requires_witness":  false,
 		"migration_policy":           "amendment",
+		// v1.3.0 wire field — see schemas/attestation_policies.go.
+		"attestation_policies": appellateDispositionPolicies(),
 	})
 	return b
 }

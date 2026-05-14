@@ -33,7 +33,7 @@ import "encoding/json"
 
 // FamilyCasePayload is the Domain Payload for tn-family-case-v1.
 type FamilyCasePayload struct {
-	// ── SDK well-known fields ────────────────────────────────────────
+	// ── SDK well-known fields ──────────────────────────────────────
 	ActivationDelay         int64           `json:"activation_delay,omitempty"`
 	CosignatureThreshold    int             `json:"cosignature_threshold,omitempty"`
 	OverrideRequiresWitness bool            `json:"override_requires_witness,omitempty"`
@@ -44,7 +44,7 @@ type FamilyCasePayload struct {
 	GrantRequiresAuditEntry bool            `json:"grant_requires_audit_entry,omitempty"`
 	PredecessorSchema       *SchemaPosition `json:"predecessor_schema,omitempty"`
 
-	// ── Judicial fields ──────────────────────────────────────────────
+	// ── Judicial fields ─────────────────────────────────────────────
 	DocketNumber string `json:"docket_number"`
 	CaseType     string `json:"case_type"`
 	FiledDate    string `json:"filed_date"`
@@ -70,6 +70,8 @@ func DefaultFamilyCaseParams() []byte {
 			"sealing_order":   map[string]interface{}{"activation_delay": 259200, "cosignatures": 0},
 			"unsealing_order": map[string]interface{}{"activation_delay": 604800, "cosignatures": 1},
 		},
+		// v1.3.0 wire field — see schemas/attestation_policies.go.
+		"attestation_policies": familyCasePolicies(),
 	}
 	b, _ := json.Marshal(params)
 	return b

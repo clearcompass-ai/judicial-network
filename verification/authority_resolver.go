@@ -63,12 +63,15 @@ KEY DEPENDENCIES:
 package verification
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
@@ -192,3 +195,55 @@ func contains(s []string, t string) bool {
 // errFetchNotFound wraps a fetcher's nil-result; the resolver folds
 // it into RejectFetchFailed.
 var errFetchNotFound = errors.New("authority_resolver: fetcher returned nil entry")
+
+// ─── SDK seam: verifier.VerifyKeyAtPosition ────────────────────
+
+// ErrKeyAtPositionSDK wraps every error path from the SDK-seam
+// key-at-position wrapper. SDK sentinels (verifier.ErrEmptySignerDID,
+// ErrNoActiveKey, etc.) remain reachable via errors.Is.
+var ErrKeyAtPositionSDK = errors.New("authority_resolver: SDK VerifyKeyAtPosition")
+
+// VerifyKeyAtPosition is the JN seam over the SDK's
+// verifier.VerifyKeyAtPosition composite. Resolves the active key
+// for query.SignerDID at query.QueryPos and compares it (via
+// crypto/subtle.ConstantTimeCompare inside the SDK) against
+// query.CandidateKey using the supplied rotation set.
+//
+// SCOPE — distinct from this file's main Resolve method:
+//
+//   - Resolve walks the JN-domain delegation chain via
+//     granter_delegation_ref payload pointers and decides
+//     authority (role + effective scope) for an action.
+//
+//   - VerifyKeyAtPosition (this method) answers the cryptographic
+//     question "is THIS public key the one that was active for
+//     SignerDID at this log position?". Used by audit / replay /
+//     historical-verification flows where the caller has a key
+//     candidate and needs the SDK's constant-time historical
+//     check.
+//
+// Returns ErrKeyAtPositionSDK wrapping the SDK error; SDK
+// sentinels remain reachable via errors.Is.
+//
+// IDEMPOTENT. Pure function of (query, rotations).
+func (r *AuthorityResolver) VerifyKeyAtPosition(
+	ctx context.Context,
+	query verifier.KeyAtPositionQuery,
+	rotations []verifier.RotationRecord,
+) (*verifier.KeyAtPositionResult, error) {
+	result, err := verifier.VerifyKeyAtPosition(ctx, query, rotations)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrKeyAtPositionSDK, err)
+	}
+	return result, nil
+}
+
+// Compile-time pin — verifier.VerifyKeyAtPosition + its
+// associated types. A future SDK rename or signature break
+// surfaces at the JN build, not at runtime.
+var (
+	_ = verifier.VerifyKeyAtPosition
+	_ verifier.KeyAtPositionQuery
+	_ verifier.RotationRecord
+	_ = (*verifier.KeyAtPositionResult)(nil)
+)

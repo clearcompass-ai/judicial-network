@@ -28,6 +28,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 type DecisionConfig struct {
@@ -40,6 +41,12 @@ type DecisionConfig struct {
 	SchemaRef          types.LogPosition
 	RemandInstructions string
 	EventTime          int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named policy declared on the appellate-opinion-publication
+	// schema. Typical value: schemas.PolicyAppellatePanelConcurrence.
+	// nil = no policy.
+	AttestationPolicyName *string
 }
 
 type DecisionResult struct {
@@ -124,6 +131,7 @@ func RecordDecision(
 	if err != nil {
 		return nil, fmt.Errorf("appeals/decision: build entry: %w", err)
 	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 	result.DecisionEntry = entry
 	return result, nil
 }

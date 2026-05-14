@@ -65,6 +65,13 @@ type BindingConfig struct {
 
 	SchemaRef *types.LogPosition
 	EventTime int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts a
+	// named policy declared on the party-binding schema. Routine
+	// bindings (tn-party-binding-v1) declare no policies; sealed
+	// bindings (tn-party-binding-sealed-v1) declare a sealing-
+	// authority slot. nil = no policy.
+	AttestationPolicyName *string
 }
 
 // BindingResult holds the new binding entry.
@@ -112,6 +119,7 @@ func CreateBinding(cfg BindingConfig) (*BindingResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parties/binding: build root entity: %w", err)
 	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 
 	return &BindingResult{Entry: entry, Payload: payload}, nil
 }
@@ -130,6 +138,10 @@ type UpdateBindingConfig struct {
 
 	SchemaRef *types.LogPosition
 	EventTime int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts a
+	// named policy declared on the party-binding schema.
+	AttestationPolicyName *string
 }
 
 // UpdateBinding amends a party binding's status.
@@ -152,7 +164,7 @@ func UpdateBinding(cfg UpdateBindingConfig) (*envelope.Entry, error) {
 		"new_status":     cfg.NewStatus,
 	})
 
-	return builder.BuildAmendment(builder.AmendmentParams{
+	entry, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination: cfg.Destination,
 		SignerDID:   cfg.SignerDID,
 		TargetRoot:  cfg.BindingPos,
@@ -160,4 +172,9 @@ func UpdateBinding(cfg UpdateBindingConfig) (*envelope.Entry, error) {
 		SchemaRef:   cfg.SchemaRef,
 		EventTime:   cfg.EventTime,
 	})
+	if err != nil {
+		return nil, err
+	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
+	return entry, nil
 }

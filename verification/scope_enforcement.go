@@ -63,6 +63,7 @@ import (
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // Errors surfaced by the scope enforcer. Stable enum values — audit
@@ -287,3 +288,71 @@ func ScopePermits(permitted []string, target string) bool {
 	}
 	return false
 }
+
+// ─── SDK seam: verifier.VerifyComplete ─────────────────────────
+
+// ErrPathCSDK wraps every error path from the SDK-seam Path C
+// composite wrapper. SDK sentinels remain reachable via errors.Is.
+var ErrPathCSDK = errors.New("verification/scope_enforcement: SDK Path C composite")
+
+// PathCResult flattens the SDK's *verifier.VerifyReport into a
+// JN-friendly shape. Carries the SDK report verbatim plus a single
+// AllGreen bool so handler code can branch on one field without
+// traversing per-stage *Report pointers.
+//
+// SCOPE — for end-to-end SDK Path C verification (signature +
+// authority + origin + conditions + cosignatures stages, opted
+// in by the caller via VerifyCompleteParams). The JN-domain
+// scope_limit interceptor above (VerifyDelegationScope) is
+// COMPLEMENTARY — it enforces JN's domain-payload scope_limit
+// which the SDK composite has no concept of. Production
+// admission gates run BOTH: the SDK composite for cryptographic
+// completeness; VerifyDelegationScope for the
+// Compromised-Subordinate-Key defence.
+type PathCResult struct {
+	// Report is the SDK's full verdict — per-stage *Report
+	// pointers, each non-nil iff the caller opted into that
+	// stage. Use for granular audit.
+	Report *verifier.VerifyReport
+
+	// AllGreen mirrors Report.AllStagesGreen() so callers branch
+	// on a single field. False when any opted-in stage failed.
+	AllGreen bool
+}
+
+// VerifyEntryViaSDK is the JN seam over the SDK's
+// verifier.VerifyComplete composite. Returns a flattened
+// PathCResult on success; the SDK report is preserved for
+// diagnostic surfaces.
+//
+// Returns ErrPathCSDK wrapping the SDK error on input-guard
+// failures (nil entry, nil verifier, envelope invariant violation).
+// SDK sentinels remain reachable via errors.Is.
+//
+// Per-stage failures populate Result.Report.{Signatures, Authority,
+// Origin, Conditions, Cosignatures} — they do NOT return a top-level
+// error. The caller's AllGreen check is the success gate.
+func VerifyEntryViaSDK(
+	ctx context.Context,
+	params verifier.VerifyCompleteParams,
+) (*PathCResult, error) {
+	report, err := verifier.VerifyComplete(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrPathCSDK, err)
+	}
+	if report == nil {
+		return nil, fmt.Errorf("%w: nil report from SDK", ErrPathCSDK)
+	}
+	return &PathCResult{
+		Report:   report,
+		AllGreen: report.AllStagesGreen(),
+	}, nil
+}
+
+// Compile-time pin — SDK Path C composite symbols this file
+// delegates to. A future rename or signature break surfaces at the
+// JN build, not at runtime.
+var (
+	_ = verifier.VerifyComplete
+	_ = (*verifier.VerifyReport)(nil)
+)

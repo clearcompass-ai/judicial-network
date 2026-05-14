@@ -18,6 +18,8 @@ import (
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // AmendmentConfig configures a case amendment.
@@ -32,6 +34,10 @@ type AmendmentConfig struct {
 	EvidencePointers []types.LogPosition
 	ExtraPayload     map[string]interface{}
 	EventTime        int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts a
+	// named policy declared on the case schema. nil = no policy.
+	AttestationPolicyName *string
 }
 
 // AmendCase creates a Path A amendment entry for a case status change,
@@ -62,7 +68,7 @@ func AmendCase(cfg AmendmentConfig) (*envelope.Entry, error) {
 		return nil, fmt.Errorf("cases/amendment: marshal payload: %w", err)
 	}
 
-	return builder.BuildAmendment(builder.AmendmentParams{
+	entry, err := builder.BuildAmendment(builder.AmendmentParams{
 		Destination:      cfg.Destination,
 		SignerDID:        cfg.SignerDID,
 		TargetRoot:       cfg.CaseRootPos,
@@ -71,4 +77,9 @@ func AmendCase(cfg AmendmentConfig) (*envelope.Entry, error) {
 		EvidencePointers: cfg.EvidencePointers,
 		EventTime:        cfg.EventTime,
 	})
+	if err != nil {
+		return nil, err
+	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
+	return entry, nil
 }

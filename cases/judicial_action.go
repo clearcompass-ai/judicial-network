@@ -29,6 +29,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // JudicialActionConfig configures a judge-signed action.
@@ -45,6 +46,10 @@ type JudicialActionConfig struct {
 	InitialRecipients  []string
 	ExtraPayload       map[string]interface{}
 	EventTime          int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts a
+	// named policy declared on the case schema. nil = no policy.
+	AttestationPolicyName *string
 }
 
 // JudicialActionResult holds the action entry and optional published artifact.
@@ -150,6 +155,7 @@ func RecordJudicialAction(
 		return nil, fmt.Errorf("cases/judicial_action: build entry: %w", err)
 	}
 
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 	result.Entry = entry
 	return result, nil
 }

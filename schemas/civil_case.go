@@ -70,6 +70,11 @@ func DefaultCivilCaseParams() []byte {
 			"sealing_order":   map[string]interface{}{"activation_delay": 259200, "cosignatures": 0},
 			"unsealing_order": map[string]interface{}{"activation_delay": 604800, "cosignatures": 1},
 		},
+		// v1.3.0 wire field — declares the named policies entries on
+		// this schema may adopt via ControlHeader.AttestationPolicyName.
+		// See schemas/attestation_policies.go for the canonical
+		// definitions; all are Required=false at first declaration.
+		"attestation_policies": civilCasePolicies(),
 	}
 	b, _ := json.Marshal(params)
 	return b

@@ -98,6 +98,10 @@ func DefaultCriminalCaseParams() []byte {
 		// SDK v7.75 declares CommutativeOperations as []uint32 — the
 		// codes are domain-interpreted, opaque to the SDK.
 		"commutative_operations": []uint32{CommutativeOpWitnessAttestation},
+		// v1.3.0 wire field — declares the named policies entries on
+		// this schema may adopt via ControlHeader.AttestationPolicyName.
+		// See schemas/attestation_policies.go.
+		"attestation_policies": criminalCasePolicies(),
 	}
 	b, _ := json.Marshal(params)
 	return b

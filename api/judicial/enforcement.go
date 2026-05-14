@@ -48,19 +48,20 @@ func registerEnforcementRoutes(mux *http.ServeMux, deps *Dependencies) {
 // authority advancement on the case leaf — once submitted, every
 // downstream retrieve sees ErrSealed.
 type sealRequest struct {
-	Destination    string          `json:"destination"`
-	CaseRootLogDID string          `json:"case_root_log_did"`
-	CaseRootSeq    uint64          `json:"case_root_seq"`
-	ScopeLogDID    string          `json:"scope_log_did"`
-	ScopeSeq       uint64          `json:"scope_seq"`
-	PriorAuthority *logPositionRef `json:"prior_authority,omitempty"`
-	SchemaRef      *uint64         `json:"schema_ref,omitempty"`
-	SchemaLogDID   string          `json:"schema_log_did,omitempty"`
-	OrderType      string          `json:"order_type"` // seal | unseal | auto_seal
-	Authority      string          `json:"authority"`  // TCA citation
-	Reason         string          `json:"reason"`
-	ArtifactCIDs   []string        `json:"artifact_cids,omitempty"`
-	EventTime      int64           `json:"event_time,omitempty"`
+	Destination           string          `json:"destination"`
+	CaseRootLogDID        string          `json:"case_root_log_did"`
+	CaseRootSeq           uint64          `json:"case_root_seq"`
+	ScopeLogDID           string          `json:"scope_log_did"`
+	ScopeSeq              uint64          `json:"scope_seq"`
+	PriorAuthority        *logPositionRef `json:"prior_authority,omitempty"`
+	SchemaRef             *uint64         `json:"schema_ref,omitempty"`
+	SchemaLogDID          string          `json:"schema_log_did,omitempty"`
+	OrderType             string          `json:"order_type"` // seal | unseal | auto_seal
+	Authority             string          `json:"authority"`  // TCA citation
+	Reason                string          `json:"reason"`
+	ArtifactCIDs          []string        `json:"artifact_cids,omitempty"`
+	EventTime             int64           `json:"event_time,omitempty"`
+	AttestationPolicyName *string         `json:"attestation_policy_name,omitempty"`
 }
 
 type sealHandler struct{ deps *Dependencies }
@@ -81,15 +82,16 @@ func (h *sealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := enforcement.SealingConfig{
-		Destination:  req.Destination,
-		JudgeDID:     judge,
-		CaseRootPos:  types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: req.CaseRootSeq},
-		ScopePos:     types.LogPosition{LogDID: req.ScopeLogDID, Sequence: req.ScopeSeq},
-		OrderType:    req.OrderType,
-		Authority:    req.Authority,
-		Reason:       req.Reason,
-		ArtifactCIDs: req.ArtifactCIDs,
-		EventTime:    req.EventTime,
+		Destination:           req.Destination,
+		JudgeDID:              judge,
+		CaseRootPos:           types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: req.CaseRootSeq},
+		ScopePos:              types.LogPosition{LogDID: req.ScopeLogDID, Sequence: req.ScopeSeq},
+		OrderType:             req.OrderType,
+		Authority:             req.Authority,
+		Reason:                req.Reason,
+		ArtifactCIDs:          req.ArtifactCIDs,
+		EventTime:             req.EventTime,
+		AttestationPolicyName: req.AttestationPolicyName,
 	}
 	if req.PriorAuthority != nil {
 		pa := req.PriorAuthority.toLogPosition()
@@ -114,16 +116,17 @@ func (h *sealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // This handler builds the unsealing PROPOSAL; the cosignature is
 // collected via the /unseal/cosignature endpoint.
 type unsealRequest struct {
-	Destination    string          `json:"destination"`
-	CaseRootLogDID string          `json:"case_root_log_did"`
-	CaseRootSeq    uint64          `json:"case_root_seq"`
-	ScopeLogDID    string          `json:"scope_log_did"`
-	ScopeSeq       uint64          `json:"scope_seq"`
-	PriorAuthority *logPositionRef `json:"prior_authority,omitempty"`
-	SchemaRef      *uint64         `json:"schema_ref,omitempty"`
-	SchemaLogDID   string          `json:"schema_log_did,omitempty"`
-	Reason         string          `json:"reason"`
-	EventTime      int64           `json:"event_time,omitempty"`
+	Destination           string          `json:"destination"`
+	CaseRootLogDID        string          `json:"case_root_log_did"`
+	CaseRootSeq           uint64          `json:"case_root_seq"`
+	ScopeLogDID           string          `json:"scope_log_did"`
+	ScopeSeq              uint64          `json:"scope_seq"`
+	PriorAuthority        *logPositionRef `json:"prior_authority,omitempty"`
+	SchemaRef             *uint64         `json:"schema_ref,omitempty"`
+	SchemaLogDID          string          `json:"schema_log_did,omitempty"`
+	Reason                string          `json:"reason"`
+	EventTime             int64           `json:"event_time,omitempty"`
+	AttestationPolicyName *string         `json:"attestation_policy_name,omitempty"`
 }
 
 type unsealHandler struct{ deps *Dependencies }
@@ -144,12 +147,13 @@ func (h *unsealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := enforcement.UnsealingConfig{
-		Destination: req.Destination,
-		JudgeDID:    judge,
-		CaseRootPos: types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: req.CaseRootSeq},
-		ScopePos:    types.LogPosition{LogDID: req.ScopeLogDID, Sequence: req.ScopeSeq},
-		Reason:      req.Reason,
-		EventTime:   req.EventTime,
+		Destination:           req.Destination,
+		JudgeDID:              judge,
+		CaseRootPos:           types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: req.CaseRootSeq},
+		ScopePos:              types.LogPosition{LogDID: req.ScopeLogDID, Sequence: req.ScopeSeq},
+		Reason:                req.Reason,
+		EventTime:             req.EventTime,
+		AttestationPolicyName: req.AttestationPolicyName,
 	}
 	if req.PriorAuthority != nil {
 		pa := req.PriorAuthority.toLogPosition()

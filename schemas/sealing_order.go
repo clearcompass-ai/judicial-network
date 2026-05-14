@@ -31,6 +31,8 @@ func DefaultSealingOrderParams() []byte {
 		"activation_delay":      259200,
 		"cosignature_threshold": 0,
 		"migration_policy":      "amendment",
+		// v1.3.0 wire field — see schemas/attestation_policies.go.
+		"attestation_policies": sealingOrderPolicies(),
 	})
 	return b
 }

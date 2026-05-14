@@ -1742,6 +1742,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/VerifyResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
+  /v1/verify/complete/{logID}/{pos}:
+    get:
+      tags: [Verify]
+      summary: Run the SDK Path C composite (Signatures + Authority + Origin) on the entry at the given position.
+      operationId: verifyComplete
+      parameters:
+        - name: logID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: pos
+          in: path
+          required: true
+          schema: { type: integer, format: uint64 }
+      responses:
+        '200':
+          description: Unified per-stage report. `all_green` is true iff every opted-in stage passed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerifyResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/BadRequest' }
   /v1/verify/cross-log:
     post:
       tags: [Verify]
@@ -1919,6 +1941,9 @@ components:
           type: object
           additionalProperties: true
         event_time: { type: integer, format: int64 }
+        attestation_policy_name:
+          type: string
+          description: Optional v1.3.0 named policy adopted by the entry. Must match a name declared on the resolved schema's SchemaParameters.AttestationPolicies; missing match fails admission.
 
     CaseAmendRequest:
       type: object
@@ -1936,6 +1961,9 @@ components:
         evidence_pointers:
           type: array
           items: { $ref: '#/components/schemas/LogPositionRef' }
+        attestation_policy_name:
+          type: string
+          description: Optional v1.3.0 named policy from the resolved schema's SchemaParameters.AttestationPolicies.
 
     CaseFilingRequest:
       type: object
@@ -1954,6 +1982,9 @@ components:
           type: string
           format: byte
           description: Base64-encoded artifact plaintext.
+        attestation_policy_name:
+          type: string
+          description: Optional v1.3.0 named policy from the resolved schema's SchemaParameters.AttestationPolicies.
 
     CaseActionRequest:
       type: object
@@ -1971,6 +2002,9 @@ components:
           type: array
           items: { $ref: '#/components/schemas/LogPositionRef' }
         plaintext_b64: { type: string, format: byte }
+        attestation_policy_name:
+          type: string
+          description: Optional v1.3.0 named policy from the resolved schema's SchemaParameters.AttestationPolicies.
 
     CaseTransferDivisionRequest:
       type: object
@@ -2018,6 +2052,9 @@ components:
         schema_ref: { type: integer, format: uint64 }
         schema_log_did: { type: string }
         opinion_b64: { type: string, format: byte }
+        attestation_policy_name:
+          type: string
+          description: Optional v1.3.0 named policy (typical value schemas.PolicyAppellatePanelConcurrence).
 
     AppealMandateAffirmRequest:
       type: object
@@ -2042,6 +2079,9 @@ components:
         dwell_seconds: { type: integer, format: int64 }
         schema_ref: { type: integer, format: uint64 }
         schema_log_did: { type: string }
+        attestation_policy_name:
+          type: string
+          description: Optional v1.3.0 named policy (typical value schemas.PolicySealingOrderConcurrence).
 
     UnsealRequest:
       type: object
@@ -2052,6 +2092,9 @@ components:
         justification: { type: string }
         schema_ref: { type: integer, format: uint64 }
         schema_log_did: { type: string }
+        attestation_policy_name:
+          type: string
+          description: Optional v1.3.0 named policy (typical value schemas.PolicySealingOrderConcurrence).
 
     UnsealCosignatureRequest:
       type: object

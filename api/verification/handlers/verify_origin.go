@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/clearcompass-ai/attesta/attestation"
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
@@ -37,6 +38,15 @@ type Dependencies struct {
 	// Constructor failure (zero NetworkID, duplicate IDs, K outside
 	// [1, len(keys)]) is caught at boot, not at HTTP-request time.
 	WitnessSets map[string]*cosign.WitnessKeySet
+
+	// SignatureVerifier resolves DID method → SignatureVerifier for
+	// the Path C admission gate (/v1/verify/complete). Production:
+	// did.DefaultVerifierRegistryWithRPC bound to the exchange's
+	// destination DID with judicial vendor mappings layered on top.
+	// Per-handler responsibility — only VerifyCompleteHandler reads
+	// this field. Empty (nil) keeps boot clean for deployments that
+	// don't expose /v1/verify/complete.
+	SignatureVerifier attestation.SignatureVerifier
 }
 
 // resolveLog finds the ledger query API for a given log identifier.

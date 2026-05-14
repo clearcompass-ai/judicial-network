@@ -104,6 +104,13 @@ type IssueRequest struct {
 	// Reason is the wallet-UX confirmation string ("Confirm grant
 	// of judge role to <name>"). Not on-log.
 	Reason string
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts the
+	// named policy declared on judicial-delegation-v1's
+	// SchemaParameters.AttestationPolicies (see
+	// schemas/attestation_policies.go). Typical value:
+	// schemas.PolicyDelegationBoardConcurrence. nil = no policy.
+	AttestationPolicyName *string
 }
 
 // IssueResult is the output of Issue.
@@ -172,6 +179,7 @@ func Issue(ctx context.Context, bc *BuildContext, req IssueRequest) (*IssueResul
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrBuildFailed, err)
 	}
+	schemas.SetAttestationPolicy(entry, req.AttestationPolicyName)
 
 	display := issueDisplay(bc.InstitutionalDID, payload)
 	reason := req.Reason

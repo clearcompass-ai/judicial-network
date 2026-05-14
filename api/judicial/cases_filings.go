@@ -34,19 +34,20 @@ import (
 // ─────────────────────────────────────────────────────────────────────
 
 type caseFilingRequest struct {
-	Destination        string           `json:"destination"`
-	CaseRootLogDID     string           `json:"case_root_log_did"`
-	SchemaRef          uint64           `json:"schema_ref"`
-	SchemaLogDID       string           `json:"schema_log_did"`
-	DelegationPointers []logPositionRef `json:"delegation_pointers,omitempty"`
-	DocumentType       string           `json:"document_type"`
-	DocumentTitle      string           `json:"document_title"`
-	PlaintextB64       string           `json:"plaintext_b64"`
-	OwnerDID           string           `json:"owner_did"`
-	DisclosureScope    string           `json:"disclosure_scope"`
-	InitialRecipients  []string         `json:"initial_recipients,omitempty"`
-	ExtraPayload       map[string]any   `json:"extra_payload,omitempty"`
-	EventTime          int64            `json:"event_time,omitempty"`
+	Destination           string           `json:"destination"`
+	CaseRootLogDID        string           `json:"case_root_log_did"`
+	SchemaRef             uint64           `json:"schema_ref"`
+	SchemaLogDID          string           `json:"schema_log_did"`
+	DelegationPointers    []logPositionRef `json:"delegation_pointers,omitempty"`
+	DocumentType          string           `json:"document_type"`
+	DocumentTitle         string           `json:"document_title"`
+	PlaintextB64          string           `json:"plaintext_b64"`
+	OwnerDID              string           `json:"owner_did"`
+	DisclosureScope       string           `json:"disclosure_scope"`
+	InitialRecipients     []string         `json:"initial_recipients,omitempty"`
+	ExtraPayload          map[string]any   `json:"extra_payload,omitempty"`
+	EventTime             int64            `json:"event_time,omitempty"`
+	AttestationPolicyName *string          `json:"attestation_policy_name,omitempty"`
 }
 
 type caseFilingHandler struct{ deps *Dependencies }
@@ -81,19 +82,20 @@ func (h *caseFilingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := cases.FilingConfig{
-		Destination:        req.Destination,
-		SignerDID:          signer,
-		CaseRootPos:        types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: caseRootSeq},
-		SchemaRef:          types.LogPosition{LogDID: req.SchemaLogDID, Sequence: req.SchemaRef},
-		DelegationPointers: toLogPositions(req.DelegationPointers),
-		EventTime:          req.EventTime,
-		DocumentType:       req.DocumentType,
-		DocumentTitle:      req.DocumentTitle,
-		Plaintext:          plaintext,
-		OwnerDID:           req.OwnerDID,
-		DisclosureScope:    req.DisclosureScope,
-		InitialRecipients:  req.InitialRecipients,
-		ExtraPayload:       req.ExtraPayload,
+		Destination:           req.Destination,
+		SignerDID:             signer,
+		CaseRootPos:           types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: caseRootSeq},
+		SchemaRef:             types.LogPosition{LogDID: req.SchemaLogDID, Sequence: req.SchemaRef},
+		DelegationPointers:    toLogPositions(req.DelegationPointers),
+		EventTime:             req.EventTime,
+		DocumentType:          req.DocumentType,
+		DocumentTitle:         req.DocumentTitle,
+		Plaintext:             plaintext,
+		OwnerDID:              req.OwnerDID,
+		DisclosureScope:       req.DisclosureScope,
+		InitialRecipients:     req.InitialRecipients,
+		ExtraPayload:          req.ExtraPayload,
+		AttestationPolicyName: req.AttestationPolicyName,
 	}
 	result, err := cases.File(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,
@@ -123,18 +125,19 @@ func (h *caseFilingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ─────────────────────────────────────────────────────────────────────
 
 type caseActionRequest struct {
-	Destination        string           `json:"destination"`
-	CaseRootLogDID     string           `json:"case_root_log_did"`
-	ActionType         string           `json:"action_type"` // ruling | order | sentence | disposition
-	Description        string           `json:"description"`
-	SchemaRef          uint64           `json:"schema_ref"`
-	SchemaLogDID       string           `json:"schema_log_did"`
-	CandidatePositions []logPositionRef `json:"candidate_positions,omitempty"`
-	PlaintextB64       string           `json:"plaintext_b64,omitempty"`
-	DisclosureScope    string           `json:"disclosure_scope,omitempty"`
-	InitialRecipients  []string         `json:"initial_recipients,omitempty"`
-	ExtraPayload       map[string]any   `json:"extra_payload,omitempty"`
-	EventTime          int64            `json:"event_time,omitempty"`
+	Destination           string           `json:"destination"`
+	CaseRootLogDID        string           `json:"case_root_log_did"`
+	ActionType            string           `json:"action_type"` // ruling | order | sentence | disposition
+	Description           string           `json:"description"`
+	SchemaRef             uint64           `json:"schema_ref"`
+	SchemaLogDID          string           `json:"schema_log_did"`
+	CandidatePositions    []logPositionRef `json:"candidate_positions,omitempty"`
+	PlaintextB64          string           `json:"plaintext_b64,omitempty"`
+	DisclosureScope       string           `json:"disclosure_scope,omitempty"`
+	InitialRecipients     []string         `json:"initial_recipients,omitempty"`
+	ExtraPayload          map[string]any   `json:"extra_payload,omitempty"`
+	EventTime             int64            `json:"event_time,omitempty"`
+	AttestationPolicyName *string          `json:"attestation_policy_name,omitempty"`
 }
 
 type caseActionHandler struct{ deps *Dependencies }
@@ -169,18 +172,19 @@ func (h *caseActionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := cases.JudicialActionConfig{
-		Destination:        req.Destination,
-		JudgeDID:           judge,
-		CaseRootPos:        types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: caseRootSeq},
-		ActionType:         req.ActionType,
-		Description:        req.Description,
-		SchemaRef:          types.LogPosition{LogDID: req.SchemaLogDID, Sequence: req.SchemaRef},
-		CandidatePositions: toLogPositions(req.CandidatePositions),
-		Plaintext:          plaintext,
-		DisclosureScope:    req.DisclosureScope,
-		InitialRecipients:  req.InitialRecipients,
-		ExtraPayload:       req.ExtraPayload,
-		EventTime:          req.EventTime,
+		Destination:           req.Destination,
+		JudgeDID:              judge,
+		CaseRootPos:           types.LogPosition{LogDID: req.CaseRootLogDID, Sequence: caseRootSeq},
+		ActionType:            req.ActionType,
+		Description:           req.Description,
+		SchemaRef:             types.LogPosition{LogDID: req.SchemaLogDID, Sequence: req.SchemaRef},
+		CandidatePositions:    toLogPositions(req.CandidatePositions),
+		Plaintext:             plaintext,
+		DisclosureScope:       req.DisclosureScope,
+		InitialRecipients:     req.InitialRecipients,
+		ExtraPayload:          req.ExtraPayload,
+		EventTime:             req.EventTime,
+		AttestationPolicyName: req.AttestationPolicyName,
 	}
 	result, err := cases.RecordJudicialAction(ctx,
 		cfg, h.deps.ContentStore, h.deps.KeyStore, h.deps.DelKeyStore,

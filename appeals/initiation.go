@@ -21,6 +21,8 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 type AppealInitiationConfig struct {
@@ -32,6 +34,11 @@ type AppealInitiationConfig struct {
 	AppealGrounds     string
 	SchemaRef         *types.LogPosition
 	EventTime         int64
+
+	// AttestationPolicyName, when non-nil and non-empty, adopts a
+	// named policy declared on the appeal-initiation schema. nil
+	// = no policy.
+	AttestationPolicyName *string
 }
 
 type AppealInitiationResult struct {
@@ -83,6 +90,7 @@ func FileAppeal(
 	if err != nil {
 		return nil, fmt.Errorf("appeals/initiation: build root entity: %w", err)
 	}
+	schemas.SetAttestationPolicy(entry, cfg.AttestationPolicyName)
 
 	return &AppealInitiationResult{
 		AppealEntry:   entry,
