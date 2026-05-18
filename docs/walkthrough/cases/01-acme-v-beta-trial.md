@@ -437,12 +437,80 @@ What we proved:
 **Code anchor.** `api/verification/handlers/verify_complete.go` (the
 handler) + `verification/policy_stage.go` (the orchestrator).
 
+## Step 6 — Layer 3 witness tree-head cosignatures (external transparency)
+
+**v1.8 citation.** Not a domain event — this is the attesta v1.5.1
+external-transparency mechanism. v1.8 §"About This Document" promises:
+*"integrity is verifiable by anyone with access to the log."* That
+guarantee is concretely backed by **witness tree-head cosignatures**,
+which are signed by independent operators over the whole Merkle root
+— not over individual entries.
+
+**Signature-layer clarification.** Steps 1–5 exercised Layer 1
+(per-entry signatures in `entry.Signatures[]`) and Layer 2 (payload
+metadata like `attorney_did`, `filed_by`). Step 6 closes the loop
+with Layer 3 (witness tree-head cosignatures). See
+[../02-real-dids.md §"Three signature layers"](../02-real-dids.md)
+for the v1.8 + attesta v1.5.1 grounding of this distinction.
+
+**Actor role.** No case actor; the witnesses are the network's
+external operators, configured at ledger boot via
+`LEDGER_GENESIS_WITNESS_SET`. They are NOT v1.8 Part 1 Signers
+(those are exchange-scoped key holders); witnesses are network-level
+transparency operators in the CT-log-monitor pattern.
+
+**Evidence — confirm the tree head at size=6 carries witness
+quorum cosignatures:**
+
+```bash
+$ curl -fsS $DAVIDSON/v1/tree/head | jq '{
+    size,
+    root_hash: (.root_hash[0:16] + "..."),
+    witnesses: [.cosignatures[] | {did: .signer_did, alg: .algo_id}],
+    quorum_met: ((.cosignatures | length) >= 2)
+}'
+{
+  "size":       6,
+  "root_hash":  "e2c4abcd123456...",
+  "witnesses": [
+    {"did": "did:web:tn:witness-a", "alg": 1},
+    {"did": "did:web:tn:witness-b", "alg": 1}
+  ],
+  "quorum_met": true
+}
+```
+
+What we proved:
+
+- The Davidson tree head at size=6 carries ≥K independent witness
+  signatures (K=2 default; configurable via
+  `LEDGER_WITNESS_QUORUM_K`).
+- A forked or tampered log would produce a different `root_hash`;
+  any witness comparing the head it previously cosigned with the
+  head this ledger now publishes would catch the divergence and
+  refuse to re-cosign. **External transparency is concretely
+  backed**, not just claimed.
+- The witness cosignatures are over the WHOLE log, not per-entry —
+  this is the v1.8 §"Read-Side Separation" / attesta v1.5.1 Layer 3
+  mechanism, NOT the v1.8 Part 1 "Filer cosignature" pattern (which
+  is per-entry in `Signatures[]`).
+
+**Code anchors.**
+
+- Ledger `api/tree.go::NewTreeHeadHandler` — publishes the
+  cosigned tree head.
+- Ledger `cmd/ledger/boot/wire/wire.go::wireWitnessCosigner` —
+  wires the HeadSync goroutine that collects witness signatures.
+- attesta `crypto/cosign/WitnessKeySet` — declares the witness set
+  + quorum-K + BLS aggregate verifier.
+
 ## End-of-act state
 
 ```bash
-$ curl -fsS $DAVIDSON/v1/tree/head | jq '.size, .root_hash'
+$ curl -fsS $DAVIDSON/v1/tree/head | jq '.size, .root_hash, (.cosignatures | length)'
 6
 "e2c4..."
+2
 
 $ curl -fsS "$NETWORK_API/v1/judicial/cases/2024-CV-001" \
     -H "X-Caller-DID: $CLERK" \
@@ -450,6 +518,14 @@ $ curl -fsS "$NETWORK_API/v1/judicial/cases/2024-CV-001" \
     | jq '{docket, status, root_seq: .case_root_pos.sequence, origin_state: .origin_state}'
 {"docket":"2024-CV-001","status":"active","root_seq":1,"origin_state":"active"}
 ```
+
+All three signature layers green:
+
+| Layer | Evidence at end of act |
+|---|---|
+| **L1** entry signatures | All 6 entries carry T1 Signer signatures (Clerk on civil_case, bindings; attorneys + Clerk on counsel_appearance per JN extension; Clerk + Party-wallet on evidence_artifact) |
+| **L2** payload attestations | `attorney_did`, `filed_by`, `binding_id`, `attestation_policy_name` fields populated and queryable via JN's domain API |
+| **L3** witness cosigs | tree_head.cosignatures ≥ K=2 witness operators |
 
 `origin_state: active` — v1.8 §1 says the case-root state machine is
 "active" after `case_initiation` and stays there until a Terminal

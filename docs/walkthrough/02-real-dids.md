@@ -28,6 +28,108 @@ one of these keys verifies cleanly through the SDK's
 The `judicial-cli keygen` flag `--method pkh-eip155` switches the
 DID encoding and signing path; everything else is shared.
 
+## Three signature layers (v1.8 + attesta v1.5.1)
+
+The walkthrough exercises THREE distinct signature mechanisms.
+Conflating them is the most common mental-model bug, so they're
+spelled out here once:
+
+### Layer 1 — Entry signatures
+
+**Where:** `entry.Signatures[]` on every canonical envelope. Visible
+via `judicial-cli get --seq N | jq '.signatures'`.
+
+**Who (v1.8 strict):** Only **T1 Signers** (Adjudicators, Clerks,
+Court Reporters). Per v1.8 Part 1 Authority Summary: T2 Filers have
+"Holds Keys = ❌" and T3 Parties have "Has DID = ❌". Strict reading:
+the only DIDs that appear in `entry.Signatures[]` are T1 DIDs.
+
+**Who (JN current implementation):** The CLI's `cosigner_keys` array
+accepts ANY keypair file regardless of DID method or actor tier;
+all of them produce real signatures that land in
+`entry.Signatures[]`. This means current walkthroughs sometimes
+place T2 attorney DIDs and T3 party-wallet DIDs in the entry
+signers list alongside T1 Clerk/Judge DIDs.
+
+**JN extension flag.** The walkthrough's current shape — attorneys
+signing their own `counsel_appearance`, party wallets cosigning
+`evidence_artifact` — is a **JN extension** to v1.8, not v1.8 strict.
+JN reads v1.8's "Filers cannot sign entries directly" as: *the Signer
+must always be present in `Signatures[]`*. The Filer's signature may
+also be in `Signatures[]` as documentation that the attorney
+attested the filing — but it never substitutes for the Signer's
+signature. Production deployments that need v1.8-strict behavior
+move T2 / T3 identities to **Layer 2** (payload metadata) instead.
+
+> 🚩 **Tracked gap.** Migrating attorneys + parties out of
+> `entry.Signatures[]` and into payload-embedded attestations is a
+> separate workstream. It requires CLI changes (a new
+> `payload_attestations` spec field) and a schema-by-schema review
+> of `attorney_did` / `filed_by` / similar payload references.
+> Until that ships, the current walkthrough specs work as
+> documented and the JN extension is acknowledged here.
+
+### Layer 2 — Payload-embedded attestations
+
+**Where:** Inside the schema-typed `payload` field of the envelope.
+Visible via `judicial-cli get --seq N | jq '.payload'`.
+
+**Who:** T2 Filers (`attorney_did`, `filed_by` references), T3
+Parties (`binding_id` references on `party_binding` events; optional
+wallet DID + signature inside an `evidence_artifact` for
+acknowledgments).
+
+**What v1.8 expects:** Per v1.8 §Part 1 "Filers (Active Metadata
+Subjects)": "they are network entities with their own DIDs (recorded
+in `attorney_did` and similar payload fields)". The payload IS the
+v1.8-mandated location for Filer identity. v1.8 §Part 1 "Parties
+(Passive Metadata Subjects)" extends the same pattern to T3 — their
+identity lives in `party_binding` payloads via the case-local
+`binding_id`.
+
+**Wallet attestations as payload data.** A T3 party's wallet
+signature on an `evidence_artifact` (the ACME-CEO affidavit + the
+two parental acknowledgments in the walkthrough) can be embedded
+into the payload as a JN extension: a `party_attestations` array
+of `{did, sig_algo, signature_hex, signed_digest}` tuples. This
+shape is NOT in the current schemas; it's the target migration
+shape for true v1.8 alignment. Today the wallet signatures appear
+in Layer 1 instead.
+
+### Layer 3 — Witness tree-head cosignatures
+
+**Where:** `/v1/tree/head` response on every ledger. Visible via
+`curl -fsS $DAVIDSON/v1/tree/head | jq '.cosignatures'`.
+
+**Who:** Independent witness operators (CT-log-monitor analog),
+**not case actors**. attesta v1.5.1 mechanism:
+`cosign.WitnessKeySet` declares the set of witness DIDs +
+quorum-K + BLS aggregate verifier; the ledger's HeadSync goroutine
+collects witness signatures over the tree head and publishes the
+aggregate.
+
+**What it provides:** External transparency. Every entry on the
+log is committed to a tree head; every tree head is witnessed by
+multiple operators; **a forked or tampered log would be visible to
+any witness comparing tree heads**. This is the external-transparency
+property that makes the protocol auditable beyond the ledger's
+self-signature.
+
+**Critical distinction.** Witness tree-head cosignatures are NOT
+the same thing as v1.8's "Filer cosignature requirement":
+
+| Layer | Sig over | Scope | Mandated by |
+|---|---|---|---|
+| L1 entry signatures | One envelope's canonical bytes | One entry | v1.8 §"Cryptographic Authority" |
+| L2 payload attestations | Payload content (off-envelope) | One entry's data | v1.8 §Part 1 Filers/Parties |
+| L3 witness tree-head cosigs | The whole Merkle root | Entire log | attesta v1.5.1 `cosign.WitnessKeySet` (independent of v1.8) |
+
+The walkthrough's evidence pattern reaches all three:
+
+- Layer 1: `judicial-cli get --seq N | jq '.signatures'`
+- Layer 2: `judicial-cli get --seq N | jq '.payload | {attorney_did, filed_by}'`
+- Layer 3: `curl $DAVIDSON/v1/tree/head | jq '.cosignatures'`
+
 ## 1. Pick a keys directory
 
 ```bash
