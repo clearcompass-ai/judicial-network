@@ -310,31 +310,57 @@ else
     echo "    ⓘ NETWORK_API unreachable; skipping Step 5 (run network-api separately)"
 fi
 
-# ─── Step 6: Layer 3 witness tree-head cosignatures ─────────────────
+# ─── Step 6: Layer 3 cowitness attestations (K-of-N quorum) ─────────
 
-print_step "Step 6 — Layer 3 witness tree-head cosignatures (external transparency)"
+print_step "Step 6 — Layer 3 cowitness attestations (external-transparency quorum)"
+
+# WITNESS_QUORUM_K is the K-of-N threshold the ledger was booted
+# against (LEDGER_WITNESS_QUORUM_K). Default 1 makes the smoke-test
+# K=1 case still report green; the recommended demo runs N=2, K=2
+# per attesta v1.5.2/crypto/cosign/witness_key_set.go::NewWitnessKeySet
+# (line 215: 1 ≤ K ≤ N).
+K="${WITNESS_QUORUM_K:-1}"
 
 head_json=$(curl -fsS "${DAVIDSON}/v1/tree/head" 2>&1)
 SIZE=$(echo "${head_json}" | jq -r '.size // 0')
-WITNESS_COUNT=$(echo "${head_json}" | jq -r '.cosignatures // [] | length')
-echo "  tree size=${SIZE}, witness cosignatures=${WITNESS_COUNT}"
+COWITNESS_COUNT=$(echo "${head_json}" | jq -r '.cosignatures // [] | length')
+echo "  tree size=${SIZE}, cowitness attestations=${COWITNESS_COUNT}, expected K=${K}"
+
 if [ "${SIZE}" -ge 6 ]; then
     echo "    ✓ tree size advanced past all 6 trial entries"
 else
     echo "    ✗ tree size=${SIZE}, want ≥6 (sequencer may still be draining)"
     exit 3
 fi
-if [ "${WITNESS_COUNT}" -ge 1 ]; then
-    echo "    ✓ ${WITNESS_COUNT} witness cosignature(s) present"
+
+if [ "${COWITNESS_COUNT}" -ge "${K}" ]; then
+    echo "    ✓ cowitness quorum met: ${COWITNESS_COUNT}-of-N ≥ K=${K}"
+    # When the developer set K=2, inspect each attestation's pubkey id
+    # + scheme so the K=2 demo concretely shows N distinct signers.
+    if [ "${COWITNESS_COUNT}" -ge 2 ]; then
+        echo "${head_json}" | jq -r '.cosignatures[] | "      attestation pubkey_id=\(.pub_key_id // .signer_did // "?") scheme=\(.scheme_tag // .algo_id // "?")"'
+    fi
+elif [ "${COWITNESS_COUNT}" -eq 0 ]; then
+    echo "    ⓘ no cowitness attestations — Layer 3 mechanism is DISABLED."
+    echo "      Ledger condition (per gossip.go:364): LEDGER_WITNESS_ENDPOINTS"
+    echo "      is unset, so wireWitnessCosigner returned nil early."
+    echo
+    echo "      To enable the recommended N=2 K=2 demo:"
+    echo "        1. Run 2 standalone-witness daemons (clearcompass-ai/standalone-witness)."
+    echo "        2. Re-boot the ledger node with:"
+    echo "             LEDGER_WITNESS_ENDPOINTS=http://witness-a:PORT,http://witness-b:PORT"
+    echo "             LEDGER_WITNESS_QUORUM_K=2"
+    echo "             LEDGER_GENESIS_WITNESS_SET=<wit-a-did>,<wit-b-did>"
+    echo "        3. export WITNESS_QUORUM_K=2 before re-running this script."
+    echo
+    echo "      Layers 1 + 2 above are unaffected — only Layer 3 external"
+    echo "      transparency is missing from this run."
 else
-    echo "    ⓘ no witness cosignatures yet."
-    echo "      Layer 3 evidence requires a running standalone-witness daemon:"
-    echo "         clone github.com/clearcompass-ai/standalone-witness"
-    echo "         run its binary against \$DAVIDSON + \$COA with a witness keypair"
-    echo "         configure LEDGER_GENESIS_WITNESS_SET on the ledger node(s)"
-    echo "      Without it, the ledger self-signs checkpoints unwitnessed — the"
-    echo "      cryptographic surface (entry sigs + Merkle tree) is intact;"
-    echo "      what's missing is the external-transparency proof for Layer 3."
+    echo "    ✗ cowitness quorum SHORT: ${COWITNESS_COUNT}-of-N < K=${K}."
+    echo "      One or more witnesses didn't return a signature in time."
+    echo "      Per witness_key_set.go's K-of-N contract, the tree head is"
+    echo "      NOT considered witnessed at this size."
+    exit 3
 fi
 
 # ─── done ───────────────────────────────────────────────────────────

@@ -96,39 +96,72 @@ shape is NOT in the current schemas; it's the target migration
 shape for true v1.8 alignment. Today the wallet signatures appear
 in Layer 1 instead.
 
-### Layer 3 — Witness tree-head cosignatures
+### Layer 3 — Cowitness attestations (K-of-N quorum)
 
 **Where:** `/v1/tree/head` response on every ledger. Visible via
 `curl -fsS $DAVIDSON/v1/tree/head | jq '.cosignatures'`.
 
-**Who:** Independent witness operators (CT-log-monitor analog),
-**not case actors**. attesta v1.5.1 mechanism:
-`cosign.WitnessKeySet` declares the set of witness DIDs +
-quorum-K + BLS aggregate verifier; the ledger's HeadSync goroutine
-collects witness signatures over the tree head and publishes the
-aggregate.
+**Who:** N **independent cowitness operators**, each running its
+own `standalone-witness` daemon with its own keypair. NOT case
+actors.
+
+**SDK mechanism (attesta v1.5.2, citations).**
+
+- `crypto/cosign/witness_key_set.go::WitnessKeySet` carries the set
+  topology: `keys []types.WitnessPublicKey`, `quorum int`,
+  `networkID`, optional BLS aggregate verifier. Constructor
+  `NewWitnessKeySet` enforces `1 ≤ K ≤ N` (line 215), unique
+  PubKey IDs (line 222), non-zero NetworkID (line 211).
+- Exposed methods: `Keys()`, `Size()` returning N, `Quorum()`
+  returning K (lines 190 / 209 / 220).
+- `types/tree_head.go::WitnessSignature` is one cowitness
+  attestation: `PubKeyID [32]byte`, `SchemeTag byte` (ECDSA=64-byte
+  R||S; BLS=48-byte compressed G1), `SigBytes []byte`.
+- `types.CosignedTreeHead` aggregates: embeds `TreeHead{RootHash,
+  SMTRoot, TreeSize}` and carries `Signatures []WitnessSignature`.
+
+**How the aggregate is built (ledger side).**
+`clearcompass-ai/ledger/cmd/ledger/boot/wire/gossip.go:363-388`
+(`wireWitnessCosigner`) constructs a `witnessclient.HeadSync` from
+three env vars:
+
+  - `LEDGER_WITNESS_ENDPOINTS` — list of cowitness URLs the ledger
+    polls
+  - `LEDGER_WITNESS_QUORUM_K` — the K threshold
+  - `LEDGER_GENESIS_WITNESS_SET` — DIDs that are allowed to cosign
+
+If `LEDGER_WITNESS_ENDPOINTS` is empty (line 364), the mechanism is
+**silently disabled** and `cosignatures: []`. This is the default
+in the integration topology.
 
 **What it provides:** External transparency. Every entry on the
-log is committed to a tree head; every tree head is witnessed by
-multiple operators; **a forked or tampered log would be visible to
-any witness comparing tree heads**. This is the external-transparency
-property that makes the protocol auditable beyond the ledger's
-self-signature.
+log is committed to a tree head; every tree head requires K-of-N
+independent cowitness attestations to be considered witnessed; a
+forked or tampered log would produce a different `RootHash` /
+`SMTRoot` / `TreeSize` triple, and any honest cowitness comparing
+the head it previously signed against the head this ledger now
+publishes would catch the divergence and refuse to re-cosign.
 
-**Critical distinction.** Witness tree-head cosignatures are NOT
-the same thing as v1.8's "Filer cosignature requirement":
+**Critical distinction.** Cowitness attestations (Layer 3) are NOT
+v1.8 Part 1's "Filer cosignature":
 
 | Layer | Sig over | Scope | Mandated by |
 |---|---|---|---|
 | L1 entry signatures | One envelope's canonical bytes | One entry | v1.8 §"Cryptographic Authority" |
 | L2 payload attestations | Payload content (off-envelope) | One entry's data | v1.8 §Part 1 Filers/Parties |
-| L3 witness tree-head cosigs | The whole Merkle root | Entire log | attesta v1.5.1 `cosign.WitnessKeySet` (independent of v1.8) |
+| L3 cowitness attestations | The whole Merkle root + SMT root + tree size | Entire log | attesta v1.5.2 `cosign.WitnessKeySet` (independent of v1.8) |
 
 The walkthrough's evidence pattern reaches all three:
 
 - Layer 1: `judicial-cli get --seq N | jq '.signatures'`
 - Layer 2: `judicial-cli get --seq N | jq '.payload | {attorney_did, filed_by}'`
-- Layer 3: `curl $DAVIDSON/v1/tree/head | jq '.cosignatures'`
+- Layer 3: `curl $DAVIDSON/v1/tree/head | jq '.cosignatures | length, [.[] | {pubkey_id, scheme_tag}]'`
+
+**Recommended demo: N=2 cowitnesses, K=2.** Both attestations
+required for the tree head to be witnessed. Demonstrates the
+K-of-N mechanism without the cost of running 3 daemons; runs
+through the same constructor + verification path that production
+N=5 / K=3 deployments use.
 
 ## 1. Pick a keys directory
 

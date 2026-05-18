@@ -437,14 +437,16 @@ What we proved:
 **Code anchor.** `api/verification/handlers/verify_complete.go` (the
 handler) + `verification/policy_stage.go` (the orchestrator).
 
-## Step 6 — Layer 3 witness tree-head cosignatures (external transparency)
+## Step 6 — Layer 3 cowitness attestations (K-of-N external transparency)
 
-**v1.8 citation.** Not a domain event — this is the attesta v1.5.1
+**v1.8 citation.** Not a domain event — this is the attesta v1.5.2
 external-transparency mechanism. v1.8 §"About This Document" promises:
 *"integrity is verifiable by anyone with access to the log."* That
-guarantee is concretely backed by **witness tree-head cosignatures**,
-which are signed by independent operators over the whole Merkle root
-— not over individual entries.
+guarantee is concretely backed by **N independent cowitness operators
+each producing one attestation over the same tree head**, with
+`K-of-N` of them required for the head to be considered witnessed.
+The aggregate is published as `CosignedTreeHead.Signatures` (attesta
+v1.5.2 `types/tree_head.go`).
 
 **Signature-layer clarification.** Steps 1–5 exercised Layer 1
 (per-entry signatures in `entry.Signatures[]`) and Layer 2 (payload
@@ -459,50 +461,69 @@ external operators, configured at ledger boot via
 (those are exchange-scoped key holders); witnesses are network-level
 transparency operators in the CT-log-monitor pattern.
 
-**Evidence — confirm the tree head at size=6 carries witness
-quorum cosignatures:**
+**Recommended demo: N=2 cowitnesses, K=2.** Both attestations
+required; either one absent leaves the head unwitnessed. This is
+the smallest configuration that mechanically exercises the K-of-N
+quorum contract (`cosign.WitnessKeySet::NewWitnessKeySet` line 215
+enforces `1 ≤ K ≤ N`); production deployments scale up to N=5 / K=3
+or beyond.
+
+**Evidence — confirm the tree head at size=6 carries K=2 cowitness
+attestations from distinct operators:**
 
 ```bash
 $ curl -fsS $DAVIDSON/v1/tree/head | jq '{
     size,
-    root_hash: (.root_hash[0:16] + "..."),
-    witnesses: [.cosignatures[] | {did: .signer_did, alg: .algo_id}],
-    quorum_met: ((.cosignatures | length) >= 2)
+    root_hash:  (.root_hash[0:16] + "..."),
+    cowitnesses: [.cosignatures[] | {pubkey: .pub_key_id, scheme: .scheme_tag}],
+    n_attestations: (.cosignatures | length),
+    quorum_met:  ((.cosignatures | length) >= 2)
 }'
 {
-  "size":       6,
-  "root_hash":  "e2c4abcd123456...",
-  "witnesses": [
-    {"did": "did:web:tn:witness-a", "alg": 1},
-    {"did": "did:web:tn:witness-b", "alg": 1}
+  "size":          6,
+  "root_hash":     "e2c4abcd123456...",
+  "cowitnesses": [
+    {"pubkey": "0xabc...", "scheme": 1},
+    {"pubkey": "0xdef...", "scheme": 1}
   ],
-  "quorum_met": true
+  "n_attestations": 2,
+  "quorum_met":    true
 }
 ```
 
 What we proved:
 
-- The Davidson tree head at size=6 carries ≥K independent witness
-  signatures (K=2 default; configurable via
-  `LEDGER_WITNESS_QUORUM_K`).
+- The Davidson tree head at size=6 carries 2 cowitness attestations.
+  K=2 quorum met; either silent kills the witnessed-ness.
+- Each attestation carries a distinct `pub_key_id` — both witnesses
+  are independent operators per `WitnessKeySet`'s unique-PubKeyID
+  invariant (`witness_key_set.go:222`).
+- `scheme_tag: 1` = ECDSA secp256k1 (64-byte R||S); `scheme_tag: 2`
+  would be BLS (48-byte compressed G1). The same ledger admits
+  both per `types/tree_head.go::WitnessSignature`.
 - A forked or tampered log would produce a different `root_hash`;
-  any witness comparing the head it previously cosigned with the
-  head this ledger now publishes would catch the divergence and
-  refuse to re-cosign. **External transparency is concretely
-  backed**, not just claimed.
-- The witness cosignatures are over the WHOLE log, not per-entry —
-  this is the v1.8 §"Read-Side Separation" / attesta v1.5.1 Layer 3
-  mechanism, NOT the v1.8 Part 1 "Filer cosignature" pattern (which
-  is per-entry in `Signatures[]`).
+  any honest cowitness comparing the head it previously signed
+  with the head this ledger now publishes would catch the
+  divergence and refuse to re-cosign. **External transparency is
+  concretely backed**, not just claimed.
+- Layer 3 attestations are over the WHOLE log, not per-entry — the
+  v1.8 §"Read-Side Separation" / attesta v1.5.2 Layer 3 mechanism,
+  NOT the v1.8 Part 1 "Filer cosignature" pattern (which is
+  per-entry in `Signatures[]`).
 
 **Code anchors.**
 
 - Ledger `api/tree.go::NewTreeHeadHandler` — publishes the
-  cosigned tree head.
-- Ledger `cmd/ledger/boot/wire/wire.go::wireWitnessCosigner` —
-  wires the HeadSync goroutine that collects witness signatures.
-- attesta `crypto/cosign/WitnessKeySet` — declares the witness set
-  + quorum-K + BLS aggregate verifier.
+  cosigned tree head over HTTP.
+- Ledger `cmd/ledger/boot/wire/gossip.go:363-388::wireWitnessCosigner`
+  — constructs the `witnessclient.HeadSync` that polls each
+  cowitness in `LEDGER_WITNESS_ENDPOINTS`. Returns nil (silent
+  disable) when the env var is empty.
+- attesta `crypto/cosign/witness_key_set.go::WitnessKeySet` —
+  declares N witness public keys + K quorum + optional BLS
+  aggregate verifier. Methods `Keys()`, `Size()`, `Quorum()`.
+- attesta `types/tree_head.go::WitnessSignature` — one cowitness
+  attestation. `types.CosignedTreeHead.Signatures` aggregates them.
 
 ## End-of-act state
 

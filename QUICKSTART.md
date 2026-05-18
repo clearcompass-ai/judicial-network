@@ -9,9 +9,20 @@ asserted** by a script rather than eyeballed in a terminal.
 
 | Repo | Role | This quickstart's reliance |
 |---|---|---|
-| `clearcompass-ai/ledger` | The dumb-write transparency log (two nodes for cross-exchange demo) | **External.** JN talks to it via HTTP. This repo does NOT boot it. |
-| `clearcompass-ai/standalone-witness` | Independent witness daemon that cosigns tree heads (Layer 3 external transparency) | **Optional but recommended.** Without it, Step 6's Layer 3 evidence reports "no witnesses" — Layers 1 + 2 still work fully. |
+| `clearcompass-ai/ledger` | Dumb-write transparency log. The demo runs **two ledger nodes** (cross-exchange appeal needs distinct logs). | **External.** JN talks to them via HTTP. This repo does NOT boot them. |
+| `clearcompass-ai/standalone-witness` | One daemon per cowitness operator. Each produces an independent attestation over the ledger's tree head; the ledger aggregates `K-of-N` per `attesta.cosign.WitnessKeySet`. **Demo minimum: 2 cowitnesses, K=2.** | **Optional but strongly recommended.** Without ≥K running, Step 6 reports "no quorum" and the tree head is unwitnessed — Layers 1 + 2 still work fully. |
 | `clearcompass-ai/judicial-network` *(this repo)* | Domain-aware CLI + read-side API + the actor cast + the case walkthroughs | **What you run from.** |
+
+### Why N=2, K=2 for the demo
+
+Pulled from `attesta v1.5.2/crypto/cosign/witness_key_set.go::NewWitnessKeySet` (line 215): the quorum constraint is `1 ≤ K ≤ N`. The demo minimums map to specific properties:
+
+| N | K | What it demonstrates | Failure-tolerance |
+|---|---|---|---|
+| 1 | 1 | Layer 3 mechanism exists | None — single witness = single point of failure |
+| **2** | **2** | **Cowitness pattern visible. Both signatures aggregated; either silent kills the head.** | None, but the K-of-N invariant is mechanically exercised. **Recommended demo.** |
+| 3 | 2 | Production-shape: one witness can outage and the log stays witnessed | One witness |
+| 2 | 3 | Negative test — constructor rejects: `quorum (3) exceeds witness count (2)` | n/a (config-time rejection per `witness_key_set.go:217`) |
 
 Trust between JN and the ledger is **two env vars per ledger node**:
 its URL and its `LEDGER_LOG_DID`. No shared secrets, no API keys, no
@@ -35,12 +46,17 @@ trial run is:
 cd ../ledger
 make integration-up                       # node-a :8080, node-b :8081
 
-# (2) [optional] boot the standalone witness against both ledgers.
-#     Without this, Step 6 of the trial walkthrough reports "no
-#     witnesses" but everything else passes. See the standalone-witness
-#     repo's own README for boot details.
+# (2) boot 2 cowitness operators, then re-boot the ledger nodes with
+#     witness env vars set. Each witness needs its own keypair + DID;
+#     the ledger needs LEDGER_WITNESS_ENDPOINTS (URLs of both
+#     witnesses) + LEDGER_WITNESS_QUORUM_K=2 +
+#     LEDGER_GENESIS_WITNESS_SET (both witness DIDs). Without this,
+#     /v1/tree/head returns cosignatures: [] (mechanism disabled per
+#     wireWitnessCosigner:364) and Step 6 reports "no quorum" — but
+#     Steps 1–5 are unaffected and still pass.
+#     Exact runbook lives in clearcompass-ai/standalone-witness.
 cd ../standalone-witness
-./scripts/run-local.sh                    # or follow that repo's quickstart
+./scripts/run-local-pair.sh               # see that repo's README
 
 # (3) tell JN where the ledgers are. These four exports are the
 #     entire trust-establishment surface — no other coordination.
@@ -49,6 +65,10 @@ export LEDGER_URL_DAVIDSON=http://localhost:8080
 export LEDGER_URL_COA=http://localhost:8081
 export LEDGER_LOG_DID_DAVIDSON=did:web:node-a.example   # baked into integration compose
 export LEDGER_LOG_DID_COA=did:web:node-b.example        # baked into integration compose
+# Optional: if you booted witnesses in step (2), tell the script what
+# quorum to expect. Defaults to 1 (so K=1 demos still pass) but the
+# recommended demo runs N=2, K=2.
+export WITNESS_QUORUM_K=2
 
 # (4) mint the walkthrough's 9-actor cast (5 did:key + 4 did:pkh
 #     across 4 different EVM chains: Ethereum, Polygon, Base, Optimism)
@@ -91,7 +111,7 @@ Six steps, each with a clear PASS / FAIL line per evidence assertion:
 | **3** | §1 counsel_appearance ×2 | cooper + davis on record | `attorney_did` correct; `represents` references right binding |
 | **4** | §4 evidence_admittance | CEO affidavit + web3 cosignature | 2 sigs, algo 1 + algo 3, wallet DID starts with `did:pkh:eip155:1:`, `chain_of_custody_required=true` |
 | **5** | (PR-2 demo) | nothing — read-time verify of Step 1's entry | `.all_green=true`, `.report.Policy=null` (no policy adopted → clean skip) |
-| **6** | (Layer 3) | nothing — fetch `/v1/tree/head` | tree size ≥ 6; witness cosig count reported (≥1 if standalone-witness is running, else informational) |
+| **6** | (Layer 3) | nothing — fetch `/v1/tree/head` | tree size ≥ 6; cowitness count ≥ `$WITNESS_QUORUM_K` (default 1; set to 2 for the recommended N=2/K=2 demo). Empty `cosignatures: []` when witnesses are absent → script reports informationally rather than failing |
 
 Failure modes:
 
@@ -105,7 +125,7 @@ Failure modes:
 
 - **PolicyStage demo** (Step 5) requires `network-api` running with `JN_VERIFY_POLICY_STAGE_ENABLE=true` AND `ServerConfig.PolicyStage` map populated. The script auto-skips Step 5 when `$NETWORK_API` is unset, so this isn't a blocker — but it does mean Step 5's evidence is informational only in the default quickstart flow. To exercise it: `JN_VERIFY_POLICY_STAGE_ENABLE=true ./bin/network-api &` after `make quickstart`, then export `NETWORK_API=http://localhost:8082` before running the script.
 
-- **Witness layer demo** (Step 6) requires the standalone-witness running and pointed at both ledgers. The script reports the witness count it sees; absent witnesses, Step 6 is informational only.
+- **Witness layer demo** (Step 6) requires N standalone-witness daemons running AND the ledger booted with `LEDGER_WITNESS_ENDPOINTS` / `LEDGER_WITNESS_QUORUM_K` / `LEDGER_GENESIS_WITNESS_SET` populated. The current `docker-compose.integration.yml` does NOT include witness services — adding them is the ledger / standalone-witness team's path. The script reports the cowitness count it observes and compares against `$WITNESS_QUORUM_K`; absent witnesses, Step 6 is informational only and Layers 1 + 2 still pass. **Demo recommendation: N=2, K=2** for the failure-tolerance invariant.
 
 - **Strict v1.8 conformance** for Filer / Party signatures — see [`docs/walkthrough/02-real-dids.md`](docs/walkthrough/02-real-dids.md) §"Three signature layers" for the JN-extension flag. The quickstart exercises the current JN-extension pattern, not v1.8 strict.
 

@@ -33,6 +33,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/types"
 )
 
@@ -84,6 +85,67 @@ func TestWitnessLayer_SDKContract(t *testing.T) {
 	if elemType.NumField() == 0 {
 		t.Errorf("CosignedTreeHead.Signatures element struct %s has no fields — walkthrough Layer 3 evidence cannot iterate signer identity from an empty struct", elemType.Name())
 	}
+}
+
+// TestWitnessLayer_KOfNContract pins the K-of-N quorum semantics
+// that the walkthrough's "N=2, K=2 recommended demo" relies on.
+// Specifically: WitnessKeySet must expose a Quorum() method
+// returning an int. If the SDK ever renames it to something like
+// Threshold(), or moves the constant into a different shape (e.g.,
+// a percentage), this test surfaces the breakage and the
+// walkthrough's evidence text + scripts/run-case-1-trial.sh's
+// K-of-N assertion need updating in lock-step.
+//
+// We can't simply call the method on a zero-value WitnessKeySet
+// (the type is keys-private), so we use reflection to confirm the
+// method exists with the expected signature.
+func TestWitnessLayer_KOfNContract(t *testing.T) {
+	// Reflection is the only path: WitnessKeySet's constructor
+	// validates inputs aggressively (1 ≤ K ≤ N, non-zero NetworkID,
+	// unique PubKeyIDs per witness_key_set.go:215-222), so we can't
+	// produce a valid zero-value to call methods on. Type
+	// inspection alone gives us the contract pin.
+	wksType := reflect.TypeOf(cosign.WitnessKeySet{})
+
+	for _, want := range []struct {
+		method string
+		returns string
+		why     string
+	}{
+		{"Quorum", "int", "K-of-N threshold; walkthrough's recommended N=2, K=2 demo asserts COWITNESS_COUNT >= K"},
+		{"Size", "int", "N — used by walkthrough evidence narrative to compute K-of-N display"},
+		{"Keys", "[]types.WitnessPublicKey", "lets external auditors enumerate the witness set per WitnessKeySet's public surface"},
+	} {
+		m, ok := reflect.PtrTo(wksType).MethodByName(want.method)
+		if !ok {
+			t.Errorf("cosign.WitnessKeySet has no method %q. Walkthrough rationale: %s. If renamed, update docs/walkthrough/02-real-dids.md §\"Three signature layers\" Layer 3 + cases/01-acme-v-beta-trial.md Step 6 + scripts/run-case-1-trial.sh + this test.",
+				want.method, want.why)
+			continue
+		}
+		// Method's first input is the receiver; the rest are
+		// actual arguments. We want zero arguments + one return.
+		if m.Type.NumIn() != 1 {
+			t.Errorf("cosign.WitnessKeySet.%s takes %d arguments beyond receiver; want 0",
+				want.method, m.Type.NumIn()-1)
+		}
+		if m.Type.NumOut() != 1 {
+			t.Errorf("cosign.WitnessKeySet.%s returns %d values; want 1",
+				want.method, m.Type.NumOut())
+			continue
+		}
+		got := m.Type.Out(0).String()
+		// Strip package prefix for the Keys() return-type
+		// comparison; reflect prints "cosign.types.WitnessPublicKey"
+		// or similar depending on import context.
+		if got != want.returns && !endsWith(got, want.returns) {
+			t.Errorf("cosign.WitnessKeySet.%s returns %q; want %q (rationale: %s)",
+				want.method, got, want.returns, want.why)
+		}
+	}
+}
+
+func endsWith(s, suffix string) bool {
+	return len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix
 }
 
 // TestWitnessLayer_DistinctFromEntrySigs is documentation as code:
