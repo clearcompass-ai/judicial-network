@@ -7,7 +7,7 @@ DESCRIPTION:
 	verification service's Path C admission gate (/v1/verify/complete,
 	api/verification ServerConfig.SignatureVerifier).
 
-	This is where attesta v1.8.0's native receipt-aware, multi-chain
+	This is where attesta v1.11.1's native receipt-aware, multi-chain
 	verifier is assembled. The result is a *did.VerifierRegistry,
 	which implements both attestation.SignatureVerifier and
 	attestation.SignatureVerifierWithReceipt — so the SDK's
@@ -67,7 +67,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/config"
 )
 
-// buildSignatureVerifier assembles the native v1.8.0 signature
+// buildSignatureVerifier assembles the native v1.11.1 signature
 // verifier from operational config + the shared DID resolver. The
 // returned value is the *did.VerifierRegistry threaded into
 // api/verification ServerConfig.SignatureVerifier; it satisfies both
