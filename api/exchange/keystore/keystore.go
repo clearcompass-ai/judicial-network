@@ -3,126 +3,128 @@ FILE PATH: exchange/keystore/keystore.go
 
 DESCRIPTION:
 
-	Key custody interface. The exchange holds private keys on behalf
-	of signers. This interface abstracts the backing store — in-memory
-	for tests, HSM for production, vault for cloud deployments.
+	Key custody for the Judicial Network's own institutional actors —
+	automated Court Clerks, Publisher Daemons, Notary services, the
+	ledger/institutional system DIDs. The keystore never exports private
+	keys except the dedicated escrow path; it signs digests and returns
+	signatures (the AWS-KMS / PKCS#11 model).
 
-	The keystore never exports private keys (except for the dedicated
-	escrow path). It signs bytes and returns signatures. Same model
-	as AWS KMS or PKCS#11.
+	# ONE CURVE: secp256k1
 
-	Two curves coexist: Ed25519 (legacy, used by some non-protocol
-	paths) and secp256k1 (the protocol curve — every Attesta log
-	entry's signature is over secp256k1). The secp256k1 methods
-	(GenerateSecp256k1, SignSecp256k1, PublicKeySecp256k1) are the
-	fix for the pre-existing mismatch where Sign returned Ed25519
-	bytes but the entry asserted SigAlgoECDSA.
+	The Attesta protocol curve is secp256k1 ECDSA — every on-log entry
+	signature is secp256k1 (SigAlgoECDSA), every EVM/Web3 actor and
+	did:pkh identity is secp256k1, and the ledger's VerifyEntry expects
+	secp256k1. JN institutional actors sign with the same curve as the
+	human Web3 users they interoperate with. (Layer-4 witness quorums use
+	BLS12-381; that is a separate plane, not this keystore.)
 
-	Production path: callers route SIGN operations to whichever
-	custody backend the deployment uses (Privy via IdentityProvider
-	for user wallets; this keystore for system DIDs like the
-	institutional/ledger key).
+	# TWO SIGNATURE SHAPES, ONE CURVE
+
+	  - SignEntry → 64-byte R‖S, low-S normalized. The SigAlgoECDSA wire
+	    shape the SDK's VerifyEntry consumes for log entries. The signed
+	    value is sha256(envelope.SigningPayload(entry)) (attestation/
+	    signatures.go computes exactly this digest on the verify side).
+	  - Sign → 65-byte recoverable SignCompact (v‖R‖S). The shape Privy
+	    emits and EIP-1271 / SCW ecrecover paths consume; the keystore/
+	    signer adapter byte-swaps it to Ethereum r‖s‖v.
+
+	# STAGED ROTATION (old-key-signs)
+
+	A key rotation is authorized by the key it RETIRES (the SDK rotation
+	model + verification.RotationHistorySource chain-of-custody check), so
+	the retiring key must stay signable while the rotation entry — which
+	names the NEW key — is built and signed. StageNextKey provisions the
+	next key as PENDING (current stays active); CommitRotation promotes it
+	once the rotation entry is on the log.
+
+	Production path: external user-DID signing routes through the
+	IdentityProvider (Privy embedded wallets, secp256k1); this keystore
+	holds JN's institutional/system DIDs.
 
 KEY DEPENDENCIES:
-  - attesta/did: DID creation (guide §17)
-  - attesta/crypto/escrow: SplitGF256, EncryptForNode (guide §15)
-  - github.com/decred/dcrd/dcrec/secp256k1/v4 (curve operations,
-    via keystore_secp256k1.go)
+  - github.com/decred/dcrd/dcrec/secp256k1/v4 (curve operations).
+  - attesta/crypto/signatures: SignEntry (64-byte SigAlgoECDSA wire).
 */
 package keystore
 
 import (
-	"crypto/ed25519"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
+
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
 )
 
-// Curve names recorded in KeyInfo.Curve. The Attesta protocol curve
-// is secp256k1; Ed25519 is retained for non-protocol paths.
-const (
-	CurveEd25519   = "ed25519"
-	CurveSecp256k1 = "secp256k1"
-)
+// CurveSecp256k1 is the only curve this keystore manages. Recorded in
+// KeyInfo.Curve for diagnostics + wire compatibility with consumers that
+// branch on it.
+const CurveSecp256k1 = "secp256k1"
 
-// KeyStore is the interface for key custody operations. Both curves
-// (Ed25519 + secp256k1) are addressable per DID; a single DID may
-// have keys on either or both curves.
+// KeyStore is secp256k1-only key custody for JN institutional DIDs.
 type KeyStore interface {
-	// Generate creates a new Ed25519 keypair, stores the private key,
-	// returns the public key and a key ID.
+	// Generate provisions a new secp256k1 keypair for the DID and returns
+	// its KeyInfo (PublicKey = 65-byte uncompressed, 0x04 prefix).
 	Generate(did string, purpose string) (*KeyInfo, error)
 
-	// Sign signs bytes with the Ed25519 private key for the given DID.
-	// Returns the 64-byte Ed25519 signature.
-	Sign(did string, data []byte) ([]byte, error)
+	// PublicKey returns the DID's 65-byte uncompressed secp256k1 key.
+	PublicKey(did string) ([]byte, error)
 
-	// PublicKey returns the Ed25519 public key for a DID.
-	PublicKey(did string) (ed25519.PublicKey, error)
+	// Sign returns a 65-byte recoverable SignCompact (v‖R‖S) over the
+	// 32-byte digest — the Privy/SCW/ecrecover wire shape. The keystore
+	// does NOT hash again; the caller passes the typed-data digest.
+	Sign(did string, digest [32]byte) ([]byte, error)
 
-	// GenerateSecp256k1 creates a new secp256k1 keypair, stores the
-	// private key, returns KeyInfo (with Curve=CurveSecp256k1 and
-	// PublicKey set to the 65-byte uncompressed key).
-	GenerateSecp256k1(did string, purpose string) (*KeyInfo, error)
+	// SignEntry returns the 64-byte R‖S (low-S) SigAlgoECDSA signature
+	// over the 32-byte digest — the wire shape the SDK's VerifyEntry
+	// consumes for on-log entries. Caller passes
+	// sha256(envelope.SigningPayload(entry)).
+	SignEntry(did string, digest [32]byte) ([]byte, error)
 
-	// SignSecp256k1 signs a 32-byte digest with the secp256k1 key
-	// for the given DID. Returns the 65-byte SignCompact output
-	// (recoveryByte || R || S) — the wire format Privy returns and
-	// the SDK accepts. Callers MUST pass the typed-data digest;
-	// the keystore does NOT hash again.
-	SignSecp256k1(did string, digest [32]byte) ([]byte, error)
+	// StageNextKey provisions the DID's NEXT secp256k1 key as PENDING and
+	// returns its KeyInfo. The current key stays active + signable so the
+	// rotation entry (which names the new key) can be signed by the
+	// RETIRING key — the old-key-signs chain of custody. CommitRotation
+	// promotes the pending key.
+	StageNextKey(did string, tier int) (*KeyInfo, error)
 
-	// PublicKeySecp256k1 returns the uncompressed (65-byte) secp256k1
-	// public key for a DID. Returns an error if the DID has no
-	// secp256k1 key.
-	PublicKeySecp256k1(did string) ([]byte, error)
+	// CommitRotation promotes the pending key from StageNextKey to active,
+	// discarding the retired key. Errors if no rotation is pending.
+	CommitRotation(did string) (*KeyInfo, error)
 
-	// List returns all managed keys (both curves; KeyInfo.Curve
-	// distinguishes).
+	// List returns all managed keys.
 	List() []*KeyInfo
 
-	// Rotate marks a key as rotated and generates a replacement.
-	Rotate(did string, tier int) (*KeyInfo, error)
-
-	// Destroy permanently deletes a private key (for expungement).
-	// Removes BOTH curves' keys for the DID if both exist.
+	// Destroy permanently deletes a DID's key material (expungement).
 	Destroy(did string) error
 
-	// ExportForEscrow exports the raw Ed25519 private key bytes for
-	// escrow splitting. Only callable during escrow operations.
-	ExportForEscrow(did string) (ed25519.PrivateKey, error)
+	// ExportForEscrow returns the raw 32-byte secp256k1 private scalar for
+	// Shamir escrow splitting. Only callable during escrow ops; HSM/Vault
+	// backends reject this (non-extractable keys).
+	ExportForEscrow(did string) ([]byte, error)
 }
 
-// KeyInfo describes a managed key without exposing the private
-// material. Curve distinguishes Ed25519 (legacy paths) from
-// secp256k1 (the Attesta protocol curve). PublicKey holds the raw
-// public-key bytes for the named curve: 32 bytes for Ed25519, 65
-// bytes (uncompressed, 0x04 prefix) for secp256k1.
+// KeyInfo describes a managed secp256k1 key without exposing the private
+// material. PublicKey is the 65-byte uncompressed (0x04 prefix) form.
 type KeyInfo struct {
 	KeyID        string     `json:"key_id"`
 	DID          string     `json:"did"`
 	Purpose      string     `json:"purpose"` // "signing" | "encryption" | "delegation"
-	Curve        string     `json:"curve"`   // CurveEd25519 | CurveSecp256k1
+	Curve        string     `json:"curve"`   // always CurveSecp256k1
 	PublicKey    []byte     `json:"public_key"`
 	Created      time.Time  `json:"created"`
 	Rotated      *time.Time `json:"rotated,omitempty"`
 	RotationTier int        `json:"rotation_tier,omitempty"`
 }
 
-// MemoryKeyStore is an in-memory implementation for development and
-// tests. Holds Ed25519 and secp256k1 keys in parallel maps so the two
-// curves can be addressed independently for the same DID.
+// MemoryKeyStore is an in-memory secp256k1 implementation for
+// development, tests, and the network-api default backend.
 type MemoryKeyStore struct {
-	mu       sync.RWMutex
-	keys     map[string]*managedKey
-	keysSecp map[string]*managedSecpKey
-}
-
-type managedKey struct {
-	info       *KeyInfo
-	privateKey ed25519.PrivateKey
+	mu      sync.RWMutex
+	keys    map[string]*managedSecpKey
+	pending map[string]*managedSecpKey // staged rotations awaiting CommitRotation
 }
 
 type managedSecpKey struct {
@@ -130,127 +132,154 @@ type managedSecpKey struct {
 	privateKey *secp256k1.PrivateKey
 }
 
-// NewMemoryKeyStore creates an in-memory key store.
+// NewMemoryKeyStore creates an in-memory secp256k1 key store.
 func NewMemoryKeyStore() *MemoryKeyStore {
 	return &MemoryKeyStore{
-		keys:     make(map[string]*managedKey),
-		keysSecp: make(map[string]*managedSecpKey),
+		keys:    make(map[string]*managedSecpKey),
+		pending: make(map[string]*managedSecpKey),
+	}
+}
+
+func newManagedKey(did, purpose, keyID string, priv *secp256k1.PrivateKey) *managedSecpKey {
+	return &managedSecpKey{
+		info: &KeyInfo{
+			KeyID:     keyID,
+			DID:       did,
+			Purpose:   purpose,
+			Curve:     CurveSecp256k1,
+			PublicKey: priv.PubKey().SerializeUncompressed(),
+			Created:   time.Now().UTC(),
+		},
+		privateKey: priv,
 	}
 }
 
 func (m *MemoryKeyStore) Generate(did string, purpose string) (*KeyInfo, error) {
+	if did == "" {
+		return nil, fmt.Errorf("keystore: Generate: did required")
+	}
+	priv, err := secp256k1.GeneratePrivateKey()
+	if err != nil {
+		return nil, fmt.Errorf("keystore: Generate: %w", err)
+	}
+	mk := newManagedKey(did, purpose, fmt.Sprintf("%s#secp256k1-1", did), priv)
+	m.mu.Lock()
+	m.keys[did] = mk
+	m.mu.Unlock()
+	return mk.info, nil
+}
+
+// ImportSecp256k1 binds a caller-supplied private key to the DID. Used by
+// escrow recovery, deterministic test fixtures, and ledger bootstrap.
+func (m *MemoryKeyStore) ImportSecp256k1(did, purpose string, priv *secp256k1.PrivateKey) (*KeyInfo, error) {
+	if did == "" {
+		return nil, fmt.Errorf("keystore: ImportSecp256k1: did required")
+	}
+	if priv == nil {
+		return nil, fmt.Errorf("keystore: ImportSecp256k1: nil key")
+	}
+	mk := newManagedKey(did, purpose, fmt.Sprintf("%s#secp256k1-1", did), priv)
+	m.mu.Lock()
+	m.keys[did] = mk
+	m.mu.Unlock()
+	return mk.info, nil
+}
+
+func (m *MemoryKeyStore) PublicKey(did string) ([]byte, error) {
+	m.mu.RLock()
+	mk, ok := m.keys[did]
+	m.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("keystore: no key for %s", did)
+	}
+	out := make([]byte, len(mk.info.PublicKey))
+	copy(out, mk.info.PublicKey)
+	return out, nil
+}
+
+// Sign returns the 65-byte recoverable SignCompact (v‖R‖S).
+func (m *MemoryKeyStore) Sign(did string, digest [32]byte) ([]byte, error) {
+	m.mu.RLock()
+	mk, ok := m.keys[did]
+	m.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("keystore: no key for %s", did)
+	}
+	return ecdsa.SignCompact(mk.privateKey, digest[:], false), nil
+}
+
+// SignEntry returns the 64-byte R‖S (low-S) SigAlgoECDSA signature via the
+// SDK's signatures.SignEntry — guaranteed to verify under VerifyEntry.
+func (m *MemoryKeyStore) SignEntry(did string, digest [32]byte) ([]byte, error) {
+	m.mu.RLock()
+	mk, ok := m.keys[did]
+	m.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("keystore: no key for %s", did)
+	}
+	return signatures.SignEntry(digest, mk.privateKey.ToECDSA())
+}
+
+func (m *MemoryKeyStore) StageNextKey(did string, tier int) (*KeyInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	pub, priv, err := ed25519.GenerateKey(nil)
+	cur, ok := m.keys[did]
+	if !ok {
+		return nil, fmt.Errorf("keystore: no key for %s", did)
+	}
+	priv, err := secp256k1.GeneratePrivateKey()
 	if err != nil {
-		return nil, fmt.Errorf("keystore: generate: %w", err)
+		return nil, fmt.Errorf("keystore: StageNextKey: %w", err)
 	}
-
-	info := &KeyInfo{
-		KeyID:     fmt.Sprintf("%s#key-1", did),
-		DID:       did,
-		Purpose:   purpose,
-		Curve:     CurveEd25519,
-		PublicKey: pub,
-		Created:   time.Now().UTC(),
-	}
-
-	m.keys[did] = &managedKey{info: info, privateKey: priv}
-	return info, nil
+	mk := newManagedKey(did, cur.info.Purpose, fmt.Sprintf("%s#secp256k1-%d", did, tier), priv)
+	now := time.Now().UTC()
+	mk.info.Rotated = &now
+	mk.info.RotationTier = tier
+	m.pending[did] = mk
+	return mk.info, nil
 }
 
-func (m *MemoryKeyStore) Sign(did string, data []byte) ([]byte, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	mk, ok := m.keys[did]
+func (m *MemoryKeyStore) CommitRotation(did string) (*KeyInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	mk, ok := m.pending[did]
 	if !ok {
-		return nil, fmt.Errorf("keystore: no key for %s", did)
+		return nil, fmt.Errorf("keystore: no pending rotation for %s", did)
 	}
-
-	return ed25519.Sign(mk.privateKey, data), nil
-}
-
-func (m *MemoryKeyStore) PublicKey(did string) (ed25519.PublicKey, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	mk, ok := m.keys[did]
-	if !ok {
-		return nil, fmt.Errorf("keystore: no key for %s", did)
-	}
-	return ed25519.PublicKey(mk.info.PublicKey), nil
+	m.keys[did] = mk
+	delete(m.pending, did)
+	return mk.info, nil
 }
 
 func (m *MemoryKeyStore) List() []*KeyInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-
-	result := make([]*KeyInfo, 0, len(m.keys)+len(m.keysSecp))
+	out := make([]*KeyInfo, 0, len(m.keys))
 	for _, mk := range m.keys {
-		result = append(result, mk.info)
+		out = append(out, mk.info)
 	}
-	for _, mk := range m.keysSecp {
-		result = append(result, mk.info)
-	}
-	return result
-}
-
-func (m *MemoryKeyStore) Rotate(did string, tier int) (*KeyInfo, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	old, ok := m.keys[did]
-	if !ok {
-		return nil, fmt.Errorf("keystore: no key for %s", did)
-	}
-
-	pub, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		return nil, fmt.Errorf("keystore: rotate: %w", err)
-	}
-
-	now := time.Now().UTC()
-	info := &KeyInfo{
-		KeyID:        fmt.Sprintf("%s#key-%d", did, tier),
-		DID:          did,
-		Purpose:      old.info.Purpose,
-		Curve:        CurveEd25519,
-		PublicKey:    pub,
-		Created:      now,
-		Rotated:      &now,
-		RotationTier: tier,
-	}
-
-	m.keys[did] = &managedKey{info: info, privateKey: priv}
-	return info, nil
+	return out
 }
 
 func (m *MemoryKeyStore) Destroy(did string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	_, hasEd := m.keys[did]
-	_, hasSecp := m.keysSecp[did]
-	if !hasEd && !hasSecp {
+	_, hasKey := m.keys[did]
+	_, hasPending := m.pending[did]
+	if !hasKey && !hasPending {
 		return fmt.Errorf("keystore: no key for %s", did)
 	}
 	delete(m.keys, did)
-	delete(m.keysSecp, did)
+	delete(m.pending, did)
 	return nil
 }
 
-func (m *MemoryKeyStore) ExportForEscrow(did string) (ed25519.PrivateKey, error) {
+func (m *MemoryKeyStore) ExportForEscrow(did string) ([]byte, error) {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	mk, ok := m.keys[did]
+	m.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("keystore: no key for %s", did)
 	}
-	// Return a copy to prevent mutation.
-	cp := make(ed25519.PrivateKey, len(mk.privateKey))
-	copy(cp, mk.privateKey)
-	return cp, nil
+	return mk.privateKey.Serialize(), nil
 }

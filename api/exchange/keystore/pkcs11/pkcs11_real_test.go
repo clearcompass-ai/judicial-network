@@ -70,19 +70,6 @@ func TestPKCS11_LoadPINFile_Missing(t *testing.T) {
 	}
 }
 
-func TestPKCS11_Ed25519_AlwaysFails(t *testing.T) {
-	ks := &KeyStore{}
-	if _, err := ks.Generate("did", "signing"); err != ErrEd25519Unsupported {
-		t.Errorf("Generate err = %v, want ErrEd25519Unsupported", err)
-	}
-	if _, err := ks.Sign("did", []byte("x")); err != ErrEd25519Unsupported {
-		t.Errorf("Sign err = %v, want ErrEd25519Unsupported", err)
-	}
-	if _, err := ks.PublicKey("did"); err != ErrEd25519Unsupported {
-		t.Errorf("PublicKey err = %v, want ErrEd25519Unsupported", err)
-	}
-}
-
 func TestPKCS11_ExportForEscrow_Refuses(t *testing.T) {
 	ks := &KeyStore{}
 	if _, err := ks.ExportForEscrow("did"); err == nil {

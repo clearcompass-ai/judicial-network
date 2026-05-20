@@ -165,20 +165,26 @@ func (h *ArtifactGrantHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	entryBytes, err := envelope.Serialize(entry)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "grant serialize failed")
-		return
-	}
-
-	// Sign with granter's custodied key.
-	sig, err := h.deps.KeyStore.Sign(req.GranterDID, entryBytes)
+	// Sign with the granter's custodied secp256k1 key and EMBED the
+	// signature in the envelope (sig over sha256(SigningPayload), the
+	// digest the SDK's VerifyEntrySignatures checks); then serialize the
+	// hydrated entry.
+	digest := sha256.Sum256(envelope.SigningPayload(entry))
+	sig, err := h.deps.KeyStore.SignEntry(req.GranterDID, digest)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "grant signing failed")
 		return
 	}
-
-	signed := append(entryBytes, sig...)
+	entry.Signatures = []envelope.Signature{{
+		SignerDID: req.GranterDID,
+		AlgoID:    envelope.SigAlgoECDSA,
+		Bytes:     sig,
+	}}
+	signed, err := envelope.Serialize(entry)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "grant serialize failed")
+		return
+	}
 
 	// Submit to ledger via shared SDK-tuned client (see
 	// management.go::ledgerSubmitClient) plus  breaker

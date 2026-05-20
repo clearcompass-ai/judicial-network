@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"github.com/clearcompass-ai/attesta/lifecycle"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 
@@ -179,30 +181,67 @@ func (h *KeyRotateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		req.DID = callerDID
 	}
 
-	newInfo, err := h.deps.KeyStore.Rotate(req.DID, req.RotationTier)
+	// Stage the next key as PENDING — the current (retiring) key stays
+	// active + signable so it can authorize this rotation (old-key-signs).
+	staged, err := h.deps.KeyStore.StageNextKey(req.DID, req.RotationTier)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	payload, _ := json.Marshal(map[string]any{
-		"rotation_tier": req.RotationTier,
-		"key_id":        newInfo.KeyID,
+	// Canonical entry_signer_rotation_v1 payload naming the NEW key, so the
+	// ledger admits it (admission/rotation_entry_verifier) and a consumer's
+	// RotationHistorySource can project + chain-verify it.
+	payload, err := verifier.EncodeRotationPayload(verifier.RotationPayload{
+		SignerDID:    req.DID,
+		NewPublicKey: staged.PublicKey,
 	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "rotation payload: "+err.Error())
+		return
+	}
 
 	entry, err := builder.BuildKeyRotation(builder.KeyRotationParams{
-		Destination:  req.Destination,
-		SignerDID:    req.DID,
-		TargetRoot:   types.LogPosition{Sequence: req.TargetPos},
-		NewPublicKey: newInfo.PublicKey,
-		Payload:      payload,
+		Destination: req.Destination,
+		SignerDID:   req.DID,
+		TargetRoot:  types.LogPosition{Sequence: req.TargetPos},
+		Payload:     payload,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "rotation entry build failed")
 		return
 	}
 
-	signAndSubmit(w, h.deps, req.DID, entry)
+	// Sign with the OLD (still-active) key + embed; submit; promote the new
+	// key ONLY after the rotation entry is accepted on-log (else the local
+	// active key would diverge from the log's position-authoritative one).
+	digest := sha256.Sum256(envelope.SigningPayload(entry))
+	sig, err := h.deps.KeyStore.SignEntry(req.DID, digest)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "rotation signing failed")
+		return
+	}
+	entry.Signatures = []envelope.Signature{{
+		SignerDID: req.DID,
+		AlgoID:    envelope.SigAlgoECDSA,
+		Bytes:     sig,
+	}}
+	signed, err := envelope.Serialize(entry)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "serialize entry: "+err.Error())
+		return
+	}
+
+	cap := newCapturingResponseWriter()
+	submitToLedgerProtected(cap, h.deps, signed)
+	if cap.status >= 200 && cap.status < 300 {
+		if _, err := h.deps.KeyStore.CommitRotation(req.DID); err != nil {
+			writeError(w, http.StatusInternalServerError,
+				"rotation accepted on-log but keystore promote failed: "+err.Error())
+			return
+		}
+	}
+	cap.replayTo(w)
 }
 
 // ─── Key Escrow ─────────────────────────────────────────────────────
@@ -466,21 +505,29 @@ func (h *ScopeExecuteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 // ─── Shared ─────────────────────────────────────────────────────────
 
-// signAndSubmit serializes an entry, signs it, and forwards to the ledger.
+// signAndSubmit signs an entry with the signer's custodied secp256k1 key
+// and forwards it to the ledger. The signature is EMBEDDED in the
+// envelope's Signatures section (sig over sha256(SigningPayload), the
+// digest attestation.VerifyEntrySignatures checks), then the fully
+// hydrated entry is serialized — never the raw-sig-appended shape the
+// SDK deserializer would reject.
 func signAndSubmit(w http.ResponseWriter, deps *Dependencies, signerDID string, entry *envelope.Entry) {
-	entryBytes, err := envelope.Serialize(entry)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "serialize entry: "+err.Error())
-		return
-	}
-
-	sig, err := deps.KeyStore.Sign(signerDID, entryBytes)
+	digest := sha256.Sum256(envelope.SigningPayload(entry))
+	sig, err := deps.KeyStore.SignEntry(signerDID, digest)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "signing failed")
 		return
 	}
-
-	signed := append(entryBytes, sig...)
+	entry.Signatures = []envelope.Signature{{
+		SignerDID: signerDID,
+		AlgoID:    envelope.SigAlgoECDSA,
+		Bytes:     sig,
+	}}
+	signed, err := envelope.Serialize(entry)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "serialize entry: "+err.Error())
+		return
+	}
 	submitToLedgerProtected(w, deps, signed)
 }
 

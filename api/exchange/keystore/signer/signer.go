@@ -64,9 +64,9 @@ func New(ks keystore.KeyStore, did string) (*Adapter, error) {
 	if did == "" {
 		return nil, fmt.Errorf("signer: empty DID")
 	}
-	pub, err := ks.PublicKeySecp256k1(did)
+	pub, err := ks.PublicKey(did)
 	if err != nil {
-		return nil, fmt.Errorf("signer: PublicKeySecp256k1: %w", err)
+		return nil, fmt.Errorf("signer: PublicKey: %w", err)
 	}
 	addr, err := sdksigs.AddressFromPubkey(pub)
 	if err != nil {
@@ -84,12 +84,12 @@ func (a *Adapter) Sign(digest [32]byte) ([]byte, error) {
 	if a == nil || a.ks == nil {
 		return nil, fmt.Errorf("signer: nil Adapter")
 	}
-	compact, err := a.ks.SignSecp256k1(a.did, digest)
+	compact, err := a.ks.Sign(a.did, digest)
 	if err != nil {
-		return nil, fmt.Errorf("signer: SignSecp256k1: %w", err)
+		return nil, fmt.Errorf("signer: Sign: %w", err)
 	}
 	if len(compact) != 65 {
-		return nil, fmt.Errorf("signer: SignSecp256k1 returned %d bytes, want 65", len(compact))
+		return nil, fmt.Errorf("signer: Sign returned %d bytes, want 65", len(compact))
 	}
 	out := make([]byte, sdksigs.EthereumSignatureLen)
 	copy(out[0:32], compact[1:33])   // r

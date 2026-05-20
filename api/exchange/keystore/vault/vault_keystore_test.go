@@ -43,25 +43,23 @@ func TestNew_DefaultsMount(t *testing.T) {
 // Lifecycle (Rotate / Destroy / ExportForEscrow / List)
 // ─────────────────────────────────────────────────────────────────────
 
-func TestVault_RotateBumpsTier(t *testing.T) {
+// Staged rotation is in-memory-backend only; Vault reports unsupported
+// (Vault deployments rotate at bootstrap).
+func TestVault_StageNextKey_Unsupported(t *testing.T) {
 	ks, srv := newKS(t)
 	defer srv.Close()
-	if _, err := ks.GenerateSecp256k1("did:web:test:judge", "signing"); err != nil {
+	if _, err := ks.Generate("did:web:test:judge", "signing"); err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	rotated, err := ks.Rotate("did:web:test:judge", 2)
-	if err != nil {
-		t.Fatalf("Rotate: %v", err)
-	}
-	if rotated.RotationTier != 2 {
-		t.Errorf("RotationTier = %d, want 2", rotated.RotationTier)
+	if _, err := ks.StageNextKey("did:web:test:judge", 2); err == nil {
+		t.Error("expected StageNextKey unsupported on the Vault backend")
 	}
 }
 
 func TestVault_DestroyRemoves(t *testing.T) {
 	ks, srv := newKS(t)
 	defer srv.Close()
-	if _, err := ks.GenerateSecp256k1("did:web:test:judge", "signing"); err != nil {
+	if _, err := ks.Generate("did:web:test:judge", "signing"); err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
 	if err := ks.Destroy("did:web:test:judge"); err != nil {
@@ -91,7 +89,7 @@ func TestVault_BadToken_Surfaces(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := ks.GenerateSecp256k1("did:web:x", "signing"); err == nil {
+	if _, err := ks.Generate("did:web:x", "signing"); err == nil {
 		t.Error("expected forbidden error")
 	}
 }

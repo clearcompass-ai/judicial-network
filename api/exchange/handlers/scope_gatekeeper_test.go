@@ -229,9 +229,9 @@ type recordingKS struct {
 	signed bool
 }
 
-func (r *recordingKS) Sign(did string, data []byte) ([]byte, error) {
+func (r *recordingKS) SignEntry(did string, digest [32]byte) ([]byte, error) {
 	r.signed = true
-	return r.mockKS.Sign(did, data)
+	return r.mockKS.SignEntry(did, digest)
 }
 
 func TestEntryFullHandler_ScopeForbidden_DoesNotSign(t *testing.T) {

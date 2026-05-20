@@ -32,9 +32,9 @@ const testDID = "did:web:state:tn:davidson:judge-mcclendon"
 func newAdapter(t *testing.T) (*Adapter, *keystore.MemoryKeyStore, []byte) {
 	t.Helper()
 	ks := keystore.NewMemoryKeyStore()
-	info, err := ks.GenerateSecp256k1(testDID, "signing")
+	info, err := ks.Generate(testDID, "signing")
 	if err != nil {
-		t.Fatalf("GenerateSecp256k1: %v", err)
+		t.Fatalf("Generate: %v", err)
 	}
 	a, err := New(ks, testDID)
 	if err != nil {

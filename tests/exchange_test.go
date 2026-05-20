@@ -8,6 +8,7 @@ package tests
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
@@ -15,6 +16,8 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
 
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
@@ -159,58 +162,65 @@ func TestKeyStore_Generate(t *testing.T) {
 	if info.Purpose != "signing" {
 		t.Errorf("Purpose = %q, want signing", info.Purpose)
 	}
-	if len(info.PublicKey) != ed25519.PublicKeySize {
-		t.Errorf("PublicKey length = %d, want %d", len(info.PublicKey), ed25519.PublicKeySize)
+	if len(info.PublicKey) != 65 || info.PublicKey[0] != 0x04 {
+		t.Errorf("PublicKey shape = len %d prefix %#x, want 65/0x04 (uncompressed secp256k1)",
+			len(info.PublicKey), info.PublicKey[0])
 	}
 }
 
-func TestKeyStore_Sign(t *testing.T) {
+func TestKeyStore_SignEntry(t *testing.T) {
 	ks := keystore.NewMemoryKeyStore()
 	info, _ := ks.Generate("did:web:test:signer", "signing")
 
-	data := []byte("test data to sign")
-	sig, err := ks.Sign("did:web:test:signer", data)
+	digest := sha256.Sum256([]byte("test entry signing payload"))
+	sig, err := ks.SignEntry("did:web:test:signer", digest)
 	if err != nil {
-		t.Fatalf("Sign failed: %v", err)
+		t.Fatalf("SignEntry failed: %v", err)
 	}
-
-	if !ed25519.Verify(info.PublicKey, data, sig) {
-		t.Fatal("Signature verification failed")
+	pub, err := signatures.ParsePubKey(info.PublicKey)
+	if err != nil {
+		t.Fatalf("ParsePubKey: %v", err)
+	}
+	if err := signatures.VerifyEntry(digest, sig, pub); err != nil {
+		t.Fatalf("VerifyEntry rejected SignEntry signature: %v", err)
 	}
 }
 
 func TestKeyStore_Sign_UnknownDID(t *testing.T) {
 	ks := keystore.NewMemoryKeyStore()
-	_, err := ks.Sign("did:web:nonexistent", []byte("data"))
-	if err == nil {
+	if _, err := ks.SignEntry("did:web:nonexistent", [32]byte{}); err == nil {
 		t.Fatal("Expected error for unknown DID")
 	}
 }
 
-func TestKeyStore_Rotate(t *testing.T) {
+func TestKeyStore_StagedRotation(t *testing.T) {
 	ks := keystore.NewMemoryKeyStore()
 	original, _ := ks.Generate("did:web:test:rotate", "signing")
+	digest := sha256.Sum256([]byte("rotation entry"))
 
-	rotated, err := ks.Rotate("did:web:test:rotate", 1)
+	staged, err := ks.StageNextKey("did:web:test:rotate", 1)
 	if err != nil {
-		t.Fatalf("Rotate failed: %v", err)
+		t.Fatalf("StageNextKey failed: %v", err)
+	}
+	if string(staged.PublicKey) == string(original.PublicKey) {
+		t.Error("staged key should differ from original")
 	}
 
-	if string(rotated.PublicKey) == string(original.PublicKey) {
-		t.Error("Rotated key should differ from original")
-	}
-	if rotated.RotationTier != 1 {
-		t.Errorf("RotationTier = %d, want 1", rotated.RotationTier)
+	// Pre-commit: the OLD key still signs (old-key-signs).
+	sig, _ := ks.SignEntry("did:web:test:rotate", digest)
+	oldPK, _ := signatures.ParsePubKey(original.PublicKey)
+	if err := signatures.VerifyEntry(digest, sig, oldPK); err != nil {
+		t.Errorf("pre-commit signature must verify under the OLD key: %v", err)
 	}
 
-	// Old key should no longer sign — the DID maps to new key.
-	data := []byte("test")
-	sig, _ := ks.Sign("did:web:test:rotate", data)
-	if ed25519.Verify(original.PublicKey, data, sig) {
-		t.Error("Old public key should NOT verify new signature")
+	// Post-commit: the new key is active.
+	if _, err := ks.CommitRotation("did:web:test:rotate"); err != nil {
+		t.Fatalf("CommitRotation failed: %v", err)
 	}
-	if !ed25519.Verify(rotated.PublicKey, data, sig) {
-		t.Error("New public key should verify new signature")
+	sig2, _ := ks.SignEntry("did:web:test:rotate", digest)
+	newPK, _ := signatures.ParsePubKey(staged.PublicKey)
+	if err := signatures.VerifyEntry(digest, sig2, newPK); err != nil {
+		t.Errorf("post-commit signature must verify under the NEW key: %v", err)
 	}
 }
 
@@ -218,13 +228,10 @@ func TestKeyStore_Destroy(t *testing.T) {
 	ks := keystore.NewMemoryKeyStore()
 	ks.Generate("did:web:test:destroy", "signing")
 
-	err := ks.Destroy("did:web:test:destroy")
-	if err != nil {
+	if err := ks.Destroy("did:web:test:destroy"); err != nil {
 		t.Fatalf("Destroy failed: %v", err)
 	}
-
-	_, err = ks.Sign("did:web:test:destroy", []byte("data"))
-	if err == nil {
+	if _, err := ks.SignEntry("did:web:test:destroy", [32]byte{}); err == nil {
 		t.Fatal("Expected error after Destroy")
 	}
 }
@@ -237,8 +244,8 @@ func TestKeyStore_ExportForEscrow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExportForEscrow failed: %v", err)
 	}
-	if len(priv) != ed25519.PrivateKeySize {
-		t.Errorf("Private key length = %d, want %d", len(priv), ed25519.PrivateKeySize)
+	if len(priv) != 32 {
+		t.Errorf("Private key length = %d, want 32 (secp256k1 scalar)", len(priv))
 	}
 }
 

@@ -34,9 +34,9 @@ import (
 // passed verbatim as CKA_EC_PARAMS at key-pair generation.
 var secp256k1OIDDER = []byte{0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x0a}
 
-func (k *KeyStore) GenerateSecp256k1(did, purpose string) (*keystore.KeyInfo, error) {
+func (k *KeyStore) Generate(did, purpose string) (*keystore.KeyInfo, error) {
 	if did == "" {
-		return nil, fmt.Errorf("pkcs11: GenerateSecp256k1: did required")
+		return nil, fmt.Errorf("pkcs11: Generate: did required")
 	}
 	pubTpl := []*mpkcs11.Attribute{
 		mpkcs11.NewAttribute(mpkcs11.CKA_CLASS, mpkcs11.CKO_PUBLIC_KEY),
@@ -80,8 +80,8 @@ func (k *KeyStore) GenerateSecp256k1(did, purpose string) (*keystore.KeyInfo, er
 	return info, nil
 }
 
-func (k *KeyStore) SignSecp256k1(did string, digest [32]byte) ([]byte, error) {
-	pub, err := k.PublicKeySecp256k1(did)
+func (k *KeyStore) Sign(did string, digest [32]byte) ([]byte, error) {
+	pub, err := k.PublicKey(did)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,33 @@ func (k *KeyStore) SignSecp256k1(did string, digest [32]byte) ([]byte, error) {
 	return packCompact(r, s, digest[:], pub)
 }
 
-func (k *KeyStore) PublicKeySecp256k1(did string) ([]byte, error) {
+// SignEntry returns the 64-byte R‖S SigAlgoECDSA signature by stripping
+// the leading recovery byte from the 65-byte SignCompact (S is already
+// low-S canonicalized above). This is the wire shape the SDK's VerifyEntry
+// consumes for on-log entries.
+func (k *KeyStore) SignEntry(did string, digest [32]byte) ([]byte, error) {
+	compact, err := k.Sign(did, digest)
+	if err != nil {
+		return nil, err
+	}
+	if len(compact) != 65 {
+		return nil, fmt.Errorf("pkcs11: SignEntry: unexpected compact len %d", len(compact))
+	}
+	return compact[1:], nil
+}
+
+// StageNextKey / CommitRotation: staged rotation needs token object
+// lifecycle management not yet wired here; the network-api wired backend
+// is the in-memory keystore. HSM deployments rotate at bootstrap.
+func (k *KeyStore) StageNextKey(_ string, _ int) (*keystore.KeyInfo, error) {
+	return nil, fmt.Errorf("pkcs11: StageNextKey not supported (staged rotation is in-memory-backend only)")
+}
+
+func (k *KeyStore) CommitRotation(_ string) (*keystore.KeyInfo, error) {
+	return nil, fmt.Errorf("pkcs11: CommitRotation not supported (staged rotation is in-memory-backend only)")
+}
+
+func (k *KeyStore) PublicKey(did string) ([]byte, error) {
 	k.mu.RLock()
 	info, ok := k.keysSec[did]
 	k.mu.RUnlock()

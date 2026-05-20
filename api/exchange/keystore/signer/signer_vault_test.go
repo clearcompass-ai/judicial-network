@@ -152,9 +152,9 @@ func TestAdapter_OverVault_RecoversPubkey(t *testing.T) {
 		t.Fatalf("vault.New: %v", err)
 	}
 	const did = "did:web:state:tn:davidson:judge"
-	info, err := ks.GenerateSecp256k1(did, "signing")
+	info, err := ks.Generate(did, "signing")
 	if err != nil {
-		t.Fatalf("GenerateSecp256k1: %v", err)
+		t.Fatalf("Generate: %v", err)
 	}
 	a, err := signer.New(ks, did)
 	if err != nil {

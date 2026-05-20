@@ -15,8 +15,6 @@ package vault
 
 import (
 	"bytes"
-	"crypto/ed25519"
-	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
@@ -112,16 +110,6 @@ func parsePublicKeyPEM(pemStr, curve string) ([]byte, error) {
 		out := make([]byte, 65)
 		copy(out, raw)
 		return out, nil
-	case keystore.CurveEd25519:
-		pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("vault: parsePublicKeyPEM: %w", err)
-		}
-		ed, ok := pub.(ed25519.PublicKey)
-		if !ok {
-			return nil, fmt.Errorf("vault: parsePublicKeyPEM: not an Ed25519 key")
-		}
-		return ed, nil
 	}
 	return nil, fmt.Errorf("vault: parsePublicKeyPEM: unknown curve %q", curve)
 }
@@ -155,24 +143,6 @@ func (k *KeyStore) signDER(name string, digest []byte) (*big.Int, *big.Int, erro
 		return nil, nil, fmt.Errorf("vault: signDER: nil R/S")
 	}
 	return rs.R, canonicalizeS(rs.S), nil
-}
-
-func (k *KeyStore) signEd25519(name string, data []byte) ([]byte, error) {
-	body := map[string]any{
-		"input": base64.StdEncoding.EncodeToString(data),
-	}
-	var resp struct {
-		Data struct {
-			Signature string `json:"signature"`
-		} `json:"data"`
-	}
-	if err := k.do(http.MethodPost,
-		fmt.Sprintf("/v1/%s/sign/%s", k.cfg.Mount, url.PathEscape(name)),
-		body, &resp); err != nil {
-		return nil, fmt.Errorf("vault: signEd25519: %w", err)
-	}
-	sig := stripVaultPrefix(resp.Data.Signature)
-	return base64.StdEncoding.DecodeString(sig)
 }
 
 // stripVaultPrefix drops the "vault:vN:" envelope Vault Transit puts

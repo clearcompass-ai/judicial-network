@@ -89,8 +89,8 @@ func newSCWE2EHarness(t *testing.T) *scwE2EHarness {
 	t.Helper()
 
 	ks := keystore.NewMemoryKeyStore()
-	if _, err := ks.GenerateSecp256k1(scwE2EOwnerDID, "signing"); err != nil {
-		t.Fatalf("GenerateSecp256k1: %v", err)
+	if _, err := ks.Generate(scwE2EOwnerDID, "signing"); err != nil {
+		t.Fatalf("Generate: %v", err)
 	}
 	adapter, err := keysigner.New(ks, scwE2EOwnerDID)
 	if err != nil {
