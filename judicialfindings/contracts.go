@@ -87,11 +87,36 @@ const (
 // behavior without type-switching on the concrete finding.
 // The map is hand-curated and intentionally small; new finding
 // types add one line.
+// Classification is by the interface each SDK finding type ACTUALLY
+// implements (verified against the SDK source, not its docstrings), because
+// the router dispatches via a type assertion to that interface — a Kind whose
+// finding does not implement its class's interface can never verify.
+//
+//	WitnessAttested : CosignedTreeHeadFinding, EquivocationFinding,
+//	                  WitnessRotationFinding   — Verify(*cosign.WitnessKeySet)
+//	SignerAttested  : EntryCommitmentEquivocationFinding — Verify(ctx, SignerVerifier)
+//	MerkleAttested  : CrossLogInclusionFinding — Verify(ctx, TreeHead, TileFetcher)
+//	gossip.Event    : EscrowOverrideFinding, OriginatorRotationFinding,
+//	                  GhostLeafFinding         — no embedded re-verifiable proof
+//	                  on the finding interface (see notes below).
+//
+// EscrowOverrideFinding carries K-of-N witness cosignatures but does NOT
+// implement WitnessAttested (the SDK verifies them via cosign.Verify on the
+// reconstructed EscrowOverridePayload). It is still witness-attested in
+// substance, so it stays ClassWitness; verifyWitness bridges the missing
+// interface by calling cosign.Verify directly. Routing it as ClassSelfAttested
+// would silently skip the quorum check — a security downgrade.
+//
+// OriginatorRotationFinding (the I5 single-identity rotation) is authorized by
+// the gossip envelope's old-key signature, already verified by the gossip
+// layer before admission; there is no embedded quorum/signer proof on the
+// finding. It is ClassSelfAttested — distinct from WitnessRotationFinding
+// (KindWitnessRotation), which IS a K-of-N quorum-signed set change.
 var Registry = map[string]Class{
-	"AT-GOSSIP-STH-V1":          ClassWitness,      // CosignedTreeHeadFinding
-	"AT-GOSSIP-EQUIV-V1":        ClassWitness,      // EquivocationFinding
-	"AT-GOSSIP-ESCROW-V1":       ClassWitness,      // EscrowOverrideFinding
-	"AT-GOSSIP-ROT-V1":          ClassWitness,      // OriginatorRotationFinding (signed by the existing quorum)
+	"AT-GOSSIP-STH-V1":          ClassWitness,      // CosignedTreeHeadFinding (WitnessAttested)
+	"AT-GOSSIP-EQUIV-V1":        ClassWitness,      // EquivocationFinding (WitnessAttested)
+	"AT-GOSSIP-ESCROW-V1":       ClassWitness,      // EscrowOverrideFinding (quorum via cosign.Verify; bridged in verifyWitness)
+	"AT-GOSSIP-ROT-V1":          ClassSelfAttested, // OriginatorRotationFinding (I5 envelope authority — NOT quorum-signed)
 	"AT-GOSSIP-COMMIT-EQUIV-V1": ClassSigner,       // EntryCommitmentEquivocationFinding (Trust Alignment 8)
 	"AT-GOSSIP-GHOST-V1":        ClassSelfAttested, // GhostLeafFinding (attesta v0.5.0)
 	"AT-GOSSIP-WITROT-V1":       ClassWitness,      // WitnessRotationFinding (attesta v0.6.0; K-of-N over (old set, new set))
@@ -152,5 +177,21 @@ var _ findings.WitnessAttested = (*findings.WitnessRotationFinding)(nil)
 // inclusion proof of a foreign log's leaf against a source
 // TreeHead via a Static-CT tile fetcher.
 var _ findings.MerkleAttested = (*findings.CrossLogInclusionFinding)(nil)
+
+// EscrowOverrideFinding satisfies ONLY gossip.Event — it deliberately does
+// NOT implement WitnessAttested even though its Kind is ClassWitness. The
+// embedded K-of-N witness cosignatures are verified by cosign.Verify on the
+// reconstructed EscrowOverridePayload (the bridge in router.go:verifyWitness),
+// NOT through a Verify(*cosign.WitnessKeySet) method. This guard pins the SDK
+// reality so a future SDK that DOES add WitnessAttested to this type surfaces
+// here (at which point the bridge can be deleted in favour of the interface).
+var _ gossip.Event = (*findings.EscrowOverrideFinding)(nil)
+
+// OriginatorRotationFinding satisfies ONLY gossip.Event. Its authority is the
+// gossip envelope's old-key signature (verified by the gossip layer pre-
+// admission); there is no embedded quorum/signer proof to re-verify, so it is
+// ClassSelfAttested. Pinned here so a future SDK that adds a Verify method
+// (changing its cryptographic reality) surfaces at JN build time.
+var _ gossip.Event = (*findings.OriginatorRotationFinding)(nil)
 
 // Future finding types add their guard here.

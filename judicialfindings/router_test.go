@@ -24,6 +24,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/gossip"
 	"github.com/clearcompass-ai/attesta/gossip/findings"
 )
@@ -33,7 +34,7 @@ func TestLookupClass_KnownKinds(t *testing.T) {
 		"AT-GOSSIP-STH-V1":          ClassWitness,
 		"AT-GOSSIP-EQUIV-V1":        ClassWitness,
 		"AT-GOSSIP-ESCROW-V1":       ClassWitness,
-		"AT-GOSSIP-ROT-V1":          ClassWitness,
+		"AT-GOSSIP-ROT-V1":          ClassSelfAttested,
 		"AT-GOSSIP-COMMIT-EQUIV-V1": ClassSigner,
 	}
 	for kind, want := range cases {
@@ -93,9 +94,15 @@ func TestVerify_Signer_RequiresSignerVerifier(t *testing.T) {
 
 func TestVerify_WrongClassImplementation(t *testing.T) {
 	// stubMismatchedEvent claims Kind AT-GOSSIP-STH-V1 (ClassWitness)
-	// but doesn't implement findings.WitnessAttested. The router
-	// must surface this as a configuration error, not a panic.
-	err := Verify(context.Background(), stubMismatchedEvent{}, VerificationContext{})
+	// but doesn't implement findings.WitnessAttested. We supply a real
+	// witness set + SourceLogDID so the router gets PAST the dependency
+	// checks and reaches the type-switch default branch — the actual
+	// "does not implement WitnessAttested" path under test.
+	const src = "did:web:mismatch.log"
+	err := Verify(context.Background(), stubMismatchedEvent{}, VerificationContext{
+		SourceLogDID: src,
+		WitnessSets:  map[string]*cosign.WitnessKeySet{src: newTestWitnessSet(t, 1, 1)},
+	})
 	if !errors.Is(err, ErrRouter) {
 		t.Fatalf("class mismatch: want ErrRouter, got %v", err)
 	}
@@ -138,14 +145,20 @@ func TestInterfaceGuards_RuntimeCheck(t *testing.T) {
 
 // stubWitnessEvent implements gossip.Event AND
 // findings.WitnessAttested with a Verify that always returns
-// nil — we only exercise the router's wiring.
+// nil — we only exercise the router's wiring. Its Verify takes the
+// real *cosign.WitnessKeySet so it genuinely satisfies WitnessAttested
+// (a prior version typed it against a local stub, so the type assertion
+// silently failed and the "requires SourceLogDID" tests passed via the
+// wrong branch).
 type stubWitnessEvent struct{}
 
-func (stubWitnessEvent) Kind() gossip.Kind                          { return "AT-GOSSIP-STH-V1" }
-func (stubWitnessEvent) CanonicalBytes() []byte                     { return nil }
-func (stubWitnessEvent) Bindings() [][32]byte                       { return nil }
-func (stubWitnessEvent) Validate() error                            { return nil }
-func (stubWitnessEvent) Verify(_ *cosignKeySetStub) error           { return nil }
+func (stubWitnessEvent) Kind() gossip.Kind                      { return "AT-GOSSIP-STH-V1" }
+func (stubWitnessEvent) CanonicalBytes() []byte                 { return nil }
+func (stubWitnessEvent) Bindings() [][32]byte                   { return nil }
+func (stubWitnessEvent) Validate() error                        { return nil }
+func (stubWitnessEvent) Verify(_ *cosign.WitnessKeySet) error   { return nil }
+
+var _ findings.WitnessAttested = stubWitnessEvent{}
 
 // stubSignerEvent: ClassSigner. Implements the SignerAttested
 // interface so the router type-assertion succeeds; Verify is a
@@ -176,12 +189,3 @@ func (stubMismatchedEvent) Kind() gossip.Kind     { return "AT-GOSSIP-STH-V1" }
 func (stubMismatchedEvent) CanonicalBytes() []byte { return nil }
 func (stubMismatchedEvent) Bindings() [][32]byte   { return nil }
 func (stubMismatchedEvent) Validate() error        { return nil }
-
-// cosignKeySetStub is a placeholder type that stubWitnessEvent
-// types its Verify against. It deliberately does NOT match
-// *cosign.WitnessKeySet so the router's type assertion to
-// findings.WitnessAttested fails (the SDK interface requires
-// the concrete *cosign.WitnessKeySet). We use this in the
-// stub-event tests where we never actually call the verify
-// path; the router's MISSING-WitnessSet branch fires first.
-type cosignKeySetStub struct{}
