@@ -19,110 +19,98 @@ func (stubResolver) Resolve(context.Context, string) (*did.DIDDocument, error) {
 	return nil, context.Canceled
 }
 
-func TestBuildSignatureVerifier_EOAOnly(t *testing.T) {
-	cfg := config.Operational{
-		EthRPCEndpoint: "https://rpc.example",
-		// SmartContractWallet zero-value → EOA-only.
+func multiChainSCW() config.SmartContractWalletConfig {
+	return config.SmartContractWalletConfig{
+		Enabled: true,
+		Chains: []config.ChainQuorumConfig{
+			{
+				ChainID:        1,
+				EthRPCEndpoint: "https://pin1.example",
+				Executors: []config.ExecutorEndpoint{
+					{ID: "reth", Endpoint: "https://reth1.example"},
+					{ID: "erigon", Endpoint: "https://erigon1.example"},
+				},
+				QuorumK: 2,
+			},
+			{
+				ChainID:        8453,
+				EthRPCEndpoint: "https://pin8453.example",
+				Executors: []config.ExecutorEndpoint{
+					{ID: "reth", Endpoint: "https://reth8453.example"},
+					{ID: "nethermind", Endpoint: "https://neth8453.example"},
+				},
+				QuorumK: 2,
+			},
+		},
 	}
+}
+
+func TestBuildSignatureVerifier_EOAOnly(t *testing.T) {
+	cfg := config.Operational{} // SCW disabled → EOA-only
 	v, err := buildSignatureVerifier(cfg, stubResolver{})
 	if err != nil {
 		t.Fatalf("buildSignatureVerifier (EOA): %v", err)
 	}
-	if v == nil {
-		t.Fatal("verifier must be non-nil")
-	}
-	// The returned registry must satisfy both SDK verifier interfaces
-	// so the Path C composite can collect receipts.
 	reg, ok := v.(*did.VerifierRegistry)
 	if !ok {
 		t.Fatalf("verifier is %T, want *did.VerifierRegistry", v)
 	}
 	var _ attestation.SignatureVerifier = reg
 	var _ attestation.SignatureVerifierWithReceipt = reg
-	methods := reg.RegisteredMethods()
-	wantMethods := map[string]bool{"pkh": false, "key": false, "web": false}
-	for _, m := range methods {
-		if _, ok := wantMethods[m]; ok {
-			wantMethods[m] = true
-		}
-	}
-	for m, found := range wantMethods {
-		if !found {
+	for _, m := range []string{"pkh", "key", "web"} {
+		if !hasMethod(reg, m) {
 			t.Errorf("registry missing method %q", m)
 		}
 	}
 }
 
 func TestBuildSignatureVerifier_NilResolver(t *testing.T) {
-	_, err := buildSignatureVerifier(config.Operational{EthRPCEndpoint: "https://rpc.example"}, nil)
+	_, err := buildSignatureVerifier(config.Operational{}, nil)
 	if err == nil {
 		t.Fatal("nil resolver MUST error")
 	}
 }
 
-func TestBuildSignatureVerifier_EIP1271Quorum(t *testing.T) {
-	cfg := config.Operational{
-		EthRPCEndpoint: "https://primary.example",
-		SmartContractWallet: config.SmartContractWalletConfig{
-			Enabled: true,
-			ChainID: 1,
-			Executors: []config.ExecutorEndpoint{
-				{ID: "reth", Endpoint: "https://reth.example"},
-				{ID: "erigon", Endpoint: "https://erigon.example"},
-			},
-			QuorumK:           2,
-			ConfirmationDepth: 12,
-		},
-	}
+func TestBuildSignatureVerifier_MultiChain(t *testing.T) {
+	cfg := config.Operational{SmartContractWallet: multiChainSCW()}
 	v, err := buildSignatureVerifier(cfg, stubResolver{})
 	if err != nil {
-		t.Fatalf("buildSignatureVerifier (EIP-1271): %v", err)
+		t.Fatalf("buildSignatureVerifier (multi-chain): %v", err)
 	}
 	if v == nil {
 		t.Fatal("verifier must be non-nil")
 	}
 }
 
-func TestBuildPKHVerifierOptions_ExactExecutorSet(t *testing.T) {
-	cfg := config.Operational{
-		EthRPCEndpoint: "https://primary.example",
-		SmartContractWallet: config.SmartContractWalletConfig{
-			Enabled: true,
-			ChainID: 1,
-			Executors: []config.ExecutorEndpoint{
-				{ID: "reth", Endpoint: "https://reth.example"},
-				{ID: "erigon", Endpoint: "https://erigon.example"},
-			},
-			QuorumK: 2,
-		},
-	}
-	opts, err := buildPKHVerifierOptions(cfg)
+func TestBuildPKHVerifier_EOAOnlyType(t *testing.T) {
+	v, err := buildPKHVerifier(config.SmartContractWalletConfig{})
 	if err != nil {
-		t.Fatalf("buildPKHVerifierOptions: %v", err)
+		t.Fatalf("buildPKHVerifier (EOA): %v", err)
 	}
-	// The executor set is exactly the operator-declared list; the
-	// EthRPCEndpoint is the block-pin source, not an executor.
-	if len(opts.Executors) != 2 {
-		t.Fatalf("executor count = %d, want 2 (exactly scw.Executors)", len(opts.Executors))
-	}
-	if opts.Executors[0].ID != "reth" || opts.Executors[1].ID != "erigon" {
-		t.Errorf("executor IDs = [%q %q], want [reth erigon]", opts.Executors[0].ID, opts.Executors[1].ID)
-	}
-	if opts.QuorumK != 2 {
-		t.Errorf("QuorumK = %d, want 2", opts.QuorumK)
-	}
-	if opts.BlockProvider == nil {
-		t.Error("BlockProvider must be set for EIP-1271 mode")
+	if _, ok := v.(*did.PKHVerifier); !ok {
+		t.Errorf("EOA-only mode MUST yield *did.PKHVerifier, got %T", v)
 	}
 }
 
-func TestBuildPKHVerifierOptions_EOAReturnsZero(t *testing.T) {
-	cfg := config.Operational{EthRPCEndpoint: "https://rpc.example"}
-	opts, err := buildPKHVerifierOptions(cfg)
+func TestBuildPKHVerifier_MultiChainType(t *testing.T) {
+	v, err := buildPKHVerifier(multiChainSCW())
 	if err != nil {
-		t.Fatalf("buildPKHVerifierOptions (EOA): %v", err)
+		t.Fatalf("buildPKHVerifier (multi-chain): %v", err)
 	}
-	if len(opts.Executors) != 0 || opts.BlockProvider != nil || opts.ChainID != 0 {
-		t.Errorf("EOA mode MUST yield the zero PKHVerifierOptions; got %+v", opts)
+	mc, ok := v.(*did.MultiChainPKHVerifier)
+	if !ok {
+		t.Fatalf("multi-chain mode MUST yield *did.MultiChainPKHVerifier, got %T", v)
 	}
+	if len(mc.Chains()) != 2 {
+		t.Errorf("router configured for %d chains, want 2", len(mc.Chains()))
+	}
+}
+
+func hasMethod(reg *did.VerifierRegistry, method string) bool {
+	for _, m := range reg.RegisteredMethods() {
+		if m == method {
+			return true
+		}
+	}
+	return false
 }

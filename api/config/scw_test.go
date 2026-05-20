@@ -1,10 +1,11 @@
 // FILE PATH: api/config/scw_test.go
 //
-// Tests for the EIP-1271 smart-contract-wallet quorum config
-// validation. The zero value (disabled) must always pass; an
-// enabled config must enforce the SDK's PKHVerifierOptions
-// invariants (ChainID, >= 2 executors, K in [2, N], unique
-// non-empty IDs, https-or-opt-in) at boot.
+// Tests for the multi-chain EIP-1271 quorum config validation. The
+// zero value (disabled) must always pass; an enabled config must
+// enforce per-chain PKHVerifierOptions invariants (>= 1 chain, each
+// chain: non-zero unique ChainID, block-pin endpoint, >= 2 executors,
+// K in [2, N], unique non-empty executor IDs, https-or-opt-in) at
+// boot.
 package config
 
 import (
@@ -13,15 +14,22 @@ import (
 	"testing"
 )
 
-func enabledSCW() SmartContractWalletConfig {
-	return SmartContractWalletConfig{
-		Enabled: true,
-		ChainID: 1,
+func enabledChain(id uint64) ChainQuorumConfig {
+	return ChainQuorumConfig{
+		ChainID:        id,
+		EthRPCEndpoint: "https://pin.example",
 		Executors: []ExecutorEndpoint{
 			{ID: "reth", Endpoint: "https://reth.example"},
 			{ID: "erigon", Endpoint: "https://erigon.example"},
 		},
 		QuorumK: 2,
+	}
+}
+
+func enabledSCW() SmartContractWalletConfig {
+	return SmartContractWalletConfig{
+		Enabled: true,
+		Chains:  []ChainQuorumConfig{enabledChain(1), enabledChain(8453)},
 	}
 }
 
@@ -40,77 +48,99 @@ func expectSCWInvalid(t *testing.T, c SmartContractWalletConfig, mustContain str
 }
 
 func TestSCWConfig_DisabledIsAlwaysValid(t *testing.T) {
-	// The zero value (and any disabled config, even with garbage
-	// fields) is valid — EOA-only verification has no quorum needs.
 	if err := (SmartContractWalletConfig{}).validate(); err != nil {
 		t.Fatalf("zero-value SCW config must be valid: %v", err)
 	}
-	garbage := SmartContractWalletConfig{Enabled: false, QuorumK: -5, Executors: nil}
+	garbage := SmartContractWalletConfig{Enabled: false, Chains: []ChainQuorumConfig{{ChainID: 0, QuorumK: -5}}}
 	if err := garbage.validate(); err != nil {
 		t.Fatalf("disabled SCW config must be valid regardless of other fields: %v", err)
 	}
 }
 
-func TestSCWConfig_EnabledHappyPath(t *testing.T) {
+func TestSCWConfig_EnabledHappyPath_MultiChain(t *testing.T) {
 	if err := enabledSCW().validate(); err != nil {
-		t.Fatalf("valid enabled SCW config rejected: %v", err)
+		t.Fatalf("valid multi-chain SCW config rejected: %v", err)
 	}
+}
+
+func TestSCWConfig_RejectsNoChains(t *testing.T) {
+	c := SmartContractWalletConfig{Enabled: true}
+	expectSCWInvalid(t, c, "Chains required")
 }
 
 func TestSCWConfig_RejectsZeroChainID(t *testing.T) {
 	c := enabledSCW()
-	c.ChainID = 0
+	c.Chains[0].ChainID = 0
 	expectSCWInvalid(t, c, "ChainID required")
+}
+
+func TestSCWConfig_RejectsDuplicateChainID(t *testing.T) {
+	c := enabledSCW()
+	c.Chains[1].ChainID = 1 // same as Chains[0]
+	expectSCWInvalid(t, c, "duplicated")
+}
+
+func TestSCWConfig_RejectsMissingBlockPinEndpoint(t *testing.T) {
+	c := enabledSCW()
+	c.Chains[0].EthRPCEndpoint = ""
+	expectSCWInvalid(t, c, "EthRPCEndpoint required")
 }
 
 func TestSCWConfig_RejectsNoExecutors(t *testing.T) {
 	c := enabledSCW()
-	c.Executors = nil
+	c.Chains[0].Executors = nil
 	expectSCWInvalid(t, c, "Executors required")
 }
 
 func TestSCWConfig_RejectsQuorumKBelowTwo(t *testing.T) {
 	c := enabledSCW()
-	c.QuorumK = 1
+	c.Chains[0].QuorumK = 1
 	expectSCWInvalid(t, c, "QuorumK must be >= 2")
 }
 
 func TestSCWConfig_RejectsQuorumKAboveExecutorCount(t *testing.T) {
 	c := enabledSCW()
-	c.QuorumK = 3 // only 2 executors
+	c.Chains[0].QuorumK = 3 // only 2 executors
 	expectSCWInvalid(t, c, "exceeds executor count")
 }
 
 func TestSCWConfig_RejectsDuplicateExecutorID(t *testing.T) {
 	c := enabledSCW()
-	c.Executors[1].ID = "reth" // same as Executors[0]
+	c.Chains[0].Executors[1].ID = "reth" // same as Executors[0]
 	expectSCWInvalid(t, c, "duplicated")
 }
 
 func TestSCWConfig_RejectsEmptyExecutorID(t *testing.T) {
 	c := enabledSCW()
-	c.Executors[0].ID = ""
+	c.Chains[0].Executors[0].ID = ""
 	expectSCWInvalid(t, c, "ID required")
 }
 
 func TestSCWConfig_RejectsEmptyExecutorEndpoint(t *testing.T) {
 	c := enabledSCW()
-	c.Executors[1].Endpoint = ""
+	c.Chains[0].Executors[1].Endpoint = ""
 	expectSCWInvalid(t, c, "Endpoint required")
 }
 
 func TestSCWConfig_RejectsInsecureEndpointWithoutOptIn(t *testing.T) {
 	c := enabledSCW()
-	c.Executors[0].Endpoint = "http://reth.local:8545"
+	c.Chains[0].Executors[0].Endpoint = "http://reth.local:8545"
 	expectSCWInvalid(t, c, "AllowInsecureHTTP is false")
 }
 
-func TestSCWConfig_AllowsInsecureEndpointWithOptIn(t *testing.T) {
+func TestSCWConfig_RejectsInsecureBlockPinWithoutOptIn(t *testing.T) {
+	c := enabledSCW()
+	c.Chains[0].EthRPCEndpoint = "http://pin.local:8545"
+	expectSCWInvalid(t, c, "AllowInsecureHTTP is false")
+}
+
+func TestSCWConfig_AllowsInsecureWithOptIn(t *testing.T) {
 	c := enabledSCW()
 	c.AllowInsecureHTTP = true
-	c.Executors[0].Endpoint = "http://reth.local:8545"
+	c.Chains[0].EthRPCEndpoint = "http://pin.local:8545"
+	c.Chains[0].Executors[0].Endpoint = "http://reth.local:8545"
 	if err := c.validate(); err != nil {
-		t.Fatalf("http endpoint with AllowInsecureHTTP=true must validate: %v", err)
+		t.Fatalf("http endpoints with AllowInsecureHTTP=true must validate: %v", err)
 	}
 }
 
@@ -119,8 +149,9 @@ func TestSCWConfig_Defaults(t *testing.T) {
 	if c.EffectiveRPCTimeout() != DefaultSCWRPCTimeout {
 		t.Errorf("EffectiveRPCTimeout = %v, want %v", c.EffectiveRPCTimeout(), DefaultSCWRPCTimeout)
 	}
-	if c.EffectiveConfirmationDepth() != DefaultSCWConfirmationDepth {
-		t.Errorf("EffectiveConfirmationDepth = %v, want %v", c.EffectiveConfirmationDepth(), DefaultSCWConfirmationDepth)
+	chain := ChainQuorumConfig{}
+	if chain.EffectiveConfirmationDepth() != DefaultSCWConfirmationDepth {
+		t.Errorf("EffectiveConfirmationDepth = %v, want %v", chain.EffectiveConfirmationDepth(), DefaultSCWConfirmationDepth)
 	}
 }
 
@@ -128,6 +159,6 @@ func TestSCWConfig_Defaults(t *testing.T) {
 // errors so a misconfigured quorum aborts boot.
 func TestOperationalValidate_SurfacesSCWError(t *testing.T) {
 	cfg := validBase(t)
-	cfg.SmartContractWallet = SmartContractWalletConfig{Enabled: true} // missing everything
-	expectInvalid(t, cfg, "ChainID required")
+	cfg.SmartContractWallet = SmartContractWalletConfig{Enabled: true} // no chains
+	expectInvalid(t, cfg, "Chains required")
 }

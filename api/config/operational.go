@@ -72,7 +72,6 @@ func Defaults() Operational {
 		LedgerEndpoint:        "http://localhost:8001",
 		ArtifactStoreEndpoint: "http://localhost:8002",
 		VerificationEndpoint:  "http://localhost:8080",
-		EthRPCEndpoint:        "http://localhost:8545",
 
 		KeyStore: KeyStoreConfig{
 			Backend: KeyStoreBackendMemory,
@@ -105,15 +104,10 @@ type Operational struct {
 	ArtifactStoreEndpoint string `json:"artifact_store_endpoint"`
 	VerificationEndpoint  string `json:"verification_endpoint"`
 
-	// EthRPCEndpoint is the canonical Ethereum JSON-RPC URL the SCW
-	// head-tracking BlockProvider pins blocks from. Distinct from the
-	// EIP-1271 verification quorum (SmartContractWallet.Executors) —
-	// this is the block-pin source, not an executor. Required.
-	EthRPCEndpoint string `json:"eth_rpc_endpoint"`
-
-	// SmartContractWallet configures EIP-1271 K-of-N executor
-	// consensus. Zero value (Enabled=false) → EOA-only verification
-	// (did:key + did:pkh-EOA + did:web). Trust Alignment 2.
+	// SmartContractWallet configures multi-chain EIP-1271 K-of-N
+	// executor consensus (one quorum per onboarded EVM chain). Zero
+	// value (Enabled=false) → EOA-only verification (did:key +
+	// did:pkh-EOA + did:web), no Ethereum RPC. Trust Alignment 2.
 	SmartContractWallet SmartContractWalletConfig `json:"smart_contract_wallet"`
 
 	KeyStore   KeyStoreConfig     `json:"keystore"`
@@ -369,9 +363,6 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	if v := os.Getenv("API_VERIFICATION_ENDPOINT"); v != "" {
 		cfg.VerificationEndpoint = v
 	}
-	if v := os.Getenv("API_ETH_RPC_ENDPOINT"); v != "" {
-		cfg.EthRPCEndpoint = v
-	}
 	if v := os.Getenv("API_KEYSTORE_BACKEND"); v != "" {
 		cfg.KeyStore.Backend = KeyStoreBackend(strings.ToLower(strings.TrimSpace(v)))
 	}
@@ -399,12 +390,12 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 //
 //  1. ListenAddr non-empty.
 //  2. Every upstream URL non-empty.
-//  3. EthRPCEndpoint non-empty (required for SCW signers).
-//  4. KeyStore.Backend is one of the known constants.
-//  5. KeyStore-specific sub-config is populated when its backend is
+//  3. KeyStore.Backend is one of the known constants.
+//  4. KeyStore-specific sub-config is populated when its backend is
 //     selected (PKCS11 for softhsm; Vault for vault). Unused
 //     sub-configs MUST be nil to surface accidental copy-paste.
-//  6. NonceStore.Backend is one of the known constants.
+//  5. NonceStore.Backend is one of the known constants.
+//  6. SmartContractWallet per-chain quorum invariants (when enabled).
 //  7. NonceStore.RedisAddr non-empty when Backend = redis.
 //  8. NonceStore.FreshnessWindow > 0.
 //  9. Auth.Mode is one of the known constants.
@@ -426,9 +417,6 @@ func (cfg Operational) Validate() error {
 	}
 	if cfg.VerificationEndpoint == "" {
 		return fmt.Errorf("%w: VerificationEndpoint required", ErrInvalidConfig)
-	}
-	if cfg.EthRPCEndpoint == "" {
-		return fmt.Errorf("%w: EthRPCEndpoint required (SCW signers verify via eth_call)", ErrInvalidConfig)
 	}
 
 	if err := cfg.KeyStore.validate(); err != nil {
