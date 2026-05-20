@@ -26,9 +26,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
 
-func (k *KeyStore) GenerateSecp256k1(did, purpose string) (*keystore.KeyInfo, error) {
+func (k *KeyStore) Generate(did, purpose string) (*keystore.KeyInfo, error) {
 	if did == "" {
-		return nil, fmt.Errorf("vault: GenerateSecp256k1: did required")
+		return nil, fmt.Errorf("vault: Generate: did required")
 	}
 	name := keyName(did, keystore.CurveSecp256k1)
 	if err := k.createKey(name, "ecdsa-p256k1"); err != nil {
@@ -52,15 +52,15 @@ func (k *KeyStore) GenerateSecp256k1(did, purpose string) (*keystore.KeyInfo, er
 	return info, nil
 }
 
-func (k *KeyStore) SignSecp256k1(did string, digest [32]byte) ([]byte, error) {
+func (k *KeyStore) Sign(did string, digest [32]byte) ([]byte, error) {
 	name := keyName(did, keystore.CurveSecp256k1)
 	r, s, err := k.signDER(name, digest[:])
 	if err != nil {
 		return nil, err
 	}
-	pub, err := k.PublicKeySecp256k1(did)
+	pub, err := k.PublicKey(did)
 	if err != nil {
-		return nil, fmt.Errorf("vault: SignSecp256k1: %w", err)
+		return nil, fmt.Errorf("vault: Sign: %w", err)
 	}
 	return packCompact(r, s, digest[:], pub)
 }
@@ -69,7 +69,7 @@ func (k *KeyStore) SignSecp256k1(did string, digest [32]byte) ([]byte, error) {
 // the leading recovery byte from the 65-byte SignCompact — the wire shape
 // the SDK's VerifyEntry consumes for on-log entries.
 func (k *KeyStore) SignEntry(did string, digest [32]byte) ([]byte, error) {
-	compact, err := k.SignSecp256k1(did, digest)
+	compact, err := k.Sign(did, digest)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (k *KeyStore) CommitRotation(_ string) (*keystore.KeyInfo, error) {
 	return nil, fmt.Errorf("vault: CommitRotation not supported (staged rotation is in-memory-backend only)")
 }
 
-func (k *KeyStore) PublicKeySecp256k1(did string) ([]byte, error) {
+func (k *KeyStore) PublicKey(did string) ([]byte, error) {
 	k.mu.RLock()
 	info, ok := k.keysSec[did]
 	k.mu.RUnlock()

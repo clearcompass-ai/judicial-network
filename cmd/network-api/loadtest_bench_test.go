@@ -128,7 +128,7 @@ func runLoadtest(b testing.TB, name string, makeReq func(addr string) *http.Requ
 		registerBundles: registerProductionBundles,
 		newKeyStore: func(_ config.KeyStoreConfig) (keystore.KeyStore, error) {
 			ks := keystore.NewMemoryKeyStore()
-			_, _ = ks.GenerateSecp256k1(binE2EOwnerDID, "signing")
+			_, _ = ks.Generate(binE2EOwnerDID, "signing")
 			return ks, nil
 		},
 		newAuthenticator: func(_ config.AuthConfig) (middleware.Authenticator, error) {

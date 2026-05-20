@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -20,95 +18,19 @@ import (
 // Mock KeyStore — implements full keystore.KeyStore interface
 // -------------------------------------------------------------------------
 
+// mockKS is a real in-memory secp256k1 keystore seeded with the test
+// judge DID. The api/exchange handlers sign over secp256k1 now, so the
+// mock IS a MemoryKeyStore (embedded) — there is no fake-curve shortcut.
 type mockKS struct {
-	keys map[string]*keystore.KeyInfo
-	priv map[string]ed25519.PrivateKey
+	*keystore.MemoryKeyStore
 }
 
 func newMockKS() *mockKS {
-	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
-	return &mockKS{
-		keys: map[string]*keystore.KeyInfo{
-			"did:web:test:judge": {DID: "did:web:test:judge", KeyID: "k1", Curve: keystore.CurveEd25519, PublicKey: pub, Purpose: "signing"},
-		},
-		priv: map[string]ed25519.PrivateKey{
-			"did:web:test:judge": priv,
-		},
+	ks := keystore.NewMemoryKeyStore()
+	if _, err := ks.Generate("did:web:test:judge", "signing"); err != nil {
+		panic("newMockKS: seed judge: " + err.Error())
 	}
-}
-
-func (m *mockKS) Sign(did string, data []byte) ([]byte, error) {
-	priv := m.priv[did]
-	if priv == nil {
-		return nil, http.ErrNotSupported
-	}
-	return ed25519.Sign(priv, data), nil
-}
-
-func (m *mockKS) Generate(did, purpose string) (*keystore.KeyInfo, error) {
-	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
-	info := &keystore.KeyInfo{DID: did, KeyID: "gen", Curve: keystore.CurveEd25519, PublicKey: pub, Purpose: purpose}
-	m.keys[did] = info
-	m.priv[did] = priv
-	return info, nil
-}
-
-func (m *mockKS) Rotate(did string, tier int) (*keystore.KeyInfo, error) {
-	return m.Generate(did, "signing")
-}
-
-func (m *mockKS) PublicKey(did string) (ed25519.PublicKey, error) {
-	info := m.keys[did]
-	if info == nil {
-		return nil, http.ErrNotSupported
-	}
-	return ed25519.PublicKey(info.PublicKey), nil
-}
-
-func (m *mockKS) GenerateSecp256k1(did, purpose string) (*keystore.KeyInfo, error) {
-	return nil, http.ErrNotSupported
-}
-
-func (m *mockKS) SignSecp256k1(did string, digest [32]byte) ([]byte, error) {
-	return nil, http.ErrNotSupported
-}
-
-func (m *mockKS) PublicKeySecp256k1(did string) ([]byte, error) {
-	return nil, http.ErrNotSupported
-}
-
-func (m *mockKS) SignEntry(did string, digest [32]byte) ([]byte, error) {
-	return nil, http.ErrNotSupported
-}
-
-func (m *mockKS) StageNextKey(did string, tier int) (*keystore.KeyInfo, error) {
-	return nil, http.ErrNotSupported
-}
-
-func (m *mockKS) CommitRotation(did string) (*keystore.KeyInfo, error) {
-	return nil, http.ErrNotSupported
-}
-
-func (m *mockKS) List() []*keystore.KeyInfo {
-	var out []*keystore.KeyInfo
-	for _, v := range m.keys {
-		out = append(out, v)
-	}
-	return out
-}
-
-func (m *mockKS) Destroy(did string) error {
-	delete(m.keys, did)
-	delete(m.priv, did)
-	return nil
-}
-
-func (m *mockKS) ExportForEscrow(did string) (ed25519.PrivateKey, error) {
-	priv := m.priv[did]
-	if priv == nil {
-		return nil, http.ErrNotSupported
-	}
-	return priv, nil
+	return &mockKS{MemoryKeyStore: ks}
 }
 
 var _ keystore.KeyStore = (*mockKS)(nil)
@@ -372,7 +294,27 @@ func TestBuildHandler_InvalidJSON_400(t *testing.T) {
 
 func TestSignHandler_Success(t *testing.T) {
 	h := NewEntrySignHandler(testDeps(t))
-	body, _ := json.Marshal(SignRequest{EntryBytes: []byte("test"), SignerDID: "did:web:test:judge"})
+	// The embed-model handler deserializes the entry, signs over its
+	// SigningPayload with the signer's secp256k1 key, embeds the
+	// signature, and re-serializes — so it needs a real serialized entry.
+	entry, err := envelope.NewUnsignedEntry(envelope.ControlHeader{
+		SignerDID:   "did:web:test:judge",
+		Destination: testDestination,
+		EventTime:   1,
+	}, []byte(`{"schema_id":"test"}`))
+	if err != nil {
+		t.Fatalf("NewUnsignedEntry: %v", err)
+	}
+	entry.Signatures = []envelope.Signature{{
+		SignerDID: "did:web:test:judge",
+		AlgoID:    envelope.SigAlgoECDSA,
+		Bytes:     make([]byte, 64),
+	}}
+	entryBytes, err := envelope.Serialize(entry)
+	if err != nil {
+		t.Fatalf("Serialize: %v", err)
+	}
+	body, _ := json.Marshal(SignRequest{EntryBytes: entryBytes, SignerDID: "did:web:test:judge"})
 	req := httptest.NewRequest("POST", "/v1/sign", bytes.NewReader(body))
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)

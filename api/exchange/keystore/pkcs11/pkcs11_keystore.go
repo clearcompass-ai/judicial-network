@@ -23,13 +23,11 @@ DESCRIPTION:
 package pkcs11
 
 import (
-	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	mpkcs11 "github.com/miekg/pkcs11"
 
@@ -129,18 +127,6 @@ func (k *KeyStore) Close() {
 func label(did string) []byte { return []byte("attesta:" + did) }
 
 // ─────────────────────────────────────────────────────────────────────
-// keystore.KeyStore — Ed25519 (unsupported)
-// ─────────────────────────────────────────────────────────────────────
-
-func (k *KeyStore) Generate(_ string, _ string) (*keystore.KeyInfo, error) {
-	return nil, ErrEd25519Unsupported
-}
-func (k *KeyStore) Sign(_ string, _ []byte) ([]byte, error) { return nil, ErrEd25519Unsupported }
-func (k *KeyStore) PublicKey(_ string) (ed25519.PublicKey, error) {
-	return nil, ErrEd25519Unsupported
-}
-
-// ─────────────────────────────────────────────────────────────────────
 // keystore.KeyStore — management
 // ─────────────────────────────────────────────────────────────────────
 
@@ -152,24 +138,6 @@ func (k *KeyStore) List() []*keystore.KeyInfo {
 		out = append(out, info)
 	}
 	return out
-}
-
-func (k *KeyStore) Rotate(did string, tier int) (*keystore.KeyInfo, error) {
-	if err := k.Destroy(did); err != nil && !errors.Is(err, errNoKey) {
-		return nil, err
-	}
-	info, err := k.GenerateSecp256k1(did, "signing")
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now().UTC()
-	info.RotationTier = tier
-	info.Rotated = &now
-	info.KeyID = fmt.Sprintf("%s#secp256k1-%d", did, tier)
-	k.mu.Lock()
-	k.keysSec[did] = info
-	k.mu.Unlock()
-	return info, nil
 }
 
 func (k *KeyStore) Destroy(did string) error {
@@ -193,6 +161,6 @@ func (k *KeyStore) Destroy(did string) error {
 // ExportForEscrow is unsupported: PKCS#11 keys with CKA_EXTRACTABLE=false
 // (which is what we always generate) cannot be exported. Same rationale
 // as Vault: route escrow through bootstrap.
-func (k *KeyStore) ExportForEscrow(_ string) (ed25519.PrivateKey, error) {
+func (k *KeyStore) ExportForEscrow(_ string) ([]byte, error) {
 	return nil, fmt.Errorf("pkcs11: ExportForEscrow not supported (token keys are non-extractable)")
 }

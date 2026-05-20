@@ -33,26 +33,23 @@ func TestStub_AllMethodsReturnNotBuilt(t *testing.T) {
 	if _, err := ks.Generate("did", "signing"); !errors.Is(err, ErrNotBuilt) {
 		t.Errorf("Generate err = %v", err)
 	}
-	if _, err := ks.Sign("did", nil); !errors.Is(err, ErrNotBuilt) {
-		t.Errorf("Sign err = %v", err)
-	}
 	if _, err := ks.PublicKey("did"); !errors.Is(err, ErrNotBuilt) {
 		t.Errorf("PublicKey err = %v", err)
 	}
-	if _, err := ks.GenerateSecp256k1("did", "signing"); !errors.Is(err, ErrNotBuilt) {
-		t.Errorf("GenerateSecp256k1 err = %v", err)
+	if _, err := ks.Sign("did", [32]byte{}); !errors.Is(err, ErrNotBuilt) {
+		t.Errorf("Sign err = %v", err)
 	}
-	if _, err := ks.SignSecp256k1("did", [32]byte{}); !errors.Is(err, ErrNotBuilt) {
-		t.Errorf("SignSecp256k1 err = %v", err)
+	if _, err := ks.SignEntry("did", [32]byte{}); !errors.Is(err, ErrNotBuilt) {
+		t.Errorf("SignEntry err = %v", err)
 	}
-	if _, err := ks.PublicKeySecp256k1("did"); !errors.Is(err, ErrNotBuilt) {
-		t.Errorf("PublicKeySecp256k1 err = %v", err)
+	if _, err := ks.StageNextKey("did", 1); !errors.Is(err, ErrNotBuilt) {
+		t.Errorf("StageNextKey err = %v", err)
+	}
+	if _, err := ks.CommitRotation("did"); !errors.Is(err, ErrNotBuilt) {
+		t.Errorf("CommitRotation err = %v", err)
 	}
 	if got := ks.List(); got != nil {
 		t.Errorf("List = %v, want nil", got)
-	}
-	if _, err := ks.Rotate("did", 1); !errors.Is(err, ErrNotBuilt) {
-		t.Errorf("Rotate err = %v", err)
 	}
 	if err := ks.Destroy("did"); !errors.Is(err, ErrNotBuilt) {
 		t.Errorf("Destroy err = %v", err)

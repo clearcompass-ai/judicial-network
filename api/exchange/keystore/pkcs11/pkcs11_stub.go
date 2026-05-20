@@ -17,7 +17,6 @@ DESCRIPTION:
 package pkcs11
 
 import (
-	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"os"
@@ -63,23 +62,13 @@ func New(_ Config) (*KeyStore, error) { return nil, ErrNotBuilt }
 func (k *KeyStore) Close() {}
 
 func (k *KeyStore) Generate(_ string, _ string) (*keystore.KeyInfo, error) { return nil, ErrNotBuilt }
-func (k *KeyStore) Sign(_ string, _ []byte) ([]byte, error)                { return nil, ErrNotBuilt }
-func (k *KeyStore) PublicKey(_ string) (ed25519.PublicKey, error)          { return nil, ErrNotBuilt }
-
-func (k *KeyStore) GenerateSecp256k1(_ string, _ string) (*keystore.KeyInfo, error) {
-	return nil, ErrNotBuilt
-}
-func (k *KeyStore) SignSecp256k1(_ string, _ [32]byte) ([]byte, error) { return nil, ErrNotBuilt }
-func (k *KeyStore) PublicKeySecp256k1(_ string) ([]byte, error)        { return nil, ErrNotBuilt }
-func (k *KeyStore) SignEntry(_ string, _ [32]byte) ([]byte, error)     { return nil, ErrNotBuilt }
+func (k *KeyStore) PublicKey(_ string) ([]byte, error)                     { return nil, ErrNotBuilt }
+func (k *KeyStore) Sign(_ string, _ [32]byte) ([]byte, error)              { return nil, ErrNotBuilt }
+func (k *KeyStore) SignEntry(_ string, _ [32]byte) ([]byte, error)         { return nil, ErrNotBuilt }
 func (k *KeyStore) StageNextKey(_ string, _ int) (*keystore.KeyInfo, error) {
 	return nil, ErrNotBuilt
 }
 func (k *KeyStore) CommitRotation(_ string) (*keystore.KeyInfo, error) { return nil, ErrNotBuilt }
-
-func (k *KeyStore) List() []*keystore.KeyInfo                         { return nil }
-func (k *KeyStore) Rotate(_ string, _ int) (*keystore.KeyInfo, error) { return nil, ErrNotBuilt }
+func (k *KeyStore) List() []*keystore.KeyInfo                          { return nil }
 func (k *KeyStore) Destroy(_ string) error                            { return ErrNotBuilt }
-func (k *KeyStore) ExportForEscrow(_ string) (ed25519.PrivateKey, error) {
-	return nil, ErrNotBuilt
-}
+func (k *KeyStore) ExportForEscrow(_ string) ([]byte, error)          { return nil, ErrNotBuilt }

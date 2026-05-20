@@ -3,21 +3,21 @@ FILE PATH: api/exchange/keystore/vault/vault_keystore.go
 
 DESCRIPTION:
 
-	HashiCorp Vault Transit native backend for keystore.KeyStore.
-	This file owns the Config + KeyStore types, constructor, and the
-	KeyStore-interface dispatch surface for both curves (secp256k1 +
-	Ed25519). Curve-specific glue lives in vault_secp256k1.go and
-	vault_ed25519.go; HTTP plumbing lives in vault_http.go.
+	HashiCorp Vault Transit native backend for keystore.KeyStore
+	(secp256k1-only). Owns the Config + KeyStore types, constructor, and
+	the management surface; curve glue lives in vault_secp256k1.go, HTTP
+	plumbing in vault_http.go.
 
-	Vault Transit OSS supports `ecdsa-p256k1` since v1.18 (Sept 2024)
-	and `ed25519` since v1.6 (Jan 2021); production deploys run latest
-	Vault. Private keys never leave Vault; ExportForEscrow returns an
-	explicit "not exportable" error.
+	Vault Transit OSS supports `ecdsa-p256k1` since v1.18 (Sept 2024);
+	production deploys run latest Vault. Private keys never leave Vault;
+	ExportForEscrow returns an explicit "not exportable" error, and staged
+	rotation (StageNextKey/CommitRotation) is likewise unsupported here —
+	the in-memory backend is the network-api wired keystore; Vault deploys
+	rotate at bootstrap.
 */
 package vault
 
 import (
-	"crypto/ed25519"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -39,23 +39,19 @@ type Config struct {
 	HTTPClient *http.Client
 }
 
-// KeyStore is a keystore.KeyStore backed by Vault Transit native
-// curves. Per-DID Vault key names are derived as
-// "<sanitized-did>__<curve>" so Ed25519 + secp256k1 keys for the same
-// DID coexist without name collisions.
+// KeyStore is a keystore.KeyStore backed by Vault Transit secp256k1 keys.
+// Per-DID Vault key names are derived as "<sanitized-did>__secp256k1".
 type KeyStore struct {
 	cfg Config
 	hc  *http.Client
 
 	mu      sync.RWMutex
-	keysEd  map[string]*keystore.KeyInfo // did → ed25519 KeyInfo (cached)
 	keysSec map[string]*keystore.KeyInfo // did → secp256k1 KeyInfo (cached)
 }
 
-// New constructs a Vault keystore. Address + Token are required;
-// Mount defaults to "transit"; HTTPClient defaults to a 10s-timeout
-// client. The constructor performs no network round-trip; the first
-// real request happens when the caller invokes a Generate/Sign method.
+// New constructs a Vault keystore. Address + Token are required; Mount
+// defaults to "transit"; HTTPClient defaults to a 10s-timeout client. No
+// network round-trip until the first Generate/Sign.
 func New(cfg Config) (*KeyStore, error) {
 	if cfg.Address == "" {
 		return nil, fmt.Errorf("vault: address required")
@@ -73,14 +69,11 @@ func New(cfg Config) (*KeyStore, error) {
 	return &KeyStore{
 		cfg:     cfg,
 		hc:      hc,
-		keysEd:  map[string]*keystore.KeyInfo{},
 		keysSec: map[string]*keystore.KeyInfo{},
 	}, nil
 }
 
-// LoadTokenFile reads a Vault token from disk. Production deploys
-// always source the token from a sealed file rather than inline JSON;
-// this helper centralises the trim/whitespace handling.
+// LoadTokenFile reads a Vault token from disk.
 func LoadTokenFile(path string) (string, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -89,10 +82,7 @@ func LoadTokenFile(path string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-// keyName scrubs the DID for use as a Vault key name. Vault names
-// disallow ":" and "/", which DIDs use heavily; we substitute "_".
-// The "__" + curve suffix lets Ed25519 + secp256k1 keys for the same
-// DID coexist on the same mount.
+// keyName scrubs the DID for use as a Vault key name (": / #" → "_").
 func keyName(did, curve string) string {
 	scrub := strings.NewReplacer(":", "_", "/", "_", "#", "_").Replace(did)
 	return fmt.Sprintf("%s__%s", scrub, curve)
@@ -105,68 +95,30 @@ func keyName(did, curve string) string {
 func (k *KeyStore) List() []*keystore.KeyInfo {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	out := make([]*keystore.KeyInfo, 0, len(k.keysEd)+len(k.keysSec))
-	for _, info := range k.keysEd {
-		out = append(out, info)
-	}
+	out := make([]*keystore.KeyInfo, 0, len(k.keysSec))
 	for _, info := range k.keysSec {
 		out = append(out, info)
 	}
 	return out
 }
 
-func (k *KeyStore) Rotate(did string, tier int) (*keystore.KeyInfo, error) {
-	name := keyName(did, keystore.CurveSecp256k1)
-	if err := k.do(http.MethodPost,
-		fmt.Sprintf("/v1/%s/keys/%s/rotate", k.cfg.Mount, url.PathEscape(name)),
-		nil, nil); err != nil {
-		return nil, fmt.Errorf("vault: rotate: %w", err)
-	}
-	pub, err := k.fetchPublicKey(name, keystore.CurveSecp256k1)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now().UTC()
-	info := &keystore.KeyInfo{
-		KeyID:        fmt.Sprintf("%s#secp256k1-%d", did, tier),
-		DID:          did,
-		Purpose:      "signing",
-		Curve:        keystore.CurveSecp256k1,
-		PublicKey:    pub,
-		Created:      now,
-		Rotated:      &now,
-		RotationTier: tier,
-	}
-	k.mu.Lock()
-	k.keysSec[did] = info
-	k.mu.Unlock()
-	return info, nil
-}
-
 func (k *KeyStore) Destroy(did string) error {
-	var firstErr error
-	for _, curve := range []string{keystore.CurveEd25519, keystore.CurveSecp256k1} {
-		name := keyName(did, curve)
-		if err := k.do(http.MethodDelete,
-			fmt.Sprintf("/v1/%s/keys/%s", k.cfg.Mount, url.PathEscape(name)),
-			nil, nil); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
+	name := keyName(did, keystore.CurveSecp256k1)
+	err := k.do(http.MethodDelete,
+		fmt.Sprintf("/v1/%s/keys/%s", k.cfg.Mount, url.PathEscape(name)),
+		nil, nil)
 	k.mu.Lock()
-	delete(k.keysEd, did)
 	delete(k.keysSec, did)
 	k.mu.Unlock()
-	if firstErr != nil {
-		return fmt.Errorf("vault: destroy: %w", firstErr)
+	if err != nil {
+		return fmt.Errorf("vault: destroy: %w", err)
 	}
 	return nil
 }
 
 // ExportForEscrow is unsupported: Vault Transit keys are non-exportable
-// by design. Ledgers that need escrow ceremonies must run them
-// against the in-memory keystore at bootstrap and then promote the
-// resulting envelope into Vault.
-func (k *KeyStore) ExportForEscrow(_ string) (ed25519.PrivateKey, error) {
+// by design. Escrow ceremonies run against the in-memory keystore at
+// bootstrap.
+func (k *KeyStore) ExportForEscrow(_ string) ([]byte, error) {
 	return nil, fmt.Errorf("vault: ExportForEscrow not supported (Vault Transit keys are non-exportable; run escrow at bootstrap)")
 }

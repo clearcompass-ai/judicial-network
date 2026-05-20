@@ -40,6 +40,7 @@ package handlers
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -311,14 +312,33 @@ func (h *EntrySignHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sig, err := h.deps.KeyStore.Sign(req.SignerDID, req.EntryBytes)
+	// req.EntryBytes is a serialized UNSIGNED entry; deserialize it, sign
+	// over sha256(SigningPayload) with the signer's secp256k1 key, embed
+	// the signature in the envelope, and re-serialize the hydrated entry.
+	entry, err := envelope.Deserialize(req.EntryBytes)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid entry bytes: "+err.Error())
+		return
+	}
+	digest := sha256.Sum256(envelope.SigningPayload(entry))
+	sig, err := h.deps.KeyStore.SignEntry(req.SignerDID, digest)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "signing failed")
 		return
 	}
+	entry.Signatures = []envelope.Signature{{
+		SignerDID: req.SignerDID,
+		AlgoID:    envelope.SigAlgoECDSA,
+		Bytes:     sig,
+	}}
+	signed, err := envelope.Serialize(entry)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "serialize signed entry: "+err.Error())
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"signed_entry_bytes": append(req.EntryBytes, sig...),
+		"signed_entry_bytes": signed,
 		"signature":          sig,
 	})
 }
@@ -419,8 +439,8 @@ func (h *EntryFullHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// includes a signatures section. After signing, re-build the
 	// entry with the signature attached and Serialize the result
 	// for transport to the ledger.
-	signingPayload := envelope.SigningPayload(entry)
-	sig, err := h.deps.KeyStore.Sign(req.SignerDID, signingPayload)
+	digest := sha256.Sum256(envelope.SigningPayload(entry))
+	sig, err := h.deps.KeyStore.SignEntry(req.SignerDID, digest)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "signing failed")
 		return

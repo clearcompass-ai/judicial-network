@@ -77,8 +77,8 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	// 2. Pre-allocate the keystore so the test can wire a
 	// signer.Adapter against the same keystore the binary holds.
 	ks := keystore.NewMemoryKeyStore()
-	if _, err := ks.GenerateSecp256k1(binE2EOwnerDID, "signing"); err != nil {
-		t.Fatalf("GenerateSecp256k1: %v", err)
+	if _, err := ks.Generate(binE2EOwnerDID, "signing"); err != nil {
+		t.Fatalf("Generate: %v", err)
 	}
 	signerAdapter, err := keysigner.New(ks, binE2EOwnerDID)
 	if err != nil {

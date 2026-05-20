@@ -49,9 +49,9 @@ func RunSecp256k1Conformance(t *testing.T, ks KeyStore) {
 	t.Helper()
 	const did = "did:web:test:conformance"
 
-	info, err := ks.GenerateSecp256k1(did, "signing")
+	info, err := ks.Generate(did, "signing")
 	if err != nil {
-		t.Fatalf("GenerateSecp256k1: %v", err)
+		t.Fatalf("Generate: %v", err)
 	}
 	if len(info.PublicKey) != 65 || info.PublicKey[0] != 0x04 {
 		t.Fatalf("PublicKey shape wrong: len=%d prefix=%x",
@@ -61,19 +61,19 @@ func RunSecp256k1Conformance(t *testing.T, ks KeyStore) {
 		t.Errorf("Curve = %q, want secp256k1", info.Curve)
 	}
 
-	pub, err := ks.PublicKeySecp256k1(did)
+	pub, err := ks.PublicKey(did)
 	if err != nil {
-		t.Fatalf("PublicKeySecp256k1: %v", err)
+		t.Fatalf("PublicKey: %v", err)
 	}
 	if !bytes.Equal(pub, info.PublicKey) {
-		t.Errorf("PublicKeySecp256k1 != Generate's public key")
+		t.Errorf("PublicKey != Generate's public key")
 	}
 
 	var digest [32]byte
 	for i := range digest {
 		digest[i] = byte(i + 1)
 	}
-	sig, err := ks.SignSecp256k1(did, digest)
+	sig, err := ks.Sign(did, digest)
 	if err != nil {
 		t.Fatalf("SignSecp256k1: %v", err)
 	}
@@ -95,7 +95,7 @@ func RunSecp256k1Conformance(t *testing.T, ks KeyStore) {
 	if err := ks.Destroy(did); err != nil {
 		t.Errorf("Destroy: %v", err)
 	}
-	if _, err := ks.SignSecp256k1(did, digest); err == nil {
-		t.Errorf("SignSecp256k1 after Destroy should error")
+	if _, err := ks.Sign(did, digest); err == nil {
+		t.Errorf("Sign after Destroy should error")
 	}
 }
