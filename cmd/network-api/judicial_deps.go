@@ -14,8 +14,10 @@ DESCRIPTION:
 	                          one HTTPLedgerQueryAPI per registered
 	                          destination (per-log query API)
 	  ArtifactStoreEndpoint → HTTPContentStore
-	  EthRPCEndpoint        → not consumed here; PKHVerifier picks it
-	                          up at the SDK boundary
+	  SmartContractWallet   → per-chain PKHVerifier quorums routed by
+	                          did.MultiChainPKHVerifier; built in
+	                          signature_verifier.go, wired into the
+	                          verification service's SignatureVerifier
 	  DIDResolver           → CachingResolver(VendorDIDResolver(
 	                          MethodRouter{web, key, pkh}, JN vendor mappings))
 	  Schema extractor      → JN schemas.Registry (knows every

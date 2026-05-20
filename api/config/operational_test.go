@@ -91,7 +91,6 @@ func TestJSONRoundTrip_PreservesEveryField(t *testing.T) {
 		LedgerEndpoint:        "https://op.example",
 		ArtifactStoreEndpoint: "https://blobs.example",
 		VerificationEndpoint:  "https://verify.example",
-		EthRPCEndpoint:        "https://rpc.example",
 		KeyStore: KeyStoreConfig{
 			Backend: KeyStoreBackendVault,
 			Vault: &VaultConfig{
@@ -218,7 +217,6 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	t.Setenv("API_LEDGER_ENDPOINT", "https://op.via.env")
 	t.Setenv("API_ARTIFACT_STORE_ENDPOINT", "https://art.via.env")
 	t.Setenv("API_VERIFICATION_ENDPOINT", "https://vfy.via.env")
-	t.Setenv("API_ETH_RPC_ENDPOINT", "https://rpc.via.env")
 	t.Setenv("API_KEYSTORE_BACKEND", "softhsm")
 	t.Setenv("API_NONCE_STORE_BACKEND", "redis")
 	t.Setenv("API_NONCE_STORE_REDIS_ADDR", "redis.via.env:6379")
@@ -238,9 +236,6 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	}
 	if got.VerificationEndpoint != "https://vfy.via.env" {
 		t.Errorf("VerificationEndpoint = %q", got.VerificationEndpoint)
-	}
-	if got.EthRPCEndpoint != "https://rpc.via.env" {
-		t.Errorf("EthRPCEndpoint = %q", got.EthRPCEndpoint)
 	}
 	if got.KeyStore.Backend != KeyStoreBackendSoftHSM {
 		t.Errorf("KeyStore.Backend = %q, want softhsm", got.KeyStore.Backend)
@@ -393,12 +388,6 @@ func TestValidate_RejectsEmptyVerificationEndpoint(t *testing.T) {
 	cfg := validBase(t)
 	cfg.VerificationEndpoint = ""
 	expectInvalid(t, cfg, "VerificationEndpoint required")
-}
-
-func TestValidate_RejectsEmptyEthRPC(t *testing.T) {
-	cfg := validBase(t)
-	cfg.EthRPCEndpoint = ""
-	expectInvalid(t, cfg, "EthRPCEndpoint required")
 }
 
 func TestValidate_RejectsEmptyKeystoreBackend(t *testing.T) {
@@ -661,7 +650,6 @@ func clearAPIEnv(t *testing.T) {
 		"API_LEDGER_ENDPOINT",
 		"API_ARTIFACT_STORE_ENDPOINT",
 		"API_VERIFICATION_ENDPOINT",
-		"API_ETH_RPC_ENDPOINT",
 		"API_KEYSTORE_BACKEND",
 		"API_NONCE_STORE_BACKEND",
 		"API_NONCE_STORE_REDIS_ADDR",

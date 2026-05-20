@@ -7,9 +7,9 @@ DESCRIPTION:
 	verification service's Path C admission gate (/v1/verify/complete,
 	api/verification ServerConfig.SignatureVerifier).
 
-	This is where attesta v1.7.1's native receipt-aware verifier is
-	assembled. The result is a *did.VerifierRegistry, which implements
-	both attestation.SignatureVerifier and
+	This is where attesta v1.11.1's native receipt-aware, multi-chain
+	verifier is assembled. The result is a *did.VerifierRegistry,
+	which implements both attestation.SignatureVerifier and
 	attestation.SignatureVerifierWithReceipt — so the SDK's
 	attestation.VerifyEntrySignatures collects per-signature
 	Web3VerificationReceipts without the verification handler touching
@@ -20,33 +20,38 @@ DESCRIPTION:
 
 	EOA-only (SmartContractWallet.Enabled == false):
 	  did:key, did:pkh-EOA (ECDSA / EIP-191 / EIP-712), and did:web
-	  verify pure-CPU. SigAlgoEIP1271 entries are rejected with
-	  ErrAlgorithmNotSupported. No Ethereum RPC is consulted.
+	  verify pure-CPU and chain-agnostically. SigAlgoEIP1271 is
+	  rejected. No Ethereum RPC is consulted. The "pkh" method is a
+	  single EOA-only PKHVerifier.
 
-	EIP-1271 K-of-N (SmartContractWallet.Enabled == true):
-	  adds smart-contract-wallet verification. Every isValidSignature
-	  call fans out to the operator-declared executor quorum via the
-	  SDK's QuorumRPCClient (one Multicall3.aggregate3 per executor),
-	  pinned to a (BlockNumber, BlockHash) supplied by the head-
-	  tracking ethBlockProvider. K-of-N agreement is required (Trust
-	  Alignment 2 — the K-of-N Oracle). The executor set is exactly
-	  SmartContractWallet.Executors (>= 2, validated at config load);
-	  the top-level EthRPCEndpoint is the head-tracking block-pin
-	  source, a role distinct from the verification quorum.
+	EIP-1271 multi-chain (SmartContractWallet.Enabled == true):
+	  one PKHVerifier per onboarded chain, wrapped in a
+	  did.MultiChainPKHVerifier registered as the "pkh" method. Each
+	  chain's PKHVerifier fans isValidSignature to that chain's
+	  executor quorum (one Multicall3.aggregate3 per executor), pinned
+	  to a (BlockNumber, BlockHash) from that chain's head-tracking
+	  ethBlockProvider. The router dispatches did:pkh:eip155:<chain>
+	  to the owning chain and fail-closes (did.ErrChainNotConfigured)
+	  on un-onboarded chains. The per-chain PKHVerifier itself rejects
+	  a DID whose chain reference differs from its ChainID
+	  (did.ErrChainIDMismatch) — closing the cross-chain replay vector
+	  (Polygon Safe signature replayed against a Mainnet RPC at the
+	  same CREATE2 address). Both checks live in the SDK; JN only
+	  wires the per-chain map.
 
-	# WHY UNBOUND
+	# WHY UNBOUND REGISTRY
 
-	The registry is constructed via NewVerifierRegistry (unbound),
-	NOT DefaultVerifierRegistry (destination-bound). JN is multi-
-	tenant — one verifier serves every destination — and the Path C
-	composite verifies via registry.Verify (per-signature), which has
-	no destination concept. Per-entry destination cross-checks are
-	enforced by JN's own Origin/Destination stage, not by the
-	verifier's registry binding.
+	The registry is constructed via NewVerifierRegistry (unbound), NOT
+	DefaultVerifierRegistry (destination-bound). JN is multi-tenant —
+	one verifier serves every destination — and the Path C composite
+	verifies via registry.Verify (per-signature), which has no
+	destination concept. Per-entry destination cross-checks are
+	enforced by JN's own Origin/Destination stage.
 
 KEY DEPENDENCIES:
   - attesta/did: NewVerifierRegistry, NewKeyVerifier, NewWebVerifier,
-    NewPKHVerifier, PKHVerifierOptions, ExecutorClient.
+    NewPKHVerifier, PKHVerifierOptions, ExecutorClient,
+    NewMultiChainPKHVerifier.
   - attesta/crypto/signatures: NewHTTPEthereumRPC.
   - attesta/attestation: SignatureVerifier (return type).
 */
@@ -62,7 +67,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/config"
 )
 
-// buildSignatureVerifier assembles the native v1.7.1 signature
+// buildSignatureVerifier assembles the native v1.11.1 signature
 // verifier from operational config + the shared DID resolver. The
 // returned value is the *did.VerifierRegistry threaded into
 // api/verification ServerConfig.SignatureVerifier; it satisfies both
@@ -75,13 +80,9 @@ func buildSignatureVerifier(cfg config.Operational, resolver did.DIDResolver) (a
 		return nil, fmt.Errorf("buildSignatureVerifier: nil resolver")
 	}
 
-	pkhOpts, err := buildPKHVerifierOptions(cfg)
+	pkh, err := buildPKHVerifier(cfg.SmartContractWallet)
 	if err != nil {
 		return nil, err
-	}
-	pkh, err := did.NewPKHVerifier(pkhOpts)
-	if err != nil {
-		return nil, fmt.Errorf("buildSignatureVerifier: pkh verifier: %w", err)
 	}
 
 	registry := did.NewVerifierRegistry()
@@ -97,58 +98,79 @@ func buildSignatureVerifier(cfg config.Operational, resolver did.DIDResolver) (a
 	return registry, nil
 }
 
-// buildPKHVerifierOptions returns the zero options (EOA-only) when
-// SmartContractWallet is disabled, or a fully-populated EIP-1271
-// K-of-N options bundle otherwise. The executor quorum is exactly
-// SmartContractWallet.Executors; the BlockProvider is a head-tracking
-// ethBlockProvider over the top-level EthRPCEndpoint.
-func buildPKHVerifierOptions(cfg config.Operational) (did.PKHVerifierOptions, error) {
-	scw := cfg.SmartContractWallet
+// buildPKHVerifier returns the "pkh" method verifier: an EOA-only
+// PKHVerifier when SCW is disabled, or a MultiChainPKHVerifier over
+// one PKHVerifier per onboarded chain when enabled.
+func buildPKHVerifier(scw config.SmartContractWalletConfig) (did.SignatureVerifier, error) {
 	if !scw.Enabled {
-		// EOA-only: the zero value disables EIP-1271 by construction.
-		return did.PKHVerifierOptions{}, nil
+		// EOA-only: zero options → chain-agnostic EOA, EIP-1271 rejected.
+		v, err := did.NewPKHVerifier(did.PKHVerifierOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("buildPKHVerifier: EOA-only verifier: %w", err)
+		}
+		return v, nil
 	}
 
-	executors, err := buildExecutorClients(scw)
+	byChain := make(map[uint64]*did.PKHVerifier, len(scw.Chains))
+	for _, chain := range scw.Chains {
+		v, err := buildChainPKHVerifier(scw, chain)
+		if err != nil {
+			return nil, fmt.Errorf("buildPKHVerifier: chain %d: %w", chain.ChainID, err)
+		}
+		byChain[chain.ChainID] = v
+	}
+	mc, err := did.NewMultiChainPKHVerifier(byChain)
 	if err != nil {
-		return did.PKHVerifierOptions{}, err
+		return nil, fmt.Errorf("buildPKHVerifier: multi-chain router: %w", err)
 	}
+	return mc, nil
+}
 
+// buildChainPKHVerifier constructs one chain's EIP-1271 PKHVerifier:
+// its executor quorum + a head-tracking block provider over the
+// chain's own EthRPCEndpoint.
+func buildChainPKHVerifier(scw config.SmartContractWalletConfig, chain config.ChainQuorumConfig) (*did.PKHVerifier, error) {
+	executors, err := buildExecutorClients(scw, chain)
+	if err != nil {
+		return nil, err
+	}
 	blockProvider, err := newEthBlockProvider(
-		cfg.EthRPCEndpoint,
-		scw.EffectiveConfirmationDepth(),
+		chain.EthRPCEndpoint,
+		chain.EffectiveConfirmationDepth(),
 		scw.EffectiveRPCTimeout(),
 		scw.AllowInsecureHTTP,
 	)
 	if err != nil {
-		return did.PKHVerifierOptions{}, fmt.Errorf("buildPKHVerifierOptions: block provider: %w", err)
+		return nil, fmt.Errorf("block provider: %w", err)
 	}
-
-	return did.PKHVerifierOptions{
-		ChainID:       scw.ChainID,
+	v, err := did.NewPKHVerifier(did.PKHVerifierOptions{
+		ChainID:       chain.ChainID,
 		Executors:     executors,
-		QuorumK:       uint8(scw.QuorumK),
+		QuorumK:       uint8(chain.QuorumK),
 		BlockProvider: blockProvider,
-	}, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("pkh verifier: %w", err)
+	}
+	return v, nil
 }
 
-// buildExecutorClients constructs one SDK HTTPEthereumRPC per
-// operator-declared executor. The executor set is exactly
-// scw.Executors (config validation already guarantees >= 2 entries,
-// unique non-empty IDs, and https-or-opt-in endpoints).
-func buildExecutorClients(scw config.SmartContractWalletConfig) ([]did.ExecutorClient, error) {
+// buildExecutorClients constructs one SDK HTTPEthereumRPC per executor
+// in the chain's quorum. The executor set is exactly chain.Executors
+// (config validation guarantees >= 2 entries, unique non-empty IDs,
+// and https-or-opt-in endpoints).
+func buildExecutorClients(scw config.SmartContractWalletConfig, chain config.ChainQuorumConfig) ([]did.ExecutorClient, error) {
 	opts := []signatures.HTTPRPCOption{
 		signatures.WithTimeout(scw.EffectiveRPCTimeout()),
 	}
 	if scw.AllowInsecureHTTP {
 		opts = append(opts, signatures.WithAllowInsecureHTTP(true))
 	}
-
-	out := make([]did.ExecutorClient, 0, len(scw.Executors))
-	for i, ex := range scw.Executors {
+	out := make([]did.ExecutorClient, 0, len(chain.Executors))
+	for i, ex := range chain.Executors {
 		rpc, err := signatures.NewHTTPEthereumRPC(ex.Endpoint, opts...)
 		if err != nil {
-			return nil, fmt.Errorf("buildExecutorClients: executor[%d] %q: %w", i, ex.ID, err)
+			return nil, fmt.Errorf("executor[%d] %q: %w", i, ex.ID, err)
 		}
 		out = append(out, did.ExecutorClient{ID: ex.ID, RPC: rpc})
 	}
