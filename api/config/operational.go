@@ -182,6 +182,14 @@ type WitnessConfig struct {
 	// then go to the ledger only.
 	WitnessEndpoints map[string][]string `json:"witness_endpoints,omitempty"`
 
+	// Sets declares the per-log witness topology used for CROSS-LOG
+	// verification (Dependencies.WitnessSets). Each entry names a
+	// source/peer log's witness DIDs + K-of-N quorum; the binary resolves
+	// them to secp256k1 keysets at boot against the network's NetworkID
+	// (NetworkBootstrapFile). Empty leaves WitnessSets empty — cross-log
+	// handlers then surface 503 for an unknown source log.
+	Sets []WitnessSetConfig `json:"sets,omitempty"`
+
 	// CacheTTL is how long a fetched tree head is cached before a
 	// fresh fetch. Zero applies the SDK default.
 	CacheTTL time.Duration `json:"cache_ttl,omitempty"`
@@ -189,6 +197,25 @@ type WitnessConfig struct {
 	// HTTPTimeout caps a single tree-head HTTP fetch. Zero applies
 	// the SDK default.
 	HTTPTimeout time.Duration `json:"http_timeout,omitempty"`
+}
+
+// WitnessSetConfig declares one source/peer log's witness topology for
+// cross-log verification: the log's witness DIDs (resolved to secp256k1
+// public keys via witness.KeysFromDIDs) and its K-of-N quorum threshold.
+// The cosign NetworkID is network-wide (derived from NetworkBootstrapFile),
+// so it is not repeated per set.
+type WitnessSetConfig struct {
+	// LogDID is the source/peer log this witness set verifies (the
+	// source_log_did of its anchors / cross-log proofs). Required, unique.
+	LogDID string `json:"log_did"`
+
+	// WitnessDIDs are the log's witness public-key DIDs (did:key
+	// secp256k1). Required, len >= QuorumK.
+	WitnessDIDs []string `json:"witness_dids"`
+
+	// QuorumK is the K-of-N threshold this log's cosignatures must meet.
+	// Required, 1 <= QuorumK <= len(WitnessDIDs).
+	QuorumK int `json:"quorum_k"`
 }
 
 // ─────────────────────────────────────────────────────────────────────
