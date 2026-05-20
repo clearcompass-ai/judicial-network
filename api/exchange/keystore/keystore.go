@@ -79,6 +79,25 @@ type KeyStore interface {
 	// secp256k1 key.
 	PublicKeySecp256k1(did string) ([]byte, error)
 
+	// SignEntry returns the 64-byte R‖S (low-S) SigAlgoECDSA signature
+	// over the 32-byte digest — the wire shape the SDK's VerifyEntry
+	// consumes for on-log entries (distinct from SignSecp256k1's 65-byte
+	// recoverable SignCompact form used by SCW/ecrecover). Caller passes
+	// sha256(envelope.SigningPayload(entry)). This is the curve-correct
+	// replacement for the legacy Ed25519 Sign on the entry path.
+	SignEntry(did string, digest [32]byte) ([]byte, error)
+
+	// StageNextKey provisions the DID's NEXT secp256k1 key as PENDING and
+	// returns its KeyInfo. The current key stays active + signable so the
+	// rotation entry (which names the new key) can be signed by the
+	// RETIRING key — the old-key-signs chain of custody RotationHistorySource
+	// verifies. CommitRotation promotes the pending key.
+	StageNextKey(did string, tier int) (*KeyInfo, error)
+
+	// CommitRotation promotes the pending key from StageNextKey to active,
+	// discarding the retired key. Errors if no rotation is pending.
+	CommitRotation(did string) (*KeyInfo, error)
+
 	// List returns all managed keys (both curves; KeyInfo.Curve
 	// distinguishes).
 	List() []*KeyInfo
@@ -115,9 +134,10 @@ type KeyInfo struct {
 // tests. Holds Ed25519 and secp256k1 keys in parallel maps so the two
 // curves can be addressed independently for the same DID.
 type MemoryKeyStore struct {
-	mu       sync.RWMutex
-	keys     map[string]*managedKey
-	keysSecp map[string]*managedSecpKey
+	mu          sync.RWMutex
+	keys        map[string]*managedKey
+	keysSecp    map[string]*managedSecpKey
+	pendingSecp map[string]*managedSecpKey // staged rotations awaiting CommitRotation
 }
 
 type managedKey struct {
@@ -133,8 +153,9 @@ type managedSecpKey struct {
 // NewMemoryKeyStore creates an in-memory key store.
 func NewMemoryKeyStore() *MemoryKeyStore {
 	return &MemoryKeyStore{
-		keys:     make(map[string]*managedKey),
-		keysSecp: make(map[string]*managedSecpKey),
+		keys:        make(map[string]*managedKey),
+		keysSecp:    make(map[string]*managedSecpKey),
+		pendingSecp: make(map[string]*managedSecpKey),
 	}
 }
 

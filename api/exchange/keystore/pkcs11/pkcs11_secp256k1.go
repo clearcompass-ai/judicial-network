@@ -106,6 +106,32 @@ func (k *KeyStore) SignSecp256k1(did string, digest [32]byte) ([]byte, error) {
 	return packCompact(r, s, digest[:], pub)
 }
 
+// SignEntry returns the 64-byte R‖S SigAlgoECDSA signature by stripping
+// the leading recovery byte from the 65-byte SignCompact (S is already
+// low-S canonicalized above). This is the wire shape the SDK's VerifyEntry
+// consumes for on-log entries.
+func (k *KeyStore) SignEntry(did string, digest [32]byte) ([]byte, error) {
+	compact, err := k.SignSecp256k1(did, digest)
+	if err != nil {
+		return nil, err
+	}
+	if len(compact) != 65 {
+		return nil, fmt.Errorf("pkcs11: SignEntry: unexpected compact len %d", len(compact))
+	}
+	return compact[1:], nil
+}
+
+// StageNextKey / CommitRotation: staged rotation needs token object
+// lifecycle management not yet wired here; the network-api wired backend
+// is the in-memory keystore. HSM deployments rotate at bootstrap.
+func (k *KeyStore) StageNextKey(_ string, _ int) (*keystore.KeyInfo, error) {
+	return nil, fmt.Errorf("pkcs11: StageNextKey not supported (staged rotation is in-memory-backend only)")
+}
+
+func (k *KeyStore) CommitRotation(_ string) (*keystore.KeyInfo, error) {
+	return nil, fmt.Errorf("pkcs11: CommitRotation not supported (staged rotation is in-memory-backend only)")
+}
+
 func (k *KeyStore) PublicKeySecp256k1(did string) ([]byte, error) {
 	k.mu.RLock()
 	info, ok := k.keysSec[did]

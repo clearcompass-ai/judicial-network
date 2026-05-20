@@ -71,6 +71,11 @@ func (k *KeyStore) GenerateSecp256k1(_ string, _ string) (*keystore.KeyInfo, err
 }
 func (k *KeyStore) SignSecp256k1(_ string, _ [32]byte) ([]byte, error) { return nil, ErrNotBuilt }
 func (k *KeyStore) PublicKeySecp256k1(_ string) ([]byte, error)        { return nil, ErrNotBuilt }
+func (k *KeyStore) SignEntry(_ string, _ [32]byte) ([]byte, error)     { return nil, ErrNotBuilt }
+func (k *KeyStore) StageNextKey(_ string, _ int) (*keystore.KeyInfo, error) {
+	return nil, ErrNotBuilt
+}
+func (k *KeyStore) CommitRotation(_ string) (*keystore.KeyInfo, error) { return nil, ErrNotBuilt }
 
 func (k *KeyStore) List() []*keystore.KeyInfo                         { return nil }
 func (k *KeyStore) Rotate(_ string, _ int) (*keystore.KeyInfo, error) { return nil, ErrNotBuilt }

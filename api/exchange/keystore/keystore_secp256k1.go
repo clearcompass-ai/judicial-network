@@ -39,6 +39,8 @@ import (
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
+
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
 )
 
 // GenerateSecp256k1 creates and stores a new secp256k1 keypair for
@@ -131,4 +133,63 @@ func (m *MemoryKeyStore) PublicKeySecp256k1(did string) ([]byte, error) {
 	out := make([]byte, len(mk.info.PublicKey))
 	copy(out, mk.info.PublicKey)
 	return out, nil
+}
+
+// SignEntry returns the 64-byte R‖S (low-S) SigAlgoECDSA signature over
+// the 32-byte digest via the SDK's signatures.SignEntry — guaranteed to
+// verify under signatures.VerifyEntry. The entry-path complement to
+// SignSecp256k1's 65-byte recoverable SignCompact form. Caller passes
+// sha256(envelope.SigningPayload(entry)).
+func (m *MemoryKeyStore) SignEntry(did string, digest [32]byte) ([]byte, error) {
+	m.mu.RLock()
+	mk, ok := m.keysSecp[did]
+	m.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("keystore: no secp256k1 key for %s", did)
+	}
+	return signatures.SignEntry(digest, mk.privateKey.ToECDSA())
+}
+
+// StageNextKey provisions the DID's next secp256k1 key as PENDING. The
+// current key stays in keysSecp (signable via SignEntry/SignSecp256k1) so
+// the rotation entry — which names the new key — can be signed by the
+// RETIRING key (old-key-signs). CommitRotation promotes the pending key.
+func (m *MemoryKeyStore) StageNextKey(did string, tier int) (*KeyInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cur, ok := m.keysSecp[did]
+	if !ok {
+		return nil, fmt.Errorf("keystore: no secp256k1 key for %s", did)
+	}
+	priv, err := secp256k1.GeneratePrivateKey()
+	if err != nil {
+		return nil, fmt.Errorf("keystore: StageNextKey: %w", err)
+	}
+	now := time.Now().UTC()
+	info := &KeyInfo{
+		KeyID:        fmt.Sprintf("%s#secp256k1-%d", did, tier),
+		DID:          did,
+		Purpose:      cur.info.Purpose,
+		Curve:        CurveSecp256k1,
+		PublicKey:    priv.PubKey().SerializeUncompressed(),
+		Created:      now,
+		Rotated:      &now,
+		RotationTier: tier,
+	}
+	m.pendingSecp[did] = &managedSecpKey{info: info, privateKey: priv}
+	return info, nil
+}
+
+// CommitRotation promotes the pending key from StageNextKey to active,
+// discarding the retired key. Errors if no rotation is pending.
+func (m *MemoryKeyStore) CommitRotation(did string) (*KeyInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	mk, ok := m.pendingSecp[did]
+	if !ok {
+		return nil, fmt.Errorf("keystore: no pending rotation for %s", did)
+	}
+	m.keysSecp[did] = mk
+	delete(m.pendingSecp, did)
+	return mk.info, nil
 }

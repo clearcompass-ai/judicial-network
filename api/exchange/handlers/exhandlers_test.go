@@ -77,6 +77,18 @@ func (m *mockKS) PublicKeySecp256k1(did string) ([]byte, error) {
 	return nil, http.ErrNotSupported
 }
 
+func (m *mockKS) SignEntry(did string, digest [32]byte) ([]byte, error) {
+	return nil, http.ErrNotSupported
+}
+
+func (m *mockKS) StageNextKey(did string, tier int) (*keystore.KeyInfo, error) {
+	return nil, http.ErrNotSupported
+}
+
+func (m *mockKS) CommitRotation(did string) (*keystore.KeyInfo, error) {
+	return nil, http.ErrNotSupported
+}
+
 func (m *mockKS) List() []*keystore.KeyInfo {
 	var out []*keystore.KeyInfo
 	for _, v := range m.keys {
