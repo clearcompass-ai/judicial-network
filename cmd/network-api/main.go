@@ -166,6 +166,24 @@ func run(argv []string, d deps) error {
 		return middleware.CallerDIDFromContext(r.Context())
 	})
 
+	// Build the native v1.7.1 signature verifier for the Path C
+	// admission gate (/v1/verify/complete). Reuse the judicial deps'
+	// DID resolver when it was wired (production); otherwise build a
+	// standalone resolver so EOA + did:key + did:web verification is
+	// live even in ledger-less dev mode. EIP-1271 K-of-N is added
+	// when cfg.SmartContractWallet.Enabled is set.
+	sigResolver := judicialDeps.Resolver
+	if sigResolver == nil {
+		sigResolver, err = buildDIDResolver()
+		if err != nil {
+			return fmt.Errorf("did resolver for signature verifier: %w", err)
+		}
+	}
+	sigVerifier, err := buildSignatureVerifier(cfg, sigResolver)
+	if err != nil {
+		return fmt.Errorf("signature verifier: %w", err)
+	}
+
 	//  observability bundle is constructed once and shared
 	// between the composer's /metrics endpoint and the ledger-
 	// submit metrics so all jn_* metrics scrape from one registry.
@@ -213,11 +231,18 @@ func run(argv []string, d deps) error {
 			LedgerMetrics:         ledgerMetrics,
 		},
 		Verification: verification.ServerConfig{
-			//  wires real LogQueries + LeafReader from the
-			// ledger/aggregator surface. For boot-time the
-			// verification handler tree is registered with empty deps;
-			// any /v1/verify/* request reaching it returns a clean
-			// "unknown log" error rather than a panic.
+			// SignatureVerifier is the native v1.7.1 receipt-aware
+			// verifier (did:key + did:pkh-EOA + did:web always live;
+			// EIP-1271 K-of-N when SmartContractWallet.Enabled). It
+			// implements both attestation.SignatureVerifier and
+			// SignatureVerifierWithReceipt, so the Path C composite
+			// collects per-signature Web3VerificationReceipts.
+			//
+			// LogQueries + LeafReader still wire from the
+			// ledger/aggregator surface in a follow-up; until then a
+			// /v1/verify/complete request for an unknown log returns a
+			// clean error rather than a panic.
+			SignatureVerifier: sigVerifier,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 		Gossip:   gossipFeed,

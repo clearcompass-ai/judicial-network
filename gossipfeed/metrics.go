@@ -17,6 +17,15 @@
 //	hot path stays free of metric overhead when telemetry is not
 //	configured.
 //
+//	v1.7.1 alignment: classification is driven entirely by
+//	errors.Is against the SDK's exported typed sentinels
+//	(gossip.ErrSignatureInvalid / ErrChainBreak /
+//	ErrLamportRegression / ErrSinkQueueFull). The earlier
+//	string-substring fallback is gone — it was a stopgap for SDK
+//	versions that had not yet exported these sentinels, and a
+//	free-text match is inherently fragile (an unrelated error
+//	mentioning "signature" would mis-page security).
+//
 // KEY DEPENDENCIES:
 //   - go.opentelemetry.io/otel/metric: counter constructor.
 //   - attesta/gossip: ErrSinkQueueFull + the typed error set the
@@ -26,7 +35,6 @@ package gossipfeed
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/clearcompass-ai/attesta/gossip"
 	"go.opentelemetry.io/otel/attribute"
@@ -111,11 +119,9 @@ func (i *Instruments) RecordEmit(kind gossip.Kind) {
 }
 
 // RecordError classifies err and increments the error counter
-// with the matching ErrorClass label. The classifier looks at
-// the SDK's typed sentinel errors first (errors.Is) and falls
-// back to a string-match against the SDK's documented error
-// messages for the dimensions the SDK does not yet export as
-// sentinels.
+// with the matching ErrorClass label. Classification is by
+// errors.Is against the SDK's typed sentinels — no string
+// matching.
 //
 // Safe to call with a nil receiver.
 func (i *Instruments) RecordError(kind gossip.Kind, err error) {
@@ -129,41 +135,32 @@ func (i *Instruments) RecordError(kind gossip.Kind, err error) {
 	))
 }
 
-// ClassifyError maps an SDK gossip / verifier / cosign error
-// into one of the ErrorClass buckets the dashboards alert on.
+// ClassifyError maps an SDK gossip / verifier / cosign error into
+// one of the ErrorClass buckets the dashboards alert on, using
+// errors.Is against the SDK's exported typed sentinels (v1.7.1).
 // Exported so test fixtures and external observability code can
 // share the same classifier — Trust Alignment 14 explicitly
 // calls for one canonical mapping across the network.
+//
+// The SDK's own canonical error-kind labels are produced by
+// gossip.ErrorKindForError; JN keeps its own ErrorClass enum
+// because the JN dashboards predate the SDK labels and bind to
+// distinct alerting policies (SignatureInvalid pages security,
+// the rest fire SRE warnings). The two are kept in lockstep by
+// classifying against the same sentinels the SDK does.
 func ClassifyError(err error) ErrorClass {
 	if err == nil {
 		return ErrorClassOther
 	}
-	if errors.Is(err, gossip.ErrSinkQueueFull) {
-		return ErrorClassQueueFull
-	}
-	msg := strings.ToLower(err.Error())
 	switch {
-	case containsAny(msg, "signature", "invalid sig", "verify failed", "cosign verify"):
+	case errors.Is(err, gossip.ErrSignatureInvalid):
 		return ErrorClassSignatureInvalid
-	case containsAny(msg, "chain break", "missing parent", "unknown event id", "chain not contiguous"):
+	case errors.Is(err, gossip.ErrChainBreak):
 		return ErrorClassChainBreak
-	case containsAny(msg, "lamport", "regression", "decreasing timestamp"):
+	case errors.Is(err, gossip.ErrLamportRegression):
 		return ErrorClassLamportRegression
-	case containsAny(msg, "queue full", "queue closed", "sink full"):
+	case errors.Is(err, gossip.ErrSinkQueueFull):
 		return ErrorClassQueueFull
 	}
 	return ErrorClassOther
-}
-
-// containsAny reports whether hay contains any of the needles.
-// Small helper used in ClassifyError; pulled out so a future
-// upgrade to typed SDK sentinels can replace the substring match
-// without touching every call site.
-func containsAny(hay string, needles ...string) bool {
-	for _, n := range needles {
-		if strings.Contains(hay, n) {
-			return true
-		}
-	}
-	return false
 }

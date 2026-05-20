@@ -7,14 +7,17 @@
 // is a thin pass-through to the SDK.
 //
 //  1. ClassifyError returns ErrorClassOther for nil input.
-//  2. ClassifyError maps gossip.ErrSinkQueueFull to
-//     ErrorClassQueueFull via errors.Is.
-//  3. Substring classification: "signature invalid" →
-//     SignatureInvalid; "chain break" → ChainBreak;
-//     "lamport regression" → LamportRegression.
-//  4. Unmatched errors return ErrorClassOther (low-priority
-//     bucket).
-//  5. nil-receiver RecordEmit / RecordError are no-ops (callers
+//  2. v1.7.1 typed-sentinel classification via errors.Is:
+//     gossip.ErrSignatureInvalid → SignatureInvalid;
+//     gossip.ErrChainBreak → ChainBreak;
+//     gossip.ErrLamportRegression → LamportRegression;
+//     gossip.ErrSinkQueueFull → QueueFull. Each is checked
+//     wrapped (fmt.Errorf %w) to prove the classifier unwraps.
+//  3. Errors NOT matching any sentinel return ErrorClassOther,
+//     INCLUDING free-text that merely mentions "signature" — the
+//     v1.7.1 classifier no longer string-matches, so an
+//     unrelated error can never mis-page security.
+//  4. nil-receiver RecordEmit / RecordError are no-ops (callers
 //     can pre-emptively wire Instruments without a meter
 //     configured in dev / test).
 package gossipfeed
@@ -33,61 +36,46 @@ func TestClassifyError_NilReturnsOther(t *testing.T) {
 	}
 }
 
-func TestClassifyError_QueueFull_ViaErrorsIs(t *testing.T) {
-	err := fmt.Errorf("publisher: %w", gossip.ErrSinkQueueFull)
-	if got := ClassifyError(err); got != ErrorClassQueueFull {
-		t.Fatalf("wrapped ErrSinkQueueFull = %q, want %q", got, ErrorClassQueueFull)
+func TestClassifyError_TypedSentinels_ViaErrorsIs(t *testing.T) {
+	cases := []struct {
+		name     string
+		sentinel error
+		want     ErrorClass
+	}{
+		{"signature_invalid", gossip.ErrSignatureInvalid, ErrorClassSignatureInvalid},
+		{"chain_break", gossip.ErrChainBreak, ErrorClassChainBreak},
+		{"lamport_regression", gossip.ErrLamportRegression, ErrorClassLamportRegression},
+		{"queue_full", gossip.ErrSinkQueueFull, ErrorClassQueueFull},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Bare sentinel.
+			if got := ClassifyError(tc.sentinel); got != tc.want {
+				t.Errorf("bare %v = %q, want %q", tc.sentinel, got, tc.want)
+			}
+			// Wrapped sentinel — proves the classifier unwraps via errors.Is.
+			wrapped := fmt.Errorf("gossipfeed publish at originator did:web:x: %w", tc.sentinel)
+			if got := ClassifyError(wrapped); got != tc.want {
+				t.Errorf("wrapped %v = %q, want %q", tc.sentinel, got, tc.want)
+			}
+		})
 	}
 }
 
-func TestClassifyError_SignatureInvalid(t *testing.T) {
-	cases := []string{
-		"signature verification failed",
-		"invalid sig from peer",
-		"cosign verify: quorum not reached",
+func TestClassifyError_OtherForUnmatched(t *testing.T) {
+	// Free-text errors — including ones that mention "signature" —
+	// must NOT match any security/SRE bucket. This is the whole
+	// point of the v1.7.1 typed-sentinel switch: a stray log line
+	// mentioning "signature" can never page the security on-call.
+	cases := []error{
+		errors.New("some unanticipated infrastructure failure"),
+		errors.New("goroutine panic recovered"),
+		errors.New("signature verification failed"), // free-text, NOT the sentinel
+		errors.New("chain break at event 0xabcd"),   // free-text, NOT the sentinel
 	}
-	for _, msg := range cases {
-		if got := ClassifyError(errors.New(msg)); got != ErrorClassSignatureInvalid {
-			t.Errorf("%q = %q, want %q", msg, got, ErrorClassSignatureInvalid)
-		}
-	}
-}
-
-func TestClassifyError_ChainBreak(t *testing.T) {
-	cases := []string{
-		"chain break at event 0xabcd",
-		"missing parent event_id",
-		"unknown event id 0xfeed",
-		"chain not contiguous",
-	}
-	for _, msg := range cases {
-		if got := ClassifyError(errors.New(msg)); got != ErrorClassChainBreak {
-			t.Errorf("%q = %q, want %q", msg, got, ErrorClassChainBreak)
-		}
-	}
-}
-
-func TestClassifyError_LamportRegression(t *testing.T) {
-	cases := []string{
-		"lamport timestamp went backward",
-		"clock regression detected",
-		"decreasing timestamp from originator",
-	}
-	for _, msg := range cases {
-		if got := ClassifyError(errors.New(msg)); got != ErrorClassLamportRegression {
-			t.Errorf("%q = %q, want %q", msg, got, ErrorClassLamportRegression)
-		}
-	}
-}
-
-func TestClassifyError_OtherForUnknown(t *testing.T) {
-	cases := []string{
-		"some unanticipated infrastructure failure",
-		"goroutine panic recovered",
-	}
-	for _, msg := range cases {
-		if got := ClassifyError(errors.New(msg)); got != ErrorClassOther {
-			t.Errorf("%q = %q, want %q (low-priority bucket)", msg, got, ErrorClassOther)
+	for _, err := range cases {
+		if got := ClassifyError(err); got != ErrorClassOther {
+			t.Errorf("%q = %q, want %q (untyped → low-priority bucket)", err, got, ErrorClassOther)
 		}
 	}
 }
