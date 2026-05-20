@@ -48,6 +48,7 @@ import (
 	"time"
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/multicall3"
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 	"github.com/clearcompass-ai/attesta/did"
 
@@ -55,6 +56,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 	keysigner "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/signer"
 	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 )
@@ -195,12 +197,31 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 	if err := rebuilt.Validate(); err != nil {
 		t.Fatalf("entry.Validate: %v", err)
 	}
-	rpc := signatures.NewStubEthereumRPC()
-	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
-	rpc.BindEthCall(binE2EAddr(), calldata, binE2EMagicReturn())
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(tndavidson.ExchangeDID, panicResolver{}, rpc)
+	// K-of-N quorum: bind the aggregate3 calldata to BOTH stubs at
+	// the canonical Multicall3 deployer address with a magic-value
+	// inner return.
+	check := multicall3.EIP1271Check{Address: binE2EAddr(), Hash: digest, Signature: contractSig}
+	calldata := multicall3.PackAggregate3(multicall3.BuildEIP1271Calls([]multicall3.EIP1271Check{check}))
+	aggResp := testutil.EncodeAggregate3Response(true, binE2EMagicReturn())
+	multicallAddr := testutil.Multicall3Addr()
+	rpc1 := signatures.NewStubEthereumRPC()
+	rpc2 := signatures.NewStubEthereumRPC()
+	rpc1.BindEthCall(multicallAddr, calldata, aggResp)
+	rpc2.BindEthCall(multicallAddr, calldata, aggResp)
+	registry, regErr := did.DefaultVerifierRegistry(tndavidson.ExchangeDID, panicResolver{}, did.PKHVerifierOptions{
+		ChainID: 1,
+		Executors: []did.ExecutorClient{
+			{ID: "stub-reth", RPC: rpc1},
+			{ID: "stub-erigon", RPC: rpc2},
+		},
+		QuorumK: 2,
+		BlockProvider: did.StaticBlockProvider{
+			BlockNumber: 0x10A4B7C,
+			BlockHash:   [32]byte{0xDE, 0xAD, 0xBE, 0xEF},
+		},
+	})
 	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
+		t.Fatalf("DefaultVerifierRegistry: %v", regErr)
 	}
 	if err := registry.VerifyEntry(ctx, rebuilt); err != nil {
 		t.Fatalf("verifier registry rejected binary-built entry: %v", err)

@@ -22,9 +22,11 @@ DESCRIPTION:
 	     the API's signing_payload MUST equal what envelope.SigningPayload
 	     produces from the same inputs).
 	  6. Caller attaches an EIP-1271 envelope.Signature, validates
-	     the entry, and runs it through did.DefaultVerifierRegistryWithRPC
-	     with a stubbed eth_call binding to the canonical magic value
-	     — the verifier registry MUST accept.
+	     the entry, and runs it through did.DefaultVerifierRegistry
+	     configured with PKHVerifierOptions (K=2 executor quorum,
+	     StaticBlockProvider) and a stubbed Multicall3.aggregate3
+	     binding to the canonical magic value — the verifier
+	     registry MUST accept.
 
 	Negative paths pinned in this file:
 	  - Wrong eth_call return → ErrEIP1271InvalidMagic.
@@ -132,21 +134,23 @@ func TestDavidsonSCW_E2E_HappyPath(t *testing.T) {
 		t.Fatalf("entry.Validate: %v", err)
 	}
 
-	// 6. Run through the SDK verifier registry with a stub eth_call
-	// bound to the canonical magic-value return — must accept.
-	rpc := signatures.NewStubEthereumRPC()
-	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
-	rpc.BindEthCall(scwE2EAddr(), calldata, scwE2EMagicReturn())
+	// 6. Run through the SDK verifier registry. v1.7.1 wraps every
+	// EIP-1271 call through Multicall3.aggregate3 with K=2 executor
+	// quorum; bind the aggregate3 calldata to BOTH stubs with a
+	// canonical magic-value inner return — must accept.
+	registry, rpc1, rpc2 := scwQuorumRegistry(t, scwE2EDestination, panicResolver{})
+	calldata := scwSingleCheckCalldata(scwE2EAddr(), digest, contractSig)
+	scwBindAggregate3Response(rpc1, rpc2, calldata, scwE2EMagicReturn())
 
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
-	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
-	}
 	if err := registry.VerifyEntry(ctx, rebuilt); err != nil {
 		t.Fatalf("verifier registry rejected JN-built EIP-1271 entry: %v", err)
 	}
-	if got := rpc.CallCount("eth_call"); got != 1 {
-		t.Errorf("expected exactly 1 eth_call; got %d", got)
+	// K=2 quorum: BOTH executors must have been called.
+	if got := rpc1.CallCount("eth_call"); got != 1 {
+		t.Errorf("executor 1 eth_call count = %d, want 1", got)
+	}
+	if got := rpc2.CallCount("eth_call"); got != 1 {
+		t.Errorf("executor 2 eth_call count = %d, want 1", got)
 	}
 }
 
@@ -195,19 +199,17 @@ func TestDavidsonSCW_E2E_RejectsBadMagic(t *testing.T) {
 		t.Fatalf("entry.Validate: %v", err)
 	}
 
-	// Stub eth_call returns all-zeros — verifier MUST reject with
-	// ErrEIP1271InvalidMagic.
-	rpc := signatures.NewStubEthereumRPC()
-	calldata := signatures.EncodeIsValidSignatureCalldata(digest, contractSig)
-	rpc.BindEthCall(scwE2EAddr(), calldata, make([]byte, 32))
+	// Bind an aggregate3 success response with an all-zero inner
+	// return to BOTH executors — they AGREE the return is non-magic,
+	// so the verifier rejects with ErrExecutorQuorumDisagreesOnInvalid
+	// ("the contract definitively says invalid").
+	registry, rpc1, rpc2 := scwQuorumRegistry(t, scwE2EDestination, panicResolver{})
+	calldata := scwSingleCheckCalldata(scwE2EAddr(), digest, contractSig)
+	scwBindAggregate3Response(rpc1, rpc2, calldata, make([]byte, 32))
 
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwE2EDestination, panicResolver{}, rpc)
-	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
-	}
 	verr := registry.VerifyEntry(ctx, rebuilt)
-	if !errors.Is(verr, signatures.ErrEIP1271InvalidMagic) {
-		t.Fatalf("bad magic value MUST reject with ErrEIP1271InvalidMagic; got %v", verr)
+	if !errors.Is(verr, did.ErrExecutorQuorumDisagreesOnInvalid) {
+		t.Fatalf("bad magic value MUST reject with ErrExecutorQuorumDisagreesOnInvalid; got %v", verr)
 	}
 }
 

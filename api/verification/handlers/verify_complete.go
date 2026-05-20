@@ -55,7 +55,9 @@ DESCRIPTION:
 	  - SignatureVerifier — required. Without it the SDK rejects
 	    with attestation.ErrNilSignatureVerifier and the handler
 	    returns 500. Production deployments wire
-	    did.DefaultVerifierRegistryWithRPC; tests inject a stub.
+	    did.DefaultVerifierRegistry with a configured
+	    PKHVerifierOptions (EOA-only or full EIP-1271 K-of-N);
+	    tests inject a stub.
 	  - LeafReader        — required.
 	  - LogQueries[logID] — required (via fetcherFor).
 	  - Extractor         — optional (Authority stage falls back to

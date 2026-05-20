@@ -105,10 +105,16 @@ type Operational struct {
 	ArtifactStoreEndpoint string `json:"artifact_store_endpoint"`
 	VerificationEndpoint  string `json:"verification_endpoint"`
 
-	// EthRPCEndpoint is the Ethereum JSON-RPC URL the SDK's PKHVerifier
-	// uses to issue eth_call against EIP-1271 contracts. Required when
-	// any registered Bundle accepts SCW-rooted signers.
+	// EthRPCEndpoint is the canonical Ethereum JSON-RPC URL the SCW
+	// head-tracking BlockProvider pins blocks from. Distinct from the
+	// EIP-1271 verification quorum (SmartContractWallet.Executors) —
+	// this is the block-pin source, not an executor. Required.
 	EthRPCEndpoint string `json:"eth_rpc_endpoint"`
+
+	// SmartContractWallet configures EIP-1271 K-of-N executor
+	// consensus. Zero value (Enabled=false) → EOA-only verification
+	// (did:key + did:pkh-EOA + did:web). Trust Alignment 2.
+	SmartContractWallet SmartContractWalletConfig `json:"smart_contract_wallet"`
 
 	KeyStore   KeyStoreConfig     `json:"keystore"`
 	NonceStore NonceStoreOpConfig `json:"nonce_store"`
@@ -432,6 +438,9 @@ func (cfg Operational) Validate() error {
 		return err
 	}
 	if err := cfg.Auth.validate(); err != nil {
+		return err
+	}
+	if err := cfg.SmartContractWallet.validate(); err != nil {
 		return err
 	}
 	return nil

@@ -41,11 +41,12 @@ type Dependencies struct {
 
 	// SignatureVerifier resolves DID method → SignatureVerifier for
 	// the Path C admission gate (/v1/verify/complete). Production:
-	// did.DefaultVerifierRegistryWithRPC bound to the exchange's
-	// destination DID with judicial vendor mappings layered on top.
-	// Per-handler responsibility — only VerifyCompleteHandler reads
-	// this field. Empty (nil) keeps boot clean for deployments that
-	// don't expose /v1/verify/complete.
+	// did.DefaultVerifierRegistry bound to the exchange's
+	// destination DID with a configured PKHVerifierOptions (EOA-only
+	// or full EIP-1271 K-of-N executor quorum). Per-handler
+	// responsibility — only VerifyCompleteHandler reads this field.
+	// Empty (nil) keeps boot clean for deployments that don't
+	// expose /v1/verify/complete.
 	SignatureVerifier attestation.SignatureVerifier
 
 	// PR-2 (attesta v1.5.1 / issue #75 read-time Stage 6).

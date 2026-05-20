@@ -5,7 +5,7 @@ FILE PATH:
 
 DESCRIPTION:
 
-	End-to-end functional test for v0.8.0 EIP-1271 (smart-contract-
+	End-to-end functional test for v1.7.1 EIP-1271 (smart-contract-
 	wallet) signature verification. Exercises the full happy path
 	AND rejection paths from the ledger's verifier-registry seam:
 
@@ -15,35 +15,36 @@ DESCRIPTION:
 	     contract-signature bytes (the SDK never inspects sig.Bytes
 	     for this algoID — the wallet contract is the source of
 	     truth).
-	  3. Hash the SigningPayload and program a stub
-	     EthereumRPCClient with the eth_call binding the ledger
-	     WILL produce when verifying this entry.
+	  3. Hash the SigningPayload, pack the (addr, hash, sig) check
+	     through Multicall3.aggregate3, and program a 2-stub K=2
+	     executor quorum with the aggregate3 calldata bound to the
+	     canonical Multicall3 deployer address.
 	  4. Build the verifier registry via
-	     did.DefaultVerifierRegistryWithRPC bound to the
-	     destination on the entry.
+	     did.DefaultVerifierRegistry with a PKHVerifierOptions
+	     declaring (ChainID, Executors, QuorumK=2, BlockProvider).
 	  5. Call registry.VerifyEntry(entry) and assert acceptance
 	     (happy path) or the appropriate typed rejection (negative
 	     paths).
 
-	This file is the JN consumer's contract assertion that v0.8.0's
+	This file is the JN consumer's contract assertion that v1.7.1's
 	SDK seam is wired correctly. A future SDK that breaks
-	DefaultVerifierRegistryWithRPC, EncodeIsValidSignatureCalldata,
+	DefaultVerifierRegistry, the Multicall3 aggregate3 packing,
 	SigAlgoEIP1271 wire registration, or the magic-value comparison
 	will surface here BEFORE any ledger deployment.
 
-SECURITY PROPERTIES PINNED:
-  - Magic-value return -> registry.VerifyEntry returns nil.
-  - Selector-with-attacker-junk return -> wraps
-    signatures.ErrEIP1271InvalidMagic.
-  - Empty return (contract not deployed) -> wraps
-    signatures.ErrEIP1271ContractEmpty.
-  - eth_call revert -> wraps signatures.ErrEthCallReverted.
+SECURITY PROPERTIES PINNED (v1.7.1 K-of-N consensus semantics):
+  - Magic-value inner return, K executors agree -> VerifyEntry nil.
+  - Non-magic inner return (attacker junk / all-zero / per-call
+    failure), K executors AGREE it is invalid -> wraps
+    did.ErrExecutorQuorumDisagreesOnInvalid ("the contract
+    definitively says invalid").
+  - No K-of-N consensus (outer revert / divergent nodes / unbound
+    calldata) -> wraps did.ErrExecutorQuorumNotReached.
   - Cross-exchange replay defense still applies: an entry with the
     wrong destination surfaces ErrDestinationMismatch BEFORE any
     eth_call is issued.
-  - The signing payload's hash matches what the SDK's
-    EncodeIsValidSignatureCalldata is called with (drift would
-    silently invalidate every smart-contract-wallet signature).
+  - K=2 executor consensus: BOTH stubs are called per verification
+    (Trust Alignment 2 — K-of-N Oracle at the RPC trust boundary).
 */
 package contracts
 
@@ -134,23 +135,24 @@ const scwDestination = "did:web:state:tn:davidson"
 
 func TestSCW_HappyPath_RegistryAccepts(t *testing.T) {
 	ctx := context.Background()
-	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("opaque-wallet-signature-bytes-vary")
 
-	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
-	rpc.BindEthCall(addr, calldata, scwMagicReturn())
+	entry, hash, _ := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
-	}
+	registry, rpc1, rpc2 := scwQuorumRegistry(t, scwDestination, panicResolver{})
+	calldata := scwSingleCheckCalldata(addr, hash, contractSig)
+	scwBindAggregate3Response(rpc1, rpc2, calldata, scwMagicReturn())
 
 	if err := registry.VerifyEntry(ctx, entry); err != nil {
 		t.Fatalf("happy path EIP-1271 entry MUST verify; got %v", err)
 	}
-	if got := rpc.CallCount("eth_call"); got != 1 {
-		t.Errorf("expected exactly 1 eth_call per signature; got %d", got)
+	// K=2 quorum: BOTH stubs are called for every verification.
+	if got := rpc1.CallCount("eth_call"); got != 1 {
+		t.Errorf("executor 1 eth_call count = %d, want 1", got)
+	}
+	if got := rpc2.CallCount("eth_call"); got != 1 {
+		t.Errorf("executor 2 eth_call count = %d, want 1", got)
 	}
 }
 
@@ -158,83 +160,85 @@ func TestSCW_HappyPath_RegistryAccepts(t *testing.T) {
 
 func TestSCW_RejectsSelectorWithAttackerJunk(t *testing.T) {
 	ctx := context.Background()
-	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
 
-	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
+	entry, hash, _ := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 	junk := scwMagicReturn()
 	for i := 4; i < 32; i++ {
 		junk[i] = 0xFF
 	}
-	rpc.BindEthCall(addr, calldata, junk)
 
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
-	}
+	registry, rpc1, rpc2 := scwQuorumRegistry(t, scwDestination, panicResolver{})
+	calldata := scwSingleCheckCalldata(addr, hash, contractSig)
+	scwBindAggregate3Response(rpc1, rpc2, calldata, junk)
+
+	// Both executors agree on the same non-magic return → the
+	// contract definitively says invalid.
 	err := registry.VerifyEntry(ctx, entry)
-	if !errors.Is(err, signatures.ErrEIP1271InvalidMagic) {
-		t.Fatalf("selector + attacker-junk MUST surface ErrEIP1271InvalidMagic; got %v", err)
+	if !errors.Is(err, did.ErrExecutorQuorumDisagreesOnInvalid) {
+		t.Fatalf("selector + attacker-junk MUST surface ErrExecutorQuorumDisagreesOnInvalid; got %v", err)
 	}
 }
 
 func TestSCW_RejectsAllZeroReturn(t *testing.T) {
 	ctx := context.Background()
-	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
 
-	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
-	rpc.BindEthCall(addr, calldata, make([]byte, 32))
+	entry, hash, _ := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
-	}
+	registry, rpc1, rpc2 := scwQuorumRegistry(t, scwDestination, panicResolver{})
+	calldata := scwSingleCheckCalldata(addr, hash, contractSig)
+	scwBindAggregate3Response(rpc1, rpc2, calldata, make([]byte, 32))
+
+	// Both executors agree on the all-zero (non-magic) return.
 	err := registry.VerifyEntry(ctx, entry)
-	if !errors.Is(err, signatures.ErrEIP1271InvalidMagic) {
-		t.Fatalf("all-zero return MUST reject; got %v", err)
+	if !errors.Is(err, did.ErrExecutorQuorumDisagreesOnInvalid) {
+		t.Fatalf("all-zero return MUST surface ErrExecutorQuorumDisagreesOnInvalid; got %v", err)
 	}
 }
 
 // ─── contract-state rejection paths ──────────────────────────
 
-func TestSCW_RejectsEmptyReturn_NotDeployed(t *testing.T) {
+func TestSCW_RejectsPerCallFailure_NotDeployed(t *testing.T) {
 	ctx := context.Background()
-	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
 
-	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
-	rpc.BindEthCall(addr, calldata, []byte{})
+	entry, hash, _ := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
-	}
+	registry, rpc1, rpc2 := scwQuorumRegistry(t, scwDestination, panicResolver{})
+	calldata := scwSingleCheckCalldata(addr, hash, contractSig)
+	// Multicall3 marks the inner call as failed (allowFailure=true
+	// surfaces per-call success=false with empty inner return) —
+	// the canonical "contract not deployed at addr" shape. Both
+	// executors agree on the same (success=false, empty) result,
+	// which canonicalizes to a non-magic verdict.
+	scwBindAggregate3Failure(rpc1, rpc2, calldata)
+
 	err := registry.VerifyEntry(ctx, entry)
-	if !errors.Is(err, signatures.ErrEIP1271ContractEmpty) {
-		t.Fatalf("empty return MUST surface ErrEIP1271ContractEmpty; got %v", err)
+	if !errors.Is(err, did.ErrExecutorQuorumDisagreesOnInvalid) {
+		t.Fatalf("per-call failure MUST surface ErrExecutorQuorumDisagreesOnInvalid; got %v", err)
 	}
 }
 
-func TestSCW_PropagatesRevert(t *testing.T) {
+func TestSCW_OuterRevert_NoConsensus(t *testing.T) {
 	ctx := context.Background()
-	rpc := signatures.NewStubEthereumRPC()
 	addr := scwSampleAddr()
 	contractSig := []byte("x")
 
-	entry, _, calldata := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
-	rpc.BindEthCallError(addr, calldata, signatures.ErrEthCallReverted)
+	entry, hash, _ := scwBuildEntryFromContract(t, addr, scwDestination, contractSig)
 
-	registry, regErr := did.DefaultVerifierRegistryWithRPC(scwDestination, panicResolver{}, rpc)
-	if regErr != nil {
-		t.Fatalf("DefaultVerifierRegistryWithRPC: %v", regErr)
-	}
+	registry, rpc1, rpc2 := scwQuorumRegistry(t, scwDestination, panicResolver{})
+	calldata := scwSingleCheckCalldata(addr, hash, contractSig)
+	// Both executors error at the transport layer — no node returns
+	// a usable result, so K-of-N consensus cannot be reached.
+	scwBindAggregate3CallError(rpc1, rpc2, calldata, signatures.ErrEthCallReverted)
+
 	err := registry.VerifyEntry(ctx, entry)
-	if !errors.Is(err, signatures.ErrEthCallReverted) {
-		t.Fatalf("revert MUST propagate as ErrEthCallReverted; got %v", err)
+	if !errors.Is(err, did.ErrExecutorQuorumNotReached) {
+		t.Fatalf("outer aggregate3 revert MUST surface ErrExecutorQuorumNotReached; got %v", err)
 	}
 }
 
