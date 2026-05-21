@@ -56,6 +56,7 @@ type Reconciler struct {
 	heads    *TrustedHeadStore
 	equiv    *EquivocationResponder
 	rotator  WitnessSetRotator
+	store    gossip.Store
 	logger   *slog.Logger
 }
 
@@ -73,6 +74,10 @@ type ReconcilerConfig struct {
 	// Optional; nil ⇒ verified rotations are logged but not applied (the
 	// witness set cannot advance at runtime).
 	Rotator WitnessSetRotator
+	// Store durably persists every VERIFIED inbound event (D7) so the JN's
+	// worldview survives a restart. Optional; nil ⇒ events are enforced but
+	// not persisted (ephemeral, pre-durability behaviour).
+	Store gossip.Store
 	// Logger; nil ⇒ slog.Default().
 	Logger *slog.Logger
 }
@@ -89,7 +94,7 @@ func NewReconciler(cfg ReconcilerConfig) (*Reconciler, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Reconciler{verifier: cfg.Verifier, heads: cfg.Heads, equiv: cfg.Equivocation, rotator: cfg.Rotator, logger: logger}, nil
+	return &Reconciler{verifier: cfg.Verifier, heads: cfg.Heads, equiv: cfg.Equivocation, rotator: cfg.Rotator, store: cfg.Store, logger: logger}, nil
 }
 
 // HandleSignedEvent verifies one pulled event and acts on it. Satisfies
@@ -99,6 +104,18 @@ func (r *Reconciler) HandleSignedEvent(ctx context.Context, ev gossip.SignedEven
 	event, err := r.verifier.Verify(ctx, ev)
 	if err != nil {
 		return fmt.Errorf("monitoring/gossip_reconciler: verify: %w", err)
+	}
+	// D7: persist every verified event so the JN's worldview survives a
+	// restart. Durability is the async clock — a store hiccup is logged
+	// but never blocks enforcement (the action clock). Idempotent
+	// re-receipt returns nil; chain/lamport rejects are observable.
+	if r.store != nil {
+		if err := r.store.Append(ctx, ev); err != nil {
+			r.logger.Warn("monitoring/gossip_reconciler: persist verified event failed",
+				slog.String("originator", ev.Originator),
+				slog.String("kind", string(event.Kind())),
+				slog.String("error", err.Error()))
+		}
 	}
 	switch f := event.(type) {
 	case *findings.CosignedTreeHeadFinding:

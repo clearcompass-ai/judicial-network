@@ -186,12 +186,29 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("signature verifier: %w", err)
 	}
 
+	// Durable gossip store — the JN's sovereign auditor memory. Postgres
+	// when GossipStore.PostgresDSN is set; in-memory otherwise. Shared by
+	// the inbound pull pipeline (D7 persistence) and the serve feed. Built
+	// before the puller so both share one store; closed on shutdown.
+	gossipStore, closeGossipStore, err := buildGossipStore(cfg, slog.Default())
+	if err != nil {
+		return fmt.Errorf("gossip store: %w", err)
+	}
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := closeGossipStore(closeCtx); err != nil {
+			log.Printf("network-api: gossip store close: %v", err)
+		}
+	}()
+
 	// Inbound gossip anti-entropy: pull peer feeds, verify each event
-	// (envelope + finding proof) against JN-local trust, drive enforcers.
-	// nil when GossipIngest is disabled / has no peers. Built before the
-	// listener so a misconfiguration aborts boot rather than failing silently
-	// in a background goroutine.
-	gossipPuller, err := buildGossipIngest(cfg, sigVerifier, slog.Default())
+	// (envelope + finding proof) against JN-local trust, persist the
+	// verified event (D7), and drive enforcers. nil when GossipIngest is
+	// disabled / has no peers. Built before the listener so a
+	// misconfiguration aborts boot rather than failing silently in a
+	// background goroutine.
+	gossipPuller, err := buildGossipIngest(cfg, sigVerifier, gossipStore, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
 	}
@@ -215,26 +232,8 @@ func run(argv []string, d deps) error {
 	// /v1/gossip/since on the composer mux so independent
 	// auditors and peer ledgers can pull cosigned-tree-head /
 	// equivocation findings via standard HTTP with ETag +
-	// Cache-Control semantics (Trust Alignment 11). The in-memory
-	// store keeps the boot path side-effect-free; production
-	// deployments swap in a durable store via dep-injection
-	// once the persistence shape is finalised.
-	// Durable gossip store — the JN's sovereign auditor memory. Postgres
-	// when GossipStore.PostgresDSN is set; in-memory otherwise. Shared by
-	// the serve feed and (D7 follow-up) inbound persistence. Closed on
-	// shutdown so the pool drains cleanly.
-	gossipStore, closeGossipStore, err := buildGossipStore(cfg, slog.Default())
-	if err != nil {
-		return fmt.Errorf("gossip store: %w", err)
-	}
-	defer func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := closeGossipStore(closeCtx); err != nil {
-			log.Printf("network-api: gossip store close: %v", err)
-		}
-	}()
-
+	// Cache-Control semantics (Trust Alignment 11). Serves from the same
+	// durable store the inbound puller writes to.
 	gossipFeed, err := buildGossipFeed(cfg, gossipStore)
 	if err != nil {
 		return fmt.Errorf("gossip feed: %w", err)

@@ -3,12 +3,17 @@ package monitoring
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/clearcompass-ai/attesta/gossip"
 	"github.com/clearcompass-ai/attesta/gossip/findings"
 	"github.com/clearcompass-ai/attesta/types"
 )
+
+// testNetworkID is a valid 64-hex (32-byte) gossip network id for events
+// hand-built in tests.
+var testNetworkID = strings.Repeat("ab", 32)
 
 // stubVerifier returns a fixed (event, err), simulating the two-tier verifier.
 type stubVerifier struct {
@@ -31,6 +36,49 @@ func cthFinding(t *testing.T, size uint64, root byte) *findings.CosignedTreeHead
 		t.Fatal(err)
 	}
 	return f
+}
+
+// appendErrStore fails only on Append; other gossip.Store methods are
+// never called by HandleSignedEvent (embedded nil interface would panic).
+type appendErrStore struct{ gossip.Store }
+
+func (appendErrStore) Append(context.Context, gossip.SignedEvent) error {
+	return errors.New("boom")
+}
+
+// D7: a verified inbound event is persisted to the store.
+func TestReconciler_PersistsVerifiedEvent(t *testing.T) {
+	store := gossip.NewInMemoryStore()
+	r, _ := NewReconciler(ReconcilerConfig{
+		Verifier: stubVerifier{ev: cthFinding(t, 100, 0xAA)},
+		Heads:    NewTrustedHeadStore(nil),
+		Store:    store,
+	})
+	ev := gossip.SignedEvent{Version: gossip.WireVersion, NetworkID: testNetworkID, Originator: "did:key:zTest", Kind: gossip.KindCosignedTreeHead, LamportTime: 1}
+	if err := r.HandleSignedEvent(context.Background(), ev); err != nil {
+		t.Fatalf("HandleSignedEvent: %v", err)
+	}
+	id, err := gossip.EventIDOf(ev)
+	if err != nil {
+		t.Fatalf("EventIDOf: %v", err)
+	}
+	if _, err := store.Get(context.Background(), id); err != nil {
+		t.Fatalf("verified event was not persisted: %v", err)
+	}
+}
+
+// D7: persistence is the async clock — a store failure is logged but must
+// not fail the pull (enforcement still ran).
+func TestReconciler_PersistFailure_NonFatal(t *testing.T) {
+	r, _ := NewReconciler(ReconcilerConfig{
+		Verifier: stubVerifier{ev: cthFinding(t, 100, 0xAA)},
+		Heads:    NewTrustedHeadStore(nil),
+		Store:    appendErrStore{},
+	})
+	ev := gossip.SignedEvent{Version: gossip.WireVersion, Originator: "did:key:z", Kind: gossip.KindCosignedTreeHead, LamportTime: 1}
+	if err := r.HandleSignedEvent(context.Background(), ev); err != nil {
+		t.Fatalf("persist failure must be non-fatal, got %v", err)
+	}
 }
 
 // A verification failure must error and reach no enforcer.
