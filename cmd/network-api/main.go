@@ -409,6 +409,13 @@ func loadConfig(argv []string) (config.Operational, error) {
 		return config.Operational{}, err
 	}
 	cfg = config.ApplyEnvOverrides(cfg)
+	// Derive the witness set + gossip peer from the (env-pointed) bootstrap
+	// so the active auditor is configured by toggles + K, not hand-listed
+	// DIDs — identical on native / docker / k8s.
+	cfg, err = applyBootstrapDerivations(cfg)
+	if err != nil {
+		return config.Operational{}, fmt.Errorf("%w: %w", config.ErrInvalidConfig, err)
+	}
 	if err := cfg.Validate(); err != nil {
 		return config.Operational{}, err
 	}

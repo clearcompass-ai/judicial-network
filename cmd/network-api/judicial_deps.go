@@ -149,25 +149,84 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	return crosslog.BuildWitnessSets(cfg.Witness.Sets, networkID)
 }
 
-// loadNetworkID reads the bootstrap document from disk, parses it,
-// and derives the 32-byte cosign NetworkID. Boot fails fast on any
-// error — a misconfigured bootstrap document means cross-component
-// cosignature verification cannot succeed, and every dependent
-// handler would return 500 at runtime.
-func loadNetworkID(path string) (cosign.NetworkID, error) {
+// loadBootstrapDoc reads + parses the network bootstrap document. It is the
+// single shared trust input every component loads (ledger, witnesses, JN);
+// the JN discovers its path from env (API_/LEDGER_NETWORK_BOOTSTRAP_FILE),
+// so nothing about the deployment (native/docker/k8s) is in the Go — only
+// the injected path differs.
+func loadBootstrapDoc(path string) (*sdknetwork.BootstrapDocument, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return cosign.NetworkID{}, fmt.Errorf("read %s: %w", path, err)
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	var doc sdknetwork.BootstrapDocument
 	if err := json.Unmarshal(raw, &doc); err != nil {
-		return cosign.NetworkID{}, fmt.Errorf("parse %s: %w", path, err)
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return &doc, nil
+}
+
+// loadNetworkID derives the 32-byte cosign NetworkID from the bootstrap.
+// Boot fails fast on any error — a misconfigured bootstrap means cross-
+// component cosignature verification cannot succeed.
+func loadNetworkID(path string) (cosign.NetworkID, error) {
+	doc, err := loadBootstrapDoc(path)
+	if err != nil {
+		return cosign.NetworkID{}, err
 	}
 	ids, err := doc.IDs()
 	if err != nil {
 		return cosign.NetworkID{}, fmt.Errorf("derive network identity from %s: %w", path, err)
 	}
 	return ids.NetworkID, nil
+}
+
+// applyBootstrapDerivations fills env-/k8s-friendly defaults that come from
+// the (env-pointed) bootstrap, so an operator turns the JN into an active
+// auditor with toggles + K — never by hand-listing witness DIDs or peers in
+// JSON. Same env surface works native / docker-compose / k8s.
+//
+//   - Witness.Sets: when empty and Witness.QuorumK > 0, derive ONE set for
+//     the bootstrap's own log (exchange_did @ genesis_witness_set, K-of-N).
+//   - GossipIngest.Peers: when ingest is on and no peers are listed, derive
+//     one peer = that log served by the ledger endpoint.
+//
+// No-op when nothing needs deriving. When something does but the bootstrap
+// path is empty, the downstream builder surfaces the precise error.
+func applyBootstrapDerivations(cfg config.Operational) (config.Operational, error) {
+	needWitness := len(cfg.Witness.Sets) == 0 && cfg.Witness.QuorumK > 0
+	needPeer := cfg.GossipIngest.Enabled && len(cfg.GossipIngest.Peers) == 0
+	if (!needWitness && !needPeer) || cfg.NetworkBootstrapFile == "" {
+		return cfg, nil
+	}
+	doc, err := loadBootstrapDoc(cfg.NetworkBootstrapFile)
+	if err != nil {
+		return cfg, fmt.Errorf("bootstrap derivations: %w", err)
+	}
+	if doc.ExchangeDID == "" {
+		return cfg, fmt.Errorf("bootstrap %s missing exchange_did", cfg.NetworkBootstrapFile)
+	}
+	if needWitness {
+		if len(doc.GenesisWitnessSet) == 0 {
+			return cfg, fmt.Errorf("bootstrap %s has no genesis_witness_set to derive a witness set from", cfg.NetworkBootstrapFile)
+		}
+		if cfg.Witness.QuorumK > len(doc.GenesisWitnessSet) {
+			return cfg, fmt.Errorf("API_WITNESS_QUORUM_K=%d exceeds N=%d witnesses in bootstrap",
+				cfg.Witness.QuorumK, len(doc.GenesisWitnessSet))
+		}
+		cfg.Witness.Sets = []config.WitnessSetConfig{{
+			LogDID:      doc.ExchangeDID,
+			WitnessDIDs: append([]string(nil), doc.GenesisWitnessSet...),
+			QuorumK:     cfg.Witness.QuorumK,
+		}}
+	}
+	if needPeer {
+		cfg.GossipIngest.Peers = []config.GossipPeerConfig{{
+			LogDID:  doc.ExchangeDID,
+			BaseURL: cfg.LedgerEndpoint,
+		}}
+	}
+	return cfg, nil
 }
 
 // buildTreeHeadClient constructs the witness.TreeHeadClient from

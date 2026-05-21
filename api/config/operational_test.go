@@ -40,8 +40,11 @@ func TestDefaults_Memorable(t *testing.T) {
 	if d.ListenAddr != ":8443" {
 		t.Errorf("ListenAddr = %q, want :8443", d.ListenAddr)
 	}
-	if d.LedgerEndpoint == "" || d.ArtifactStoreEndpoint == "" {
-		t.Error("upstream endpoints must default to localhost values")
+	if d.LedgerEndpoint == "" || d.VerificationEndpoint == "" {
+		t.Error("required upstream endpoints (ledger, verification) must default to localhost values")
+	}
+	if d.ArtifactStoreEndpoint != "" {
+		t.Error("artifact store must default to OUT (empty); opt in via API_ARTIFACT_STORE_ENDPOINT")
 	}
 	if d.KeyStore.Backend != KeyStoreBackendMemory {
 		t.Errorf("KeyStore.Backend = %q, want memory", d.KeyStore.Backend)
@@ -699,9 +702,54 @@ func clearAPIEnv(t *testing.T) {
 		"API_GOSSIP_STORE_RETENTION_DAYS",
 		"API_NETWORK_BOOTSTRAP_FILE",
 		"LEDGER_NETWORK_BOOTSTRAP_FILE",
+		"API_AUTH_CLIENT_CA_FILE",
+		"API_AUTH_TLS_CERT_FILE",
+		"API_AUTH_TLS_KEY_FILE",
+		"API_EQUIVOCATION_SCANNER_ENABLED",
+		"API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE",
+		"API_GOSSIP_INGEST_ENABLED",
+		"API_GOSSIP_FEED_ENABLED",
+		"API_MONITORING_ENABLED",
+		"API_WITNESS_QUORUM_K",
 	} {
 		t.Setenv(v, "")
 		_ = os.Unsetenv(v)
+	}
+}
+
+// The active auditor + mTLS material are fully env-drivable so the SAME
+// binary runs native / docker-compose / k8s — only the injected paths
+// (Secret/ConfigMap mounts) differ. No DID, no path is baked into the Go.
+func TestApplyEnvOverrides_ActiveAuditorAndAuthPaths(t *testing.T) {
+	clearAPIEnv(t)
+	t.Setenv("API_AUTH_CLIENT_CA_FILE", "/mnt/tls/ca.crt")
+	t.Setenv("API_AUTH_TLS_CERT_FILE", "/mnt/tls/server.crt")
+	t.Setenv("API_AUTH_TLS_KEY_FILE", "/mnt/tls/server.key")
+	t.Setenv("API_EQUIVOCATION_SCANNER_ENABLED", "true")
+	t.Setenv("API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE", "/mnt/jn/gossip.pem")
+	t.Setenv("API_GOSSIP_INGEST_ENABLED", "true")
+	t.Setenv("API_GOSSIP_FEED_ENABLED", "true")
+	t.Setenv("API_MONITORING_ENABLED", "true")
+	t.Setenv("API_WITNESS_QUORUM_K", "5")
+
+	got := ApplyEnvOverrides(Defaults())
+
+	if got.Auth.ClientCAFile != "/mnt/tls/ca.crt" ||
+		got.Auth.TLSCertFile != "/mnt/tls/server.crt" ||
+		got.Auth.TLSKeyFile != "/mnt/tls/server.key" {
+		t.Errorf("auth paths not applied from env: %+v", got.Auth)
+	}
+	if !got.EquivocationScanner.Enabled {
+		t.Error("EquivocationScanner.Enabled should be true")
+	}
+	if got.EquivocationScanner.SigningKeyFile != "/mnt/jn/gossip.pem" {
+		t.Errorf("scanner key = %q", got.EquivocationScanner.SigningKeyFile)
+	}
+	if !got.GossipIngest.Enabled || !got.GossipFeed.Enabled || !got.Monitoring.Enabled {
+		t.Error("ingest/feed/monitoring enables not applied from env")
+	}
+	if got.Witness.QuorumK != 5 {
+		t.Errorf("Witness.QuorumK = %d, want 5", got.Witness.QuorumK)
 	}
 }
 

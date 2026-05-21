@@ -69,9 +69,11 @@ func Defaults() Operational {
 	return Operational{
 		ListenAddr: ":8443",
 
-		LedgerEndpoint:        "http://localhost:8001",
-		ArtifactStoreEndpoint: "http://localhost:8002",
-		VerificationEndpoint:  "http://localhost:8080",
+		LedgerEndpoint: "http://localhost:8001",
+		// ArtifactStoreEndpoint defaults to OUT (empty) — it's the document
+		// surface, not the entry-write/audit path. Opt in via config or
+		// API_ARTIFACT_STORE_ENDPOINT.
+		VerificationEndpoint: "http://localhost:8080",
 
 		KeyStore: KeyStoreConfig{
 			Backend: KeyStoreBackendMemory,
@@ -374,7 +376,18 @@ type WitnessConfig struct {
 	// them to secp256k1 keysets at boot against the network's NetworkID
 	// (NetworkBootstrapFile). Empty leaves WitnessSets empty — cross-log
 	// handlers then surface 503 for an unknown source log.
+	//
+	// Sets may instead be DERIVED from the bootstrap document: when Sets is
+	// empty and QuorumK > 0, the binary builds a single set for the
+	// bootstrap's own log (exchange_did + genesis_witness_set), so an
+	// operator points at the bootstrap (env) + sets K rather than
+	// hand-listing witness DIDs. This is the env-driven / k8s path.
 	Sets []WitnessSetConfig `json:"sets,omitempty"`
+
+	// QuorumK, when > 0 and Sets is empty, triggers deriving the witness
+	// set from NetworkBootstrapFile (genesis_witness_set @ K-of-N). Env:
+	// API_WITNESS_QUORUM_K. Ignored when Sets is set explicitly.
+	QuorumK int `json:"quorum_k,omitempty"`
 
 	// CacheTTL is how long a fetched tree head is cached before a
 	// fresh fetch. Zero applies the SDK default.
@@ -565,6 +578,15 @@ func LoadFromFile(path string) (Operational, error) {
 //	API_NETWORK_BOOTSTRAP_FILE    (shared trust root; falls back to
 //	                               LEDGER_NETWORK_BOOTSTRAP_FILE — the var
 //	                               the standalone-witness fleet emits)
+//	API_AUTH_CLIENT_CA_FILE       (mTLS; Secret/mount path)
+//	API_AUTH_TLS_CERT_FILE        (mTLS; Secret/mount path)
+//	API_AUTH_TLS_KEY_FILE         (mTLS; Secret/mount path)
+//	API_EQUIVOCATION_SCANNER_ENABLED          (bool)
+//	API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE (gossip key PEM path)
+//	API_GOSSIP_INGEST_ENABLED     (bool)
+//	API_GOSSIP_FEED_ENABLED       (bool)
+//	API_MONITORING_ENABLED        (bool)
+//	API_WITNESS_QUORUM_K          (int; derive witness set from bootstrap)
 //
 // Unrecognized vars are ignored. Empty values are NOT applied
 // (treat as "keep current").
@@ -614,7 +636,61 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	} else if v := os.Getenv("LEDGER_NETWORK_BOOTSTRAP_FILE"); v != "" {
 		cfg.NetworkBootstrapFile = v
 	}
+
+	// mTLS material as env-referenced paths. The binary stays deployment-
+	// agnostic: native exports a .run path, docker/k8s mount a Secret and
+	// point these at the mount. No path is ever baked into the Go.
+	if v := os.Getenv("API_AUTH_CLIENT_CA_FILE"); v != "" {
+		cfg.Auth.ClientCAFile = v
+	}
+	if v := os.Getenv("API_AUTH_TLS_CERT_FILE"); v != "" {
+		cfg.Auth.TLSCertFile = v
+	}
+	if v := os.Getenv("API_AUTH_TLS_KEY_FILE"); v != "" {
+		cfg.Auth.TLSKeyFile = v
+	}
+
+	// Active-auditor toggles + inputs. Off by default; the SAME env surface
+	// drives native, docker-compose, and k8s — the witness set + gossip
+	// peers derive from the (env-pointed) bootstrap, so only toggles + file
+	// paths + K are set here.
+	if b, ok := envBool("API_EQUIVOCATION_SCANNER_ENABLED"); ok {
+		cfg.EquivocationScanner.Enabled = b
+	}
+	if v := os.Getenv("API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE"); v != "" {
+		cfg.EquivocationScanner.SigningKeyFile = v
+	}
+	if b, ok := envBool("API_GOSSIP_INGEST_ENABLED"); ok {
+		cfg.GossipIngest.Enabled = b
+	}
+	if b, ok := envBool("API_GOSSIP_FEED_ENABLED"); ok {
+		cfg.GossipFeed.Enabled = b
+	}
+	if b, ok := envBool("API_MONITORING_ENABLED"); ok {
+		cfg.Monitoring.Enabled = b
+	}
+	if v := os.Getenv("API_WITNESS_QUORUM_K"); v != "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+			cfg.Witness.QuorumK = n
+		}
+	}
 	return cfg
+}
+
+// envBool parses a boolean env var. Returns (value, present); present is
+// false when the var is unset or unparseable, so callers leave the current
+// config value untouched (an invalid env value never silently disables a
+// feature configured in JSON).
+func envBool(name string) (val, present bool) {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" {
+		return false, false
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, false
+	}
+	return b, true
 }
 
 // ─────────────────────────────────────────────────────────────────────
