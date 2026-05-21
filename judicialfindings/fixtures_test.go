@@ -39,7 +39,7 @@ func newWitnessFixture(t *testing.T, n, k int) witnessFixture {
 		}
 		signers[i] = cosign.NewECDSAWitnessSigner(priv)
 		pub := signatures.PubKeyBytes(&priv.PublicKey)
-		keys[i] = types.WitnessPublicKey{ID: sha256.Sum256(pub), PublicKey: pub}
+		keys[i] = types.WitnessPublicKey{ID: sha256.Sum256(pub), PublicKey: pub, SchemeTag: signatures.SchemeECDSA}
 	}
 	set, err := cosign.NewECDSAWitnessKeySet(keys, nid, k)
 	if err != nil {

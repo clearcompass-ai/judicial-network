@@ -3,12 +3,17 @@ package monitoring
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/clearcompass-ai/attesta/gossip"
 	"github.com/clearcompass-ai/attesta/gossip/findings"
 	"github.com/clearcompass-ai/attesta/types"
 )
+
+// testNetworkID is a valid 64-hex (32-byte) gossip network id for events
+// hand-built in tests.
+var testNetworkID = strings.Repeat("ab", 32)
 
 // stubVerifier returns a fixed (event, err), simulating the two-tier verifier.
 type stubVerifier struct {
@@ -31,6 +36,49 @@ func cthFinding(t *testing.T, size uint64, root byte) *findings.CosignedTreeHead
 		t.Fatal(err)
 	}
 	return f
+}
+
+// appendErrStore fails only on Append; other gossip.Store methods are
+// never called by HandleSignedEvent (embedded nil interface would panic).
+type appendErrStore struct{ gossip.Store }
+
+func (appendErrStore) Append(context.Context, gossip.SignedEvent) error {
+	return errors.New("boom")
+}
+
+// D7: a verified inbound event is persisted to the store.
+func TestReconciler_PersistsVerifiedEvent(t *testing.T) {
+	store := gossip.NewInMemoryStore()
+	r, _ := NewReconciler(ReconcilerConfig{
+		Verifier: stubVerifier{ev: cthFinding(t, 100, 0xAA)},
+		Heads:    NewTrustedHeadStore(nil),
+		Store:    store,
+	})
+	ev := gossip.SignedEvent{Version: gossip.WireVersion, NetworkID: testNetworkID, Originator: "did:key:zTest", Kind: gossip.KindCosignedTreeHead, LamportTime: 1}
+	if err := r.HandleSignedEvent(context.Background(), ev); err != nil {
+		t.Fatalf("HandleSignedEvent: %v", err)
+	}
+	id, err := gossip.EventIDOf(ev)
+	if err != nil {
+		t.Fatalf("EventIDOf: %v", err)
+	}
+	if _, err := store.Get(context.Background(), id); err != nil {
+		t.Fatalf("verified event was not persisted: %v", err)
+	}
+}
+
+// D7: persistence is the async clock — a store failure is logged but must
+// not fail the pull (enforcement still ran).
+func TestReconciler_PersistFailure_NonFatal(t *testing.T) {
+	r, _ := NewReconciler(ReconcilerConfig{
+		Verifier: stubVerifier{ev: cthFinding(t, 100, 0xAA)},
+		Heads:    NewTrustedHeadStore(nil),
+		Store:    appendErrStore{},
+	})
+	ev := gossip.SignedEvent{Version: gossip.WireVersion, Originator: "did:key:z", Kind: gossip.KindCosignedTreeHead, LamportTime: 1}
+	if err := r.HandleSignedEvent(context.Background(), ev); err != nil {
+		t.Fatalf("persist failure must be non-fatal, got %v", err)
+	}
 }
 
 // A verification failure must error and reach no enforcer.
@@ -83,6 +131,90 @@ func TestReconciler_NoEnforcer_NoError(t *testing.T) {
 	r, _ := NewReconciler(ReconcilerConfig{Verifier: stubVerifier{ev: f}, Heads: NewTrustedHeadStore(nil)})
 	if err := r.HandleSignedEvent(context.Background(), gossip.SignedEvent{Kind: gossip.KindGhostLeaf}); err != nil {
 		t.Fatalf("ghost leaf (no enforcer) should not error: %v", err)
+	}
+}
+
+// stubRotator records the witness-set rotation the reconciler asks it to apply.
+type stubRotator struct {
+	called bool
+	logDID string
+	err    error
+}
+
+func (s *stubRotator) ApplyVerifiedRotation(logDID string, _ types.WitnessRotation) error {
+	s.called = true
+	s.logDID = logDID
+	return s.err
+}
+
+func witnessRotationFinding(t *testing.T) *findings.WitnessRotationFinding {
+	t.Helper()
+	dummy := types.WitnessSignature{PubKeyID: [32]byte{0x03}, SchemeTag: 1, SigBytes: []byte{0xAA}}
+	rot := types.WitnessRotation{
+		CurrentSetHash:    [32]byte{0x01},
+		NewSet:            []types.WitnessPublicKey{{ID: [32]byte{0x02}, PublicKey: append([]byte{0x04}, make([]byte, 64)...), SchemeTag: 1}},
+		SchemeTagOld:      1,
+		CurrentSignatures: []types.WitnessSignature{dummy},
+		SchemeTagNew:      1,
+		NewSignatures:     []types.WitnessSignature{dummy},
+	}
+	f, err := findings.NewWitnessRotationFinding(rot, "ep")
+	if err != nil {
+		t.Fatalf("NewWitnessRotationFinding: %v", err)
+	}
+	return f
+}
+
+// A verified witness-set rotation must drive the rotator, keyed by the
+// originator (the rotating log's DID — the same key the verifier resolved the
+// witness set under).
+func TestReconciler_WitnessRotation_DrivesRotator(t *testing.T) {
+	rot := &stubRotator{}
+	r, _ := NewReconciler(ReconcilerConfig{
+		Verifier: stubVerifier{ev: witnessRotationFinding(t)},
+		Heads:    NewTrustedHeadStore(nil),
+		Rotator:  rot,
+	})
+	ev := gossip.SignedEvent{Kind: gossip.KindWitnessRotation, Originator: "did:srclog"}
+	if err := r.HandleSignedEvent(context.Background(), ev); err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	if !rot.called {
+		t.Fatal("verified witness rotation did not drive the rotator")
+	}
+	if rot.logDID != "did:srclog" {
+		t.Fatalf("rotator logDID = %q, want did:srclog (the originator)", rot.logDID)
+	}
+}
+
+// A verified rotation with no rotator wired is logged, not errored, and never
+// advances trust — the fail-safe posture.
+func TestReconciler_WitnessRotation_NoRotator_NoError(t *testing.T) {
+	r, _ := NewReconciler(ReconcilerConfig{
+		Verifier: stubVerifier{ev: witnessRotationFinding(t)},
+		Heads:    NewTrustedHeadStore(nil),
+	})
+	ev := gossip.SignedEvent{Kind: gossip.KindWitnessRotation, Originator: "did:srclog"}
+	if err := r.HandleSignedEvent(context.Background(), ev); err != nil {
+		t.Fatalf("nil rotator should not error: %v", err)
+	}
+}
+
+// A rotator failure (e.g. an untracked log, or a monotonic reject) is
+// observable but non-fatal — it must not surface as a pull error.
+func TestReconciler_WitnessRotation_RotatorError_NonFatal(t *testing.T) {
+	rot := &stubRotator{err: errors.New("no current set")}
+	r, _ := NewReconciler(ReconcilerConfig{
+		Verifier: stubVerifier{ev: witnessRotationFinding(t)},
+		Heads:    NewTrustedHeadStore(nil),
+		Rotator:  rot,
+	})
+	ev := gossip.SignedEvent{Kind: gossip.KindWitnessRotation, Originator: "did:srclog"}
+	if err := r.HandleSignedEvent(context.Background(), ev); err != nil {
+		t.Fatalf("rotator error must be non-fatal, got: %v", err)
+	}
+	if !rot.called {
+		t.Fatal("rotator should have been invoked")
 	}
 }
 

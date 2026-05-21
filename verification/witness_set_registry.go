@@ -91,10 +91,35 @@ func (r *WitnessSetRegistry) Snapshot() map[string]*cosign.WitnessKeySet {
 func (r *WitnessSetRegistry) ApplyRotation(logDID string, rotation types.WitnessRotation, newQuorum int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.applyRotationLocked(logDID, rotation, &newQuorum)
+}
 
+// ApplyVerifiedRotation installs a rotation using the rotating log's STANDING
+// quorum (the current set's K), the SDK's own rotation model: witness.
+// VerifyRotation rebuilds the new set under the old set's NetworkID + Quorum +
+// BLSVerifier, so only the keys change. This is the path the inbound-gossip
+// reconciler takes for a peer-pulled, Tier-2-verified WitnessRotationFinding:
+// the new K is NOT sourced from the peer (a witness quorum cannot vote itself a
+// weaker threshold) — it is the governance K already trusted for that log.
+// Verify-before-swap + monotonic, identical to ApplyRotation otherwise.
+func (r *WitnessSetRegistry) ApplyVerifiedRotation(logDID string, rotation types.WitnessRotation) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.applyRotationLocked(logDID, rotation, nil)
+}
+
+// applyRotationLocked is the shared verify-before-swap body; the caller holds
+// r.mu so the quorum read and the swap are one atomic step (no rotation can
+// interleave between deriving K and installing the set). newQuorum == nil ⇒
+// inherit the current set's quorum.
+func (r *WitnessSetRegistry) applyRotationLocked(logDID string, rotation types.WitnessRotation, newQuorum *int) error {
 	current, ok := r.sets[logDID]
 	if !ok || current == nil {
 		return fmt.Errorf("%w: no current witness set for %q", ErrWitnessRegistry, logDID)
+	}
+	quorum := current.Quorum()
+	if newQuorum != nil {
+		quorum = *newQuorum
 	}
 	// Verify-before-swap + monotonic: VerifyRotation checks the rotation's
 	// CurrentSetHash + K-of-N signatures against the current set, so a stale or
@@ -103,7 +128,7 @@ func (r *WitnessSetRegistry) ApplyRotation(logDID string, rotation types.Witness
 	if err != nil {
 		return fmt.Errorf("%w: rotation verify for %q: %w", ErrWitnessRegistry, logDID, err)
 	}
-	next, err := cosign.NewECDSAWitnessKeySet(newKeys, r.networkID, newQuorum)
+	next, err := cosign.NewECDSAWitnessKeySet(newKeys, r.networkID, quorum)
 	if err != nil {
 		return fmt.Errorf("%w: rebuild rotated set for %q: %w", ErrWitnessRegistry, logDID, err)
 	}
