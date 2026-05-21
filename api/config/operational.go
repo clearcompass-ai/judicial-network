@@ -556,6 +556,8 @@ func LoadFromFile(path string) (Operational, error) {
 //	API_NONCE_STORE_BACKEND       (memory|redis)
 //	API_NONCE_STORE_REDIS_ADDR
 //	API_AUTH_MODE                 (mtls|jwt)
+//	API_GOSSIP_STORE_DSN          (lib/pq DSN; empty ⇒ in-memory store)
+//	API_GOSSIP_STORE_RETENTION_DAYS
 //
 // Unrecognized vars are ignored. Empty values are NOT applied
 // (treat as "keep current").
@@ -583,6 +585,14 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_AUTH_MODE"); v != "" {
 		cfg.Auth.Mode = AuthMode(strings.ToLower(strings.TrimSpace(v)))
+	}
+	if v := os.Getenv("API_GOSSIP_STORE_DSN"); v != "" {
+		cfg.GossipStore.PostgresDSN = v
+	}
+	if v := os.Getenv("API_GOSSIP_STORE_RETENTION_DAYS"); v != "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+			cfg.GossipStore.RetentionDays = n
+		}
 	}
 	return cfg
 }

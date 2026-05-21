@@ -1,0 +1,42 @@
+# judicial-network — local durable gossip store (Postgres only)
+#
+# Provisions ONLY a Postgres instance for the JN's durable gossip store
+# (the peer_gossip table behind GossipStore.PostgresDSN). It builds no Go
+# binaries and runs no app — you point network-api at it from env, the
+# same way the ledger takes its inputs from the environment:
+#
+#   export API_GOSSIP_STORE_DSN=postgres://attesta:attestapassword@localhost:5433/jn_gossip?sslmode=disable
+#   ./bin/network-api -config <config.json>
+#
+# Connection params come from env (defaults shown), mirroring the
+# ledger's dev compose:
+#   JN_GOSSIP_PG_USER  (default: attesta)
+#   JN_GOSSIP_PG_PASS  (default: attestapassword)
+#   JN_GOSSIP_PG_DB    (default: jn_gossip)
+#   JN_GOSSIP_PG_PORT  (host port, default: 5433 — avoids the ledger's 5432)
+#
+# The peer_gossip schema is created by the JN at boot
+# (PostgresStore.Migrate → CREATE TABLE IF NOT EXISTS); this compose only
+# stands up an empty database. This compose is the DOCKER backend of the
+# single authoritative launcher scripts/infra.sh (or `make infra-up`).
+
+services:
+  gossip-db:
+    image: postgres:16-alpine
+    container_name: jn-gossip-db
+    environment:
+      POSTGRES_USER: "${JN_GOSSIP_PG_USER:-attesta}"
+      POSTGRES_PASSWORD: "${JN_GOSSIP_PG_PASS:-attestapassword}"
+      POSTGRES_DB: "${JN_GOSSIP_PG_DB:-jn_gossip}"
+    ports:
+      - "${JN_GOSSIP_PG_PORT:-5433}:5432"
+    volumes:
+      - jn_gossip_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${JN_GOSSIP_PG_USER:-attesta} -d ${JN_GOSSIP_PG_DB:-jn_gossip}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  jn_gossip_pgdata:
