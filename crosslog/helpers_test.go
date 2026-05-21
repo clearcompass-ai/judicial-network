@@ -50,7 +50,7 @@ func makeSTHFixture(t *testing.T, n int) sthFixture {
 		}
 		signers[i] = cosign.NewECDSAWitnessSigner(priv)
 		pub := signatures.PubKeyBytes(&priv.PublicKey)
-		keys[i] = types.WitnessPublicKey{ID: sha256.Sum256(pub), PublicKey: pub}
+		keys[i] = types.WitnessPublicKey{ID: sha256.Sum256(pub), PublicKey: pub, SchemeTag: signatures.SchemeECDSA}
 	}
 	set, err := cosign.NewECDSAWitnessKeySet(keys, nid, n)
 	if err != nil {
