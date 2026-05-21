@@ -223,6 +223,7 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	t.Setenv("API_AUTH_MODE", "jwt")
 	t.Setenv("API_GOSSIP_STORE_DSN", "postgres://u:p@db.via.env:5432/jn_gossip?sslmode=disable")
 	t.Setenv("API_GOSSIP_STORE_RETENTION_DAYS", "45")
+	t.Setenv("API_NETWORK_BOOTSTRAP_FILE", "/via/env/bootstrap.json")
 
 	got := ApplyEnvOverrides(Defaults())
 
@@ -256,6 +257,33 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	}
 	if got.GossipStore.RetentionDays != 45 {
 		t.Errorf("GossipStore.RetentionDays = %d, want 45", got.GossipStore.RetentionDays)
+	}
+	if got.NetworkBootstrapFile != "/via/env/bootstrap.json" {
+		t.Errorf("NetworkBootstrapFile = %q", got.NetworkBootstrapFile)
+	}
+}
+
+// The JN discovers the shared trust root from the SAME env var the
+// standalone-witness fleet emits (LEDGER_NETWORK_BOOTSTRAP_FILE), so one
+// `eval "$(make -s print-env)"` feeds both the ledger and the JN.
+func TestApplyEnvOverrides_BootstrapDiscoveredFromLedgerEnv(t *testing.T) {
+	clearAPIEnv(t)
+	t.Setenv("LEDGER_NETWORK_BOOTSTRAP_FILE", "/fleet/.run/network-bootstrap.json")
+	got := ApplyEnvOverrides(Defaults())
+	if got.NetworkBootstrapFile != "/fleet/.run/network-bootstrap.json" {
+		t.Fatalf("NetworkBootstrapFile = %q, want the fleet-emitted path", got.NetworkBootstrapFile)
+	}
+}
+
+// The JN-namespaced API_NETWORK_BOOTSTRAP_FILE takes precedence over the
+// LEDGER_* fallback when both are set.
+func TestApplyEnvOverrides_BootstrapAPIWinsOverLedger(t *testing.T) {
+	clearAPIEnv(t)
+	t.Setenv("LEDGER_NETWORK_BOOTSTRAP_FILE", "/fleet/bootstrap.json")
+	t.Setenv("API_NETWORK_BOOTSTRAP_FILE", "/explicit/bootstrap.json")
+	got := ApplyEnvOverrides(Defaults())
+	if got.NetworkBootstrapFile != "/explicit/bootstrap.json" {
+		t.Fatalf("NetworkBootstrapFile = %q, want the explicit API_* value", got.NetworkBootstrapFile)
 	}
 }
 
@@ -664,6 +692,8 @@ func clearAPIEnv(t *testing.T) {
 		"API_AUTH_MODE",
 		"API_GOSSIP_STORE_DSN",
 		"API_GOSSIP_STORE_RETENTION_DAYS",
+		"API_NETWORK_BOOTSTRAP_FILE",
+		"LEDGER_NETWORK_BOOTSTRAP_FILE",
 	} {
 		t.Setenv(v, "")
 		_ = os.Unsetenv(v)
