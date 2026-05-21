@@ -414,10 +414,15 @@ func TestValidate_RejectsEmptyLedgerEndpoint(t *testing.T) {
 	expectInvalid(t, cfg, "LedgerEndpoint required")
 }
 
-func TestValidate_RejectsEmptyArtifactStoreEndpoint(t *testing.T) {
+func TestValidate_AllowsEmptyArtifactStoreEndpoint(t *testing.T) {
+	// The artifact store is the document/blob surface, not the JN's hard
+	// dependency (the ledger is). A ledger-only deployment leaves it out;
+	// entry write + audit need only the ledger.
 	cfg := validBase(t)
 	cfg.ArtifactStoreEndpoint = ""
-	expectInvalid(t, cfg, "ArtifactStoreEndpoint required")
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() with empty ArtifactStoreEndpoint should pass, got: %v", err)
+	}
 }
 
 func TestValidate_RejectsEmptyVerificationEndpoint(t *testing.T) {

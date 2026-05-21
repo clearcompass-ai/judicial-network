@@ -99,6 +99,14 @@ type deps struct {
 	// then runs unwrapped (constituent handlers' own auth still
 	// applies).
 	newAuthenticator func(config.AuthConfig) (middleware.Authenticator, error)
+
+	// requireLedger enforces the JN's hard dependency on the ledger at
+	// boot: the network is an AUDITOR of a ledger and has no purpose
+	// without one, so the binary refuses to start unless the ledger is
+	// reachable. realDeps points at probeLedgerReachable (a real HTTP
+	// probe with bounded retries); tests substitute a no-op so booting
+	// does not require a live ledger.
+	requireLedger func(context.Context, config.Operational) error
 }
 
 func realDeps() deps {
@@ -106,6 +114,7 @@ func realDeps() deps {
 		registerBundles:  registerProductionBundles,
 		newKeyStore:      buildKeyStore,
 		newAuthenticator: buildAuthenticator,
+		requireLedger:    probeLedgerReachable,
 	}
 }
 
@@ -115,6 +124,14 @@ func realDeps() deps {
 func run(argv []string, d deps) error {
 	cfg, err := loadConfig(argv)
 	if err != nil {
+		return err
+	}
+
+	// The JN is the Smart Edge over a ledger — an auditor with no purpose
+	// without one. Refuse to start unless the ledger is reachable. /readyz
+	// keeps it honest after boot; this keeps it honest AT boot. Injected via
+	// deps so tests don't need a live ledger.
+	if err := d.requireLedger(context.Background(), cfg); err != nil {
 		return err
 	}
 

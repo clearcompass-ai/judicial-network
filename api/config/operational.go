@@ -98,10 +98,14 @@ type Operational struct {
 	// "host:port". Required.
 	ListenAddr string `json:"listen_addr"`
 
-	// Upstream service endpoints. All required for a production
-	// deploy; tests may stub-substitute.
+	// Upstream service endpoints. The JN is an auditor of a ledger, so
+	// LedgerEndpoint is a HARD dependency — required by Validate AND probed
+	// for reachability at boot (the binary refuses to start without a live
+	// ledger). VerificationEndpoint is likewise required. ArtifactStoreEndpoint
+	// is OPTIONAL: it serves the document/blob surface, not the entry-write or
+	// audit path, so a deployment can leave it empty to run ledger-only.
 	LedgerEndpoint        string `json:"ledger_endpoint"`
-	ArtifactStoreEndpoint string `json:"artifact_store_endpoint"`
+	ArtifactStoreEndpoint string `json:"artifact_store_endpoint,omitempty"`
 	VerificationEndpoint  string `json:"verification_endpoint"`
 
 	// SmartContractWallet configures multi-chain EIP-1271 K-of-N
@@ -624,7 +628,9 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 // Rules enforced:
 //
 //  1. ListenAddr non-empty.
-//  2. Every upstream URL non-empty.
+//  2. LedgerEndpoint + VerificationEndpoint non-empty (the ledger is the
+//     JN's hard dependency). ArtifactStoreEndpoint is optional (the
+//     document surface; absent ⇒ ledger-only deployment).
 //  3. KeyStore.Backend is one of the known constants.
 //  4. KeyStore-specific sub-config is populated when its backend is
 //     selected (PKCS11 for softhsm; Vault for vault). Unused
@@ -645,11 +651,10 @@ func (cfg Operational) Validate() error {
 		return fmt.Errorf("%w: ListenAddr required", ErrInvalidConfig)
 	}
 	if cfg.LedgerEndpoint == "" {
-		return fmt.Errorf("%w: LedgerEndpoint required", ErrInvalidConfig)
+		return fmt.Errorf("%w: LedgerEndpoint required (the JN is an auditor of a ledger)", ErrInvalidConfig)
 	}
-	if cfg.ArtifactStoreEndpoint == "" {
-		return fmt.Errorf("%w: ArtifactStoreEndpoint required", ErrInvalidConfig)
-	}
+	// ArtifactStoreEndpoint is optional — it serves the document/blob
+	// surface, not the entry-write or audit path. Empty ⇒ ledger-only.
 	if cfg.VerificationEndpoint == "" {
 		return fmt.Errorf("%w: VerificationEndpoint required", ErrInvalidConfig)
 	}

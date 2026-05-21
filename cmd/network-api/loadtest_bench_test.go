@@ -134,6 +134,7 @@ func runLoadtest(b testing.TB, name string, makeReq func(addr string) *http.Requ
 		newAuthenticator: func(_ config.AuthConfig) (middleware.Authenticator, error) {
 			return injectingAuth{did: scwDID}, nil
 		},
+		requireLedger: func(context.Context, config.Operational) error { return nil },
 	}
 
 	runErr := make(chan error, 1)

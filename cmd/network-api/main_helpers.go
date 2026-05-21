@@ -21,6 +21,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 
 	_ "github.com/lib/pq" // postgres driver for the durable gossip store
 
@@ -132,12 +134,53 @@ func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 	}
 }
 
+// probeLedgerReachable enforces the JN's hard dependency on the ledger:
+// the network is an AUDITOR of a ledger and has no purpose without one, so
+// network-api refuses to start unless the ledger answers GET /healthz at
+// boot. It retries briefly to tolerate a ledger that is still coming up,
+// then fails with a directive error. /readyz keeps the dependency honest
+// after boot; this keeps it honest AT boot.
+func probeLedgerReachable(ctx context.Context, cfg config.Operational) error {
+	url := cfg.LedgerEndpoint + "/healthz"
+	client := &http.Client{Timeout: 3 * time.Second}
+	const attempts = 5
+	var lastErr error
+	for i := 1; i <= attempts; i++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return fmt.Errorf("ledger probe: build request: %w", err)
+		}
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode/100 == 2 {
+				return nil
+			}
+			lastErr = fmt.Errorf("%s returned HTTP %d", url, resp.StatusCode)
+		} else {
+			lastErr = err
+		}
+		if i < attempts {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(2 * time.Second):
+			}
+		}
+	}
+	return fmt.Errorf("ledger not reachable at %s after %d attempts: %w; "+
+		"the JN is an auditor of the ledger and will not start without one "+
+		"(bring it up first: cd ../ledger && ./scripts/run-local.sh up)",
+		url, attempts, lastErr)
+}
+
 // buildReadyzChecks builds the composer's /readyz check list.
 // Includes ledger + artifact-store HTTP reachability when their
 // respective endpoints are configured. An unset endpoint is
 // silently skipped — the composer's /readyz returns 200 only
 // when EVERY configured check passes; missing checks neither
-// pass nor fail.
+// pass nor fail. With the artifact store left out (empty endpoint),
+// readiness gates on the ledger alone.
 func buildReadyzChecks(cfg config.Operational) []observability.ReadyCheck {
 	var checks []observability.ReadyCheck
 	if cfg.LedgerEndpoint != "" {

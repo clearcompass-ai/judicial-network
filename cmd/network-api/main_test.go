@@ -21,6 +21,7 @@ DESCRIPTION:
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -395,6 +396,7 @@ func TestBuildAuthenticator_FlowsThroughRunDeps(t *testing.T) {
 			called = true
 			return middleware.MTLSAuth{}, nil
 		},
+		requireLedger: func(context.Context, config.Operational) error { return nil },
 	}
 
 	// Need a free port and a valid config for run() to reach the
@@ -496,6 +498,7 @@ func TestRun_HealthzServedThenShutdown(t *testing.T) {
 		registerBundles:  registerProductionBundles, // production set is fine
 		newKeyStore:      buildKeyStore,
 		newAuthenticator: buildAuthenticator,
+		requireLedger:    func(context.Context, config.Operational) error { return nil },
 	}
 
 	// Run the binary in a goroutine.

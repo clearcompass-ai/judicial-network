@@ -74,7 +74,7 @@ cat > "${CONFIG}" <<JSON
 {
   "listen_addr": "${JN_LISTEN_ADDR:-:8443}",
   "ledger_endpoint": "${API_LEDGER_ENDPOINT}",
-  "artifact_store_endpoint": "${JN_ARTIFACT_STORE_ENDPOINT:-http://localhost:8002}",
+  "artifact_store_endpoint": "${JN_ARTIFACT_STORE_ENDPOINT:-}",
   "verification_endpoint": "${JN_VERIFICATION_ENDPOINT:-http://localhost:8080}",
   "keystore": { "backend": "memory" },
   "nonce_store": { "backend": "memory" },
@@ -91,7 +91,8 @@ JSON
 [ -x "${BIN}" ] || make network-api
 echo "== starting network-api =="
 echo "  listen    : ${JN_LISTEN_ADDR:-:8443}  (mTLS — client cert REQUIRED; zero-trust)"
-echo "  ledger    : ${API_LEDGER_ENDPOINT}"
+echo "  ledger    : ${API_LEDGER_ENDPOINT}  (REQUIRED — probed at boot; the JN won't start without it)"
+echo "  artifact  : out (ledger-only deployment)"
 echo "  gossip    : ${API_GOSSIP_STORE_DSN}"
 echo "  bootstrap : ${API_NETWORK_BOOTSTRAP_FILE:-<none — export LEDGER_NETWORK_BOOTSTRAP_FILE to enable cosign verification>}"
 echo "  config    : ${CONFIG}"
