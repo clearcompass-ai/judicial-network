@@ -558,6 +558,9 @@ func LoadFromFile(path string) (Operational, error) {
 //	API_AUTH_MODE                 (mtls|jwt)
 //	API_GOSSIP_STORE_DSN          (lib/pq DSN; empty ⇒ in-memory store)
 //	API_GOSSIP_STORE_RETENTION_DAYS
+//	API_NETWORK_BOOTSTRAP_FILE    (shared trust root; falls back to
+//	                               LEDGER_NETWORK_BOOTSTRAP_FILE — the var
+//	                               the standalone-witness fleet emits)
 //
 // Unrecognized vars are ignored. Empty values are NOT applied
 // (treat as "keep current").
@@ -593,6 +596,19 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
 			cfg.GossipStore.RetentionDays = n
 		}
+	}
+	// Discover the shared trust root (network bootstrap doc → NetworkID +
+	// witness keysets) from env. API_NETWORK_BOOTSTRAP_FILE is the explicit
+	// JN-namespaced override; absent that, fall back to the SAME
+	// LEDGER_NETWORK_BOOTSTRAP_FILE the standalone-witness fleet emits
+	// (`make print-env`), so one `eval` feeds the ledger AND the JN with a
+	// byte-identical bootstrap. The JN never discovers witness ENDPOINTS or
+	// QUORUM_K: it verifies cosigned heads (it does not collect them), and K
+	// is encapsulated inside each WitnessKeySet, not a flat env knob.
+	if v := os.Getenv("API_NETWORK_BOOTSTRAP_FILE"); v != "" {
+		cfg.NetworkBootstrapFile = v
+	} else if v := os.Getenv("LEDGER_NETWORK_BOOTSTRAP_FILE"); v != "" {
+		cfg.NetworkBootstrapFile = v
 	}
 	return cfg
 }

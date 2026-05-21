@@ -130,3 +130,31 @@ make infra-down                         # stop (keeps data); 'destroy' wipes it
 ```
 
 Launcher: `scripts/infra.sh` (the source of truth) · docker backend: `deployment/local/docker-compose.gossip-db.yml` · native backend: `.run/gossip-db` · the JN reads the DSN from `API_GOSSIP_STORE_DSN` (`api/config/operational.go::ApplyEnvOverrides`).
+
+## 10. Discovering the witness/network trust from env
+
+The JN discovers its shared trust ROOT — the network bootstrap document
+(→ NetworkID + witness keysets) — from env, consuming the **same** var the
+standalone-witness fleet emits, so one `eval` feeds the ledger AND the JN:
+
+```bash
+# 1. stand up the fleet (standalone-witness repo) and load its env:
+(cd ../standalone-witness && ./scripts/run-local.sh --witnesses 5 --port-base 19001)
+eval "$(cd ../standalone-witness && make -s print-env)"   # sets LEDGER_NETWORK_BOOTSTRAP_FILE (+ LEDGER_WITNESS_*)
+
+# 2. run the JN in the SAME shell — it auto-discovers the bootstrap doc:
+./bin/network-api -config <config.json>
+#   precedence: API_NETWORK_BOOTSTRAP_FILE > LEDGER_NETWORK_BOOTSTRAP_FILE > config JSON
+```
+
+`ApplyEnvOverrides` reads `API_NETWORK_BOOTSTRAP_FILE` (explicit) and falls
+back to `LEDGER_NETWORK_BOOTSTRAP_FILE` (the fleet-emitted var). Byte-identical
+bootstrap ⇒ identical NetworkID + witness keyset across ledger, witnesses, and
+JN — the precondition for cross-component cosignature verification.
+
+**Slice boundary (why the JN discovers *only* the bootstrap):** the JN
+*verifies* cosigned heads; it never *collects* them, so it has no use for
+`LEDGER_WITNESS_ENDPOINTS`, and K is encapsulated inside each `WitnessKeySet`
+(Two-Tier Quorum Encapsulation), not a flat env knob. The per-log witness
+*topology* (`Witness.Sets`) and gossip *peers* (`GossipIngest.Peers`) remain
+deployment config — they are topology, not a fleet-emitted trust value.
