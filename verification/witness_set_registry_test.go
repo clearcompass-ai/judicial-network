@@ -97,3 +97,43 @@ func TestWitnessSetRegistry_ApplyRotation_UnknownLog(t *testing.T) {
 		t.Fatalf("err = %v, want ErrWitnessRegistry", err)
 	}
 }
+
+// ApplyVerifiedRotation installs the new set under the rotating log's STANDING
+// quorum — never a peer-chosen or default K. Seeded at K=3-of-3 so a default of
+// 1 or 2 would be detectable; the rotated set must still read 3-of-3.
+func TestWitnessSetRegistry_ApplyVerifiedRotation_InheritsQuorum(t *testing.T) {
+	cur := newVGWitnesses(t, 3, 3)
+	next := newVGWitnesses(t, 3, 3) // fresh keys
+	r := NewWitnessSetRegistry(map[string]*cosign.WitnessKeySet{"did:log": cur.set}, cur.nid)
+
+	if err := r.ApplyVerifiedRotation("did:log", cur.buildRotation(t, next.keys)); err != nil {
+		t.Fatalf("ApplyVerifiedRotation: %v", err)
+	}
+	got, _ := r.Get("did:log")
+	if got == cur.set {
+		t.Fatal("witness set not swapped after valid rotation")
+	}
+	if got.Size() != 3 || got.Quorum() != 3 {
+		t.Fatalf("rotated set size=%d quorum=%d, want 3/3 (inherited K)", got.Size(), got.Quorum())
+	}
+}
+
+// ApplyVerifiedRotation is verify-before-swap as well: a rotation that does not
+// verify against the current set leaves trust completely unchanged.
+func TestWitnessSetRegistry_ApplyVerifiedRotation_BogusLeavesTrustUnchanged(t *testing.T) {
+	cur := newVGWitnesses(t, 3, 2)
+	r := NewWitnessSetRegistry(map[string]*cosign.WitnessKeySet{"did:log": cur.set}, cur.nid)
+	bogus := types.WitnessRotation{
+		CurrentSetHash:    [32]byte{0xDE, 0xAD}, // wrong hash → fails verify-before-swap
+		NewSet:            cur.keys,
+		SchemeTagOld:      signatures.SchemeECDSA,
+		CurrentSignatures: []types.WitnessSignature{{PubKeyID: [32]byte{0x01}, SchemeTag: signatures.SchemeECDSA, SigBytes: []byte{0xAA}}},
+		SchemeTagNew:      signatures.SchemeECDSA,
+	}
+	if err := r.ApplyVerifiedRotation("did:log", bogus); !errors.Is(err, ErrWitnessRegistry) {
+		t.Fatalf("err = %v, want ErrWitnessRegistry", err)
+	}
+	if got, _ := r.Get("did:log"); got != cur.set {
+		t.Fatal("trust mutated despite a failed rotation")
+	}
+}

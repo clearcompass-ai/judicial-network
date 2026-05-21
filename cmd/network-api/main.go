@@ -249,12 +249,17 @@ func run(argv []string, d deps) error {
 			// implements both attestation.SignatureVerifier and
 			// SignatureVerifierWithReceipt, so the Path C composite
 			// collects per-signature Web3VerificationReceipts.
-			//
-			// LogQueries + LeafReader still wire from the
-			// ledger/aggregator surface in a follow-up; until then a
-			// /v1/verify/complete request for an unknown log returns a
-			// clean error rather than a panic.
 			SignatureVerifier: sigVerifier,
+			// LogQueries + LeafReader complete the Path C composite:
+			// /v1/verify/complete re-derives Merkle inclusion locally
+			// (SDK smt.LeafReader + per-log LedgerQueryAPI) instead of
+			// trusting the ledger's answer — the zero-trust "parse,
+			// don't validate" read path. Shared with the judicial deps
+			// so both surfaces read the same per-destination clients.
+			// Nil in ledger-less dev mode (cfg.LedgerEndpoint empty),
+			// where the inclusion stages return a clean error.
+			LogQueries: judicialDeps.LogQueries,
+			LeafReader: judicialDeps.LeafReader,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 		Gossip:   gossipFeed,

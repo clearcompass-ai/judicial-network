@@ -139,7 +139,12 @@ func buildGossipIngest(
 		Verifier:     verifier,
 		Heads:        heads,
 		Equivocation: responder,
-		Logger:       logger,
+		// The witness-set registry IS the rotator: a Tier-2-verified
+		// WitnessRotationFinding advances the live trust root (verify-before-
+		// swap, standing quorum). Without this, witness sets could never
+		// rotate at runtime — the SDK rotation machinery would stay dormant.
+		Rotator: witnessRegistry,
+		Logger:  logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reconciler: %w", err)
