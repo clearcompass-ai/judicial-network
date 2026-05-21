@@ -158,3 +158,24 @@ JN — the precondition for cross-component cosignature verification.
 (Two-Tier Quorum Encapsulation), not a flat env knob. The per-log witness
 *topology* (`Witness.Sets`) and gossip *peers* (`GossipIngest.Peers`) remain
 deployment config — they are topology, not a fleet-emitted trust value.
+
+## 11. Zero-trust auth posture (no backdoor — even in dev)
+
+There is **no no-auth path**, by construction:
+
+- `config.Validate` **rejects** `auth.mode=""` (`operational.go` — *"Auth.Mode required (mtls|jwt)"*). The binary cannot boot unauthenticated.
+- mTLS is **hard**: the composer listener sets `tls.RequireAndVerifyClientCert` (`api/server_helpers.go`) — a request without a CA-verified client cert fails the TLS handshake before any handler runs. The caller DID is lifted from the verified leaf cert's `did:` URI SAN (`api/middleware/mtls.go`, `ExtractDIDFromCert`, unit-tested).
+- The exchange's `VerifyClientCertIfGiven` is **not** a backdoor: it is paired with mandatory signed-request auth — a call is authenticated by a client cert **or** a request signature (verified against the caller's DID), never anonymously. TLS 1.3 floor throughout.
+- `keystore.backend=memory` is **key custody**, not an auth axis — it controls where the JN's *own* secp256k1 keys live (ephemeral in dev), and is orthogonal to caller authentication. `memory` keystore still runs full mTLS.
+
+Dev uses **real certificates**, same code path as production — only the CA is local:
+
+```bash
+make dev-certs CALLER_DID=did:web:state:tn:davidson   # → .run/certs/{ca,server,client}.{crt,key}
+# wire into config.auth: mode=mtls, client_ca_file/tls_cert_file/tls_key_file = .run/certs/...
+# every call presents the client cert (its did: SAN = the caller):
+curl --cacert .run/certs/ca.crt --cert .run/certs/client.crt --key .run/certs/client.key \
+     https://localhost:<port>/healthz
+```
+
+Generator: `scripts/gen-dev-certs.sh` (ECDSA P-256, chain-verified, `did:` URI SAN). The protocol's secp256k1 cosign keys are a separate concern (witness fixtures / keystore) — these are transport certs only.
