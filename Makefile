@@ -23,7 +23,7 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
         aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
         infra-up infra-down infra-status infra-dsn dev-certs identity \
-        smoke
+        jn-up smoke
 
 # The single authoritative launcher for local infra (gossip-store
 # Postgres). Docker by default; INFRA_BACKEND=native for the no-docker
@@ -193,6 +193,9 @@ dev-certs: ## Mint real mTLS dev certs (CA+server+client; client SAN=CALLER_DID)
 
 identity: ## Identity Infra (Step 0): mint all actors' DIDs + signing keys + mTLS certs → .run/identities/manifest.env
 	./scripts/identity.sh
+
+jn-up: ## Run the JN auditor (network-api): mTLS + durable gossip store, pointed at the local ledger (honors API_LEDGER_ENDPOINT + LEDGER_NETWORK_BOOTSTRAP_FILE)
+	./scripts/run-jn.sh up
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
 	$(WALK_COMPOSE) logs -f

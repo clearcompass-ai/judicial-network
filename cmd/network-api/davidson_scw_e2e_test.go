@@ -117,6 +117,7 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 		newAuthenticator: func(_ config.AuthConfig) (middleware.Authenticator, error) {
 			return injectingAuth{did: scwDID}, nil
 		},
+		requireLedger: func(context.Context, config.Operational) error { return nil },
 	}
 
 	// 5. Boot the binary in a goroutine.
