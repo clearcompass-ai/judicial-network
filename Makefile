@@ -29,8 +29,17 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
 # Postgres). Docker by default; INFRA_BACKEND=native for the no-docker
 # fallback. The script is the source of truth — these targets just call it.
 INFRA := ./scripts/infra.sh
-# Export so `make infra-up INFRA_BACKEND=native` reaches the script's env.
-export INFRA_BACKEND
+
+# Infra inputs (override on the make line, e.g. `make infra-up JN_GOSSIP_PG_PORT=5444`).
+# These are the SAME vars scripts/infra.sh and docker-compose.gossip-db.yml read;
+# exporting them sends the values through to both. INFRA_BACKEND selects docker
+# (default) vs native, matching the script's --docker/--native flags.
+INFRA_BACKEND     ?= docker
+JN_GOSSIP_PG_USER ?= attesta
+JN_GOSSIP_PG_PASS ?= attestapassword
+JN_GOSSIP_PG_DB   ?= jn_gossip
+JN_GOSSIP_PG_PORT ?= 5433
+export INFRA_BACKEND JN_GOSSIP_PG_USER JN_GOSSIP_PG_PASS JN_GOSSIP_PG_DB JN_GOSSIP_PG_PORT
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
