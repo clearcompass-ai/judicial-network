@@ -135,6 +135,51 @@ type Operational struct {
 	// Zero-value leaves the mount disabled (no /v1/gossip routes).
 	// Trust Alignment 11 — CDN-offloaded anti-entropy.
 	GossipFeed GossipFeedConfig `json:"gossip_feed"`
+
+	// GossipIngest configures the INBOUND anti-entropy plane: a
+	// background loop that PULLS peer ledgers' gossip feeds, verifies
+	// each event (envelope + finding proof) against JN-local trust, and
+	// drives the enforcers (trusted-head tracking, equivocation slashing).
+	// Disabled by default — JN serves its own feed without it.
+	GossipIngest GossipIngestConfig `json:"gossip_ingest"`
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Gossip ingest (inbound anti-entropy)
+// ─────────────────────────────────────────────────────────────────────
+
+// GossipIngestConfig configures the inbound gossip pull loop. Witness sets
+// (the trust root for verifying pulled CosignedTreeHead / equivocation
+// findings) come from Witness.Sets + NetworkBootstrapFile — NEVER from a peer.
+type GossipIngestConfig struct {
+	// Enabled gates the whole inbound loop. Disabled ⇒ no peers are pulled.
+	Enabled bool `json:"enabled"`
+
+	// Peers is the operator-pinned allowlist of peer feeds to pull. A peer is
+	// only a byte source; each event is verified on its own cryptography, so
+	// listing a peer grants it no trust. Empty ⇒ nothing to pull.
+	Peers []GossipPeerConfig `json:"peers,omitempty"`
+
+	// PollInterval is the wait between catch-up rounds per peer. Zero applies
+	// the puller default (5s).
+	PollInterval time.Duration `json:"poll_interval,omitempty"`
+
+	// PageLimit caps events fetched per /since page. Zero applies the puller
+	// default (256).
+	PageLimit int `json:"page_limit,omitempty"`
+
+	// SlashThreshold is the number of distinct verified equivocation findings
+	// against one ledger that triggers slashing. Zero ⇒ slasher default (1 —
+	// a single unforgeable proof suffices).
+	SlashThreshold int `json:"slash_threshold,omitempty"`
+}
+
+// GossipPeerConfig names one peer ledger's gossip feed.
+type GossipPeerConfig struct {
+	// LogDID is the peer's log DID (diagnostic + per-peer cursor key).
+	LogDID string `json:"log_did"`
+	// BaseURL is the peer's base URL; the SDK feed client appends /v1/gossip.
+	BaseURL string `json:"base_url"`
 }
 
 // GossipFeedConfig configures the SDK gossip feed mount.
