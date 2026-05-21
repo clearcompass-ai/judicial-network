@@ -1,0 +1,52 @@
+# judicial-network — JN auditor (network-api) as a container.
+#
+# Driven by scripts/run-jn.sh (docker default). The binary is env-driven, so
+# this compose is just one deployment of it — a k8s Deployment sets the SAME
+# env + mounts the SAME files, only the paths differ. Nothing JN-specific is
+# baked into the image.
+#
+# Reaches the host-run ledger + gossip Postgres via host.docker.internal (the
+# ledger node + gossip store run on the host, like the ledger's own dev flow).
+# The JN does NOT talk to witness endpoints — it resolves witness keys from
+# the (mounted) bootstrap, so no witness host wiring is needed.
+#
+# Inputs from the environment (run-jn.sh exports them):
+#   JN_BOOTSTRAP_FILE    abs host path to network-bootstrap.json (mounted ro)
+#   JN_WITNESS_QUORUM_K  K-of-N quorum for the bootstrap-derived witness set
+
+name: jn-auditor
+
+services:
+  network-api:
+    build:
+      context: ../..
+      dockerfile: deployment/local/Dockerfile.network-api
+    container_name: jn-network-api
+    ports:
+      - "8443:8443"
+    environment:
+      API_LISTEN_ADDR: ":8443"
+      # The ledger is the JN's hard dependency — probed at boot. From inside
+      # the container the host-run ledger + gossip PG are host.docker.internal.
+      API_LEDGER_ENDPOINT: "${API_LEDGER_ENDPOINT:-http://host.docker.internal:8080}"
+      API_GOSSIP_STORE_DSN: "${API_GOSSIP_STORE_DSN:-postgres://attesta:attestapassword@host.docker.internal:5433/jn_gossip?sslmode=disable}"
+      # Shared trust root (mounted) → active auditor.
+      API_NETWORK_BOOTSTRAP_FILE: "/run/jn/bootstrap.json"
+      API_WITNESS_QUORUM_K: "${JN_WITNESS_QUORUM_K:-5}"
+      API_EQUIVOCATION_SCANNER_ENABLED: "true"
+      API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE: "/run/jn/gossip.pem"
+      API_GOSSIP_INGEST_ENABLED: "true"
+      API_GOSSIP_FEED_ENABLED: "true"
+      # mTLS material (mounted Secret in k8s; .run/certs here). Zero-trust.
+      API_AUTH_CLIENT_CA_FILE: "/run/jn/certs/ca.crt"
+      API_AUTH_TLS_CERT_FILE: "/run/jn/certs/server.crt"
+      API_AUTH_TLS_KEY_FILE: "/run/jn/certs/server.key"
+    volumes:
+      - ../../.run/certs:/run/jn/certs:ro
+      - ../../.run/auditor/gossip.pem:/run/jn/gossip.pem:ro
+      - "${JN_BOOTSTRAP_FILE}:/run/jn/bootstrap.json:ro"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # No container healthcheck: /healthz is behind mTLS (RequireAndVerifyClientCert),
+    # so a probe without a client cert is rejected by design. Verify health
+    # externally with a client cert (see run-jn.sh banner).
