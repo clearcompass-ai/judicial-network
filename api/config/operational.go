@@ -172,6 +172,13 @@ type GossipIngestConfig struct {
 	// against one ledger that triggers slashing. Zero ⇒ slasher default (1 —
 	// a single unforgeable proof suffices).
 	SlashThreshold int `json:"slash_threshold,omitempty"`
+
+	// TileMirrors maps a source-log DID to its Static-CT tile root URL, used to
+	// replay cross-log inclusion (ClassMerkle) proofs. The proof is checked
+	// against the source log's TRUSTED head (from verified tree heads), so a
+	// mirror is a data source, not a trust root — but it is still operator-
+	// pinned. Empty ⇒ cross-log inclusion findings fail-closed.
+	TileMirrors []TileMirrorConfig `json:"tile_mirrors,omitempty"`
 }
 
 // GossipPeerConfig names one peer ledger's gossip feed.
@@ -179,6 +186,15 @@ type GossipPeerConfig struct {
 	// LogDID is the peer's log DID (diagnostic + per-peer cursor key).
 	LogDID string `json:"log_did"`
 	// BaseURL is the peer's base URL; the SDK feed client appends /v1/gossip.
+	BaseURL string `json:"base_url"`
+}
+
+// TileMirrorConfig names one source log's Static-CT tile mirror.
+type TileMirrorConfig struct {
+	// LogDID is the source log whose inclusion proofs this mirror serves.
+	LogDID string `json:"log_did"`
+	// BaseURL is the Static-CT tile root URL (the tessera fetcher appends
+	// /tile/* paths).
 	BaseURL string `json:"base_url"`
 }
 

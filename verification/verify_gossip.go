@@ -62,9 +62,21 @@ func (g gossipEnvelopeVerifier) VerifyEnvelope(ctx context.Context, ev gossip.Si
 // TreeHeadSource resolves the JN-trusted source tree head for a source-log DID,
 // the trust anchor for ClassMerkle (cross-log inclusion) proof replay. A nil
 // source ⇒ merkle findings cannot be verified and the router returns its
-// missing-dependency error (fail-closed).
+// missing-dependency error (fail-closed). monitoring.TrustedHeadStore satisfies
+// it — JN's view of each peer log's head, advanced only by verified
+// CosignedTreeHeads.
 type TreeHeadSource interface {
 	TrustedHead(sourceLogDID string) (types.TreeHead, bool)
+}
+
+// TileFetcherSource resolves a Static-CT tile fetcher for a source-log DID. The
+// fetcher need not be trusted: a cross-log inclusion proof is RFC 6962-checked
+// against the TRUSTED source head's RootHash, so wrong tiles produce a proof
+// that fails the root check. The security anchor is the head (from
+// TreeHeadSource), not the mirror. Unknown DID ⇒ (nil, false) ⇒ the merkle
+// finding fails-closed at the router.
+type TileFetcherSource interface {
+	FetcherFor(sourceLogDID string) (tessera.TileFetcherFunc, bool)
 }
 
 // GossipVerifier runs the two-tier check. Construct via NewGossipVerifier;
@@ -75,7 +87,7 @@ type GossipVerifier struct {
 	sets     *WitnessSetRegistry
 	signer   findings.SignerVerifier
 	heads    TreeHeadSource
-	tiles    tessera.TileFetcherFunc
+	tiles    TileFetcherSource
 }
 
 // GossipVerifierConfig configures a GossipVerifier.
@@ -97,10 +109,11 @@ type GossipVerifierConfig struct {
 	// *did.VerifierRegistry). Optional; absent ⇒ signer findings fail-closed.
 	SignerVerifier findings.SignerVerifier
 
-	// Heads + Tiles enable ClassMerkle (cross-log inclusion). Optional;
-	// absent ⇒ merkle findings fail-closed via the router's missing-dep error.
+	// Heads + Tiles enable ClassMerkle (cross-log inclusion). Both keyed by the
+	// finding's own SourceLogDID. Optional; absent ⇒ merkle findings fail-closed
+	// via the router's missing-dependency error.
 	Heads TreeHeadSource
-	Tiles tessera.TileFetcherFunc
+	Tiles TileFetcherSource
 }
 
 // NewGossipVerifier validates config and returns a GossipVerifier.
@@ -151,11 +164,22 @@ func (gv *GossipVerifier) Verify(ctx context.Context, ev gossip.SignedEvent) (go
 		SourceLogDID:   ev.Originator,
 		WitnessSets:    gv.sets.Snapshot(),
 		SignerVerifier: gv.signer,
-		TileFetcher:    gv.tiles,
 	}
-	if gv.heads != nil {
-		if head, ok := gv.heads.TrustedHead(ev.Originator); ok {
-			vc.SourceHead = head
+	// ClassMerkle (cross-log inclusion) anchors on the SOURCE log named INSIDE
+	// the finding — which may differ from the gossip originator that relayed
+	// it. Resolve the trusted head + tile fetcher by the finding's own
+	// SourceLogDID so a relayed attestation is checked against the source log
+	// JN independently trusts, not against the relayer.
+	if cli, ok := event.(*findings.CrossLogInclusionFinding); ok {
+		if gv.heads != nil {
+			if head, ok := gv.heads.TrustedHead(cli.SourceLogDID); ok {
+				vc.SourceHead = head
+			}
+		}
+		if gv.tiles != nil {
+			if fetcher, ok := gv.tiles.FetcherFor(cli.SourceLogDID); ok {
+				vc.TileFetcher = fetcher
+			}
 		}
 	}
 	if err := judicialfindings.Verify(ctx, event, vc); err != nil {

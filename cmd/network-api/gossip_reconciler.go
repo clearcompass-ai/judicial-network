@@ -88,15 +88,29 @@ func buildGossipIngest(
 	witnessRegistry := verification.NewWitnessSetRegistry(witnessSets, networkID)
 	heads := monitoring.NewTrustedHeadStore(logger)
 
+	// Cross-log inclusion (ClassMerkle) tile mirrors. Proofs replay against the
+	// source log's TRUSTED head (heads, above), so a mirror is a data source,
+	// not a trust root; empty config ⇒ those findings fail-closed.
+	var tiles verification.TileFetcherSource
+	if len(cfg.GossipIngest.TileMirrors) > 0 {
+		mirrors := make(map[string]string, len(cfg.GossipIngest.TileMirrors))
+		for _, m := range cfg.GossipIngest.TileMirrors {
+			mirrors[m.LogDID] = m.BaseURL
+		}
+		htm, terr := verification.NewHTTPTileMirrors(mirrors, nil)
+		if terr != nil {
+			return nil, fmt.Errorf("tile mirrors: %w", terr)
+		}
+		tiles = htm
+	}
+
 	verifier, err := verification.NewGossipVerifier(verification.GossipVerifierConfig{
 		Originator:     originator,
 		NetworkID:      networkID,
 		WitnessSets:    witnessRegistry,
 		SignerVerifier: registry,
 		Heads:          heads,
-		// Tiles intentionally nil: cross-log inclusion (ClassMerkle) proof
-		// replay needs a trusted Static-CT tile mirror, wired in a follow-up.
-		// Until then those findings fail-closed at the router.
+		Tiles:          tiles,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gossip verifier: %w", err)
