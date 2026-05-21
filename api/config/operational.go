@@ -151,6 +151,31 @@ type Operational struct {
 	// JN audits passively until an operator provisions the auditor
 	// identity (GossipDID + SigningKeyFile).
 	EquivocationScanner EquivocationScannerConfig `json:"equivocation_scanner"`
+
+	// GossipStore selects the backend for the gossip feed + inbound
+	// persistence. Empty PostgresDSN ⇒ in-memory (dev/test boots
+	// dependency-free); a DSN ⇒ a durable Postgres-backed store (the
+	// peer_gossip table) that survives restarts. The JN owns this store
+	// — never a ledger (custody of evidence-about-ledgers must sit with
+	// the auditor).
+	GossipStore GossipStoreConfig `json:"gossip_store"`
+}
+
+// GossipStoreConfig configures the durable gossip store. Zero value ⇒
+// in-memory.
+type GossipStoreConfig struct {
+	// PostgresDSN is the lib/pq connection string (e.g.
+	// "postgres://user:pass@host:5432/db?sslmode=require"). Empty ⇒ the
+	// in-memory store is used and a warning is logged (NOT durable).
+	PostgresDSN string `json:"postgres_dsn,omitempty"`
+
+	// RetentionDays bounds the peer_gossip table; the scheduler prunes
+	// rows older than this (D8). Zero ⇒ default 30. Pruned findings
+	// re-hydrate via stateless catch-up from peers if ever needed.
+	RetentionDays int `json:"retention_days,omitempty"`
+
+	// MaxOpenConns caps the pool. Zero ⇒ default 8.
+	MaxOpenConns int `json:"max_open_conns,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────────────

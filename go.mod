@@ -7,6 +7,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/getkin/kin-openapi v0.137.0
+	github.com/lib/pq v1.12.3
 	github.com/miekg/pkcs11 v1.1.1
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/zerolog v1.35.1

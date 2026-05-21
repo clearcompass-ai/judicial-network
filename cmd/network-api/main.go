@@ -219,7 +219,23 @@ func run(argv []string, d deps) error {
 	// store keeps the boot path side-effect-free; production
 	// deployments swap in a durable store via dep-injection
 	// once the persistence shape is finalised.
-	gossipFeed, err := buildGossipFeed(cfg)
+	// Durable gossip store — the JN's sovereign auditor memory. Postgres
+	// when GossipStore.PostgresDSN is set; in-memory otherwise. Shared by
+	// the serve feed and (D7 follow-up) inbound persistence. Closed on
+	// shutdown so the pool drains cleanly.
+	gossipStore, closeGossipStore, err := buildGossipStore(cfg, slog.Default())
+	if err != nil {
+		return fmt.Errorf("gossip store: %w", err)
+	}
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := closeGossipStore(closeCtx); err != nil {
+			log.Printf("network-api: gossip store close: %v", err)
+		}
+	}()
+
+	gossipFeed, err := buildGossipFeed(cfg, gossipStore)
 	if err != nil {
 		return fmt.Errorf("gossip feed: %w", err)
 	}

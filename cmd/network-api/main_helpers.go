@@ -17,7 +17,12 @@ DESCRIPTION:
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
+	"log/slog"
+
+	_ "github.com/lib/pq" // postgres driver for the durable gossip store
 
 	"github.com/clearcompass-ai/attesta/gossip"
 
@@ -173,20 +178,53 @@ func buildAuthenticator(cfg config.AuthConfig) (middleware.Authenticator, error)
 	}
 }
 
-// buildGossipFeed constructs the SDK gossip feed mount when
-// cfg.GossipFeed.Enabled is true. Returns (nil, nil) when disabled
-// — api.NewServer treats a nil Gossip as "skip mount."
-//
-// The mount uses an in-memory gossip.Store. Production deployments
-// that need cross-restart durability swap this for a persistent
-// store via dep-injection on the deps struct. Keeping the boot path
-// side-effect-free (no FS / network at boot) preserves the
-// composer's "boots clean on any host" invariant.
-func buildGossipFeed(cfg config.Operational) (*gossipfeed.Feed, error) {
+// buildGossipStore constructs the gossip.Store shared by the serve feed
+// and (when wired) inbound persistence. A configured PostgresDSN yields
+// a durable PostgresStore (the JN's sovereign auditor memory, surviving
+// restarts); an empty DSN falls back to the in-memory store so dev/test
+// boots stay dependency-free. Returns the store plus a closer the caller
+// defers on shutdown.
+func buildGossipStore(cfg config.Operational, logger *slog.Logger) (gossip.Store, func(context.Context) error, error) {
+	if cfg.GossipStore.PostgresDSN == "" {
+		logger.Warn("gossip store: no PostgresDSN configured; using in-memory store (NOT durable across restarts)")
+		store := gossip.NewInMemoryStore()
+		return store, store.Close, nil
+	}
+
+	db, err := sql.Open("postgres", cfg.GossipStore.PostgresDSN)
+	if err != nil {
+		return nil, nil, fmt.Errorf("gossip store: open postgres: %w", err)
+	}
+	maxConns := cfg.GossipStore.MaxOpenConns
+	if maxConns <= 0 {
+		maxConns = 8
+	}
+	db.SetMaxOpenConns(maxConns)
+	if err := db.PingContext(context.Background()); err != nil {
+		_ = db.Close()
+		return nil, nil, fmt.Errorf("gossip store: ping postgres: %w", err)
+	}
+	store, err := gossipfeed.NewPostgresStore(db)
+	if err != nil {
+		_ = db.Close()
+		return nil, nil, fmt.Errorf("gossip store: %w", err)
+	}
+	if err := store.Migrate(context.Background()); err != nil {
+		_ = db.Close()
+		return nil, nil, fmt.Errorf("gossip store: migrate: %w", err)
+	}
+	logger.Info("gossip store: durable Postgres backend ready (peer_gossip)")
+	return store, store.Close, nil
+}
+
+// buildGossipFeed constructs the SDK gossip feed mount over the supplied
+// store when cfg.GossipFeed.Enabled is true. Returns (nil, nil) when
+// disabled — api.NewServer treats a nil Gossip as "skip mount." The
+// store is shared (not owned) here; the caller owns its lifecycle.
+func buildGossipFeed(cfg config.Operational, store gossip.Store) (*gossipfeed.Feed, error) {
 	if !cfg.GossipFeed.Enabled {
 		return nil, nil
 	}
-	store := gossip.NewInMemoryStore()
 	feed, err := gossipfeed.NewFeedMount(gossipfeed.FeedConfig{
 		Store:      store,
 		PathPrefix: cfg.GossipFeed.PathPrefix,
