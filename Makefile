@@ -22,7 +22,7 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
         audit-sdk lint judicial-cli network-api court-tools provider-tools \
         aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
-        infra-up infra-down infra-status infra-dsn \
+        infra-up infra-down infra-status infra-dsn dev-certs \
         smoke
 
 # The single authoritative launcher for local infra (gossip-store
@@ -187,6 +187,9 @@ infra-status: ## Show local infra status
 
 infra-dsn: ## Print API_GOSSIP_STORE_DSN for the local gossip Postgres
 	@$(INFRA) dsn
+
+dev-certs: ## Mint real mTLS dev certs (CA+server+client; client SAN=CALLER_DID). Zero-trust, no no-auth path.
+	./scripts/gen-dev-certs.sh $(CALLER_DID)
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
 	$(WALK_COMPOSE) logs -f
