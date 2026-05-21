@@ -22,10 +22,15 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
         audit-sdk lint judicial-cli network-api court-tools provider-tools \
         aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
-        gossip-db-up gossip-db-down gossip-db-status gossip-db-dsn \
+        infra-up infra-down infra-status infra-dsn \
         smoke
 
-GOSSIP_DB := ./scripts/gossip-db.sh
+# The single authoritative launcher for local infra (gossip-store
+# Postgres). Docker by default; INFRA_BACKEND=native for the no-docker
+# fallback. The script is the source of truth — these targets just call it.
+INFRA := ./scripts/infra.sh
+# Export so `make infra-up INFRA_BACKEND=native` reaches the script's env.
+export INFRA_BACKEND
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -162,17 +167,17 @@ walkthrough-up: install-bins ## Boot the JN-side tools layer (court-tools + prov
 walkthrough-down: ## Tear down the JN-side tools layer
 	$(WALK_COMPOSE) down -v
 
-gossip-db-up: ## Start the local durable gossip-store Postgres (docker only)
-	$(GOSSIP_DB) up
+infra-up: ## Launch local infra (gossip-store Postgres). Docker default; INFRA_BACKEND=native for the no-docker fallback.
+	$(INFRA) up
 
-gossip-db-down: ## Stop the local gossip-store Postgres (keeps data)
-	$(GOSSIP_DB) down
+infra-down: ## Stop local infra (keeps data; INFRA_BACKEND=native for the native cluster)
+	$(INFRA) down
 
-gossip-db-status: ## Show the gossip-store Postgres container status
-	$(GOSSIP_DB) status
+infra-status: ## Show local infra status
+	$(INFRA) status
 
-gossip-db-dsn: ## Print API_GOSSIP_STORE_DSN for the local gossip Postgres
-	@$(GOSSIP_DB) dsn
+infra-dsn: ## Print API_GOSSIP_STORE_DSN for the local gossip Postgres
+	@$(INFRA) dsn
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
 	$(WALK_COMPOSE) logs -f

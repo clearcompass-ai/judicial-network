@@ -17,8 +17,8 @@
 #
 # The peer_gossip schema is created by the JN at boot
 # (PostgresStore.Migrate → CREATE TABLE IF NOT EXISTS); this compose only
-# stands up an empty database. Use scripts/gossip-db.sh (or
-# `make gossip-db-up`) to drive it.
+# stands up an empty database. This compose is the DOCKER backend of the
+# single authoritative launcher scripts/infra.sh (or `make infra-up`).
 
 services:
   gossip-db:

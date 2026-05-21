@@ -117,11 +117,16 @@ All previously-listed gaps are now wired (config-gated, off by default, so dev/t
 
 Postgres-in-Docker, docker-only, env-driven (mirrors the ledger's config-from-env):
 
+A single authoritative launcher (`scripts/infra.sh`) — **docker by default**, with an optional **native** (no-docker) fallback that stands up Postgres via `initdb`/`pg_ctl`:
+
 ```bash
-make gossip-db-up                       # docker compose up the gossip Postgres (:5433)
-export "$(make -s gossip-db-dsn)"       # API_GOSSIP_STORE_DSN=postgres://…/jn_gossip
+make infra-up                           # docker (default) — gossip Postgres on :5433
+#   no docker daemon? use the optional fallback:
+make infra-up INFRA_BACKEND=native      # local Postgres via initdb/pg_ctl (no docker)
+
+export "$(make -s infra-dsn)"           # API_GOSSIP_STORE_DSN=postgres://…/jn_gossip
 ./bin/network-api -config <config.json> # PostgresStore.Migrate creates peer_gossip at boot
-make gossip-db-down                     # stop (keeps data); 'destroy' deletes the volume
+make infra-down                         # stop (keeps data); 'destroy' wipes it
 ```
 
-Compose: `deployment/local/docker-compose.gossip-db.yml` · launcher: `scripts/gossip-db.sh` · the JN reads the DSN from `API_GOSSIP_STORE_DSN` (`api/config/operational.go::ApplyEnvOverrides`).
+Launcher: `scripts/infra.sh` (the source of truth) · docker backend: `deployment/local/docker-compose.gossip-db.yml` · native backend: `.run/gossip-db` · the JN reads the DSN from `API_GOSSIP_STORE_DSN` (`api/config/operational.go::ApplyEnvOverrides`).
