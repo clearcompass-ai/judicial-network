@@ -19,7 +19,7 @@ BIN_DIR     ?= ./bin
 WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.yml
 
 .PHONY: help build test test-short test-race vet tidy clean version \
-        audit-sdk lint judicial-cli network-api court-tools provider-tools \
+        audit-sdk lint judicial-cli network-api run-local court-tools provider-tools \
         aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
         smoke
@@ -49,6 +49,36 @@ judicial-cli: ## Build cmd/judicial-cli into ./bin/
 network-api: ## Build cmd/network-api into ./bin/
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/network-api ./cmd/network-api
+
+# ────────────────────────────────────────────────────────────────────
+# Local run — reference URIs via env (no run-script duplication)
+# ────────────────────────────────────────────────────────────────────
+#
+# Runs cmd/network-api directly against reference services whose URIs
+# come from env vars (localhost defaults below). JN is the EDGE that
+# consumes a ledger, so this does NOT spin its own topology — point it
+# at a ledger you already run locally:
+#
+#     make -C ../ledger integration-up        # ledger node-a on :8080
+#     make run-local                          # JN edge → that ledger
+#
+# Every reference URI is an env override (the binary reads the API_*
+# allowlist; see api/config ApplyEnvOverrides) — nothing is baked in:
+#
+#     API_LEDGER_ENDPOINT=http://localhost:8081 make run-local
+#     API_NETWORK_BOOTSTRAP_FILE=./bootstrap.json \
+#       API_ARTIFACT_STORE_ENDPOINT=http://localhost:8002 make run-local
+#
+# Non-URI knobs (auth mode, keystore backend) live in $(API_DEV_CONFIG)
+# — a JWT/plain-HTTP dev profile so the server boots without TLS certs.
+# See deployment/local/README.md.
+API_DEV_CONFIG ?= deployment/local/api.dev.json
+
+run-local: ## Run network-api locally; reference URIs from env (point at a local ledger)
+	@echo "network-api → ledger=$${API_LEDGER_ENDPOINT:-http://localhost:8080}  listen=$${API_LISTEN_ADDR:-:8443}  config=$(API_DEV_CONFIG)"
+	API_LISTEN_ADDR=$${API_LISTEN_ADDR:-:8443} \
+	API_LEDGER_ENDPOINT=$${API_LEDGER_ENDPOINT:-http://localhost:8080} \
+	$(GO) run ./cmd/network-api --config $(API_DEV_CONFIG)
 
 court-tools: ## Build tools/court-tools into ./bin/
 	@mkdir -p $(BIN_DIR)

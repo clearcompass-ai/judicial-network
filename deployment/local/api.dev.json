@@ -1,0 +1,7 @@
+{
+  "auth": {
+    "mode": "jwt",
+    "jwt_issuer": "https://localhost/dev-issuer",
+    "jwks_url": "http://localhost:9301/jwks.json"
+  }
+}

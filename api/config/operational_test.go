@@ -217,6 +217,7 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	t.Setenv("API_LEDGER_ENDPOINT", "https://op.via.env")
 	t.Setenv("API_ARTIFACT_STORE_ENDPOINT", "https://art.via.env")
 	t.Setenv("API_VERIFICATION_ENDPOINT", "https://vfy.via.env")
+	t.Setenv("API_NETWORK_BOOTSTRAP_FILE", "/etc/jn/bootstrap.via.env.json")
 	t.Setenv("API_KEYSTORE_BACKEND", "softhsm")
 	t.Setenv("API_NONCE_STORE_BACKEND", "redis")
 	t.Setenv("API_NONCE_STORE_REDIS_ADDR", "redis.via.env:6379")
@@ -236,6 +237,9 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	}
 	if got.VerificationEndpoint != "https://vfy.via.env" {
 		t.Errorf("VerificationEndpoint = %q", got.VerificationEndpoint)
+	}
+	if got.NetworkBootstrapFile != "/etc/jn/bootstrap.via.env.json" {
+		t.Errorf("NetworkBootstrapFile = %q", got.NetworkBootstrapFile)
 	}
 	if got.KeyStore.Backend != KeyStoreBackendSoftHSM {
 		t.Errorf("KeyStore.Backend = %q, want softhsm", got.KeyStore.Backend)
@@ -650,6 +654,7 @@ func clearAPIEnv(t *testing.T) {
 		"API_LEDGER_ENDPOINT",
 		"API_ARTIFACT_STORE_ENDPOINT",
 		"API_VERIFICATION_ENDPOINT",
+		"API_NETWORK_BOOTSTRAP_FILE",
 		"API_KEYSTORE_BACKEND",
 		"API_NONCE_STORE_BACKEND",
 		"API_NONCE_STORE_REDIS_ADDR",

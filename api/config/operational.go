@@ -430,7 +430,7 @@ func LoadFromFile(path string) (Operational, error) {
 //	API_LEDGER_ENDPOINT
 //	API_ARTIFACT_STORE_ENDPOINT
 //	API_VERIFICATION_ENDPOINT
-//	API_ETH_RPC_ENDPOINT
+//	API_NETWORK_BOOTSTRAP_FILE
 //	API_KEYSTORE_BACKEND          (memory|softhsm|vault)
 //	API_NONCE_STORE_BACKEND       (memory|redis)
 //	API_NONCE_STORE_REDIS_ADDR
@@ -450,6 +450,9 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_VERIFICATION_ENDPOINT"); v != "" {
 		cfg.VerificationEndpoint = v
+	}
+	if v := os.Getenv("API_NETWORK_BOOTSTRAP_FILE"); v != "" {
+		cfg.NetworkBootstrapFile = v
 	}
 	if v := os.Getenv("API_KEYSTORE_BACKEND"); v != "" {
 		cfg.KeyStore.Backend = KeyStoreBackend(strings.ToLower(strings.TrimSpace(v)))
