@@ -224,6 +224,16 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("gossip feed: %w", err)
 	}
 
+	// Proactive equivocation scanner: the JN as ACTIVE auditor. When
+	// enabled, a background loop polls peer ledgers' tree heads and
+	// emits a signed gossip EquivocationFinding on proving a fork. nil
+	// when disabled. Built before the listener so a misconfigured
+	// auditor identity aborts boot rather than failing in a goroutine.
+	equivScanner, equivPublisher, err := buildEquivocationScanner(cfg, registry, slog.Default())
+	if err != nil {
+		return fmt.Errorf("equivocation scanner: %w", err)
+	}
+
 	srv, err := api.NewServer(api.Config{
 		Addr:          cfg.ListenAddr,
 		TLSCertFile:   cfg.Auth.TLSCertFile,
@@ -283,6 +293,23 @@ func run(argv []string, d deps) error {
 			}
 		}()
 		log.Printf("network-api: gossip ingest pulling %d peer(s)", len(cfg.GossipIngest.Peers))
+	}
+
+	// Start the equivocation scanner (if configured) under the signal
+	// ctx so it drains on shutdown. Like the puller it is a background
+	// auditor — read-only against ledgers, never blocking the hot-path.
+	// The publisher is drained last (defer) so in-flight findings flush.
+	if equivScanner != nil {
+		go equivScanner.Run(ctx)
+		log.Printf("network-api: equivocation scanner auditing %d log(s)",
+			len(cfg.Witness.Sets))
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := equivPublisher.Close(closeCtx); err != nil {
+				log.Printf("network-api: gossip publisher close: %v", err)
+			}
+		}()
 	}
 
 	// Run the listener in a goroutine; main goroutine waits on

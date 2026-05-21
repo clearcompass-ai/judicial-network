@@ -142,6 +142,15 @@ type Operational struct {
 	// drives the enforcers (trusted-head tracking, equivocation slashing).
 	// Disabled by default — JN serves its own feed without it.
 	GossipIngest GossipIngestConfig `json:"gossip_ingest"`
+
+	// EquivocationScanner configures the proactive split-brain hunter:
+	// a background loop that polls peer ledgers' latest cosigned tree
+	// heads and, on proving a same-size/different-root fork, emits a
+	// SIGNED gossip EquivocationFinding to peers — burning the rogue
+	// ledger's identity across the federation. Disabled by default; the
+	// JN audits passively until an operator provisions the auditor
+	// identity (GossipDID + SigningKeyFile).
+	EquivocationScanner EquivocationScannerConfig `json:"equivocation_scanner"`
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -215,6 +224,42 @@ type GossipFeedConfig struct {
 	// to use the SDK default; misconfiguring this breaks
 	// interoperability with off-the-shelf gossip clients.
 	PathPrefix string `json:"path_prefix,omitempty"`
+}
+
+// EquivocationScannerConfig configures the proactive equivocation
+// scanner (equivocation.Scanner). The scanner is the JN acting as an
+// active auditor: it polls peer ledgers' latest cosigned tree heads and
+// emits a SIGNED gossip EquivocationFinding when witness.
+// DetectEquivocation proves a same-size/different-root fork.
+//
+// Disabled by default. Enabling it requires the JN to hold its own
+// gossip signing key (SigningKeyFile) — emitting a finding makes the JN
+// an originator on the gossip plane, not a passive receiver. The
+// originator DID is a self-certifying did:key DERIVED from that key
+// (gossipfeed.DIDKeyForSigningKey), never a DID string in this config:
+// Operational forbids DID-bearing fields so identity can never leak in
+// via JSON. The scan set is every log JN holds a witness set for
+// (Witness.Sets); the trust root never comes from a peer.
+type EquivocationScannerConfig struct {
+	// Enabled gates the whole loop. Disabled ⇒ no scanner goroutine.
+	Enabled bool `json:"enabled"`
+
+	// PollInterval is the cadence between full sweeps of every tracked
+	// log. Zero applies the scanner default (30s).
+	PollInterval time.Duration `json:"poll_interval,omitempty"`
+
+	// SigningKeyFile is the path to the JN's secp256k1 gossip signing
+	// key in PEM form (block type "ATTESTA SECP256K1 PRIVATE KEY"). The
+	// originator did:key is derived from this key at boot. Required when
+	// Enabled.
+	SigningKeyFile string `json:"signing_key_file,omitempty"`
+
+	// EmitPeers optionally overrides the gossip emit fan-out targets
+	// (base URLs; the SDK sink appends /v1/gossip). Empty ⇒ reuse
+	// GossipIngest.Peers — gossip topologies are symmetric, so the peers
+	// JN ingests from are exactly the peers that must hear its
+	// equivocation alarms.
+	EmitPeers []string `json:"emit_peers,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -518,6 +563,19 @@ func (cfg Operational) Validate() error {
 	}
 	if err := cfg.SmartContractWallet.validate(); err != nil {
 		return err
+	}
+	if err := cfg.EquivocationScanner.validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s EquivocationScannerConfig) validate() error {
+	if !s.Enabled {
+		return nil
+	}
+	if s.SigningKeyFile == "" {
+		return fmt.Errorf("%w: EquivocationScanner.SigningKeyFile required when enabled", ErrInvalidConfig)
 	}
 	return nil
 }
