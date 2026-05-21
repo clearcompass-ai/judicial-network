@@ -135,6 +135,67 @@ type Operational struct {
 	// Zero-value leaves the mount disabled (no /v1/gossip routes).
 	// Trust Alignment 11 — CDN-offloaded anti-entropy.
 	GossipFeed GossipFeedConfig `json:"gossip_feed"`
+
+	// GossipIngest configures the INBOUND anti-entropy plane: a
+	// background loop that PULLS peer ledgers' gossip feeds, verifies
+	// each event (envelope + finding proof) against JN-local trust, and
+	// drives the enforcers (trusted-head tracking, equivocation slashing).
+	// Disabled by default — JN serves its own feed without it.
+	GossipIngest GossipIngestConfig `json:"gossip_ingest"`
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Gossip ingest (inbound anti-entropy)
+// ─────────────────────────────────────────────────────────────────────
+
+// GossipIngestConfig configures the inbound gossip pull loop. Witness sets
+// (the trust root for verifying pulled CosignedTreeHead / equivocation
+// findings) come from Witness.Sets + NetworkBootstrapFile — NEVER from a peer.
+type GossipIngestConfig struct {
+	// Enabled gates the whole inbound loop. Disabled ⇒ no peers are pulled.
+	Enabled bool `json:"enabled"`
+
+	// Peers is the operator-pinned allowlist of peer feeds to pull. A peer is
+	// only a byte source; each event is verified on its own cryptography, so
+	// listing a peer grants it no trust. Empty ⇒ nothing to pull.
+	Peers []GossipPeerConfig `json:"peers,omitempty"`
+
+	// PollInterval is the wait between catch-up rounds per peer. Zero applies
+	// the puller default (5s).
+	PollInterval time.Duration `json:"poll_interval,omitempty"`
+
+	// PageLimit caps events fetched per /since page. Zero applies the puller
+	// default (256).
+	PageLimit int `json:"page_limit,omitempty"`
+
+	// SlashThreshold is the number of distinct verified equivocation findings
+	// against one ledger that triggers slashing. Zero ⇒ slasher default (1 —
+	// a single unforgeable proof suffices).
+	SlashThreshold int `json:"slash_threshold,omitempty"`
+
+	// TileMirrors maps a source-log DID to its Static-CT tile root URL, used to
+	// replay cross-log inclusion (ClassMerkle) proofs. The proof is checked
+	// against the source log's TRUSTED head (from verified tree heads), so a
+	// mirror is a data source, not a trust root — but it is still operator-
+	// pinned. Empty ⇒ cross-log inclusion findings fail-closed.
+	TileMirrors []TileMirrorConfig `json:"tile_mirrors,omitempty"`
+}
+
+// GossipPeerConfig names one peer ledger's gossip feed.
+type GossipPeerConfig struct {
+	// LogDID is the peer's log DID (diagnostic + per-peer cursor key).
+	LogDID string `json:"log_did"`
+	// BaseURL is the peer's base URL; the SDK feed client appends /v1/gossip.
+	BaseURL string `json:"base_url"`
+}
+
+// TileMirrorConfig names one source log's Static-CT tile mirror.
+type TileMirrorConfig struct {
+	// LogDID is the source log whose inclusion proofs this mirror serves.
+	LogDID string `json:"log_did"`
+	// BaseURL is the Static-CT tile root URL (the tessera fetcher appends
+	// /tile/* paths).
+	BaseURL string `json:"base_url"`
 }
 
 // GossipFeedConfig configures the SDK gossip feed mount.
@@ -182,6 +243,14 @@ type WitnessConfig struct {
 	// then go to the ledger only.
 	WitnessEndpoints map[string][]string `json:"witness_endpoints,omitempty"`
 
+	// Sets declares the per-log witness topology used for CROSS-LOG
+	// verification (Dependencies.WitnessSets). Each entry names a
+	// source/peer log's witness DIDs + K-of-N quorum; the binary resolves
+	// them to secp256k1 keysets at boot against the network's NetworkID
+	// (NetworkBootstrapFile). Empty leaves WitnessSets empty — cross-log
+	// handlers then surface 503 for an unknown source log.
+	Sets []WitnessSetConfig `json:"sets,omitempty"`
+
 	// CacheTTL is how long a fetched tree head is cached before a
 	// fresh fetch. Zero applies the SDK default.
 	CacheTTL time.Duration `json:"cache_ttl,omitempty"`
@@ -189,6 +258,25 @@ type WitnessConfig struct {
 	// HTTPTimeout caps a single tree-head HTTP fetch. Zero applies
 	// the SDK default.
 	HTTPTimeout time.Duration `json:"http_timeout,omitempty"`
+}
+
+// WitnessSetConfig declares one source/peer log's witness topology for
+// cross-log verification: the log's witness DIDs (resolved to secp256k1
+// public keys via witness.KeysFromDIDs) and its K-of-N quorum threshold.
+// The cosign NetworkID is network-wide (derived from NetworkBootstrapFile),
+// so it is not repeated per set.
+type WitnessSetConfig struct {
+	// LogDID is the source/peer log this witness set verifies (the
+	// source_log_did of its anchors / cross-log proofs). Required, unique.
+	LogDID string `json:"log_did"`
+
+	// WitnessDIDs are the log's witness public-key DIDs (did:key
+	// secp256k1). Required, len >= QuorumK.
+	WitnessDIDs []string `json:"witness_dids"`
+
+	// QuorumK is the K-of-N threshold this log's cosignatures must meet.
+	// Required, 1 <= QuorumK <= len(WitnessDIDs).
+	QuorumK int `json:"quorum_k"`
 }
 
 // ─────────────────────────────────────────────────────────────────────

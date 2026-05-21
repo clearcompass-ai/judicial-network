@@ -41,9 +41,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -184,6 +186,16 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("signature verifier: %w", err)
 	}
 
+	// Inbound gossip anti-entropy: pull peer feeds, verify each event
+	// (envelope + finding proof) against JN-local trust, drive enforcers.
+	// nil when GossipIngest is disabled / has no peers. Built before the
+	// listener so a misconfiguration aborts boot rather than failing silently
+	// in a background goroutine.
+	gossipPuller, err := buildGossipIngest(cfg, sigVerifier, slog.Default())
+	if err != nil {
+		return fmt.Errorf("gossip ingest: %w", err)
+	}
+
 	//  observability bundle is constructed once and shared
 	// between the composer's /metrics endpoint and the ledger-
 	// submit metrics so all jn_* metrics scrape from one registry.
@@ -255,6 +267,18 @@ func run(argv []string, d deps) error {
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Start the inbound gossip puller (if configured) under the signal ctx so
+	// it drains on shutdown. It is a background observer — it never blocks the
+	// listener or the commit hot-path (the two-clock discipline).
+	if gossipPuller != nil {
+		go func() {
+			if err := gossipPuller.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				log.Printf("network-api: gossip ingest stopped: %v", err)
+			}
+		}()
+		log.Printf("network-api: gossip ingest pulling %d peer(s)", len(cfg.GossipIngest.Peers))
+	}
 
 	// Run the listener in a goroutine; main goroutine waits on
 	// either the server exiting (error) or the context being

@@ -71,6 +71,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
+	"github.com/clearcompass-ai/judicial-network/crosslog"
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -83,17 +84,22 @@ import (
 // LedgerEndpoint — the deps that need it remain nil and the
 // dependent handlers return 500 with a clear error.
 func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) (judicial.Dependencies, error) {
+	witnessSets, err := buildWitnessSets(cfg)
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("build witness sets: %w", err)
+	}
+
 	deps := judicial.Dependencies{
 		Registry:     registry,
 		Extractor:    schemas.NewRegistry(),
 		ContentStore: newContentStore(cfg.ArtifactStoreEndpoint),
 		KeyStore:     lifecycleartifact.NewInMemoryKeyStore(),
 		DelKeyStore:  artifact.NewInMemoryDelegationKeyStore(),
-		// v0.3.0: one *cosign.WitnessKeySet per log DID, populated by
-		// future witness-roster operational config. Empty map → handlers
-		// that need cross-log verification surface 503 with a clear
+		// One *cosign.WitnessKeySet per source/peer log DID, resolved from
+		// cfg.Witness.Sets against the network's NetworkID. Empty when no
+		// sets are configured → cross-log handlers surface 503 with a clear
 		// "no witness set for source_log_did" error.
-		WitnessSets: map[string]*cosign.WitnessKeySet{},
+		WitnessSets: witnessSets,
 	}
 
 	if cfg.LedgerEndpoint == "" {
@@ -117,6 +123,30 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	deps.SchemaResolver = newSchemaResolverShim()
 	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
 	return deps, nil
+}
+
+// buildWitnessSets resolves cfg.Witness.Sets into the per-source-log
+// *cosign.WitnessKeySet map that the cross-log verification paths read
+// (VerifyCrossLogProof, crosslog.VerifyCosignedAnchor).
+//
+// No sets configured → an empty (non-nil) map; cross-log handlers then
+// surface 503 for an unknown source log. When sets ARE configured the
+// network identity is mandatory: each keyset binds to the cosign
+// NetworkID derived from cfg.NetworkBootstrapFile, so an empty bootstrap
+// path is a boot-failing misconfiguration (a zero NetworkID would make
+// every cross-log cosignature verification fail at request time).
+func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet, error) {
+	if len(cfg.Witness.Sets) == 0 {
+		return map[string]*cosign.WitnessKeySet{}, nil
+	}
+	if cfg.NetworkBootstrapFile == "" {
+		return nil, fmt.Errorf("witness sets configured but NetworkBootstrapFile is empty (cross-log keysets need the network ID)")
+	}
+	networkID, err := loadNetworkID(cfg.NetworkBootstrapFile)
+	if err != nil {
+		return nil, fmt.Errorf("load network id: %w", err)
+	}
+	return crosslog.BuildWitnessSets(cfg.Witness.Sets, networkID)
 }
 
 // loadNetworkID reads the bootstrap document from disk, parses it,

@@ -119,12 +119,14 @@ func Verify(ctx context.Context, event gossip.Event, vc VerificationContext) err
 // expects WitnessSets[SourceLogDID] to resolve to a non-nil
 // *WitnessKeySet; cryptographic verification is the SDK's
 // responsibility from there.
+//
+// Most ClassWitness findings implement findings.WitnessAttested and verify
+// through it. EscrowOverrideFinding is the exception: it carries K-of-N
+// witness cosignatures but exposes no Verify(*cosign.WitnessKeySet) method
+// (the SDK verifies them via cosign.Verify on the reconstructed payload). The
+// router bridges that gap here so the bare decoded finding is still quorum-
+// verified — never silently downgraded to envelope-only trust.
 func verifyWitness(event gossip.Event, vc VerificationContext) error {
-	wa, ok := event.(findings.WitnessAttested)
-	if !ok {
-		return fmt.Errorf("%w: Kind %q registered as ClassWitness but type %T does not implement WitnessAttested",
-			ErrRouter, event.Kind(), event)
-	}
 	if vc.SourceLogDID == "" {
 		return fmt.Errorf("%w: VerificationContext.SourceLogDID required for ClassWitness", ErrRouter)
 	}
@@ -132,8 +134,33 @@ func verifyWitness(event gossip.Event, vc VerificationContext) error {
 	if !ok || set == nil {
 		return fmt.Errorf("%w: no WitnessSet for source_log_did %q", ErrRouter, vc.SourceLogDID)
 	}
-	if err := wa.Verify(set); err != nil {
-		return fmt.Errorf("%w: witness verify: %w", ErrRouter, err)
+
+	switch f := event.(type) {
+	case findings.WitnessAttested:
+		if err := f.Verify(set); err != nil {
+			return fmt.Errorf("%w: witness verify: %w", ErrRouter, err)
+		}
+		return nil
+	case *findings.EscrowOverrideFinding:
+		return verifyEscrowOverrideQuorum(f, set)
+	default:
+		return fmt.Errorf("%w: Kind %q registered as ClassWitness but type %T does not implement WitnessAttested",
+			ErrRouter, event.Kind(), event)
+	}
+}
+
+// verifyEscrowOverrideQuorum verifies an EscrowOverrideFinding's K-of-N
+// witness cosignatures by reconstructing the cosign EscrowOverridePayload and
+// running cosign.Verify against set — the same primitive the emit-side
+// escrow.VerifyAndWrap uses, so admission and re-audit share one verification
+// surface (Trust Alignment 14).
+func verifyEscrowOverrideQuorum(f *findings.EscrowOverrideFinding, set *cosign.WitnessKeySet) error {
+	result, err := cosign.Verify(f.Auth, set, cosign.HashAlgoSHA256, f.Signatures)
+	if err != nil {
+		return fmt.Errorf("%w: escrow override cosign verify: %w", ErrRouter, err)
+	}
+	if result == nil || !result.QuorumReached(set.Quorum()) {
+		return fmt.Errorf("%w: escrow override quorum not reached (K=%d)", ErrRouter, set.Quorum())
 	}
 	return nil
 }
@@ -173,10 +200,10 @@ func verifySelfAttested(event gossip.Event) error {
 	return nil
 }
 
-// verifyMerkle handles every ClassMerkle event. The SDK ships
-// no concrete implementer in v0.3.0; this branch is forward-
-// compatible scaffolding so future cross-log proof findings
-// route through the same dispatch surface.
+// verifyMerkle handles every ClassMerkle event. CrossLogInclusionFinding
+// (attesta v0.7.0) is the first concrete MerkleAttested implementer; the
+// branch replays an RFC 6962 inclusion proof against vc.SourceHead via
+// vc.TileFetcher (a Static-CT tile fetcher pointed at the source log).
 func verifyMerkle(ctx context.Context, event gossip.Event, vc VerificationContext) error {
 	ma, ok := event.(findings.MerkleAttested)
 	if !ok {
