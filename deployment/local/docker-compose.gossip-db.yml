@@ -19,11 +19,16 @@
 # (PostgresStore.Migrate → CREATE TABLE IF NOT EXISTS); this compose only
 # stands up an empty database. This compose is the DOCKER backend of the
 # single authoritative launcher scripts/infra.sh (or `make infra-up`).
+#
+# An explicit project name (`name:`) isolates this from any other compose
+# project on the host, so it never adopts/orphans the ledger's or
+# witness's containers.
+
+name: jn-gossip
 
 services:
   gossip-db:
     image: postgres:16-alpine
-    container_name: jn-gossip-db
     environment:
       POSTGRES_USER: "${JN_GOSSIP_PG_USER:-attesta}"
       POSTGRES_PASSWORD: "${JN_GOSSIP_PG_PASS:-attestapassword}"

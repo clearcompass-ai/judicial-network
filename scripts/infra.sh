@@ -61,7 +61,7 @@ Run network-api against it (config-from-env, like the ledger):
   ./bin/network-api -config <config.json>
 
 The peer_gossip table is created at boot (PostgresStore.Migrate).
-Tear down: ./scripts/infra.sh down${2}
+Tear down: ./scripts/infra.sh down${2:-}
 EOF
 }
 
@@ -69,21 +69,27 @@ EOF
 docker_compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 
 up_docker() {
+    # Preflight (mirrors the witness/ledger dev-preflight): docker present,
+    # compose v2 available, daemon reachable — fail clean, point at --native.
     if ! command -v docker >/dev/null 2>&1; then
-        echo "FATAL: docker not on PATH. Optional fallback: ./scripts/infra.sh up --native" >&2
+        echo "FATAL: docker not on PATH. Optional no-docker fallback: ./scripts/infra.sh up --native" >&2
+        exit 1
+    fi
+    if ! docker compose version >/dev/null 2>&1; then
+        echo "FATAL: 'docker compose' v2 not available. Optional fallback: ./scripts/infra.sh up --native" >&2
+        exit 1
+    fi
+    if ! docker info >/dev/null 2>&1; then
+        echo "FATAL: docker daemon not reachable. Optional no-docker fallback: ./scripts/infra.sh up --native" >&2
         exit 1
     fi
     echo "== infra up (docker) =="
-    if ! docker_compose up -d; then
-        echo "ERROR: 'docker compose up' failed — is the docker daemon running?" >&2
-        echo "       Optional no-docker fallback: ./scripts/infra.sh up --native" >&2
-        exit 1
-    fi
+    docker_compose up -d
     for _ in $(seq 1 30); do
         docker_compose exec -T gossip-db pg_isready -U "${PG_USER}" -d "${PG_DB}" >/dev/null 2>&1 && break
         sleep 1
     done
-    summary "docker · container jn-gossip-db"
+    summary "docker · project jn-gossip"
 }
 
 # ── native backend (optional, no docker) ─────────────────────────
