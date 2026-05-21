@@ -65,8 +65,8 @@ volumes; `dev-up` re-runs the init.)
 
 ```bash
 cd ~/attesta/jn
-go build -o ~/.local/bin/court-tools     ./tools/cmd/court-tools
-go build -o ~/.local/bin/provider-tools  ./tools/cmd/provider-tools
+go build -o ~/.local/bin/court-tools     ./tools/court-tools/cmd/court-tools
+go build -o ~/.local/bin/provider-tools  ./tools/provider-tools/cmd/provider-tools
 
 court-tools     -h    # prints flags
 provider-tools  -h    # prints flags
@@ -151,7 +151,7 @@ running). After each `judicial-cli submit` step, wait a few
 seconds and query the aggregator's cache:
 
 ```bash
-$ curl -fsS http://localhost:8090/v1/cases | jq '.[] | .docket_number'
+$ curl -fsS http://localhost:8090/v1/cases/2024-CV-001 | jq '.docket_number'
 "2024-CV-001"
 ```
 
@@ -169,7 +169,7 @@ $ curl -fsS \
 (Replace `your-dev-key` with whatever auth your team uses; the
 walkthrough doesn't ship a real key. provider-tools' API-key
 middleware can be no-op'd in dev by leaving the header unset
-in dev mode — see `tools/providers/server.go` for the gate.)
+in dev mode — see `tools/provider-tools/auth.go` for the gate.)
 
 ## 7. End-state recap
 

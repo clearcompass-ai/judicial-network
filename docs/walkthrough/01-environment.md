@@ -20,8 +20,8 @@ git clone <fork>/ledger      ledger
 git clone <fork>/judicial-network       jn
 ```
 
-Each repo has the `claude/notice-of-appearance-event-rsEGt` branch
-checked out (or substitute your team's working branch).
+Each repo has your team's working branch checked out (the three
+repos — sdk, ledger, jn — should be on matching branches).
 
 ## 2. One-time GCS setup
 
@@ -130,7 +130,7 @@ cd ~/attesta/jn
 make install-bins
 ```
 
-That writes 6 binaries into `./bin/`. The walkthrough uses:
+That writes 5 binaries into `./bin/`. The walkthrough uses:
 - `bin/judicial-cli`     — the per-actor CLI you'll drive every step with
 - `bin/court-tools`      — the court-side admin / audit surface (boots in §03)
 - `bin/provider-tools`   — the provider-side party / KYC surface (boots in §03)
@@ -143,7 +143,7 @@ $ ./bin/judicial-cli version
 0.0.1
 $ make version
 judicial-network    0.0.1
-attesta (Go module) v0.1.0
+attesta (Go module) v1.14.0
 ledger (HTTP)       v0.1.0  (run via 'make walkthrough-up')
 ```
 
@@ -184,11 +184,11 @@ Bookmark these:
 | Dev compose | `ledger/deployment/local/docker-compose.dev.yml` |
 | Integration compose | `ledger/deployment/local/docker-compose.integration.yml` |
 | Wire format | `sdk/core/envelope/serialize.go` |
-| Signing primitive (did:key) | `sdk/crypto/signatures/entry_verify.go:342` (`SignEntry`) |
+| Signing primitive (did:key) | `sdk/crypto/signatures/entry_verify.go:394` (`SignEntry`) |
 | Signing primitive (did:pkh) | `sdk/crypto/signatures/eth_sign.go` (`SignEthereumRecoverable`) |
-| Cross-exchange seam (`EvidencePointers`) | `sdk/core/envelope/control_header.go:127` |
-| Civil-case payload struct | `jn/schemas/civil_case.go:29` |
-| Family-case payload struct | `jn/schemas/family_case.go:31` |
+| Cross-exchange seam (`EvidencePointers`) | `sdk/core/envelope/control_header.go:128` |
+| Civil-case payload struct | `jn/schemas/civil_case.go:32` |
+| Family-case payload struct | `jn/schemas/family_case.go:35` |
 
 ## Recap
 
@@ -222,6 +222,6 @@ tools), with the cases in `cases/` driving traffic through both.
 | Ledger log: `bucket doesn't exist` | `gcloud storage buckets list --project=$GOOGLE_PROJECT` to confirm name |
 | `dev-up` hangs > 2 min | `make dev-logs` — usually Postgres still initializing |
 | `port 8080 already in use` | Previous run didn't shut down. `make dev-down` clears it. |
-| Build fails in `cmd/judicial-cli/` | `go mod download` from JN repo. Confirm `go.mod` shows `attesta v0.8.1`. |
+| Build fails in `cmd/judicial-cli/` | `go mod download` from JN repo. Confirm `go.mod` shows `attesta v1.14.0`. |
 
 Next: **[02-real-dids.md](02-real-dids.md)**.

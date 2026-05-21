@@ -15,7 +15,7 @@ with the exact commands that produce each step on your laptop.
 | Component | Version | Source |
 |---|---|---|
 | `judicial-network` (this repo) | `0.0.1` | `make version` |
-| `attesta` (SDK Go module) | `0.1.0` | `go.mod` require line |
+| `attesta` (SDK Go module) | `v1.14.0` | `go.mod` require line |
 | `ledger` (HTTP service binary) | `0.1.0` | `clearcompass-ai/ledger` repo |
 
 The walkthrough's commands assume those three components match. If
@@ -183,10 +183,10 @@ when those paths are ready to be exercised.
 
 ## Status
 
-- SDK: `v0.8.0` (EIP-1271 supported but not exercised here)
+- SDK: `attesta v1.14.0` (EIP-1271 supported but not exercised here)
 - Ledger topology: `deployment/local/docker-compose.dev.yml` in
   the ledger repo
 - CLI: `judicial-network/cmd/judicial-cli/`
-- Branch: `claude/notice-of-appearance-event-rsEGt` (all three repos)
+- Branch: your team's working branch (checked out in all three repos)
 
 Ready? Open **[01-environment.md](01-environment.md)**.
