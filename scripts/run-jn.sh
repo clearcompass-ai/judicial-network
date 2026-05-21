@@ -80,10 +80,12 @@ if [ ! -s "${AUD}/gossip.pem" ]; then
     python3 -c "import base64,sys; b=bytes.fromhex(sys.argv[1]); open(sys.argv[2],'w').write('-----BEGIN ATTESTA SECP256K1 PRIVATE KEY-----\n'+base64.encodebytes(b).decode()+'-----END ATTESTA SECP256K1 PRIVATE KEY-----\n')" "${HEX}" "${AUD}/gossip.pem"
 fi
 
-# 3. Durable gossip store (docker default). Honor an operator-set DSN.
+# 3. Durable gossip store — ensure it's up (docker default). The DSN is wired
+#    PER-BACKEND below: native → localhost; docker → host.docker.internal (the
+#    container reaches the host's PG). We deliberately do NOT export a localhost
+#    DSN here, so it can't leak into the container.
 if [ -z "${API_GOSSIP_STORE_DSN:-}" ]; then
     make infra-up >/dev/null
-    export "$(make -s infra-dsn)"
 fi
 
 # 4. Shared trust root → ACTIVE auditor. API_* explicit; else the LEDGER_* var
@@ -98,6 +100,10 @@ if [ "${BACKEND}" = "docker" ]; then
         echo "       export LEDGER_NETWORK_BOOTSTRAP_FILE=<abs path>, or run passively with --native." >&2
         exit 1
     fi
+    # In-container, the ledger + gossip PG are host.docker.internal (compose
+    # defaults). Drop any localhost values from this shell so a leftover export
+    # (e.g. from a prior native run) can't leak into the container.
+    unset API_LEDGER_ENDPOINT API_GOSSIP_STORE_DSN
     export JN_BOOTSTRAP_FILE="${BOOT}" JN_WITNESS_QUORUM_K="${K}"
     echo "== network-api (docker · ACTIVE auditor) =="
     echo "  bootstrap : ${BOOT}  (mounted ro)   quorum_k: ${K}"
@@ -107,6 +113,9 @@ if [ "${BACKEND}" = "docker" ]; then
 fi
 
 # ── Native backend (no-docker fallback) ──────────────────────────────
+# Bare process talks to localhost; wire the gossip DSN now (NOT before the
+# backend switch, so it never reaches the docker path).
+[ -n "${API_GOSSIP_STORE_DSN:-}" ] || export "$(make -s infra-dsn)"
 export API_LEDGER_ENDPOINT="${API_LEDGER_ENDPOINT:-http://localhost:8080}"
 export API_AUTH_CLIENT_CA_FILE="${CERTS}/ca.crt"
 export API_AUTH_TLS_CERT_FILE="${CERTS}/server.crt"

@@ -44,7 +44,9 @@ services:
     volumes:
       - ../../.run/certs:/run/jn/certs:ro
       - ../../.run/auditor/gossip.pem:/run/jn/gossip.pem:ro
-      - "${JN_BOOTSTRAP_FILE}:/run/jn/bootstrap.json:ro"
+      # Default keeps `docker compose down` (and any unset invocation) parseable;
+      # run-jn.sh always sets JN_BOOTSTRAP_FILE for `up`.
+      - "${JN_BOOTSTRAP_FILE:-/dev/null}:/run/jn/bootstrap.json:ro"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # No container healthcheck: /healthz is behind mTLS (RequireAndVerifyClientCert),
