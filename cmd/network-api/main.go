@@ -223,6 +223,18 @@ func run(argv []string, d deps) error {
 	ledgerBreaker := reliability.NewBreaker(reliability.DefaultCircuitConfig())
 	ledgerMetrics := observability.NewLedgerSubmitMetrics(obs.Metrics())
 
+	// Continuous-monitoring scheduler: autonomous audits (mirror /
+	// anchor / sealing) + gossip retention prune, publishing per-job OTel
+	// health gauges (jn_monitor_*). nil when disabled. Built before the
+	// listener so a misconfiguration aborts boot rather than failing in a
+	// background goroutine.
+	monScheduler, err := buildMonitoringScheduler(
+		cfg, judicialDeps, gossipStore,
+		observability.NewMonitoringMetrics(obs.Metrics()), slog.Default())
+	if err != nil {
+		return fmt.Errorf("monitoring scheduler: %w", err)
+	}
+
 	// Priority 3 /readyz checks: ledger + artifact-store
 	// reachability via GET /healthz on each. k8s scrapes /readyz
 	// to gate traffic to a replica that can fulfill its job.
@@ -325,6 +337,13 @@ func run(argv []string, d deps) error {
 				log.Printf("network-api: gossip publisher close: %v", err)
 			}
 		}()
+	}
+
+	// Start the continuous-monitoring scheduler (if enabled) under the
+	// signal ctx so its tickers stop on shutdown.
+	if monScheduler != nil {
+		go monScheduler.Run(ctx)
+		log.Printf("network-api: monitoring scheduler running %d job(s)", monScheduler.Len())
 	}
 
 	// Run the listener in a goroutine; main goroutine waits on

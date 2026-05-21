@@ -159,6 +159,57 @@ type Operational struct {
 	// — never a ledger (custody of evidence-about-ledgers must sit with
 	// the auditor).
 	GossipStore GossipStoreConfig `json:"gossip_store"`
+
+	// Monitoring configures the continuous-monitoring scheduler — the
+	// JN's autonomous audit pulse (mirror consistency, anchor freshness,
+	// sealing compliance) plus the durable-store retention prune.
+	// Disabled by default; the on-demand /v1/judicial/monitoring/* HTTP
+	// endpoints remain available regardless.
+	Monitoring MonitoringConfig `json:"monitoring"`
+}
+
+// MonitoringConfig configures the scheduled-audit engine. A check job
+// registers only when its audit list is non-empty AND the required
+// dependencies are wired; the gossip-prune job registers only when the
+// store is durable.
+type MonitoringConfig struct {
+	// Enabled gates the whole scheduler. Disabled ⇒ no audit goroutines.
+	Enabled bool `json:"enabled"`
+
+	// Cadence overrides. Zero applies the defaults: mirror 5m, anchor 1h,
+	// sealing nightly, prune nightly.
+	MirrorInterval  time.Duration `json:"mirror_interval,omitempty"`
+	AnchorInterval  time.Duration `json:"anchor_interval,omitempty"`
+	SealingInterval time.Duration `json:"sealing_interval,omitempty"`
+	PruneInterval   time.Duration `json:"prune_interval,omitempty"`
+
+	// Per-check audit targets (one network-wide job iterates each list).
+	Mirror  []MirrorAuditConfig  `json:"mirror,omitempty"`
+	Anchor  []AnchorAuditConfig  `json:"anchor,omitempty"`
+	Sealing []SealingAuditConfig `json:"sealing,omitempty"`
+}
+
+// MirrorAuditConfig is one officers→cases mirror pair to audit.
+type MirrorAuditConfig struct {
+	OfficersLogDID     string `json:"officers_log_did"`
+	CasesLogDID        string `json:"cases_log_did"`
+	MirrorSignerDID    string `json:"mirror_signer_did"`
+	RootEntityLogDID   string `json:"root_entity_log_did"`
+	RootEntitySequence uint64 `json:"root_entity_sequence"`
+}
+
+// AnchorAuditConfig is one county→parent anchor relationship to audit.
+type AnchorAuditConfig struct {
+	LocalLogDID     string `json:"local_log_did"`
+	ParentLogDID    string `json:"parent_log_did"`
+	LedgerSignerDID string `json:"ledger_signer_did"`
+}
+
+// SealingAuditConfig is one local log whose sealing compliance to audit.
+type SealingAuditConfig struct {
+	LocalLogDID  string `json:"local_log_did"`
+	ScanStartSeq uint64 `json:"scan_start_seq,omitempty"`
+	ScanCount    int    `json:"scan_count,omitempty"`
 }
 
 // GossipStoreConfig configures the durable gossip store. Zero value ⇒
