@@ -242,14 +242,7 @@ func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry
 	if cfg.LedgerEndpoint == "" {
 		return nil
 	}
-	ledgers := map[string]string{}
-	for _, did := range registry.ExchangeDIDs() {
-		if ep, ok := cfg.Witness.LedgerEndpoints[did]; ok && ep != "" {
-			ledgers[did] = ep
-		} else {
-			ledgers[did] = cfg.LedgerEndpoint
-		}
-	}
+	ledgers := ledgerEndpointMap(cfg, registry)
 	witnesses := cfg.Witness.WitnessEndpoints
 	if witnesses == nil {
 		witnesses = map[string][]string{}
@@ -266,6 +259,39 @@ func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry
 		thcCfg.HTTPTimeout = cfg.Witness.HTTPTimeout
 	}
 	return witness.NewTreeHeadClient(endpoints, thcCfg)
+}
+
+// ledgerEndpointMap maps every log the binary must reach a tree head for →
+// its ledger base URL. Two sources:
+//   - registered JN court destinations (registry.ExchangeDIDs())
+//   - the audited logs from cfg.Witness.Sets — which need NOT be JN
+//     destinations (e.g. the ledger's own log DID from the bootstrap)
+//
+// Per-log overrides (cfg.Witness.LedgerEndpoints) win; otherwise the default
+// LedgerEndpoint. Without the witness-set logs here, the equivocation scanner
+// fails to resolve them ("no ledger endpoint for <source log>").
+func ledgerEndpointMap(cfg config.Operational, registry *jurisdiction.Registry) map[string]string {
+	ledgers := map[string]string{}
+	put := func(did string) {
+		if did == "" {
+			return
+		}
+		if _, ok := ledgers[did]; ok {
+			return
+		}
+		if ep, ok := cfg.Witness.LedgerEndpoints[did]; ok && ep != "" {
+			ledgers[did] = ep
+		} else {
+			ledgers[did] = cfg.LedgerEndpoint
+		}
+	}
+	for _, did := range registry.ExchangeDIDs() {
+		put(did)
+	}
+	for _, set := range cfg.Witness.Sets {
+		put(set.LogDID)
+	}
+	return ledgers
 }
 
 // buildLogQueries constructs one HTTPLedgerQueryAPI per registered
