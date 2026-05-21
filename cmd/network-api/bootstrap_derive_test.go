@@ -6,7 +6,53 @@ import (
 	"testing"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
+	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
+
+// The equivocation scanner audits the witness-set logs, which need not be JN
+// court destinations (e.g. the ledger's own log DID from the bootstrap). They
+// must still get a ledger endpoint, or the scanner fails "no ledger endpoint".
+func TestLedgerEndpointMap_IncludesWitnessSetLogs(t *testing.T) {
+	reg := jurisdiction.NewRegistry()
+	if err := registerProductionBundles(reg); err != nil {
+		t.Fatalf("register bundles: %v", err)
+	}
+	reg.Freeze()
+
+	cfg := config.Defaults()
+	cfg.LedgerEndpoint = "http://localhost:8080"
+	cfg.Witness.Sets = []config.WitnessSetConfig{
+		{LogDID: "did:attesta:standalone-witness:local", WitnessDIDs: []string{"did:key:w1"}, QuorumK: 1},
+	}
+
+	m := ledgerEndpointMap(cfg, reg)
+
+	if m["did:attesta:standalone-witness:local"] != "http://localhost:8080" {
+		t.Errorf("audited (non-court) log not mapped to the ledger: %v", m)
+	}
+	if m["did:web:state:tn:davidson"] != "http://localhost:8080" {
+		t.Errorf("registered court destination not mapped: %v", m)
+	}
+}
+
+// A per-log override wins over the default ledger endpoint.
+func TestLedgerEndpointMap_PerLogOverride(t *testing.T) {
+	reg := jurisdiction.NewRegistry()
+	_ = registerProductionBundles(reg)
+	reg.Freeze()
+
+	cfg := config.Defaults()
+	cfg.LedgerEndpoint = "http://localhost:8080"
+	cfg.Witness.LedgerEndpoints = map[string]string{"did:attesta:other:log": "http://other:9090"}
+	cfg.Witness.Sets = []config.WitnessSetConfig{
+		{LogDID: "did:attesta:other:log", WitnessDIDs: []string{"did:key:w1"}, QuorumK: 1},
+	}
+
+	m := ledgerEndpointMap(cfg, reg)
+	if m["did:attesta:other:log"] != "http://other:9090" {
+		t.Errorf("per-log override ignored: %v", m)
+	}
+}
 
 // writeBootstrap writes a minimal bootstrap document. applyBootstrapDerivations
 // reads only exchange_did + genesis_witness_set, so the rest is filler.
