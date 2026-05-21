@@ -54,6 +54,15 @@ if [ ! -s "${CERTS}/ca.crt" ]; then
     rm -f "${CERTS}/server.csr"
 fi
 
+# did_of <keyfile> → the DID recorded in a judicial-cli key file.
+# Lets re-runs REUSE an actor's existing identity (stable DIDs) instead
+# of re-minting. The file is judicial-cli's own MarshalIndent JSON, so
+# the "did" field is well-formed; "did_method" is NOT matched (no
+# closing quote right after `did`).
+did_of() {
+    sed -n 's/.*"did"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" | head -1
+}
+
 # issue_client <name> <did> → a client cert with the DID in the URI SAN.
 issue_client() {
     local name="$1" did="$2"
@@ -74,13 +83,24 @@ echo "TLS_CA=${CERTS}/ca.crt" >> "${manifest}"
 echo "TLS_SERVER_CERT=${CERTS}/server.crt" >> "${manifest}"
 echo "TLS_SERVER_KEY=${CERTS}/server.key" >> "${manifest}"
 
-echo "== minting actors =="
+# Re-run-safe: an actor with an existing key file keeps its DID (and
+# cert, unless missing); only absent actors are minted. So `make
+# identity` is idempotent and adding an actor to ACTORS mints just that
+# one — Step 0 is a STABLE base every case can re-source.
+echo "== actors (mint if absent, reuse if present) =="
 printf "  %-16s %-40s %s\n" "ACTOR" "DID" "KEY"
 for spec in ${ACTORS}; do
     name="${spec%%:*}"; rest="${spec#*:}"; method="${rest%%:*}"; chain="${rest##*:}"
     keyfile="${OUT}/${name}.key.json"
-    did="$("${CLI}" keygen --out "${keyfile}" --method "${method}" --chain-id "${chain}" 2>/dev/null | grep '^did=' | cut -d= -f2-)"
-    issue_client "${name}" "${did}"
+    if [ -s "${keyfile}" ]; then
+        did="$(did_of "${keyfile}")"
+        [ -n "${did}" ] || { echo "FATAL: ${keyfile} exists but has no DID — delete it and re-run" >&2; exit 1; }
+        [ -s "${CERTS}/${name}.client.crt" ] || issue_client "${name}" "${did}"
+    else
+        did="$("${CLI}" keygen --out "${keyfile}" --method "${method}" --chain-id "${chain}" 2>/dev/null | grep '^did=' | cut -d= -f2-)"
+        [ -n "${did}" ] || { echo "FATAL: keygen produced no DID for ${name}" >&2; exit 1; }
+        issue_client "${name}" "${did}"
+    fi
     var="$(echo "${name}" | tr 'a-z-' 'A-Z_')"
     {
         echo "${var}_DID=${did}"
