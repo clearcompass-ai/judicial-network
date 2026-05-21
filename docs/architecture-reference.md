@@ -1,0 +1,127 @@
+# Judicial Network — Architecture & Component Reference
+
+Evidence-based; every file/path verified against the working tree
+(**attesta SDK v1.14.0**; JN on the active feature branch). Aligns with the
+Attesta Architectural Principles (16 SDK · 15 Ledger · 14 Trust &
+Equivocation Alignments · 10 Witness).
+
+## 0. The one-sentence model
+
+The attesta SDK is the entire trust engine (identity, entry build,
+cosignature, Merkle proofs, gossip, verify); the JN is the judicial domain
+wrapped around it; the standalone-witness is an SDK signing oracle the
+ledger drives; auditors (including JN itself) re-derive every claim locally
+from the cosigned root, trusting no server.
+
+## 1. System topology (4 actors)
+
+```
+standalone-witness     ledger (attesta-backed)         JN network-api            auditors
+(signing oracle)       (sequencer + transparency)      (domain + zero-trust)     (anyone/light)
+POST /v1/cosign  ◄───  witnessclient.RequestCosignatures
+  secp256k1 sign       assembles K-of-N CosignedTreeHead
+                       serves /v1/gossip,/v1/tree/head,
+                       /v1/entries,tiles ─────────────► topology.PeerPuller (pull)
+                       gossipfeed (serve) ────────────► pull /v1/gossip/since
+                                  api/exchange ───────► POST entry (SDK log client)
+```
+
+## 2. SDK ↔ JN boundary
+
+JN imports ~30 SDK packages. JN never implements crypto, Merkle, cosignature,
+or proof logic — it consumes SDK verdicts and SDK vocabulary (SDK Principle 1).
+The v1.14.0 `WitnessPublicKey.SchemeTag` change touched only JN test fixtures,
+not JN logic.
+
+| Concern | SDK (attesta) | JN (domain) |
+|---|---|---|
+| Identity | `did`, `network`, `crypto/signatures` | `did` (vendor mappings only), `api/exchange/keystore/*`, `api/exchange/auth` |
+| Entry build/sign | `core/envelope`, `builder`, `crypto/admission`, `crypto/sct` | `cases,appeals,parties,delegation,escrow,operations,onboarding,migration,consortium,schemas,prerequisites,policy,jurisdiction` |
+| State & proofs | `core/smt`, `core/vss` | (consumes only) |
+| Witness cosign | `crypto/cosign`, `witness` | `crosslog`, `verification/witness_set_registry.go` |
+| Gossip/transparency | `gossip`, `gossip/findings` | `gossipfeed`, `topology`, `judicialfindings`, `monitoring`, `equivocation` |
+| Verify/audit | `verifier`, `attestation`, `delegation` | `verification`, `enforcement`, `api/verification`, `api/judicial` |
+| Artifacts/escrow | `crypto/artifact`, `crypto/escrow`, `lifecycle/artifact` | `cases/artifact`, `escrow` |
+| Ledger I/O | `log`, `storage`, `monitoring` (Alert vocab) | `api/exchange`, `api`, `api/middleware` |
+
+## 3. Deployable services & HTTP surface
+
+| Service | Entrypoint | Surface |
+|---|---|---|
+| Network API | `cmd/network-api/main.go` | exchange (write) + verification (read) + judicial + gossip serve; inbound gossip puller; equivocation scanner; monitoring scheduler |
+| Aggregator | `tools/aggregator/cmd/aggregator/main.go` | relational projection (CQRS read-side) |
+| Court Tools | `tools/court-tools/cmd/court-tools/main.go` | dockets, filings, orders, sealing, officers |
+| Provider Tools | `tools/provider-tools/cmd/provider-tools/main.go` | records, documents, search, background-check |
+| Judicial CLI | `cmd/judicial-cli/main.go` | keygen, onboard, submit, read |
+| Deployment tooling | `cmd/{add-destination,add-destination-fields,verify-destination}` | jurisdiction bundles |
+
+### 3.1 Route inventory (verified at file:line)
+
+- **Exchange (write)** `api/exchange/server.go:126-153`: `POST /v1/entries/{build,sign,submit,build-sign-submit}`, `GET /v1/entries/status/{hash}`, `POST /v1/artifacts/publish`, `POST /v1/artifacts/{cid}/grant`, `POST /v1/delegations`, `DELETE /v1/delegations/{did}`, `POST /v1/keys/{generate,rotate,escrow}`, `GET /v1/keys`, `POST|GET /v1/dids`, `POST /v1/scope/{propose,approve/{pos},execute/{pos}}`.
+- **Verification (read)** `api/verification/server.go:123-140`: `GET /v1/verify/{origin,authority,delegation,complete}/{logID}/{pos}`, `GET /v1/verify/batch/{logID}/{positions}`, `POST /v1/verify/{cross-log,fraud-proof,consistency}`. The cross-log handler is `api/verification/handlers/verify_cross_log.go`.
+- **Judicial** (68 routes) `api/judicial/{appeals,artifacts,cases,consortium,delegation_topology,enforcement,monitoring,escrow,onboarding,parties}.go`.
+- **Gossip serve** `/v1/gossip/*` via SDK `gossip.NewFeedHandler` (`gossipfeed/handler.go:77`, mounted `api/server.go:104`).
+- **court-tools** `tools/court-tools/server.go:37-56` (15 routes; `POST /v1/cases`, `GET /v1/cases/{docket}[/timeline]`, filings/orders/seal/unseal/expunge — there is no `GET /v1/cases` list route).
+- **provider-tools** `tools/provider-tools/server.go:33-41` (`GET /v1/records/{search,{docket},{docket}/documents,{docket}/documents/{cid}}`, `POST /v1/background-check`, `GET /v1/verify/{entry,delegation}/…`).
+- **standalone-witness** `/v1/cosign` (+`/v2`) `internal/serve/serve.go:127-138`.
+
+## 4. Subsystems
+
+- **Transparency / zero-trust ingest** — `gossipfeed/{handler,sink,signer,postgres_store,metrics}.go`; `topology/{peer_client,anchor_publisher,discovery,…}.go`; `judicialfindings/{contracts,decode,router}.go`; `verification/{verify_gossip,witness_set_registry,tile_mirror}.go`; `monitoring/{scheduler,gossip_reconciler,*_consistency,*_freshness,*_compliance,…}.go`; `equivocation/{scanner,slasher}.go`; `crosslog/{anchor,witness_sets,hop_dispatch}.go`.
+- **Verification & domain-rule engine** — `verification/` (authority/role, custody chains, cosignature/attestation, sealing/status/appeals) + `api/verification/handlers/`.
+- **Identity & custody** — `did/mappings.go` only (DID resolution is the SDK's, wired in `cmd/network-api/judicial_deps.go::buildDIDResolver`); `api/exchange/keystore/{pkcs11,vault}/` subpackages (all secp256k1); `api/exchange/auth/*`; `consortium/*`.
+- **Domain schemas** — `schemas/` (28 files). `appellate_disposition.go` is a schema (not enforcement code).
+
+## 5. JN ↔ standalone-witness (indirect — JN verifies, never collects)
+
+Witness signs `types.TreeHead` under `PurposeTreeHead` (`cosign.NewECDSAWitnessSigner`); the ledger collects K-of-N via `witnessclient.RequestCosignatures`; JN re-verifies K-of-N via `cosign.Verify` against its own `verification.WitnessSetRegistry`. Rotation: WITROT finding → `witness.VerifyRotation` → `ApplyVerifiedRotation` (verify-before-swap, monotonic). JN's only witness-endpoint use is `witness.TreeHeadClient` as a fallback read source.
+
+## 6. Auditors (symmetric zero-trust)
+
+JN exposes `/v1/gossip/since` (ETag/Cache-Control), `/v1/verify/*`, and (via ledger) `/v1/tree/head`, `/v1/entries/{seq}/raw`, tiles. An auditor runs SDK primitives: `gossip.Verify` → `cosign.Verify` → `core/smt`+RFC-6962 → `verifier`+`attestation`+`delegation` → `witness.DetectEquivocation`. JN itself is a full auditing node via `topology.PeerPuller` + `verification.GossipVerifier` + `equivocation`/`monitoring`.
+
+## 7. Principle alignment (Trust & Equivocation Alignments → JN anchors)
+
+| Alignment | JN anchor | ✓ |
+|---|---|---|
+| A1/A2/A4 STH + K-of-N | `verification/witness_set_registry.go` + `cosign.Verify` | ✓ |
+| A3 topology rotation | `ApplyVerifiedRotation` (`monitoring/gossip_reconciler.go`) | ✓ |
+| A5 Open/Closed | `judicialfindings/router.go` | ✓ |
+| A6 Parse-don't-validate | `/v1/verify/complete` (LeafReader+LogQueries) | ✓ |
+| A7 Equivocation | `equivocation.Scanner` (started in `main.go`) | ✓ |
+| A8 SplitID sentry | `judicialfindings/decode.go` | ✓ |
+| A9/A10 domain sep / Purpose≠Kind | gossip `PurposeGossipEventV1` | ✓ |
+| A11 Pull gossip | serve `/v1/gossip/since`; `topology.PeerPuller` | ✓ |
+| A12 Non-blocking sinks | `gossipfeed.Publisher` over `gossip.BufferedSink` | ✓ |
+| A13 Idempotent consistency | `gossipfeed.PostgresStore.Append` | ✓ |
+| A14 Error dimensionality | `gossipfeed/metrics.go` | ✓ |
+
+## 8. Status — gaps closed this cycle
+
+All previously-listed gaps are now wired (config-gated, off by default, so dev/test boots stay dependency-free):
+
+| Former gap | Resolution | Anchor |
+|---|---|---|
+| `/v1/verify/complete` not wired | LogQueries + LeafReader threaded | `cmd/network-api/main.go` |
+| Equivocation scanner not started | `equivocation.Scanner` run under signal ctx | `cmd/network-api/equivocation_scanner.go` |
+| ClassMerkle/XLOG-INCL tile mirrors | wired into the gossip reconciler | `cmd/network-api/gossip_reconciler.go` |
+| Monitoring loops not started | `monitoring.Scheduler` ticker engine | `monitoring/scheduler.go` |
+| Gossip store in-memory | durable `PostgresStore` (serve + inbound) | `gossipfeed/postgres_store.go` |
+| v1.14.0 adoption | `go.mod` at v1.14.0; fixtures declare `SchemeTag` | `go.mod` |
+
+### 8.1 Activation & validation notes
+- Activation is opt-in by config: scanner needs a `did:key` gossip signing PEM + emit peers; durable store needs `GossipStore.PostgresDSN` (env: `API_GOSSIP_STORE_DSN`); scheduler needs `Monitoring.Enabled` + per-court audit specs.
+- The mirror/anchor/sealing scheduler adapters reuse the pre-tested `Check*` funcs but need a deploy-time smoke test against a live ledger.
+
+## 9. Running the durable gossip store locally
+
+Postgres-in-Docker, docker-only, env-driven (mirrors the ledger's config-from-env):
+
+```bash
+make gossip-db-up                       # docker compose up the gossip Postgres (:5433)
+export "$(make -s gossip-db-dsn)"       # API_GOSSIP_STORE_DSN=postgres://…/jn_gossip
+./bin/network-api -config <config.json> # PostgresStore.Migrate creates peer_gossip at boot
+make gossip-db-down                     # stop (keeps data); 'destroy' deletes the volume
+```
+
+Compose: `deployment/local/docker-compose.gossip-db.yml` · launcher: `scripts/gossip-db.sh` · the JN reads the DSN from `API_GOSSIP_STORE_DSN` (`api/config/operational.go::ApplyEnvOverrides`).

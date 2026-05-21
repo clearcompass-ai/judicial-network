@@ -2,7 +2,7 @@
 #
 # Versioning:
 #   judicial-network v0.0.1
-#     requires attesta v0.1.0 (Go module)
+#     requires attesta v1.14.0 (Go module)
 #     requires ledger   v0.1.0 (HTTP, run via deployment/local/)
 #
 # All targets use POSIX sh and are intended to run in CI without
@@ -22,7 +22,10 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
         audit-sdk lint judicial-cli network-api court-tools provider-tools \
         aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
+        gossip-db-up gossip-db-down gossip-db-status gossip-db-dsn \
         smoke
+
+GOSSIP_DB := ./scripts/gossip-db.sh
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -158,6 +161,18 @@ walkthrough-up: install-bins ## Boot the JN-side tools layer (court-tools + prov
 
 walkthrough-down: ## Tear down the JN-side tools layer
 	$(WALK_COMPOSE) down -v
+
+gossip-db-up: ## Start the local durable gossip-store Postgres (docker only)
+	$(GOSSIP_DB) up
+
+gossip-db-down: ## Stop the local gossip-store Postgres (keeps data)
+	$(GOSSIP_DB) down
+
+gossip-db-status: ## Show the gossip-store Postgres container status
+	$(GOSSIP_DB) status
+
+gossip-db-dsn: ## Print API_GOSSIP_STORE_DSN for the local gossip Postgres
+	@$(GOSSIP_DB) dsn
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
 	$(WALK_COMPOSE) logs -f

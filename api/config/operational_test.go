@@ -221,6 +221,8 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	t.Setenv("API_NONCE_STORE_BACKEND", "redis")
 	t.Setenv("API_NONCE_STORE_REDIS_ADDR", "redis.via.env:6379")
 	t.Setenv("API_AUTH_MODE", "jwt")
+	t.Setenv("API_GOSSIP_STORE_DSN", "postgres://u:p@db.via.env:5432/jn_gossip?sslmode=disable")
+	t.Setenv("API_GOSSIP_STORE_RETENTION_DAYS", "45")
 
 	got := ApplyEnvOverrides(Defaults())
 
@@ -248,6 +250,12 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	}
 	if got.Auth.Mode != AuthModeJWT {
 		t.Errorf("Auth.Mode = %q, want jwt", got.Auth.Mode)
+	}
+	if got.GossipStore.PostgresDSN != "postgres://u:p@db.via.env:5432/jn_gossip?sslmode=disable" {
+		t.Errorf("GossipStore.PostgresDSN = %q", got.GossipStore.PostgresDSN)
+	}
+	if got.GossipStore.RetentionDays != 45 {
+		t.Errorf("GossipStore.RetentionDays = %d, want 45", got.GossipStore.RetentionDays)
 	}
 }
 
@@ -654,6 +662,8 @@ func clearAPIEnv(t *testing.T) {
 		"API_NONCE_STORE_BACKEND",
 		"API_NONCE_STORE_REDIS_ADDR",
 		"API_AUTH_MODE",
+		"API_GOSSIP_STORE_DSN",
+		"API_GOSSIP_STORE_RETENTION_DAYS",
 	} {
 		t.Setenv(v, "")
 		_ = os.Unsetenv(v)
