@@ -38,6 +38,7 @@ import (
 	"syscall"
 	"time"
 
+	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 )
@@ -49,7 +50,7 @@ type deps struct {
 	loadConfig    func(string) (common.Config, error)
 	openDB        func(string) (*common.DB, error)
 	newLedger     func(string, string) *common.LedgerClient
-	startScanner  func(context.Context, *aggregator.Scanner) error
+	startScanner  func(context.Context, *libagg.Scanner) error
 	listenAndServ func(*http.Server) error
 }
 
@@ -58,7 +59,7 @@ func realDeps() deps {
 		loadConfig:    common.LoadConfig,
 		openDB:        common.NewDB,
 		newLedger:     func(url, did string) *common.LedgerClient { return common.NewLedgerClient(url, did) },
-		startScanner:  func(ctx context.Context, s *aggregator.Scanner) error { return s.Run(ctx) },
+		startScanner:  func(ctx context.Context, s *libagg.Scanner) error { return s.Run(ctx) },
 		listenAndServ: func(srv *http.Server) error { return srv.ListenAndServe() },
 	}
 }
@@ -122,7 +123,14 @@ func run(argv []string, d deps) error {
 	defer db.Close()
 
 	ledger := d.newLedger(cfg.LedgerURL, cfg.CasesLogDID)
-	scanner := aggregator.NewScanner(cfg, ledger, db)
+	// The agnostic engine (libs/aggregator) polls/decodes/advances the
+	// watermark; the judicial projector classifies + indexes each entry.
+	projector := aggregator.NewJudicialProjector(aggregator.NewIndexer(db))
+	scanner := libagg.NewScanner(libagg.ScannerConfig{
+		LogDIDs:      cfg.LogDIDs(),
+		BatchSize:    cfg.AggregatorBatchSize,
+		PollInterval: cfg.AggregatorPollInterval,
+	}, ledger, db, projector, nil)
 	probes := newProbeHandlers(db, cfg.LedgerURL)
 
 	srv := &http.Server{

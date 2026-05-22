@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
+	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
-	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ func TestRun_BootShutdownRoundTrip(t *testing.T) {
 		newLedger: func(url, did string) *common.LedgerClient {
 			return common.NewLedgerClient(url, did)
 		},
-		startScanner: func(ctx context.Context, _ *aggregator.Scanner) error {
+		startScanner: func(ctx context.Context, _ *libagg.Scanner) error {
 			scannerStarted <- struct{}{}
 			<-ctx.Done()
 			return ctx.Err()

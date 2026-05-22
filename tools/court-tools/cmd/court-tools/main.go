@@ -39,6 +39,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 	"github.com/clearcompass-ai/judicial-network/tools/court-tools"
@@ -84,7 +85,12 @@ func main() {
 	// -------------------------------------------------------------------------
 
 	if db != nil {
-		scanner := aggregator.NewScanner(cfg, ledger, db)
+		projector := aggregator.NewJudicialProjector(aggregator.NewIndexer(db))
+		scanner := libagg.NewScanner(libagg.ScannerConfig{
+			LogDIDs:      cfg.LogDIDs(),
+			BatchSize:    cfg.AggregatorBatchSize,
+			PollInterval: cfg.AggregatorPollInterval,
+		}, ledger, db, projector, nil)
 		go func() {
 			if e := scanner.Run(ctx); e != nil {
 				log.Printf("ERROR: aggregator: %v", e)

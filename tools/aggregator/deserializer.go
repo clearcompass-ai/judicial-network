@@ -1,16 +1,16 @@
 package aggregator
 
 import (
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
 	"time"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/attesta/core/envelope"
+
+	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 )
 
-// ClassifiedEntry is the result of deserializing and classifying a raw entry.
+// ClassifiedEntry is a decoded ledger entry plus its judicial EntryType. The
+// agnostic decode (envelope deserialize + header extraction) is the engine's
+// job (libs/aggregator.DecodedEntry); this adds the JN's domain classification.
 type ClassifiedEntry struct {
 	LogDID    string
 	Sequence  uint64
@@ -26,73 +26,27 @@ type ClassifiedEntry struct {
 	Entry         *envelope.Entry
 }
 
-// Deserializer converts raw ledger entries into classified domain events.
-type Deserializer struct{}
-
-// NewDeserializer creates a new deserializer.
-func NewDeserializer() *Deserializer {
-	return &Deserializer{}
-}
-
-// Classify deserializes a raw entry and classifies it by header shape.
-func (d *Deserializer) Classify(logDID string, raw common.RawEntry) (*ClassifiedEntry, error) {
-	canonicalBytes, err := hex.DecodeString(raw.CanonicalHex)
-	if err != nil {
-		return nil, fmt.Errorf("decode canonical: %w", err)
-	}
-
-	entry, err := envelope.Deserialize(canonicalBytes)
-	if err != nil {
-		return nil, fmt.Errorf("deserialize: %w", err)
-	}
-
-	h := &entry.Header
-
-	var payload map[string]any
-	if len(entry.DomainPayload) > 0 {
-		json.Unmarshal(entry.DomainPayload, &payload)
-	}
-	if payload == nil {
-		payload = map[string]any{}
-	}
-
+// classify maps an agnostic DecodedEntry to a judicial ClassifiedEntry by
+// header shape. This is the domain half of the old Deserializer.Classify; the
+// engine supplies the decoded entry.
+func classify(d *libagg.DecodedEntry) *ClassifiedEntry {
 	c := &ClassifiedEntry{
-		LogDID:    logDID,
-		Sequence:  raw.Sequence,
-		SignerDID: h.SignerDID,
-		Payload:   payload,
-		Entry:     entry,
+		LogDID:        d.LogDID,
+		Sequence:      d.Sequence,
+		LogTime:       d.LogTime,
+		SignerDID:     d.SignerDID,
+		AuthorityPath: d.AuthorityPath,
+		TargetRootSeq: d.TargetRootSeq,
+		DelegateDID:   d.DelegateDID,
+		Payload:       d.Payload,
+		Entry:         d.Entry,
 	}
-
-	if raw.LogTimeUnixMicro != 0 {
-		c.LogTime = time.UnixMicro(raw.LogTimeUnixMicro)
-	}
-
-	if h.TargetRoot != nil {
-		seq := h.TargetRoot.Sequence
-		c.TargetRootSeq = &seq
-	}
-
-	if h.DelegateDID != nil {
-		c.DelegateDID = h.DelegateDID
-	}
-
-	if h.AuthorityPath != nil {
-		switch *h.AuthorityPath {
-		case envelope.AuthoritySameSigner:
-			c.AuthorityPath = "same_signer"
-		case envelope.AuthorityDelegation:
-			c.AuthorityPath = "delegation"
-		case envelope.AuthorityScopeAuthority:
-			c.AuthorityPath = "scope_authority"
-		}
-	}
-
-	c.EntryType = d.classifyType(h, c)
-	return c, nil
+	c.EntryType = classifyType(d)
+	return c
 }
 
-func (d *Deserializer) classifyType(h *envelope.ControlHeader, c *ClassifiedEntry) string {
+func classifyType(d *libagg.DecodedEntry) string {
+	h := &d.Entry.Header
 	hasTarget := h.TargetRoot != nil
 	hasAuthority := h.AuthorityPath != nil
 	hasDelegate := h.DelegateDID != nil
@@ -116,10 +70,10 @@ func (d *Deserializer) classifyType(h *envelope.ControlHeader, c *ClassifiedEntr
 			return "scope_creation"
 		}
 		// Check payload for schema indicators.
-		if _, ok := c.Payload["identifier_scope"]; ok {
+		if _, ok := d.Payload["identifier_scope"]; ok {
 			return "schema"
 		}
-		if _, ok := c.Payload["docket_number"]; ok {
+		if _, ok := d.Payload["docket_number"]; ok {
 			return "new_case"
 		}
 		return "new_case" // default for root entities
@@ -127,10 +81,10 @@ func (d *Deserializer) classifyType(h *envelope.ControlHeader, c *ClassifiedEntr
 
 	// Targets an existing entity: has TargetRoot, has AuthorityPath.
 	if hasTarget && hasAuthority {
-		switch c.AuthorityPath {
+		switch d.AuthorityPath {
 		case "same_signer":
 			// Amendment or revocation.
-			if hasDelegate || d.isRevocation(c.Payload) {
+			if hasDelegate || isRevocation(d.Payload) {
 				return "revocation"
 			}
 			return "amendment"
@@ -144,7 +98,7 @@ func (d *Deserializer) classifyType(h *envelope.ControlHeader, c *ClassifiedEntr
 	return "unknown"
 }
 
-func (d *Deserializer) isRevocation(payload map[string]any) bool {
+func isRevocation(payload map[string]any) bool {
 	if reason, ok := payload["reason"]; ok {
 		if s, ok := reason.(string); ok && s != "" {
 			return true

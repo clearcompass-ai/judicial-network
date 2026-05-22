@@ -5,25 +5,24 @@ import (
 	"fmt"
 	"log"
 
+	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // Reconciler periodically verifies that Postgres matches the log.
 // If Postgres is wrong, it can be rebuilt from scratch by scanning from 0.
 type Reconciler struct {
-	ledger       *common.LedgerClient
-	db           *common.DB
-	deserializer *Deserializer
-	logDIDs      []string
+	ledger  *common.LedgerClient
+	db      *common.DB
+	logDIDs []string
 }
 
 // NewReconciler creates a reconciler.
 func NewReconciler(cfg common.Config, ledger *common.LedgerClient, db *common.DB) *Reconciler {
 	return &Reconciler{
-		ledger:       ledger,
-		db:           db,
-		deserializer: NewDeserializer(),
-		logDIDs:      cfg.LogDIDs(),
+		ledger:  ledger,
+		db:      db,
+		logDIDs: cfg.LogDIDs(),
 	}
 }
 
@@ -77,13 +76,14 @@ func (r *Reconciler) reconcileLog(ctx context.Context, logDID string, checkCount
 	for _, raw := range entries {
 		result.EntriesCheck++
 
-		classified, err := r.deserializer.Classify(logDID, raw)
+		decoded, err := libagg.Decode(logDID, raw)
 		if err != nil {
 			result.Mismatches++
 			result.Details = append(result.Details,
-				fmt.Sprintf("seq=%d: deserialize error: %v", raw.Sequence, err))
+				fmt.Sprintf("seq=%d: decode error: %v", raw.Sequence, err))
 			continue
 		}
+		classified := classify(decoded)
 
 		// Check case_events table for this entry.
 		var exists bool
