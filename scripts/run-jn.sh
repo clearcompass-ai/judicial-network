@@ -36,7 +36,8 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${REPO_ROOT}"
 CERTS="${REPO_ROOT}/.run/certs"
 COMPOSE="${REPO_ROOT}/deployment/local/docker-compose.jn.yml"
-IMAGE="ghcr.io/clearcompass-ai/judicial-network:${JN_IMAGE_TAG:-dev}"
+IMAGE="${JN_IMAGE:-ghcr.io/clearcompass-ai/judicial-network:${JN_IMAGE_TAG:-dev}}"
+export JN_IMAGE="${IMAGE}" # the compose references the SAME ref
 
 SUBCMD="up"
 for arg in "$@"; do
@@ -73,16 +74,22 @@ if [ -z "${BOOT}" ]; then
     exit 1
 fi
 
-# 3. Build the image. Inject the egress proxy's CA when present (CI sandbox /
-#    corporate net) so module + apk fetches verify; no-op on an open network.
-CA_BUNDLE="${JN_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
-BUILD_SECRET=()
-[ -s "${CA_BUNDLE}" ] && BUILD_SECRET=(--secret "id=ca_bundle,src=${CA_BUNDLE}")
-echo "== building network-api image (${IMAGE}) =="
-DOCKER_BUILDKIT=1 docker build -f deployment/local/Dockerfile.network-api \
-    "${BUILD_SECRET[@]}" \
-    --build-arg VERSION="$(git -C "${REPO_ROOT}" describe --tags --always 2>/dev/null || echo dev)" \
-    -t "${IMAGE}" "${REPO_ROOT}"
+# 3. Provision the image. Strict-pull (JN_IMAGE_PULL=1, the e2e default) pulls
+#    the published image; otherwise build locally for JN dev, injecting the
+#    egress proxy CA when present so fetches verify behind a TLS-inspecting proxy.
+if [ "${JN_IMAGE_PULL:-0}" = "1" ]; then
+    echo "== pulling network-api image (${IMAGE}) =="
+    docker pull "${IMAGE}"
+else
+    CA_BUNDLE="${JN_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
+    BUILD_SECRET=()
+    [ -s "${CA_BUNDLE}" ] && BUILD_SECRET=(--secret "id=ca_bundle,src=${CA_BUNDLE}")
+    echo "== building network-api image (${IMAGE}) =="
+    DOCKER_BUILDKIT=1 docker build -f deployment/local/Dockerfile.network-api \
+        "${BUILD_SECRET[@]}" \
+        --build-arg VERSION="$(git -C "${REPO_ROOT}" describe --tags --always 2>/dev/null || echo dev)" \
+        -t "${IMAGE}" "${REPO_ROOT}"
+fi
 
 # In-container, the ledger + auditor are host.docker.internal (compose defaults).
 # Drop any localhost endpoints from this shell so a leftover export can't leak in.

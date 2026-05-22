@@ -1,12 +1,17 @@
 name: publish-image
 
-# Build the service container and publish it to the GitHub Container Registry
-# as a signed, multi-arch image with an SBOM and SLSA provenance.
+# Build the JN service containers and publish them to the GitHub Container
+# Registry as signed, multi-arch images with an SBOM and SLSA provenance.
 #
-# This workflow is intentionally IDENTICAL across every ClearCompass service
-# repo (ledger, standalone-witness, judicial-network). The only per-repo knob
-# is DOCKERFILE below; the image name derives from the repo itself, so there is
-# nothing else to keep in sync. Image: ghcr.io/clearcompass-ai/<repo>.
+# The JN ships two deployables, so the fleet-standard publish workflow is
+# generalized to a matrix — one entry per service. Images:
+#
+#   ghcr.io/clearcompass-ai/judicial-network             (network-api enforcer)
+#   ghcr.io/clearcompass-ai/judicial-network/aggregator  (read-projection)
+#
+# network-api keeps the BARE repo name because docker-compose.jn.yml's `image:`
+# ref depends on it. Deps are public (attesta SDK + attesta-tools/libs), so no
+# build-time VCS auth is needed.
 
 on:
   push:
@@ -26,16 +31,23 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  # ghcr.io/<owner>/<repo> — resolves correctly in every repo with no edits.
-  IMAGE_NAME: ${{ github.repository }}
-  # ── The ONLY per-repo difference: path to the service Dockerfile. ──
-  DOCKERFILE: deployment/local/Dockerfile.network-api
-  BUILD_CONTEXT: .
   PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # network-api is the repo's PRIMARY image — bare repo name (the
+          # docker-compose.jn.yml `image:` ref depends on this exact name).
+          - service: network-api
+            dockerfile: deployment/local/Dockerfile.network-api
+            suffix: ""
+          - service: aggregator
+            dockerfile: deployment/local/Dockerfile.aggregator
+            suffix: /aggregator
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,7 +69,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}${{ matrix.suffix }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -69,23 +81,17 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.BUILD_CONTEXT }}
-          file: ${{ env.DOCKERFILE }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
-          # The private SDK (github.com/clearcompass-ai/*) is fetched during the
-          # build via this token; it is optional and harmless if the modules are
-          # public. Provide a token with read access to the private module repos
-          # as the GH_MODULE_TOKEN secret (the default GITHUB_TOKEN only grants
-          # access to THIS repo, not the SDK repo).
-          secrets: |
-            gh_token=${{ secrets.GH_MODULE_TOKEN }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-service GHA cache scope so the two builds don't evict each other.
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           provenance: mode=max # SLSA provenance attestation
           sbom: true # SBOM attestation
 
@@ -94,8 +100,9 @@ jobs:
 
       - name: Sign the image (keyless / Sigstore OIDC)
         env:
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository }}${{ matrix.suffix }}
           DIGEST: ${{ steps.build.outputs.digest }}
         # Sign by digest so the signature covers the multi-arch index and every
         # tag that points at it. Keyless: identity = this workflow's OIDC token,
         # transparency-logged in Rekor — no long-lived signing key to hold.
-        run: cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
