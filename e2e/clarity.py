@@ -158,8 +158,7 @@ def witness_names(cfg): return [dname(f"witness-{i}") for i in range(1, cfg.n + 
 
 def teardown(cfg):
     stage("teardown")
-    names = [dname(s) for s in ("jn", "aggregator", "aggregator-db", "auditor",
-                                "auditor-db", "ledger", "seaweedfs", "postgres")]
+    names = [dname(s) for s in ("jn", "aggregator", "auditor", "ledger", "seaweedfs", "postgres")]
     names += witness_names(cfg)
     drm(*names)
     # Drop the ledger's named volumes so a re-run gets a clean genesis.
@@ -246,25 +245,39 @@ def mint_certs(cfg):
     ok("CA + server + client certs minted")
 
 
-def up_postgres(name, db):
-    sh(["docker", "run", "-d", "--name", name, "--network", NET,
-        "-e", "POSTGRES_USER=attesta", "-e", "POSTGRES_PASSWORD=attesta", "-e", f"POSTGRES_DB={db}",
-        POSTGRES_IMAGE,
-        "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"])
-    poll(f"{name} ready",
-         lambda: sh(["docker", "exec", name, "pg_isready", "-U", "attesta", "-d", db],
-                    check=False, quiet=True).returncode == 0, timeout=60)
+def wait_pg(name, db, timeout):
+    """Wait for postgres readiness; fail fast (with logs) if the container died —
+    e.g. OOM under memory pressure — instead of a blind timeout."""
+    def ready():
+        running = sh(["docker", "inspect", "-f", "{{.State.Running}}", name], check=False, quiet=True).stdout.strip()
+        if running != "true":
+            lg = dlogs(name)
+            sys.stderr.write((lg.stdout + lg.stderr)[-1500:])
+            die(f"{name} is not running (crashed — likely out of memory). Logs above. "
+                "Try fewer --witnesses, or raise Docker Desktop's memory limit (Settings → Resources).")
+        return sh(["docker", "exec", name, "pg_isready", "-U", "attesta", "-d", db],
+                  check=False, quiet=True).returncode == 0
+    poll(f"{name} ready ({db})", ready, timeout)
 
 
 def up_infra(cfg):
-    stage("ledger infra — postgres + seaweedfs (+ bucket)")
-    up_postgres(dname("postgres"), "attesta_test")
+    # ONE postgres, three DBs (ledger / auditor / aggregator) — local-test
+    # convenience that cuts container + memory pressure vs. a PG per service.
+    stage("infra — shared postgres (ledger + auditor + aggregator DBs) + seaweedfs (+ bucket)")
+    pg = dname("postgres")
+    sh(["docker", "run", "-d", "--name", pg, "--network", NET,
+        "-e", "POSTGRES_USER=attesta", "-e", "POSTGRES_PASSWORD=attesta", "-e", "POSTGRES_DB=attesta_test",
+        POSTGRES_IMAGE, "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"])
+    wait_pg(pg, "attesta_test", cfg.timeout)
+    for db in ("auditor_gossip", "aggregator"):
+        sh(["docker", "exec", pg, "createdb", "-U", "attesta", db], check=False, quiet=True)
+    ok("postgres up (attesta_test + auditor_gossip + aggregator)")
     sh(["docker", "run", "-d", "--name", dname("seaweedfs"), "--network", NET, SEAWEED_IMAGE,
         "server", "-s3", "-s3.port=8333", "-s3.allowEmptyFolder=true", "-ip.bind=0.0.0.0"])
     poll("seaweedfs ready",
          lambda: sh(["docker", "exec", dname("seaweedfs"), "wget", "-q", "--spider",
                      "http://localhost:9333/cluster/status"], check=False, quiet=True).returncode == 0,
-         timeout=60)
+         timeout=cfg.timeout)
     # one-shot bucket create (weed shell talks to the master over gRPC)
     sh(["docker", "run", "--rm", "--network", NET, "--entrypoint", "/bin/sh", SEAWEED_IMAGE,
         "-c", "sleep 2; echo 's3.bucket.create -name attesta-bytes' | "
@@ -343,10 +356,9 @@ def seed(cfg, did):
 
 def up_auditor(cfg, did):
     stage(f"auditor (evidence custodian + detection) on :{cfg.auditor_port}")
-    up_postgres(dname("auditor-db"), "auditor_gossip")
     env = {
         "AUDITOR_LISTEN_ADDR": ":8088",
-        "AUDITOR_GOSSIP_DSN": f"postgres://attesta:attesta@{dname('auditor-db')}:5432/auditor_gossip?sslmode=disable",
+        "AUDITOR_GOSSIP_DSN": f"postgres://attesta:attesta@{dname('postgres')}:5432/auditor_gossip?sslmode=disable",
         "AUDITOR_NETWORK_BOOTSTRAP_FILE": "/run/clarity/network-bootstrap.json",
         "AUDITOR_WITNESS_QUORUM_K": str(cfg.k),
         "AUDITOR_PEERS": f"{did}=http://{dname('ledger')}:8080",
@@ -368,9 +380,8 @@ def up_auditor(cfg, did):
 
 def up_aggregator(cfg, did):
     stage(f"aggregator (rebuildable read-projection) on :{cfg.aggregator_port}")
-    up_postgres(dname("aggregator-db"), "aggregator")
     env = {
-        "TOOLS_DATABASE_URL": f"postgres://attesta:attesta@{dname('aggregator-db')}:5432/aggregator?sslmode=disable",
+        "TOOLS_DATABASE_URL": f"postgres://attesta:attesta@{dname('postgres')}:5432/aggregator?sslmode=disable",
         "TOOLS_LEDGER_URL": f"http://{dname('ledger')}:8080",
         "TOOLS_OFFICERS_LOG": did, "TOOLS_CASES_LOG": did, "TOOLS_PARTIES_LOG": did,
     }
