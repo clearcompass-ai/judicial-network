@@ -8,8 +8,8 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 
+	"github.com/clearcompass-ai/judicial-network/crosslog"
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
-	"github.com/clearcompass-ai/judicial-network/topology"
 )
 
 // FederatedResolver resolves DIDs across consortium member courts.
@@ -60,5 +60,5 @@ func VerifyCrossCourtProof(
 	proof types.CrossLogProof,
 	sourceSet *cosign.WitnessKeySet,
 ) error {
-	return verifier.VerifyCrossLogProof(proof, sourceSet, topology.ExtractAnchorPayload)
+	return crosslog.VerifyCrossLog(proof, sourceSet)
 }

@@ -1,11 +1,15 @@
 package consortium
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/crypto/cosign"
+	"github.com/clearcompass-ai/attesta/crypto/signatures"
 	"github.com/clearcompass-ai/attesta/lifecycle"
 	"github.com/clearcompass-ai/attesta/types"
 )
@@ -208,15 +212,40 @@ func TestAmendmentProposal_RemoveAuthority(t *testing.T) {
 // ═════════════════════════════════════════════════════════════════════
 
 func TestAnchorEntry_CrossCourt(t *testing.T) {
-	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
+	// County→state cross-court anchoring now uses the single self-contained
+	// cosigned_tree_head_v1 format (the SDK owns it). Build a real cosigned
+	// head so the embedded quorum is recomputable offline by the state log.
+	var nid cosign.NetworkID
+	for i := range nid {
+		nid[i] = byte(i + 3)
+	}
+	priv, err := signatures.GenerateKey()
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	head := types.TreeHead{
+		TreeSize:    42871,
+		RootHash:    [32]byte{0xAA},
+		SMTRoot:     [32]byte{0xBB},
+		ReceiptRoot: [32]byte{0xCC},
+	}
+	cth := types.CosignedTreeHead{TreeHead: head}
+	sig, err := cosign.NewECDSAWitnessSigner(priv).
+		Sign(context.Background(), cosign.NewTreeHeadPayload(head), nid, cosign.HashAlgoSHA256)
+	if err != nil {
+		t.Fatalf("witness Sign: %v", err)
+	}
+	cth.Signatures = append(cth.Signatures, sig)
+
+	entry, err := anchor.BuildCosignedAnchorEntry(anchor.CosignedAnchorParams{
 		Destination:  "did:web:exchange.test",
 		SignerDID:    "did:web:ledger.courts.tn.gov",
 		SourceLogDID: "did:web:courts.nashville.gov:cases",
-		TreeHeadRef:  "a1b2c3d4e5f6",
-		TreeSize:     42871,
+		Head:         cth,
+		NetworkID:    nid,
 	})
 	if err != nil {
-		t.Fatalf("BuildAnchorEntry: %v", err)
+		t.Fatalf("BuildCosignedAnchorEntry: %v", err)
 	}
 
 	// Anchor is commentary — zero SMT impact.
@@ -227,17 +256,28 @@ func TestAnchorEntry_CrossCourt(t *testing.T) {
 		t.Error("anchor entry should have nil AuthorityPath")
 	}
 
-	// Payload carries the tree head reference.
-	var parsed map[string]any
-	json.Unmarshal(entry.DomainPayload, &parsed)
-	if parsed["source_log_did"] != "did:web:courts.nashville.gov:cases" {
+	// Payload is the self-contained cosigned_tree_head_v1 shape: the source
+	// DID plus the full embedded head (roots + cosignatures), not a bare ref.
+	var parsed struct {
+		AnchorType   string `json:"anchor_type"`
+		SourceLogDID string `json:"source_log_did"`
+		Head         struct {
+			Head struct {
+				TreeSize uint64 `json:"tree_size"`
+			} `json:"head"`
+		} `json:"head"`
+	}
+	if err := json.Unmarshal(entry.DomainPayload, &parsed); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if parsed.AnchorType != anchor.CosignedAnchorType {
+		t.Errorf("anchor_type = %q, want %s", parsed.AnchorType, anchor.CosignedAnchorType)
+	}
+	if parsed.SourceLogDID != "did:web:courts.nashville.gov:cases" {
 		t.Error("source_log_did mismatch")
 	}
-	if parsed["tree_head_ref"] != "a1b2c3d4e5f6" {
-		t.Error("tree_head_ref mismatch")
-	}
-	if parsed["tree_size"] != float64(42871) {
-		t.Errorf("tree_size = %v, want 42871", parsed["tree_size"])
+	if parsed.Head.Head.TreeSize != 42871 {
+		t.Errorf("embedded tree_size = %d, want 42871", parsed.Head.Head.TreeSize)
 	}
 }
 

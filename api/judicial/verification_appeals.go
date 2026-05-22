@@ -6,7 +6,7 @@ DESCRIPTION:
 	Appellate-history + cross-log proof verification handlers.
 
 	  POST /v1/judicial/verification/appeal-chain    → VerifyAppealChain
-	  POST /v1/judicial/verification/cross-log-proof → verifier.VerifyCrossLogProof
+	  POST /v1/judicial/verification/cross-log-proof → crosslog.VerifyCrossLog
 
 	Walking the chain end-to-end is also stubbed because WalkAppealChain
 	needs a NextProofFn — a Go callback that fetches the next hop's
@@ -27,9 +27,8 @@ import (
 	"net/http"
 
 	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
 
-	"github.com/clearcompass-ai/judicial-network/topology"
+	"github.com/clearcompass-ai/judicial-network/crosslog"
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
@@ -90,9 +89,8 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 // v0.3.0; per-request overrides would defeat the encapsulation
 // guarantee.
 type crossLogProofRequest struct {
-	Proof                  json.RawMessage `json:"proof"`
-	SourceLogDID           string          `json:"source_log_did"`
-	AnchorPayloadExtractor string          `json:"anchor_payload_extractor,omitempty"`
+	Proof        json.RawMessage `json:"proof"`
+	SourceLogDID string          `json:"source_log_did"`
 }
 
 type verifyCrossLogProofHandler struct{ deps *Dependencies }
@@ -122,15 +120,10 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 			"no witness set for source_log_did (pre-configure via WitnessSets at boot)")
 		return
 	}
-	// Only the relay-attestation extractor is supported; the topology
-	// package owns the canonical JSON layout. Future extractor
-	// registries would route by AnchorPayloadExtractor here.
-	if req.AnchorPayloadExtractor != "" && req.AnchorPayloadExtractor != "relay_attestation" {
-		writeError(w, http.StatusBadRequest,
-			"anchor_payload_extractor: only \"relay_attestation\" supported")
-		return
-	}
-	verifyErr := verifier.VerifyCrossLogProof(proof, set, topology.ExtractAnchorPayload)
+	// Self-contained model: the anchor entry embeds the source head + its
+	// K-of-N cosignatures, so the consumer recomputes the quorum offline and
+	// proves inclusion against the verified head — no extractor indirection.
+	verifyErr := crosslog.VerifyCrossLog(proof, set)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"verified": false,

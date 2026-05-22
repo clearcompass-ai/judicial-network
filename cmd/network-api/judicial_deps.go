@@ -127,7 +127,7 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 
 // buildWitnessSets resolves cfg.Witness.Sets into the per-source-log
 // *cosign.WitnessKeySet map that the cross-log verification paths read
-// (VerifyCrossLogProof, crosslog.VerifyCosignedAnchor).
+// (crosslog.VerifyCrossLog).
 //
 // No sets configured → an empty (non-nil) map; cross-log handlers then
 // surface 503 for an unknown source log. When sets ARE configured the

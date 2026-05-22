@@ -42,8 +42,7 @@ import (
 
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
-	"github.com/clearcompass-ai/judicial-network/topology"
+	"github.com/clearcompass-ai/judicial-network/crosslog"
 )
 
 // AppealStep is one hop in an appeal chain. The chain is
@@ -141,8 +140,7 @@ func VerifyAppealChain(
 			steps[i].ProofVerified = false
 			continue
 		}
-		err := verifier.VerifyCrossLogProof(*steps[i].Proof, set,
-			topology.ExtractAnchorPayload)
+		err := crosslog.VerifyCrossLog(*steps[i].Proof, set)
 		if err != nil {
 			steps[i].ProofVerified = false
 			continue

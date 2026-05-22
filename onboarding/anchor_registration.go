@@ -6,14 +6,16 @@ DESCRIPTION: Publishes the first anchor entry from a newly-provisioned county
 	to admit the county into the network.
 
 KEY ARCHITECTURAL DECISIONS:
-  - Uses builder.BuildAnchorEntry (commentary, zero SMT impact).
+  - Uses anchor.BuildCosignedAnchorEntry (self-contained cosigned_tree_head_v1
+    commentary, zero SMT impact) — the SAME format the SDK owns for every
+    anchor, so the state ledger verifies the county head's quorum offline.
   - Fetches the county log's initial cosigned tree head via TreeHeadClient
     (the head that includes the provisioning entries — scope entity,
     delegations, schemas).
   - Returns the anchor entry for submission to the state log by the caller.
 
 OVERVIEW: RegisterFirstAnchor wraps topology/anchor_publisher for onboarding.
-KEY DEPENDENCIES: attesta/builder, attesta/witness, attesta/crypto/cosign
+KEY DEPENDENCIES: attesta/anchor, attesta/witness, attesta/crypto/cosign
 */
 package onboarding
 
@@ -23,7 +25,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/witness"
@@ -111,12 +113,12 @@ func RegisterFirstAnchor(
 	}
 	headRef := hex.EncodeToString(headHash[:])
 
-	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
+	entry, err := anchor.BuildCosignedAnchorEntry(anchor.CosignedAnchorParams{
 		Destination:  cfg.Destination,
 		SignerDID:    cfg.CountyLedgerDID,
 		SourceLogDID: cfg.CountyLogDID,
-		TreeHeadRef:  headRef,
-		TreeSize:     head.TreeSize,
+		Head:         head,
+		NetworkID:    cfg.NetworkID,
 		EventTime:    eventTime,
 	})
 	if err != nil {
