@@ -1,61 +1,37 @@
 /*
 FILE PATH: topology/anchor_publisher.go
-DESCRIPTION: Wraps SDK BuildAnchorEntry + TreeHeadClient. Publishes periodic
+DESCRIPTION: Publishes periodic county→state anchors as self-contained
 
-	anchors from county log to state log.
+	cosigned_tree_head_v1 entries via the SDK's single anchor owner
+	(attesta/anchor). The embedded head carries the source log's full
+	K-of-N cosignatures, so a consumer verifies the quorum OFFLINE — no
+	callback to the source log, which may by then be offline or equivocating.
 
 KEY ARCHITECTURAL DECISIONS:
-  - Uses builder.BuildAnchorEntry (commentary entry, zero SMT impact).
-  - Fetches tree head via witness.TreeHeadClient.
-  - Anchor entry payload: source_log_did, tree_head_ref, tree_size.
-  - Tree-head reference hash is computed via cosign.TreeHeadDigest
-    so it is network-bound (rejects cross-network replay).
+  - Uses anchor.BuildCosignedAnchorEntry (commentary entry, zero SMT impact) —
+    the SAME format as cross-exchange peer anchors. There is exactly one
+    anchor type across the network (constitution P1/P2: the SDK owns it).
+  - Fetches the source log's cosigned tree head via witness.TreeHeadClient.
+  - tree_head_ref (network-bound cosign.TreeHeadDigest) is retained as the
+    provenance/audit value and surfaced in AnchorResult; it equals the digest
+    the SDK embeds in the anchor.
 
-OVERVIEW: PublishAnchor fetches latest tree head and builds anchor entry.
-KEY DEPENDENCIES: attesta/builder, attesta/witness, attesta/crypto/cosign
+OVERVIEW: PublishAnchor fetches latest tree head and builds a self-contained
+anchor entry.
+KEY DEPENDENCIES: attesta/anchor, attesta/witness, attesta/crypto/cosign
 */
 package topology
 
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/witness"
 )
-
-// ExtractAnchorPayload parses the JSON payload produced by
-// builder.BuildAnchorEntry and returns the 32-byte tree-head reference.
-// Verifier passes this as verifier.AnchorPayloadExtractor when calling
-// VerifyCrossLogProof. Errors map to verifier-rejected proofs.
-func ExtractAnchorPayload(payload []byte) ([32]byte, error) {
-	var parsed struct {
-		AnchorType   string `json:"anchor_type"`
-		SourceLogDID string `json:"source_log_did"`
-		TreeHeadRef  string `json:"tree_head_ref"`
-		TreeSize     uint64 `json:"tree_size"`
-	}
-	if err := json.Unmarshal(payload, &parsed); err != nil {
-		return [32]byte{}, fmt.Errorf("topology/anchor: unmarshal payload: %w", err)
-	}
-	if parsed.AnchorType != "tree_head_ref" {
-		return [32]byte{}, fmt.Errorf("topology/anchor: unexpected anchor_type %q", parsed.AnchorType)
-	}
-	raw, err := hex.DecodeString(parsed.TreeHeadRef)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("topology/anchor: decode tree_head_ref: %w", err)
-	}
-	if len(raw) != 32 {
-		return [32]byte{}, fmt.Errorf("topology/anchor: tree_head_ref length %d, want 32", len(raw))
-	}
-	var out [32]byte
-	copy(out[:], raw)
-	return out, nil
-}
 
 // AnchorConfig configures an anchor publishing operation.
 type AnchorConfig struct {
@@ -74,8 +50,9 @@ type AnchorResult struct {
 }
 
 // PublishAnchor fetches the latest cosigned tree head for the source log
-// and builds an anchor commentary entry suitable for submission to the
-// parent (state) log. ctx bounds the FetchLatestTreeHead RPC.
+// and builds a self-contained cosigned_tree_head_v1 anchor commentary entry
+// suitable for submission to the parent (state) log. ctx bounds the
+// FetchLatestTreeHead RPC.
 func PublishAnchor(
 	ctx context.Context,
 	cfg AnchorConfig,
@@ -102,12 +79,12 @@ func PublishAnchor(
 	}
 	headRef := hex.EncodeToString(headHash[:])
 
-	entry, err := builder.BuildAnchorEntry(builder.AnchorParams{
+	entry, err := anchor.BuildCosignedAnchorEntry(anchor.CosignedAnchorParams{
 		Destination:  cfg.Destination,
 		SignerDID:    cfg.SignerDID,
 		SourceLogDID: cfg.SourceLogDID,
-		TreeHeadRef:  headRef,
-		TreeSize:     head.TreeSize,
+		Head:         head,
+		NetworkID:    cfg.NetworkID,
 		EventTime:    cfg.EventTime,
 	})
 	if err != nil {

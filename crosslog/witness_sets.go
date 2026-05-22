@@ -5,7 +5,7 @@ DESCRIPTION:
 
 	BuildWitnessSets populates Dependencies.WitnessSets — the per-source-log
 	*cosign.WitnessKeySet map that every cross-log verification path reads
-	(VerifyCrossLogProof, VerifyCosignedAnchor). Each configured source/peer
+	(crosslog.VerifyCrossLog). Each configured source/peer
 	log's witness DIDs are resolved to secp256k1 public keys (witness.KeysFromDIDs)
 	and bound, with the log's K-of-N quorum and the network-wide cosign
 	NetworkID, into one keyset.

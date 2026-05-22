@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/monitoring"
@@ -176,7 +177,7 @@ func findLatestAnchor(entries []types.EntryWithMetadata, parentLogDID string) (t
 		if json.Unmarshal(entry.DomainPayload, &payload) != nil {
 			continue
 		}
-		if payload.AnchorType != "tree_head_ref" || payload.SourceLogDID != parentLogDID {
+		if payload.AnchorType != anchor.CosignedAnchorType || payload.SourceLogDID != parentLogDID {
 			continue
 		}
 

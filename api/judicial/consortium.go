@@ -118,7 +118,7 @@ func (h *consortiumProposeRemoveHandler) ServeHTTP(w http.ResponseWriter, r *htt
 // Mirror of /v1/judicial/verification/cross-log-proof but routed
 // under the consortium namespace for callers that treat cross-court
 // verification as a federation concern. The two paths share their
-// underlying implementation (verifier.VerifyCrossLogProof) and are
+// underlying implementation (crosslog.VerifyCrossLog) and are
 // wire-equivalent.
 type consortiumVerifyCrossCourtHandler struct{ deps *Dependencies }
 
