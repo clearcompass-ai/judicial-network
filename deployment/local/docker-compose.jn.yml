@@ -23,14 +23,9 @@ name: jn-auditor
 
 services:
   network-api:
-    # `image` + `build` together: `up --build` builds locally and tags it as
-    # this name; a plain `up` pulls the published image. Default tag `dev` keeps
-    # the local-build flow unchanged; set JN_IMAGE_TAG to run a published build
-    # (e.g. JN_IMAGE_TAG=latest docker compose -f ... up  → pulls from ghcr).
-    image: "ghcr.io/clearcompass-ai/judicial-network:${JN_IMAGE_TAG:-dev}"
-    build:
-      context: ../..
-      dockerfile: deployment/local/Dockerfile.network-api
+    # run-jn.sh provisions this image (pull when JN_IMAGE_PULL=1, else a local
+    # build it tags as JN_IMAGE), so the compose only references it — no build:.
+    image: "${JN_IMAGE:-ghcr.io/clearcompass-ai/judicial-network:${JN_IMAGE_TAG:-dev}}"
     container_name: jn-network-api
     ports:
       - "8443:8443"

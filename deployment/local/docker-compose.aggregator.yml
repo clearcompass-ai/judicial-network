@@ -8,9 +8,9 @@
 # and serves no gossip — it is a write-only projection with a probe surface.
 #
 # The aggregator reaches the host-run ledger via host.docker.internal; its DB is
-# a sibling service on this compose's network. Build the image with the proxy CA
-# secret (TLS-inspecting sandboxes) then `up` (no --build), or plain `up --build`
-# on an unintercepted network.
+# a sibling service on this compose's network. Strict-pull: the image is the one
+# published by the JN publish-image workflow (override AGG_IMAGE for a local
+# build); this compose only references it.
 #
 # Inputs (the e2e / run script export these):
 #   TOOLS_LEDGER_URL    ledger base URL (default host.docker.internal:8080)
@@ -35,10 +35,10 @@ services:
       retries: 20
 
   aggregator:
-    image: "jn-aggregator:${JN_IMAGE_TAG:-local}"
-    build:
-      context: ../..
-      dockerfile: deployment/local/Dockerfile.aggregator
+    # Strict-pull: the image is published by the JN's publish-image workflow
+    # (ghcr.io/<owner>/judicial-network/aggregator). Build it locally only via
+    # `docker build -f deployment/local/Dockerfile.aggregator .` if you must.
+    image: "${AGG_IMAGE:-ghcr.io/clearcompass-ai/judicial-network/aggregator:latest}"
     container_name: jn-aggregator
     depends_on:
       aggregator-db:

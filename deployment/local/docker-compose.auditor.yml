@@ -35,7 +35,10 @@ services:
       retries: 20
 
   auditor:
-    image: "${AUDITOR_IMAGE:-auditor:local}"
+    # Strict-pull: published by attesta-tools' publish-images workflow
+    # (ghcr.io/<owner>/attesta-tools/auditor). Override AUDITOR_IMAGE for a
+    # local/unpublished build.
+    image: "${AUDITOR_IMAGE:-ghcr.io/clearcompass-ai/attesta-tools/auditor:latest}"
     container_name: attesta-auditor
     depends_on:
       auditor-db:
