@@ -36,6 +36,7 @@ import argparse
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -77,6 +78,15 @@ def sh(cmd, check=True, quiet=False, env=None):
 
 
 def have(b): return shutil.which(b) is not None
+
+
+def port_in_use(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
+    try:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+    finally:
+        s.close()
 def dname(s): return f"{PREFIX}-{s}"
 def drm(*names): sh(["docker", "rm", "-f", *names], check=False, quiet=True)
 def dlogs(name): return sh(["docker", "logs", name], check=False, quiet=True)
@@ -152,9 +162,25 @@ def teardown(cfg):
                                 "auditor-db", "ledger", "seaweedfs", "postgres")]
     names += witness_names(cfg)
     drm(*names)
+    # Drop the ledger's named volumes so a re-run gets a clean genesis.
+    sh(["docker", "volume", "rm", dname("ledger-tessera"), dname("ledger-wal"),
+        dname("ledger-antispam")], check=False, quiet=True)
     sh(["docker", "network", "rm", NET], check=False, quiet=True)
     shutil.rmtree(HOME, ignore_errors=True)
-    ok("removed containers, network, and state")
+    ok("removed containers, volumes, network, and state")
+
+
+def check_ports(cfg):
+    """Fail early + clearly if a host port is held by something we don't manage
+    (e.g. a stale go-native ledger) — teardown only frees our own containers."""
+    ports = [cfg.ledger_port, cfg.auditor_port, cfg.aggregator_port, cfg.jn_port]
+    ports += [cfg.witness_port_base + i for i in range(cfg.n)]
+    busy = [p for p in ports if port_in_use(p)]
+    if busy:
+        die("host port(s) already in use by a non-Clarity process: "
+            + ", ".join(map(str, busy))
+            + f"\n       free them and retry — e.g.:  lsof -ti tcp:{busy[0]} | xargs kill"
+            + "\n       (a stale go-native ledger from the older clarity_e2e.py flow is the usual cause)")
 
 
 # ── stages ────────────────────────────────────────────────────────────
@@ -410,6 +436,7 @@ def cmd_up(cfg):
     preflight(cfg)
     if not cfg.keep:
         teardown(cfg)
+    check_ports(cfg)
     net_up()
     pull_all(cfg)
     did = mint_fixtures(cfg)
