@@ -26,9 +26,9 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/types"
 
-	"github.com/clearcompass-ai/judicial-network/crosslog"
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
@@ -123,7 +123,7 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	// Self-contained model: the anchor entry embeds the source head + its
 	// K-of-N cosignatures, so the consumer recomputes the quorum offline and
 	// proves inclusion against the verified head — no extractor indirection.
-	verifyErr := crosslog.VerifyCrossLog(proof, set)
+	verifyErr := anchor.VerifyCrossLog(proof, set)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"verified": false,

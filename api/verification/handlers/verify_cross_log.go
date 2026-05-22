@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/judicial-network/crosslog"
 )
 
 // VerifyCrossLogHandler handles POST /v1/verify/cross-log.
@@ -35,7 +35,7 @@ func (h *VerifyCrossLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err := crosslog.VerifyCrossLog(req.Proof, set)
+	err := anchor.VerifyCrossLog(req.Proof, set)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"valid": false,

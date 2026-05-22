@@ -40,9 +40,9 @@ package verification
 import (
 	"fmt"
 
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/judicial-network/crosslog"
 )
 
 // AppealStep is one hop in an appeal chain. The chain is
@@ -140,7 +140,7 @@ func VerifyAppealChain(
 			steps[i].ProofVerified = false
 			continue
 		}
-		err := crosslog.VerifyCrossLog(*steps[i].Proof, set)
+		err := anchor.VerifyCrossLog(*steps[i].Proof, set)
 		if err != nil {
 			steps[i].ProofVerified = false
 			continue

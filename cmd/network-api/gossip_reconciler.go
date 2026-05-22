@@ -12,7 +12,7 @@ DESCRIPTION:
 	       │
 	       ▼
 	  verification.GossipVerifier  Tier 1: gossip.Verify envelope authenticity
-	                               Tier 2: judicialfindings router — embedded
+	                               Tier 2: findings router — embedded
 	                               K-of-N / signer / merkle proof against
 	                               JN-LOCAL trust roots (witness-set registry,
 	                               the shared DID VerifierRegistry, trusted heads)

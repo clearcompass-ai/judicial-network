@@ -13,7 +13,7 @@
 //	    is its own gossip layer. This is the authority for self-attested Kinds
 //	    (originator/ghost) and the transport-identity check for all others.
 //
-//	  Tier 2 — Finding proof (judicialfindings.Router): the embedded K-of-N /
+//	  Tier 2 — Finding proof (findings router): the embedded K-of-N /
 //	    signer / merkle proof, dispatched by Kind against JN-LOCAL trust roots
 //	    only — witness sets from the registry, JN's own SignerVerifier, a
 //	    trusted tile mirror. A finding's self-claimed identifiers are lookup
@@ -32,8 +32,6 @@ import (
 	"github.com/clearcompass-ai/attesta/gossip/findings"
 	"github.com/clearcompass-ai/attesta/types"
 	tessera "github.com/transparency-dev/tessera/client"
-
-	"github.com/clearcompass-ai/judicial-network/judicialfindings"
 )
 
 // ErrGossipVerify wraps every inbound-event verification failure. Underlying
@@ -155,12 +153,12 @@ func (gv *GossipVerifier) Verify(ctx context.Context, ev gossip.SignedEvent) (go
 		return nil, fmt.Errorf("%w: envelope: %w", ErrGossipVerify, err)
 	}
 	// Decode the body into a typed finding (fail-closed on unknown/malformed).
-	event, err := judicialfindings.DecodeWireBody(ev.Kind, ev.Body)
+	event, err := findings.FromWire(ev.Kind, ev.Body)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrGossipVerify, err)
 	}
 	// Tier 2: finding proof against LOCAL trust roots.
-	vc := judicialfindings.VerificationContext{
+	vc := findings.VerificationContext{
 		SourceLogDID:   ev.Originator,
 		WitnessSets:    gv.sets.Snapshot(),
 		SignerVerifier: gv.signer,
@@ -182,7 +180,7 @@ func (gv *GossipVerifier) Verify(ctx context.Context, ev gossip.SignedEvent) (go
 			}
 		}
 	}
-	if err := judicialfindings.Verify(ctx, event, vc); err != nil {
+	if err := findings.Verify(ctx, event, vc); err != nil {
 		return nil, fmt.Errorf("%w: finding: %w", ErrGossipVerify, err)
 	}
 	return event, nil
