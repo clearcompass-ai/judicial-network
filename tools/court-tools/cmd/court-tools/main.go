@@ -39,8 +39,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
 	"github.com/clearcompass-ai/judicial-network/tools/court-tools"
 )
 

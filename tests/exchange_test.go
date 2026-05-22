@@ -19,9 +19,9 @@ import (
 
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
 
 // ─── mTLS Auth ──────────────────────────────────────────────────────

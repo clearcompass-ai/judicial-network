@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // Server is the data provider tools HTTP server. Read-only — never touches exchange.

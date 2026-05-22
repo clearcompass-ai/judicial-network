@@ -46,7 +46,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/provider-tools"
 )
 

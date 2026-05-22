@@ -27,8 +27,8 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
 
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // -------------------------------------------------------------------------

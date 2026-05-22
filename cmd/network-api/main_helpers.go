@@ -24,14 +24,13 @@ import (
 
 	_ "github.com/lib/pq" // postgres driver for the durable gossip store
 
-
+	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	pkcs11ks "github.com/clearcompass-ai/attesta-tools/libs/keystore/pkcs11"
+	vaultks "github.com/clearcompass-ai/attesta-tools/libs/keystore/vault"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
-	pkcs11ks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/pkcs11"
-	vaultks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/vault"
-	"github.com/clearcompass-ai/judicial-network/api/middleware"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"

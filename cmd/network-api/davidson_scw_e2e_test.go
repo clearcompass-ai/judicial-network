@@ -52,10 +52,10 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 	"github.com/clearcompass-ai/attesta/did"
 
+	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	keysigner "github.com/clearcompass-ai/attesta-tools/libs/keystore/signer"
 	"github.com/clearcompass-ai/judicial-network/api/config"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
-	keysigner "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/signer"
-	"github.com/clearcompass-ai/judicial-network/api/middleware"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"

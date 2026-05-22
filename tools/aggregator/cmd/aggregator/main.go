@@ -38,8 +38,8 @@ import (
 	"syscall"
 	"time"
 
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // deps abstracts the boot-time wiring so main_test.go can stub each

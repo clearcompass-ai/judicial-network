@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // ClassifiedEntry is the result of deserializing and classifying a raw entry.

@@ -52,11 +52,11 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 )
 
 // ScopeChecker authorizes a signing request before the exchange

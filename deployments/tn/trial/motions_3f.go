@@ -20,7 +20,7 @@ DESCRIPTION:
 package trial
 
 import (
-	"github.com/clearcompass-ai/judicial-network/prerequisites"
+	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

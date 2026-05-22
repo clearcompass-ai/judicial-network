@@ -111,14 +111,14 @@ var (
 // ResolveEntryAttestationPolicy follows the two-pointer chain
 // from entry → schema → policy:
 //
-//	1. Read entry.Header.AttestationPolicyName.
-//	   Nil   → return (nil, ErrPolicyNotAdopted) — caller's choice
-//	          whether that's admissible (depends on whether the
-//	          schema lists policies and whether one is required).
-//	   "..." → continue.
-//	2. Look up schemaParams.FindAttestationPolicy(*name).
-//	   Hit   → return (&policy, nil).
-//	   Miss  → return (nil, ErrPolicyNameNotFound).
+//  1. Read entry.Header.AttestationPolicyName.
+//     Nil   → return (nil, ErrPolicyNotAdopted) — caller's choice
+//     whether that's admissible (depends on whether the
+//     schema lists policies and whether one is required).
+//     "..." → continue.
+//  2. Look up schemaParams.FindAttestationPolicy(*name).
+//     Hit   → return (&policy, nil).
+//     Miss  → return (nil, ErrPolicyNameNotFound).
 //
 // Returns ErrAttestationPolicyResolve wrapping the underlying
 // sentinel; callers errors.Is on ErrPolicyNotAdopted /

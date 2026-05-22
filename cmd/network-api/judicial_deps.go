@@ -353,8 +353,10 @@ func buildLeafReader(ledgerEndpoint string) smt.LeafReader {
 //
 // VendorDIDResolver translates JN-domain DID methods
 // (did:court:tn:davidson → did:web:davidson.tn.court.gov,
-//  did:jnet:tn:appellate → did:web:appellate.tn.jnet.gov,
-//  did:ccr:agency:fbi-ncic → did:web:fbi-ncic.agency.ccr.org)
+//
+//	did:jnet:tn:appellate → did:web:appellate.tn.jnet.gov,
+//	did:ccr:agency:fbi-ncic → did:web:fbi-ncic.agency.ccr.org)
+//
 // to the SDK's canonical methods. Mappings live in
 // judicial-network/did/mappings.go; the vendor resolver consults
 // the inner MethodRouter for the translated DID.

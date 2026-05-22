@@ -202,22 +202,22 @@ func TestSCW_PerSignatureReceiptCollection(t *testing.T) {
 // A rename or removal of any of these in the SDK breaks the JN
 // build BEFORE any runtime test runs.
 var (
-	_ = signatures.VerifyEIP1271
-	_ = signatures.EncodeIsValidSignatureCalldata
-	_ = signatures.NewStubEthereumRPC
-	_ = signatures.ErrEIP1271InvalidMagic
-	_ = signatures.ErrEIP1271ContractEmpty
-	_ = signatures.ErrEthCallReverted
-	_ = did.DefaultVerifierRegistry
-	_ = did.NewPKHVerifier
-	_ = did.StaticBlockProvider{}
-	_ = did.PKHVerifierOptions{}
-	_ = did.ExecutorClient{}
-	_ = envelope.SigAlgoEIP1271
-	_ signatures.EthereumRPCClient                = (*signatures.StubEthereumRPC)(nil)
-	_ attestation.SignatureVerifier               = (*did.VerifierRegistry)(nil)
-	_ attestation.SignatureVerifierWithReceipt    = (*did.VerifierRegistry)(nil)
-	_                                             = sdktypes.ZeroWeb3VerificationReceipt
+	_                                          = signatures.VerifyEIP1271
+	_                                          = signatures.EncodeIsValidSignatureCalldata
+	_                                          = signatures.NewStubEthereumRPC
+	_                                          = signatures.ErrEIP1271InvalidMagic
+	_                                          = signatures.ErrEIP1271ContractEmpty
+	_                                          = signatures.ErrEthCallReverted
+	_                                          = did.DefaultVerifierRegistry
+	_                                          = did.NewPKHVerifier
+	_                                          = did.StaticBlockProvider{}
+	_                                          = did.PKHVerifierOptions{}
+	_                                          = did.ExecutorClient{}
+	_                                          = envelope.SigAlgoEIP1271
+	_ signatures.EthereumRPCClient             = (*signatures.StubEthereumRPC)(nil)
+	_ attestation.SignatureVerifier            = (*did.VerifierRegistry)(nil)
+	_ attestation.SignatureVerifierWithReceipt = (*did.VerifierRegistry)(nil)
+	_                                          = sdktypes.ZeroWeb3VerificationReceipt
 )
 
 // ─── byte-equality helper ────────────────────────────────

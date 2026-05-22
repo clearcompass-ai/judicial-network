@@ -32,7 +32,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 )
 
 // Observability is the composer-level bundle of metrics + logger +

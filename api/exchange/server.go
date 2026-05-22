@@ -34,12 +34,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 )
 
 // ServerConfig configures the exchange service.

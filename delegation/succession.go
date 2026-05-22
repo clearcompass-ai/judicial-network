@@ -51,9 +51,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/identity"
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

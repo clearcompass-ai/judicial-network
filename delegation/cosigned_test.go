@@ -24,8 +24,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/identity"
 	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	dcrecdsa "github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 )

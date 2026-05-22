@@ -22,8 +22,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 )
 
 // stubLedger returns an httptest.Server that responds with the

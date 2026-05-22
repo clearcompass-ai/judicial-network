@@ -225,8 +225,7 @@ func TestVerifyDelegation_UnknownLog(t *testing.T) {
 // ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyCrossLog_MissingWitnessKeys(t *testing.T) {
-	deps := &Dependencies{
-	}
+	deps := &Dependencies{}
 	handler := NewVerifyCrossLogHandler(deps)
 
 	body, _ := json.Marshal(map[string]any{

@@ -22,7 +22,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 )
 
 // produceRotation runs the production producer steps against the keystore:

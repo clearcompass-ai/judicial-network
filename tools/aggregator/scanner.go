@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // Scanner polls the ledger for new entries and indexes them into Postgres.

@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // ─────────────────────────────────────────────────────────────────────

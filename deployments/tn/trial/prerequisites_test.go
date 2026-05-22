@@ -15,7 +15,7 @@ package trial
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/prerequisites"
+	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 )
 
 // ─── Construction & validation ─────────────────────────────────────

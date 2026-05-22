@@ -3,7 +3,7 @@ package courts
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // CreateOfficer handles POST /v1/officers.

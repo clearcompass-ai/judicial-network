@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // Reconciler periodically verifies that Postgres matches the log.

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // PublishDocket handles POST /v1/docket.

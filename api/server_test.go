@@ -40,7 +40,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
 )
 
 // ─────────────────────────────────────────────────────────────────────

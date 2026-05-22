@@ -197,8 +197,9 @@ func policy(name string, minAttestors int, window time.Duration) attestationPoli
 // atomic policies are visually distinct at the call site and don't
 // accidentally inherit the async default.
 //
-//nolint:unused // declared for future atomic policies; intentionally
 // unused until JN adopts one.
+//
+//nolint:unused // declared for future atomic policies; intentionally
 func atomicPolicy(name string, minAttestors int, window time.Duration) attestationPolicyJSON {
 	return attestationPolicyJSON{
 		Name:              name,

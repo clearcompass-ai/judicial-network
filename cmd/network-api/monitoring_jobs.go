@@ -33,9 +33,9 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/witness"
 
+	jnmon "github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
-	jnmon "github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )
 
 const (
