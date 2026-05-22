@@ -1,0 +1,10 @@
+# Keep the build context small and secret-free. The build needs only the Go
+# sources + go.mod/go.sum (COPY . .) — never minted certs/keys, VCS, CI, or the
+# e2e's local state.
+.git
+.github
+.run
+**/.run
+e2e/__pycache__
+*.md
+LICENSE

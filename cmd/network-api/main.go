@@ -69,6 +69,10 @@ import (
 // requests to drain before forcing close.
 const shutdownTimeout = 30 * time.Second
 
+// Version is the build version, stamped at link time via
+// -ldflags "-X main.Version=...". Defaults to "dev" for un-stamped builds.
+var Version = "dev"
+
 func main() {
 	if err := run(os.Args[1:], realDeps()); err != nil {
 		log.Fatalf("network-api: %v", err)

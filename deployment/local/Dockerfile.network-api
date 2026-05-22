@@ -1,9 +1,12 @@
+# syntax=docker/dockerfile:1
 # Multi-stage Dockerfile for cmd/network-api (the JN Smart-Edge auditor).
-# Built from the JN repo root (context: ../..).
 #
-# The binary is fully env-driven (api/config.ApplyEnvOverrides) — the same
-# image runs under docker-compose (this dir) or k8s, configured only by env +
+# The binary is fully env-driven (api/config.ApplyEnvOverrides) — the same image
+# runs under docker-compose (deployment/local) or k8s, configured only by env +
 # mounted Secret/ConfigMap files. No config file is baked in.
+#
+# Build from the repo root:
+#   docker build -f deployment/local/Dockerfile.network-api .
 FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git
@@ -11,18 +14,45 @@ RUN apk add --no-cache git
 WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN go mod download
+
+# The SDK (github.com/clearcompass-ai/*) is a private module, so the build needs
+# git auth to fetch it. The gh_token secret is mounted only for this layer and
+# never persisted; it is optional — absent (public/local builds) the git rewrite
+# is skipped and an anonymous fetch is attempted.
+ENV GOPRIVATE=github.com/clearcompass-ai/*
+RUN --mount=type=secret,id=gh_token \
+    if [ -s /run/secrets/gh_token ]; then \
+      git config --global \
+        url."https://x-access-token:$(cat /run/secrets/gh_token)@github.com/".insteadOf \
+        "https://github.com/"; \
+    fi; \
+    go mod download
 
 COPY . .
+
+# VERSION is stamped into main.Version; defaults to "docker" for unstamped
+# (local) builds. Static, reproducible binary: CGO off so the runtime needs no
+# glibc shim, -trimpath strips local paths, -buildvcs=false avoids requiring the
+# .git dir in the build context.
+ARG VERSION=docker
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-X main.Version=0.0.1" \
+    -trimpath -buildvcs=false \
+    -ldflags "-X main.Version=${VERSION}" \
     -o /network-api ./cmd/network-api
 
-FROM alpine:latest
+# ── Runtime ────────────────────────────────────────────────────
+# Pinned base (not :latest) for reproducible, auditable rebuilds.
+FROM alpine:3.21
+
 RUN apk --no-cache add ca-certificates tzdata wget
 
 WORKDIR /
 COPY --from=builder /network-api /network-api
 
 EXPOSE 8443
+
+# No Docker HEALTHCHECK: /healthz is served over mTLS, so a liveness probe must
+# present a client cert + CA. That belongs in the orchestrator (a k8s httpGet
+# probe with the mounted certs, or the e2e's external poll) — not a baked-in
+# wget that has no certs to offer.
 ENTRYPOINT ["/network-api"]
