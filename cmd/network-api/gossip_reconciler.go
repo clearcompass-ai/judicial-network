@@ -7,11 +7,11 @@ DESCRIPTION:
 	Edge" pull pipeline. Strings together the verify-only layers into one
 	background worker:
 
-	  topology.PeerPuller        pulls each peer's /v1/gossip/since feed (raw,
+	  peers.PeerPuller        pulls each peer's /v1/gossip/since feed (raw,
 	                             untrusted SignedEvents)
 	       │
 	       ▼
-	  verification.GossipVerifier  Tier 1: gossip.Verify envelope authenticity
+	  gossipverify.GossipVerifier  Tier 1: gossip.Verify envelope authenticity
 	                               Tier 2: findings router — embedded
 	                               K-of-N / signer / merkle proof against
 	                               JN-LOCAL trust roots (witness-set registry,
@@ -45,10 +45,11 @@ import (
 	"github.com/clearcompass-ai/attesta/did"
 	"github.com/clearcompass-ai/attesta/gossip"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/auditing/gossipverify"
+	"github.com/clearcompass-ai/attesta-tools/libs/auditing/peers"
+	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+
 	"github.com/clearcompass-ai/judicial-network/api/config"
-	"github.com/clearcompass-ai/judicial-network/monitoring"
-	"github.com/clearcompass-ai/judicial-network/topology"
-	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
 // buildGossipIngest assembles the inbound, verify-only pull pipeline from
@@ -60,7 +61,7 @@ func buildGossipIngest(
 	cfg config.Operational,
 	sigVerifier attestation.SignatureVerifier,
 	logger *slog.Logger,
-) (*topology.PeerPuller, error) {
+) (*peers.PeerPuller, error) {
 	if !cfg.GossipIngest.Enabled || len(cfg.GossipIngest.Peers) == 0 {
 		return nil, nil
 	}
@@ -92,26 +93,26 @@ func buildGossipIngest(
 		return nil, fmt.Errorf("originator verifier: %w", err)
 	}
 
-	witnessRegistry := verification.NewWitnessSetRegistry(witnessSets, networkID)
+	witnessRegistry := gossipverify.NewWitnessSetRegistry(witnessSets, networkID)
 	heads := monitoring.NewTrustedHeadStore(logger)
 
 	// Cross-log inclusion (ClassMerkle) tile mirrors. Proofs replay against the
 	// source log's TRUSTED head (heads, above), so a mirror is a data source,
 	// not a trust root; empty config ⇒ those findings fail-closed.
-	var tiles verification.TileFetcherSource
+	var tiles gossipverify.TileFetcherSource
 	if len(cfg.GossipIngest.TileMirrors) > 0 {
 		mirrors := make(map[string]string, len(cfg.GossipIngest.TileMirrors))
 		for _, m := range cfg.GossipIngest.TileMirrors {
 			mirrors[m.LogDID] = m.BaseURL
 		}
-		htm, terr := verification.NewHTTPTileMirrors(mirrors, nil)
+		htm, terr := gossipverify.NewHTTPTileMirrors(mirrors, nil)
 		if terr != nil {
 			return nil, fmt.Errorf("tile mirrors: %w", terr)
 		}
 		tiles = htm
 	}
 
-	verifier, err := verification.NewGossipVerifier(verification.GossipVerifierConfig{
+	verifier, err := gossipverify.NewGossipVerifier(gossipverify.GossipVerifierConfig{
 		Originator:     originator,
 		NetworkID:      networkID,
 		WitnessSets:    witnessRegistry,
@@ -139,12 +140,12 @@ func buildGossipIngest(
 		return nil, fmt.Errorf("reconciler: %w", err)
 	}
 
-	peers := make([]topology.PeerFeed, len(cfg.GossipIngest.Peers))
+	feeds := make([]peers.PeerFeed, len(cfg.GossipIngest.Peers))
 	for i, p := range cfg.GossipIngest.Peers {
-		peers[i] = topology.PeerFeed{LogDID: p.LogDID, BaseURL: p.BaseURL}
+		feeds[i] = peers.PeerFeed{LogDID: p.LogDID, BaseURL: p.BaseURL}
 	}
-	return topology.NewPeerPuller(topology.PeerPullerConfig{
-		Peers:     peers,
+	return peers.NewPeerPuller(peers.PeerPullerConfig{
+		Peers:     feeds,
 		Sink:      reconciler,
 		Interval:  cfg.GossipIngest.PollInterval,
 		PageLimit: cfg.GossipIngest.PageLimit,

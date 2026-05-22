@@ -25,7 +25,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/witness"
 
-	"github.com/clearcompass-ai/judicial-network/monitoring"
+	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )
 
 func registerMonitoringRoutes(mux *http.ServeMux, deps *Dependencies) {

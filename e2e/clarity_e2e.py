@@ -418,14 +418,16 @@ def bring_up_jn(cfg: Cfg, st: dict) -> dict:
     poll("JN /readyz == 200 (ledger-gated)",
          lambda: http_code(f"https://localhost:{cfg.jn_port}/readyz", mtls=mtls) == 200,
          timeout=cfg.timeout, log=log)
-    # Confirm the active auditor wired up (best-effort log scan).
+    # The JN is the ENFORCER: admission/enforcement on the commit clock + a
+    # verify-only gossip pull. Custody (the durable store/feed) and equivocation
+    # detection moved to the external auditor (Separation of Duties), so the JN
+    # no longer runs a scanner or hosts a store. Best-effort log scan for the
+    # verify-only ingest (only logs when peers are configured).
     txt = log.read_text(errors="replace") if log.exists() else ""
     dl = run(["docker", "logs", "jn-network-api"], check=False, quiet=True)
     txt += dl.stdout + dl.stderr
-    if "equivocation scanner auditing" in txt:
-        ok("equivocation scanner auditing the ledger's log")
-    if "no ledger endpoint" in txt:
-        warn("scanner reports 'no ledger endpoint' — witness-set log not mapped (stale image?)")
+    if "gossip ingest pulling" in txt:
+        ok("JN verify-only gossip ingest pulling peer feed(s)")
     return st
 
 

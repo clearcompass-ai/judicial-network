@@ -4,15 +4,14 @@ go 1.25.7
 
 require (
 	github.com/alicebob/miniredis/v2 v2.33.0
+	github.com/clearcompass-ai/attesta-tools/libs v0.1.2
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/getkin/kin-openapi v0.137.0
 	github.com/lib/pq v1.12.3
-	github.com/miekg/pkcs11 v1.1.1
+	github.com/miekg/pkcs11 v1.1.2
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/zerolog v1.35.1
-	github.com/transparency-dev/merkle v0.0.2
-	github.com/transparency-dev/tessera v1.0.2
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/metric v1.40.0
 	go.opentelemetry.io/otel/sdk/metric v1.40.0
@@ -23,6 +22,8 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c // indirect
+	github.com/transparency-dev/merkle v0.0.2 // indirect
+	github.com/transparency-dev/tessera v1.0.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/prometheus v0.62.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.40.0 // indirect
