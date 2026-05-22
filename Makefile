@@ -194,10 +194,10 @@ dev-certs: ## Mint real mTLS dev certs (CA+server+client; client SAN=CALLER_DID)
 identity: ## Identity Infra (Step 0): mint all actors' DIDs + signing keys + mTLS certs → .run/identities/manifest.env
 	./scripts/identity.sh
 
-jn-up: ## Run the JN auditor (network-api). Docker default (JN_BACKEND=native fallback); mTLS + durable gossip store. With LEDGER_NETWORK_BOOTSTRAP_FILE set it's an ACTIVE auditor (scanner + gossip ingest + bootstrap-derived witness set).
+jn-up: ## Run the JN auditor (network-api) in Docker. mTLS + durable gossip store; needs LEDGER_NETWORK_BOOTSTRAP_FILE → ACTIVE auditor (scanner + gossip ingest + bootstrap-derived witness set).
 	./scripts/run-jn.sh up
 
-jn-down: ## Stop the JN auditor (docker default; JN_BACKEND=native for the bare process)
+jn-down: ## Stop the JN auditor (docker compose down)
 	./scripts/run-jn.sh down
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
