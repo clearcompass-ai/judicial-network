@@ -221,7 +221,6 @@ class Cfg:
         self.port_base = args.port_base
         self.ledger_addr = args.ledger_addr
         self.jn_addr = args.jn_addr
-        self.jn_backend = args.jn_backend
         self.timeout = args.timeout
         self.keep_state = args.keep_state
 
@@ -261,16 +260,13 @@ class Cfg:
 # ── prerequisites ─────────────────────────────────────────────────────
 def check_prereqs(cfg: Cfg) -> None:
     stage("prerequisites")
-    for b in ("go", "curl"):
+    for b in ("go", "curl", "docker"):
         if not have(b):
             die(f"`{b}` not on PATH")
-    ok("go, curl present")
-    if cfg.jn_backend == "docker":
-        if not have("docker"):
-            die("`docker` not on PATH (or use --jn-backend native)")
-        if run(["docker", "info"], check=False, quiet=True).returncode != 0:
-            die("docker daemon not reachable (start Docker Desktop, or use --jn-backend native)")
-        ok("docker daemon reachable")
+    ok("go, curl, docker present")
+    if run(["docker", "info"], check=False, quiet=True).returncode != 0:
+        die("docker daemon not reachable (start Docker Desktop) — the JN auditor runs in Docker only")
+    ok("docker daemon reachable")
     for r in REPOS:
         d = cfg.root / r
         if not (d / "scripts").is_dir() and r != "judicial-network":
@@ -401,17 +397,15 @@ def seed_ledger(cfg: Cfg, st: dict) -> dict:
 
 
 def bring_up_jn(cfg: Cfg, st: dict) -> dict:
-    stage(f"JN active auditor (network-api) on {cfg.jn_addr}  [{cfg.jn_backend}]")
+    stage(f"JN active auditor (network-api) on {cfg.jn_addr}  [docker]")
     log = LOG_DIR / "jn.log"
     env = {
-        "JN_BACKEND": cfg.jn_backend,
         "LEDGER_NETWORK_BOOTSTRAP_FILE": st["bootstrap"],
         "LEDGER_WITNESS_QUORUM_K": str(st["quorum_k"]),
     }
     pid = run_bg([str(cfg.jn / "scripts" / "run-jn.sh"), "up"],
                  cwd=cfg.jn, env=env, logfile=log)
     st["jn_pid"] = pid
-    st["jn_backend"] = cfg.jn_backend
     save_state(st)
 
     if not (cfg.certs / "ca.crt").exists():
@@ -426,9 +420,8 @@ def bring_up_jn(cfg: Cfg, st: dict) -> dict:
          timeout=cfg.timeout, log=log)
     # Confirm the active auditor wired up (best-effort log scan).
     txt = log.read_text(errors="replace") if log.exists() else ""
-    if cfg.jn_backend == "docker":
-        txt += run(["docker", "logs", "jn-network-api"], check=False, quiet=True).stdout
-        txt += run(["docker", "logs", "jn-network-api"], check=False, quiet=True).stderr
+    dl = run(["docker", "logs", "jn-network-api"], check=False, quiet=True)
+    txt += dl.stdout + dl.stderr
     if "equivocation scanner auditing" in txt:
         ok("equivocation scanner auditing the ledger's log")
     if "no ledger endpoint" in txt:
@@ -501,7 +494,6 @@ def main() -> None:
     ap.add_argument("--port-base", type=int, default=19001)
     ap.add_argument("--ledger-addr", default=":8080")
     ap.add_argument("--jn-addr", default=":8443")
-    ap.add_argument("--jn-backend", default="docker", choices=["docker", "native"])
     ap.add_argument("--timeout", type=int, default=120, help="per-stage health timeout (s)")
     ap.add_argument("--keep-state", action="store_true", help="skip the clean teardown before `up`")
     args = ap.parse_args()
