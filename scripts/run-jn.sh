@@ -78,8 +78,14 @@ fi
 #    the published image; otherwise build locally for JN dev, injecting the
 #    egress proxy CA when present so fetches verify behind a TLS-inspecting proxy.
 if [ "${JN_IMAGE_PULL:-0}" = "1" ]; then
-    echo "== pulling network-api image (${IMAGE}) =="
-    docker pull "${IMAGE}"
+    # Use a locally-present image as-is (so a local build tagged as this ref is
+    # honored for branch testing); otherwise pull the published image.
+    if docker image inspect "${IMAGE}" >/dev/null 2>&1; then
+        echo "== using local network-api image (${IMAGE}) =="
+    else
+        echo "== pulling network-api image (${IMAGE}) =="
+        docker pull "${IMAGE}"
+    fi
 else
     CA_BUNDLE="${JN_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
     BUILD_SECRET=()
