@@ -15,12 +15,10 @@ DESCRIPTION:
 	  anchor_freshness   (1h)  — cross-jurisdiction anchor lag    (Cross-Log)
 	  sealing_compliance (24h) — sealed records physically blinded (Domain)
 
-	Plus gossip_prune (24h): enforces the durable store's retention TTL.
-
-	A check job registers only when its audit list is non-empty AND the
-	deps it needs are wired; gossip_prune registers only when the store is
-	durable (the in-memory store is not prunable). The loops perform NO
-	external alerting I/O — they evaluate the math and publish gauges.
+	A check job registers only when its audit list is non-empty AND the deps it
+	needs are wired. Gossip retention prune is the AUDITOR's job (it owns the
+	durable store), not the JN enforcer's. The loops perform NO external
+	alerting I/O — they evaluate the math and publish gauges.
 */
 package main
 
@@ -31,7 +29,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/gossip"
 	monitoring "github.com/clearcompass-ai/attesta/monitoring"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/witness"
@@ -45,24 +42,15 @@ const (
 	defaultMirrorInterval  = 5 * time.Minute
 	defaultAnchorInterval  = time.Hour
 	defaultSealingInterval = 24 * time.Hour
-	defaultPruneInterval   = 24 * time.Hour
-	defaultRetentionDays   = 30
 )
 
-// pruner is the subset of the durable store the prune job needs. The
-// in-memory store does not implement it, so gossip_prune self-gates on a
-// type assertion.
-type pruner interface {
-	Prune(ctx context.Context, retentionDays int) (int64, error)
-}
-
-// buildMonitoringScheduler constructs the scheduler and registers the
-// Core-3 audit jobs (where configured + deps available) plus the gossip
-// retention prune (D8). Returns (nil, nil) when monitoring is disabled.
+// buildMonitoringScheduler constructs the scheduler and registers the Core-3
+// domain audit jobs (where configured + deps available). Returns (nil, nil)
+// when monitoring is disabled. Gossip retention prune is the AUDITOR's job
+// (it owns the durable store); the JN enforcer schedules only domain audits.
 func buildMonitoringScheduler(
 	cfg config.Operational,
 	deps judicial.Dependencies,
-	store gossip.Store,
 	sink jnmon.Sink,
 	logger *slog.Logger,
 ) (*jnmon.Scheduler, error) {
@@ -111,22 +99,8 @@ func buildMonitoringScheduler(
 		}
 	}
 
-	if p, ok := store.(pruner); ok {
-		days := cfg.GossipStore.RetentionDays
-		if days <= 0 {
-			days = defaultRetentionDays
-		}
-		if err := sched.Register(jnmon.Job{
-			Name:     "gossip_prune",
-			Interval: orDefault(m.PruneInterval, defaultPruneInterval),
-			Run:      pruneJob(p, days, logger),
-		}); err != nil {
-			return nil, err
-		}
-	}
-
 	if sched.Len() == 0 {
-		logger.Warn("monitoring: scheduler enabled but no jobs registered (no audit specs and a non-durable store)")
+		logger.Warn("monitoring: scheduler enabled but no domain audit specs configured")
 	}
 	return sched, nil
 }
@@ -219,20 +193,5 @@ func sealingJob(deps judicial.Dependencies, specs []config.SealingAuditConfig) j
 			all = append(all, alerts...)
 		}
 		return all, errs
-	}
-}
-
-// pruneJob enforces the durable store's retention TTL (D8).
-func pruneJob(p pruner, retentionDays int, logger *slog.Logger) jnmon.JobFunc {
-	return func(ctx context.Context) ([]monitoring.Alert, error) {
-		n, err := p.Prune(ctx, retentionDays)
-		if err != nil {
-			return nil, err
-		}
-		if n > 0 {
-			logger.Info("monitoring: pruned expired gossip events",
-				slog.Int64("rows", n), slog.Int("retention_days", retentionDays))
-		}
-		return nil, nil
 	}
 }

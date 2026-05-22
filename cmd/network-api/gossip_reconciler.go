@@ -4,8 +4,8 @@ FILE PATH: cmd/network-api/gossip_reconciler.go
 DESCRIPTION:
 
 	Composition root for the INBOUND gossip anti-entropy plane — the "Smart
-	Edge" pull pipeline. Strings together the three layers built across the
-	repo into one background worker:
+	Edge" pull pipeline. Strings together the verify-only layers into one
+	background worker:
 
 	  topology.PeerPuller        pulls each peer's /v1/gossip/since feed (raw,
 	                             untrusted SignedEvents)
@@ -18,8 +18,16 @@ DESCRIPTION:
 	                               the shared DID VerifierRegistry, trusted heads)
 	       │
 	       ▼
-	  monitoring.Reconciler      dispatches the verified, typed finding to its
-	                             enforcer (TrustedHeadStore, EquivocationResponder)
+	  monitoring.Reconciler      advances JN's verified view: CosignedTreeHead →
+	                             TrustedHeadStore; WitnessRotation → live trust root
+
+	SEPARATION OF DUTIES: the JN is the ENFORCER, not the custodian. It
+	re-verifies what it pulls (Alignment 6) and advances its own trusted view —
+	it does NOT persist a gossip store, serve a feed, or slash. Custody of fraud
+	evidence (the durable store + equivocation findings) belongs to the external
+	auditor; the JN consumes that evidence by re-verifying it, identical to how
+	the ledger treats it (detect/serve, never a synchronous control plane —
+	Alignment 11).
 
 	ZERO-TRUST: every trust input is JN-local. Witness sets come from
 	Witness.Sets + NetworkBootstrapFile; the originator/signer verifier is the
@@ -38,21 +46,19 @@ import (
 	"github.com/clearcompass-ai/attesta/gossip"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
-	"github.com/clearcompass-ai/judicial-network/equivocation"
 	"github.com/clearcompass-ai/judicial-network/monitoring"
 	"github.com/clearcompass-ai/judicial-network/topology"
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
-// buildGossipIngest assembles the inbound pull pipeline from operational
-// config + the shared signature verifier. Returns (nil, nil) when ingest is
-// disabled or no peers are configured. Returns an error only on a
+// buildGossipIngest assembles the inbound, verify-only pull pipeline from
+// operational config + the shared signature verifier. Returns (nil, nil) when
+// ingest is disabled or no peers are configured. Returns an error only on a
 // misconfiguration that should abort boot (enabled but no bootstrap/network
 // identity, or a signature verifier that cannot back an originator check).
 func buildGossipIngest(
 	cfg config.Operational,
 	sigVerifier attestation.SignatureVerifier,
-	store gossip.Store,
 	logger *slog.Logger,
 ) (*topology.PeerPuller, error) {
 	if !cfg.GossipIngest.Enabled || len(cfg.GossipIngest.Peers) == 0 {
@@ -117,36 +123,15 @@ func buildGossipIngest(
 		return nil, fmt.Errorf("gossip verifier: %w", err)
 	}
 
-	// Equivocation responder requires witness sets to slash against. With none
-	// configured, equivocation findings are still verified + logged by the
-	// reconciler, just not slashed.
-	var responder *monitoring.EquivocationResponder
-	if len(witnessSets) > 0 {
-		slasher, serr := equivocation.NewSlasher(equivocation.SlasherConfig{
-			WitnessSets: witnessSets,
-			Threshold:   cfg.GossipIngest.SlashThreshold,
-			Logger:      logger,
-		})
-		if serr != nil {
-			return nil, fmt.Errorf("slasher: %w", serr)
-		}
-		responder, err = monitoring.NewEquivocationResponder(slasher, logger)
-		if err != nil {
-			return nil, fmt.Errorf("equivocation responder: %w", err)
-		}
-	}
-
 	reconciler, err := monitoring.NewReconciler(monitoring.ReconcilerConfig{
-		Verifier:     verifier,
-		Heads:        heads,
-		Equivocation: responder,
-		// D7: persist every verified inbound event so the JN's worldview
-		// (peer heads, rotations, equivocation proofs) survives a restart.
-		Store: store,
+		Verifier: verifier,
+		Heads:    heads,
+		// No Store: the JN hosts no custody — verified evidence lives with the
+		// auditor. No Equivocation responder: slashing/recording is the
+		// auditor's custody role, not the enforcer's.
 		// The witness-set registry IS the rotator: a Tier-2-verified
 		// WitnessRotationFinding advances the live trust root (verify-before-
-		// swap, standing quorum). Without this, witness sets could never
-		// rotate at runtime — the SDK rotation machinery would stay dormant.
+		// swap, standing quorum).
 		Rotator: witnessRegistry,
 		Logger:  logger,
 	})
