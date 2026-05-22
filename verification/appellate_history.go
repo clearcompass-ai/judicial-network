@@ -135,20 +135,37 @@ func VerifyAppealChain(
 		if steps[i].Proof == nil {
 			continue
 		}
-		set, ok := witnessSetByLog[steps[i].LogDID]
+		proof := steps[i].Proof
+
+		// ZERO-TRUST (1) — witness set is resolved from the proof's OWN source
+		// log, never from the chain's claimed step.LogDID. A cross-log proof's
+		// SourceTreeHead is cosigned by the SOURCE (lower/referenced) court's
+		// witnesses, so it must be verified against THAT court's set. The DID is
+		// only a lookup key: a forged Source.LogDID resolves to the wrong (or no)
+		// set and fails the quorum check below — it can never trust itself.
+		sourceLogDID := proof.SourceEntry.LogDID
+		set, ok := witnessSetByLog[sourceLogDID]
 		if !ok || set == nil {
 			steps[i].ProofVerified = false
 			continue
 		}
-		err := anchor.VerifyCrossLog(*steps[i].Proof, set)
-		if err != nil {
+		if err := anchor.VerifyCrossLog(*proof, set); err != nil {
+			steps[i].ProofVerified = false
+			continue
+		}
+
+		// ZERO-TRUST (2) — chain linkage. The proof must certify exactly the
+		// PREVIOUS step's case (its source entry == steps[i-1].CasePos), else a
+		// sequence of individually-valid-but-unrelated proofs would pass as a
+		// "chain." steps[0] has no predecessor (Proof is nil, skipped above).
+		if i > 0 && proof.SourceEntry != steps[i-1].CasePos {
 			steps[i].ProofVerified = false
 			continue
 		}
 		steps[i].ProofVerified = true
 	}
 
-	// Verify chain continuity.
+	// Every non-origin step must have a verified, linked proof.
 	for i := 1; i < len(steps); i++ {
 		if !steps[i].ProofVerified {
 			return steps, fmt.Errorf("verification/appellate_history: broken at step %d",
