@@ -172,14 +172,14 @@ jn-up: ## Run the JN enforcer (network-api) in Docker. mTLS + verify-only ingest
 jn-down: ## Stop the JN enforcer (docker compose down)
 	./scripts/run-jn.sh down
 
-clarity-up: ## One-command full realistic stack (witnesses → ledger → auditor → aggregator → JN) with health checks.
-	./e2e/clarity_e2e.py up
+clarity-up: ## Full stack from GHCR images (no source checkout): witnesses → ledger → auditor → aggregator → JN. Size with: ./e2e/clarity.py up --witnesses N
+	./e2e/clarity.py up
 
 clarity-down: ## Tear down the full Clarity stack.
-	./e2e/clarity_e2e.py down
+	./e2e/clarity.py down
 
 clarity-status: ## Probe what's currently up across the stack.
-	./e2e/clarity_e2e.py status
+	./e2e/clarity.py status
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
 	$(WALK_COMPOSE) logs -f

@@ -13,7 +13,11 @@
 # trust bundle so module + package fetches verify (no-op when absent):
 #   docker build -f deployment/local/Dockerfile.aggregator \
 #     --secret id=ca_bundle,src=/etc/ssl/certs/ca-certificates.crt .
-FROM golang:1.25-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+# Cross-compile from the native build platform to TARGETOS/TARGETARCH (set by
+# buildx) — no QEMU-emulated compilation. CGO is off, so this is a pure
+# cross-compile and stays fast for arm64 on an amd64 runner.
+ARG TARGETOS TARGETARCH
 
 WORKDIR /src
 
@@ -37,7 +41,7 @@ COPY . .
 ARG VERSION=docker
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -trimpath -buildvcs=false \
     -ldflags "-X main.Version=${VERSION}" \
     -o /aggregator ./tools/aggregator/cmd/aggregator
