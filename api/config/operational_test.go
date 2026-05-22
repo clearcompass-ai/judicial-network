@@ -224,8 +224,6 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	t.Setenv("API_NONCE_STORE_BACKEND", "redis")
 	t.Setenv("API_NONCE_STORE_REDIS_ADDR", "redis.via.env:6379")
 	t.Setenv("API_AUTH_MODE", "jwt")
-	t.Setenv("API_GOSSIP_STORE_DSN", "postgres://u:p@db.via.env:5432/jn_gossip?sslmode=disable")
-	t.Setenv("API_GOSSIP_STORE_RETENTION_DAYS", "45")
 	t.Setenv("API_NETWORK_BOOTSTRAP_FILE", "/via/env/bootstrap.json")
 
 	got := ApplyEnvOverrides(Defaults())
@@ -254,12 +252,6 @@ func TestApplyEnvOverrides_AllVars(t *testing.T) {
 	}
 	if got.Auth.Mode != AuthModeJWT {
 		t.Errorf("Auth.Mode = %q, want jwt", got.Auth.Mode)
-	}
-	if got.GossipStore.PostgresDSN != "postgres://u:p@db.via.env:5432/jn_gossip?sslmode=disable" {
-		t.Errorf("GossipStore.PostgresDSN = %q", got.GossipStore.PostgresDSN)
-	}
-	if got.GossipStore.RetentionDays != 45 {
-		t.Errorf("GossipStore.RetentionDays = %d, want 45", got.GossipStore.RetentionDays)
 	}
 	if got.NetworkBootstrapFile != "/via/env/bootstrap.json" {
 		t.Errorf("NetworkBootstrapFile = %q", got.NetworkBootstrapFile)
@@ -698,17 +690,12 @@ func clearAPIEnv(t *testing.T) {
 		"API_NONCE_STORE_BACKEND",
 		"API_NONCE_STORE_REDIS_ADDR",
 		"API_AUTH_MODE",
-		"API_GOSSIP_STORE_DSN",
-		"API_GOSSIP_STORE_RETENTION_DAYS",
 		"API_NETWORK_BOOTSTRAP_FILE",
 		"LEDGER_NETWORK_BOOTSTRAP_FILE",
 		"API_AUTH_CLIENT_CA_FILE",
 		"API_AUTH_TLS_CERT_FILE",
 		"API_AUTH_TLS_KEY_FILE",
-		"API_EQUIVOCATION_SCANNER_ENABLED",
-		"API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE",
 		"API_GOSSIP_INGEST_ENABLED",
-		"API_GOSSIP_FEED_ENABLED",
 		"API_MONITORING_ENABLED",
 		"API_WITNESS_QUORUM_K",
 	} {
@@ -717,18 +704,17 @@ func clearAPIEnv(t *testing.T) {
 	}
 }
 
-// The active auditor + mTLS material are fully env-drivable so the SAME
-// binary runs native / docker-compose / k8s — only the injected paths
+// The verify-only auditor toggles + mTLS material are fully env-drivable so
+// the SAME binary runs native / docker-compose / k8s — only the injected paths
 // (Secret/ConfigMap mounts) differ. No DID, no path is baked into the Go.
-func TestApplyEnvOverrides_ActiveAuditorAndAuthPaths(t *testing.T) {
+// Custody (store/feed) + equivocation detection moved to the external auditor
+// (Separation of Duties), so the JN exposes only ingest + monitoring toggles.
+func TestApplyEnvOverrides_VerifyOnlyAuditorAndAuthPaths(t *testing.T) {
 	clearAPIEnv(t)
 	t.Setenv("API_AUTH_CLIENT_CA_FILE", "/mnt/tls/ca.crt")
 	t.Setenv("API_AUTH_TLS_CERT_FILE", "/mnt/tls/server.crt")
 	t.Setenv("API_AUTH_TLS_KEY_FILE", "/mnt/tls/server.key")
-	t.Setenv("API_EQUIVOCATION_SCANNER_ENABLED", "true")
-	t.Setenv("API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE", "/mnt/jn/gossip.pem")
 	t.Setenv("API_GOSSIP_INGEST_ENABLED", "true")
-	t.Setenv("API_GOSSIP_FEED_ENABLED", "true")
 	t.Setenv("API_MONITORING_ENABLED", "true")
 	t.Setenv("API_WITNESS_QUORUM_K", "5")
 
@@ -739,14 +725,8 @@ func TestApplyEnvOverrides_ActiveAuditorAndAuthPaths(t *testing.T) {
 		got.Auth.TLSKeyFile != "/mnt/tls/server.key" {
 		t.Errorf("auth paths not applied from env: %+v", got.Auth)
 	}
-	if !got.EquivocationScanner.Enabled {
-		t.Error("EquivocationScanner.Enabled should be true")
-	}
-	if got.EquivocationScanner.SigningKeyFile != "/mnt/jn/gossip.pem" {
-		t.Errorf("scanner key = %q", got.EquivocationScanner.SigningKeyFile)
-	}
-	if !got.GossipIngest.Enabled || !got.GossipFeed.Enabled || !got.Monitoring.Enabled {
-		t.Error("ingest/feed/monitoring enables not applied from env")
+	if !got.GossipIngest.Enabled || !got.Monitoring.Enabled {
+		t.Error("ingest/monitoring enables not applied from env")
 	}
 	if got.Witness.QuorumK != 5 {
 		t.Errorf("Witness.QuorumK = %d, want 5", got.Witness.QuorumK)

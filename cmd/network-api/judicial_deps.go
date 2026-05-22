@@ -195,7 +195,8 @@ func loadNetworkID(path string) (cosign.NetworkID, error) {
 //   - Witness.Sets: when empty and Witness.QuorumK > 0, derive ONE set for
 //     the bootstrap's own log (exchange_did @ genesis_witness_set, K-of-N).
 //   - GossipIngest.Peers: when ingest is on and no peers are listed, derive
-//     one peer = that log served by the ledger endpoint.
+//     one peer = the bootstrap log served by GossipIngest.PeerURL (the external
+//     auditor's /v1/gossip), falling back to the ledger endpoint when unset.
 //
 // No-op when nothing needs deriving. When something does but the bootstrap
 // path is empty, the downstream builder surfaces the precise error.
@@ -227,9 +228,16 @@ func applyBootstrapDerivations(cfg config.Operational) (config.Operational, erro
 		}}
 	}
 	if needPeer {
+		// The verify-only ingest pulls the external auditor's curated feed (its
+		// detection findings + relayed gossip), not the ledger's raw feed. Fall
+		// back to the ledger endpoint when no auditor URL is configured.
+		base := cfg.LedgerEndpoint
+		if cfg.GossipIngest.PeerURL != "" {
+			base = cfg.GossipIngest.PeerURL
+		}
 		cfg.GossipIngest.Peers = []config.GossipPeerConfig{{
 			LogDID:  doc.ExchangeDID,
-			BaseURL: cfg.LedgerEndpoint,
+			BaseURL: base,
 		}}
 	}
 	return cfg, nil
