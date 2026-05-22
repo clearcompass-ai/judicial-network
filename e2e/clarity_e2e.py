@@ -226,6 +226,9 @@ class Cfg:
         # The auditor (evidence custodian) ships from attesta-tools, which the
         # e2e consumes via the standalone-witness checkout (services/auditor).
         self.auditor_src = self.witness / "services" / "auditor"
+        # The witness fleet relocated under services/witness in Phase 2 (its
+        # launcher + .run/ fixtures live there, not at the repo root).
+        self.witness_run = self.witness / "services" / "witness"
         self.n = args.witnesses
         self.port_base = args.port_base
         self.ledger_addr = args.ledger_addr
@@ -290,6 +293,9 @@ def check_prereqs(cfg: Cfg) -> None:
         d = cfg.root / r
         if not (d / "scripts").is_dir() and r != "judicial-network":
             warn(f"{d} has no scripts/ — unexpected layout")
+    if not (cfg.witness_run / "scripts" / "run-local.sh").exists():
+        warn(f"witness launcher missing at {cfg.witness_run}/scripts/run-local.sh "
+             "(services/witness — relocated in Phase 2)")
     if not (cfg.auditor_src / "Dockerfile").exists():
         warn(f"auditor source missing at {cfg.auditor_src} "
              "(attesta-tools services/auditor) — the auditor stage will fail")
@@ -327,8 +333,8 @@ def teardown(cfg: Cfg, full: bool = True) -> None:
             shutil.rmtree(cfg.ledger / ".run" / sub, ignore_errors=True)
         ok("ledger local state wiped (wal/tessera/antispam) — clean genesis")
 
-    # Witness fleet.
-    run([str(cfg.witness / "scripts" / "run-local.sh"), "down"], cwd=cfg.witness, check=False, quiet=True)
+    # Witness fleet (relocated under services/witness in Phase 2).
+    run([str(cfg.witness_run / "scripts" / "run-local.sh"), "down"], cwd=cfg.witness_run, check=False, quiet=True)
     for i in range(cfg.n):
         kill_port(cfg.port_base + i)
 
@@ -357,10 +363,10 @@ def parse_env_file(path: Path) -> dict:
 
 def bring_up_witnesses(cfg: Cfg, st: dict) -> dict:
     stage(f"witness fleet (K={cfg.n}, :{cfg.port_base}..:{cfg.port_base + cfg.n - 1})")
-    run([str(cfg.witness / "scripts" / "run-local.sh"),
+    run([str(cfg.witness_run / "scripts" / "run-local.sh"),
          "--witnesses", str(cfg.n), "--port-base", str(cfg.port_base)],
-        cwd=cfg.witness)
-    wenv = parse_env_file(cfg.witness / ".run" / "witness.env")
+        cwd=cfg.witness_run)
+    wenv = parse_env_file(cfg.witness_run / ".run" / "witness.env")
     boot = wenv.get("LEDGER_NETWORK_BOOTSTRAP_FILE")
     k = wenv.get("LEDGER_WITNESS_QUORUM_K", str(cfg.n))
     if not boot or not Path(boot).exists():
