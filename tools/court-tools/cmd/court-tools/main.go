@@ -39,6 +39,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "github.com/lib/pq" // postgres driver for the projection store (clitools.NewDB)
+
 	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
@@ -74,6 +76,13 @@ func main() {
 			log.Printf("WARNING: database unavailable: %v", err)
 		} else {
 			defer db.Close()
+			// Self-migrate the (rebuildable) projection schema; on failure
+			// degrade to no-DB so read endpoints surface 503 rather than
+			// erroring against missing tables.
+			if mErr := aggregator.Migrate(db); mErr != nil {
+				log.Printf("WARNING: projection schema migrate failed: %v", mErr)
+				db = nil
+			}
 		}
 	}
 

@@ -31,12 +31,15 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	_ "github.com/lib/pq" // postgres driver for the projection store (clitools.NewDB)
 
 	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
@@ -49,6 +52,7 @@ import (
 type deps struct {
 	loadConfig    func(string) (common.Config, error)
 	openDB        func(string) (*common.DB, error)
+	migrate       func(*common.DB) error
 	newLedger     func(string, string) *common.LedgerClient
 	startScanner  func(context.Context, *libagg.Scanner) error
 	listenAndServ func(*http.Server) error
@@ -58,6 +62,7 @@ func realDeps() deps {
 	return deps{
 		loadConfig:    common.LoadConfig,
 		openDB:        common.NewDB,
+		migrate:       aggregator.Migrate,
 		newLedger:     func(url, did string) *common.LedgerClient { return common.NewLedgerClient(url, did) },
 		startScanner:  func(ctx context.Context, s *libagg.Scanner) error { return s.Run(ctx) },
 		listenAndServ: func(srv *http.Server) error { return srv.ListenAndServe() },
@@ -121,6 +126,12 @@ func run(argv []string, d deps) error {
 		return err
 	}
 	defer db.Close()
+
+	// Self-migrate: the projection schema is embedded + idempotent, so the
+	// binary provisions its own (rebuildable) tables at boot — no sidecar.
+	if err := d.migrate(db); err != nil {
+		return fmt.Errorf("aggregator: migrate: %w", err)
+	}
 
 	ledger := d.newLedger(cfg.LedgerURL, cfg.CasesLogDID)
 	// The agnostic engine (libs/aggregator) polls/decodes/advances the

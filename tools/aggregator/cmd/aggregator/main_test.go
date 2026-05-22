@@ -130,6 +130,7 @@ func TestRun_BootShutdownRoundTrip(t *testing.T) {
 			// the pool until the loop runs.
 			return &common.DB{}, nil
 		},
+		migrate: func(_ *common.DB) error { return nil },
 		newLedger: func(url, did string) *common.LedgerClient {
 			return common.NewLedgerClient(url, did)
 		},
