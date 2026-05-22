@@ -71,7 +71,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
-	"github.com/clearcompass-ai/judicial-network/crosslog"
+	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -146,7 +146,13 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	if err != nil {
 		return nil, fmt.Errorf("load network id: %w", err)
 	}
-	return crosslog.BuildWitnessSets(cfg.Witness.Sets, networkID)
+	// libs/crosslog is domain-free: map the JN config rows into its neutral
+	// WitnessSetSpec (identical fields) before building the keysets.
+	specs := make([]crosslog.WitnessSetSpec, len(cfg.Witness.Sets))
+	for i, s := range cfg.Witness.Sets {
+		specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
+	}
+	return crosslog.BuildWitnessSets(specs, networkID)
 }
 
 // loadBootstrapDoc reads + parses the network bootstrap document. It is the
@@ -189,7 +195,8 @@ func loadNetworkID(path string) (cosign.NetworkID, error) {
 //   - Witness.Sets: when empty and Witness.QuorumK > 0, derive ONE set for
 //     the bootstrap's own log (exchange_did @ genesis_witness_set, K-of-N).
 //   - GossipIngest.Peers: when ingest is on and no peers are listed, derive
-//     one peer = that log served by the ledger endpoint.
+//     one peer = the bootstrap log served by GossipIngest.PeerURL (the external
+//     auditor's /v1/gossip), falling back to the ledger endpoint when unset.
 //
 // No-op when nothing needs deriving. When something does but the bootstrap
 // path is empty, the downstream builder surfaces the precise error.
@@ -221,9 +228,16 @@ func applyBootstrapDerivations(cfg config.Operational) (config.Operational, erro
 		}}
 	}
 	if needPeer {
+		// The verify-only ingest pulls the external auditor's curated feed (its
+		// detection findings + relayed gossip), not the ledger's raw feed. Fall
+		// back to the ledger endpoint when no auditor URL is configured.
+		base := cfg.LedgerEndpoint
+		if cfg.GossipIngest.PeerURL != "" {
+			base = cfg.GossipIngest.PeerURL
+		}
 		cfg.GossipIngest.Peers = []config.GossipPeerConfig{{
 			LogDID:  doc.ExchangeDID,
-			BaseURL: cfg.LedgerEndpoint,
+			BaseURL: base,
 		}}
 	}
 	return cfg, nil
@@ -353,8 +367,10 @@ func buildLeafReader(ledgerEndpoint string) smt.LeafReader {
 //
 // VendorDIDResolver translates JN-domain DID methods
 // (did:court:tn:davidson → did:web:davidson.tn.court.gov,
-//  did:jnet:tn:appellate → did:web:appellate.tn.jnet.gov,
-//  did:ccr:agency:fbi-ncic → did:web:fbi-ncic.agency.ccr.org)
+//
+//	did:jnet:tn:appellate → did:web:appellate.tn.jnet.gov,
+//	did:ccr:agency:fbi-ncic → did:web:fbi-ncic.agency.ccr.org)
+//
 // to the SDK's canonical methods. Mappings live in
 // judicial-network/did/mappings.go; the vendor resolver consults
 // the inner MethodRouter for the translated DID.

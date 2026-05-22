@@ -17,7 +17,7 @@ import (
 
 	"github.com/clearcompass-ai/attesta/storage"
 
-	"github.com/clearcompass-ai/judicial-network/monitoring"
+	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )
 
 // stubBLS satisfies cosign.BLSAggregateVerifier for tests that need a

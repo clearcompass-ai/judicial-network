@@ -222,8 +222,8 @@ func TestVerifyAttestationCollectionFromBytes_LengthMismatch(t *testing.T) {
 		context.Background(),
 		types.LogPosition{LogDID: "x", Sequence: 1},
 		[][]byte{[]byte("a")},
-		[]types.LogPosition{{}, {}},        // 2 positions
-		[]time.Time{time.Unix(1, 0)},       // 1 time
+		[]types.LogPosition{{}, {}},  // 2 positions
+		[]time.Time{time.Unix(1, 0)}, // 1 time
 		acceptAllSigVerifier{},
 		1,
 	)

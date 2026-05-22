@@ -300,16 +300,16 @@ var ErrCosignatureCryptoSDK = errors.New("verification/cosignature_check: SDK si
 //
 // FLOW:
 //
-//	1. Delegate per-signature crypto to attestation.VerifyEntrySignatures.
-//	   - Envelope-level err (nil entry / verifier / empty sigs /
-//	     primary-DID mismatch) → return ErrCosignatureCryptoSDK wrapping
-//	     the SDK sentinel.
-//	   - Per-signature failures → return *CosignatureVerdict with
-//	     Rejection=CosigRejectCryptoInvalid and Reason naming the
-//	     first failing signer. No fallthrough.
-//	2. On full cryptographic success, delegate to CheckCosignature
-//	   for the role / exchange / threshold filter — the existing
-//	   JN-domain pipeline, unchanged.
+//  1. Delegate per-signature crypto to attestation.VerifyEntrySignatures.
+//     - Envelope-level err (nil entry / verifier / empty sigs /
+//     primary-DID mismatch) → return ErrCosignatureCryptoSDK wrapping
+//     the SDK sentinel.
+//     - Per-signature failures → return *CosignatureVerdict with
+//     Rejection=CosigRejectCryptoInvalid and Reason naming the
+//     first failing signer. No fallthrough.
+//  2. On full cryptographic success, delegate to CheckCosignature
+//     for the role / exchange / threshold filter — the existing
+//     JN-domain pipeline, unchanged.
 //
 // The two-step composition keeps JN's domain logic intact while
 // adding the cryptographic pre-gate that v1.2.0+'s

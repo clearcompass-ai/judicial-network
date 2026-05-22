@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // APIKeyMiddleware validates the API key from the configured header.

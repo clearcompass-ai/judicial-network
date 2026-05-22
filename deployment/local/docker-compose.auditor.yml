@@ -1,0 +1,65 @@
+# Evidence Custodian (auditor) + its durable Postgres.
+#
+# The auditor is the EXTERNAL custodian in the Separation-of-Duties split: it
+# pulls peer feeds (the ledger's /v1/gossip), re-verifies each event via the SDK
+# finding router against the network's trust roots, persists fraud evidence
+# (custody), runs detection, and serves its OWN /v1/gossip feed — which the JN
+# enforcer then re-verifies (verify-only). The JN hosts none of this.
+#
+# The auditor image lives in attesta-tools (services/auditor), OUTSIDE this repo,
+# so there is no `build:` here — the e2e/operator builds + tags it (default
+# auditor:local) and points AUDITOR_IMAGE at it. The auditor reaches the
+# host-run ledger via host.docker.internal; its store is a sibling service.
+#
+# Inputs (the e2e / run script export these):
+#   AUDITOR_IMAGE             the built auditor image (default: auditor:local)
+#   AUDITOR_BOOTSTRAP_FILE    abs host path to network-bootstrap.json (mounted ro)
+#   AUDITOR_WITNESS_QUORUM_K  K-of-N for the bootstrap-derived witness set
+#   AUDITOR_PEERS             "logDID=baseURL,..." source feeds (the ledger)
+
+name: attesta-auditor
+
+services:
+  auditor-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: "${AUDITOR_PG_USER:-attesta}"
+      POSTGRES_PASSWORD: "${AUDITOR_PG_PASS:-attestapassword}"
+      POSTGRES_DB: "${AUDITOR_PG_DB:-auditor_gossip}"
+    volumes:
+      - auditor_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUDITOR_PG_USER:-attesta} -d ${AUDITOR_PG_DB:-auditor_gossip}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  auditor:
+    image: "${AUDITOR_IMAGE:-auditor:local}"
+    container_name: attesta-auditor
+    depends_on:
+      auditor-db:
+        condition: service_healthy
+    ports:
+      - "${AUDITOR_PORT:-8088}:8088"
+    environment:
+      AUDITOR_LISTEN_ADDR: ":8088"
+      # Durable custody store (the auditor IS the custodian). With a DSN set the
+      # auditor runs the full pipeline (pull → verify → persist → serve), not the
+      # health-only fallback.
+      AUDITOR_GOSSIP_DSN: "postgres://${AUDITOR_PG_USER:-attesta}:${AUDITOR_PG_PASS:-attestapassword}@auditor-db:5432/${AUDITOR_PG_DB:-auditor_gossip}?sslmode=disable"
+      # Shared trust root (mounted) → witness sets for re-verification.
+      AUDITOR_NETWORK_BOOTSTRAP_FILE: "/run/auditor/bootstrap.json"
+      AUDITOR_WITNESS_QUORUM_K: "${AUDITOR_WITNESS_QUORUM_K:-5}"
+      # Source feeds to pull + re-verify (the ledger's /v1/gossip). A peer is
+      # only a byte source; every event is re-verified, so it grants no trust.
+      AUDITOR_PEERS: "${AUDITOR_PEERS:-}"
+    volumes:
+      # Default keeps `down`/any unset invocation parseable; the e2e always sets
+      # AUDITOR_BOOTSTRAP_FILE for `up`.
+      - "${AUDITOR_BOOTSTRAP_FILE:-/dev/null}:/run/auditor/bootstrap.json:ro"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  auditor_pgdata:

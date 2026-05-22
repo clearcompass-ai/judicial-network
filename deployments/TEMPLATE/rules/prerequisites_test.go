@@ -13,7 +13,7 @@ package rules
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/prerequisites"
+	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 )
 
 func TestPrerequisitePolicy_Validates(t *testing.T) {

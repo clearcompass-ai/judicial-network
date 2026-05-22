@@ -1,28 +1,65 @@
-# Multi-stage Dockerfile for cmd/network-api (the JN Smart-Edge auditor).
-# Built from the JN repo root (context: ../..).
+# syntax=docker/dockerfile:1
+# Multi-stage Dockerfile for cmd/network-api (the JN Smart-Edge enforcer).
 #
-# The binary is fully env-driven (api/config.ApplyEnvOverrides) — the same
-# image runs under docker-compose (this dir) or k8s, configured only by env +
+# The binary is fully env-driven (api/config.ApplyEnvOverrides) — the same image
+# runs under docker-compose (deployment/local) or k8s, configured only by env +
 # mounted Secret/ConfigMap files. No config file is baked in.
+#
+# Build from the repo root:
+#   docker build -f deployment/local/Dockerfile.network-api .
+#
+# Behind a TLS-inspecting egress proxy (CI sandbox / corporate net), pass the
+# trust bundle so module + package fetches verify (no-op when absent):
+#   docker build -f deployment/local/Dockerfile.network-api \
+#     --secret id=ca_bundle,src=/etc/ssl/certs/ca-certificates.crt .
 FROM golang:1.25-alpine AS builder
-
-RUN apk add --no-cache git
 
 WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN go mod download
+
+# All deps are public (attesta SDK + attesta-tools/libs), so no VCS auth is
+# needed. The optional ca_bundle secret trusts a TLS-inspecting proxy's CA;
+# cache mounts speed re-builds without bloating the final image.
+RUN --mount=type=secret,id=ca_bundle \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    if [ -s /run/secrets/ca_bundle ]; then \
+      cat /run/secrets/ca_bundle >> /etc/ssl/certs/ca-certificates.crt; \
+    fi; \
+    go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-X main.Version=0.0.1" \
+
+# VERSION is stamped into main.Version; defaults to "docker" for unstamped
+# (local) builds. Static, reproducible binary: CGO off so the runtime needs no
+# glibc shim, -trimpath strips local paths, -buildvcs=false avoids requiring the
+# .git dir in the build context.
+ARG VERSION=docker
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
+    -trimpath -buildvcs=false \
+    -ldflags "-X main.Version=${VERSION}" \
     -o /network-api ./cmd/network-api
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates tzdata wget
+# ── Runtime ────────────────────────────────────────────────────
+# Pinned base (not :latest) for reproducible, auditable rebuilds.
+FROM alpine:3.21
+
+RUN --mount=type=secret,id=ca_bundle \
+    if [ -s /run/secrets/ca_bundle ]; then \
+      cat /run/secrets/ca_bundle >> /etc/ssl/certs/ca-certificates.crt; \
+    fi; \
+    apk --no-cache add ca-certificates tzdata wget
 
 WORKDIR /
 COPY --from=builder /network-api /network-api
 
 EXPOSE 8443
+
+# No Docker HEALTHCHECK: /healthz is served over mTLS, so a liveness probe must
+# present a client cert + CA. That belongs in the orchestrator (a k8s httpGet
+# probe with the mounted certs, or the e2e's external poll) — not a baked-in
+# wget that has no certs to offer.
 ENTRYPOINT ["/network-api"]

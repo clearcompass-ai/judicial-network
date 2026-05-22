@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/judicial-network/monitoring"
+	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )
 
 // ─────────────────────────────────────────────────────────────────────

@@ -67,24 +67,24 @@ const (
 // network admission is observable on-log + via a portable
 // artifact the operator can cross-reference.
 type BootstrapCertificate struct {
-	Method          BootstrapMode    `json:"method"`
-	CourtDID        string           `json:"court_did"`
-	NetworkID       string           `json:"network_id_hex"`
-	QuorumK         int              `json:"quorum_k"`
-	WitnessCount    int              `json:"witness_count"`
-	TreeSize        uint64           `json:"verified_tree_size"`
-	RootHash        string           `json:"verified_root_hash_hex"`
-	EstablishedAt   time.Time        `json:"established_at"`
-	TrustAnchorHash string           `json:"trust_anchor_hash_hex"`
-	WitnessKeyIDs   []string         `json:"witness_key_ids_hex"`
+	Method          BootstrapMode `json:"method"`
+	CourtDID        string        `json:"court_did"`
+	NetworkID       string        `json:"network_id_hex"`
+	QuorumK         int           `json:"quorum_k"`
+	WitnessCount    int           `json:"witness_count"`
+	TreeSize        uint64        `json:"verified_tree_size"`
+	RootHash        string        `json:"verified_root_hash_hex"`
+	EstablishedAt   time.Time     `json:"established_at"`
+	TrustAnchorHash string        `json:"trust_anchor_hash_hex"`
+	WitnessKeyIDs   []string      `json:"witness_key_ids_hex"`
 }
 
 // HardcodedGenesisInput carries the compiled-in trust anchor.
 type HardcodedGenesisInput struct {
-	CourtDID    string
-	GenesisSet  *cosign.WitnessKeySet
-	Rotations   []types.WitnessRotation
-	LatestHead  types.CosignedTreeHead
+	CourtDID   string
+	GenesisSet *cosign.WitnessKeySet
+	Rotations  []types.WitnessRotation
+	LatestHead types.CosignedTreeHead
 }
 
 // HardcodedGenesis runs the SDK's verifier.HardcodedGenesis and

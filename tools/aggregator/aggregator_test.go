@@ -27,8 +27,9 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
 
+	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // -------------------------------------------------------------------------
@@ -54,6 +55,17 @@ func mustJSON(t *testing.T, v any) []byte {
 	return b
 }
 
+// classifyRaw decodes a raw entry via the agnostic engine, then applies the
+// judicial classification — the exact path JudicialProjector takes in production.
+func classifyRaw(t *testing.T, logDID string, raw common.RawEntry) (*ClassifiedEntry, error) {
+	t.Helper()
+	d, err := libagg.Decode(logDID, raw)
+	if err != nil {
+		return nil, err
+	}
+	return classify(d), nil
+}
+
 // -------------------------------------------------------------------------
 // 2) Deserializer: classify new case (RootEntity)
 // -------------------------------------------------------------------------
@@ -68,8 +80,7 @@ func TestClassify_NewCase(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}
@@ -100,8 +111,7 @@ func TestClassify_Amendment(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}
@@ -132,8 +142,7 @@ func TestClassify_Delegation(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}
@@ -162,8 +171,7 @@ func TestClassify_Enforcement(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}
@@ -192,8 +200,7 @@ func TestClassify_PathBOrder(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}
@@ -220,8 +227,7 @@ func TestClassify_Commentary(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}
@@ -249,8 +255,7 @@ func TestClassify_Cosignature(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}
@@ -265,8 +270,7 @@ func TestClassify_Cosignature(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestClassify_BadHex_Error(t *testing.T) {
-	d := NewDeserializer()
-	_, err := d.Classify("test", common.RawEntry{CanonicalHex: "not-hex"})
+	_, err := classifyRaw(t, "test", common.RawEntry{CanonicalHex: "not-hex"})
 	if err == nil {
 		t.Fatal("expected error for bad hex")
 	}
@@ -277,24 +281,21 @@ func TestClassify_BadHex_Error(t *testing.T) {
 // -------------------------------------------------------------------------
 
 func TestClassify_CorruptedBytes_Error(t *testing.T) {
-	d := NewDeserializer()
-	_, err := d.Classify("test", common.RawEntry{CanonicalHex: hex.EncodeToString([]byte("garbage"))})
+	_, err := classifyRaw(t, "test", common.RawEntry{CanonicalHex: hex.EncodeToString([]byte("garbage"))})
 	if err == nil {
 		t.Fatal("expected error for corrupted bytes")
 	}
 }
 
 // -------------------------------------------------------------------------
-// 11) Scanner construction
+// 11) Judicial projector construction (the engine itself lives in
+//     libs/aggregator and is tested there).
 // -------------------------------------------------------------------------
 
-func TestNewScanner_NotNil(t *testing.T) {
-	cfg := common.DefaultConfig()
-	ledger := common.NewLedgerClient("http://localhost:0")
-	// DB is nil — scanner can be constructed but not Run.
-	s := NewScanner(cfg, ledger, nil)
-	if s == nil {
-		t.Fatal("scanner must not be nil")
+func TestJudicialProjector_NotNil(t *testing.T) {
+	p := NewJudicialProjector(NewIndexer(nil))
+	if p == nil {
+		t.Fatal("projector must not be nil")
 	}
 }
 
@@ -312,8 +313,7 @@ func TestClassify_PayloadExtracted(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	d := NewDeserializer()
-	c, err := d.Classify("test-log", buildAndHex(t, entry))
+	c, err := classifyRaw(t, "test-log", buildAndHex(t, entry))
 	if err != nil {
 		t.Fatalf("classify: %v", err)
 	}

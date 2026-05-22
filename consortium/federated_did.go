@@ -3,12 +3,12 @@ package consortium
 import (
 	"context"
 
+	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/did"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 
-	"github.com/clearcompass-ai/judicial-network/crosslog"
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 )
 
@@ -60,5 +60,5 @@ func VerifyCrossCourtProof(
 	proof types.CrossLogProof,
 	sourceSet *cosign.WitnessKeySet,
 ) error {
-	return crosslog.VerifyCrossLog(proof, sourceSet)
+	return anchor.VerifyCrossLog(proof, sourceSet)
 }

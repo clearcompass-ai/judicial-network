@@ -22,24 +22,8 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
         audit-sdk lint judicial-cli network-api court-tools provider-tools \
         aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
-        infra-up infra-down infra-status infra-dsn dev-certs identity \
-        jn-up jn-down smoke
-
-# The single authoritative launcher for local infra (gossip-store
-# Postgres). Docker by default; INFRA_BACKEND=native for the no-docker
-# fallback. The script is the source of truth — these targets just call it.
-INFRA := ./scripts/infra.sh
-
-# Infra inputs (override on the make line, e.g. `make infra-up JN_GOSSIP_PG_PORT=5444`).
-# These are the SAME vars scripts/infra.sh and docker-compose.gossip-db.yml read;
-# exporting them sends the values through to both. INFRA_BACKEND selects docker
-# (default) vs native, matching the script's --docker/--native flags.
-INFRA_BACKEND     ?= docker
-JN_GOSSIP_PG_USER ?= attesta
-JN_GOSSIP_PG_PASS ?= attestapassword
-JN_GOSSIP_PG_DB   ?= jn_gossip
-JN_GOSSIP_PG_PORT ?= 5433
-export INFRA_BACKEND JN_GOSSIP_PG_USER JN_GOSSIP_PG_PASS JN_GOSSIP_PG_DB JN_GOSSIP_PG_PORT
+        dev-certs identity jn-up jn-down \
+        clarity-up clarity-down clarity-status smoke
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -176,29 +160,26 @@ walkthrough-up: install-bins ## Boot the JN-side tools layer (court-tools + prov
 walkthrough-down: ## Tear down the JN-side tools layer
 	$(WALK_COMPOSE) down -v
 
-infra-up: ## Launch local infra (gossip-store Postgres). Docker default; INFRA_BACKEND=native for the no-docker fallback.
-	$(INFRA) up
-
-infra-down: ## Stop local infra (keeps data; INFRA_BACKEND=native for the native cluster)
-	$(INFRA) down
-
-infra-status: ## Show local infra status
-	$(INFRA) status
-
-infra-dsn: ## Print API_GOSSIP_STORE_DSN for the local gossip Postgres
-	@$(INFRA) dsn
-
 dev-certs: ## Mint real mTLS dev certs (CA+server+client; client SAN=CALLER_DID). Zero-trust, no no-auth path.
 	./scripts/gen-dev-certs.sh $(CALLER_DID)
 
 identity: ## Identity Infra (Step 0): mint all actors' DIDs + signing keys + mTLS certs → .run/identities/manifest.env
 	./scripts/identity.sh
 
-jn-up: ## Run the JN auditor (network-api) in Docker. mTLS + durable gossip store; needs LEDGER_NETWORK_BOOTSTRAP_FILE → ACTIVE auditor (scanner + gossip ingest + bootstrap-derived witness set).
+jn-up: ## Run the JN enforcer (network-api) in Docker. mTLS + verify-only ingest from the auditor; needs LEDGER_NETWORK_BOOTSTRAP_FILE + a running ledger + auditor.
 	./scripts/run-jn.sh up
 
-jn-down: ## Stop the JN auditor (docker compose down)
+jn-down: ## Stop the JN enforcer (docker compose down)
 	./scripts/run-jn.sh down
+
+clarity-up: ## One-command full realistic stack (witnesses → ledger → auditor → aggregator → JN) with health checks.
+	./e2e/clarity_e2e.py up
+
+clarity-down: ## Tear down the full Clarity stack.
+	./e2e/clarity_e2e.py down
+
+clarity-status: ## Probe what's currently up across the stack.
+	./e2e/clarity_e2e.py status
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
 	$(WALK_COMPOSE) logs -f

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // GetRecord handles GET /v1/records/{docket}.

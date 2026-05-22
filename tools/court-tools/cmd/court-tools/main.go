@@ -39,8 +39,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "github.com/lib/pq" // postgres driver for the projection store (clitools.NewDB)
+
+	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
 	"github.com/clearcompass-ai/judicial-network/tools/court-tools"
 )
 
@@ -73,6 +76,13 @@ func main() {
 			log.Printf("WARNING: database unavailable: %v", err)
 		} else {
 			defer db.Close()
+			// Self-migrate the (rebuildable) projection schema; on failure
+			// degrade to no-DB so read endpoints surface 503 rather than
+			// erroring against missing tables.
+			if mErr := aggregator.Migrate(db); mErr != nil {
+				log.Printf("WARNING: projection schema migrate failed: %v", mErr)
+				db = nil
+			}
 		}
 	}
 
@@ -84,7 +94,12 @@ func main() {
 	// -------------------------------------------------------------------------
 
 	if db != nil {
-		scanner := aggregator.NewScanner(cfg, ledger, db)
+		projector := aggregator.NewJudicialProjector(aggregator.NewIndexer(db))
+		scanner := libagg.NewScanner(libagg.ScannerConfig{
+			LogDIDs:      cfg.LogDIDs(),
+			BatchSize:    cfg.AggregatorBatchSize,
+			PollInterval: cfg.AggregatorPollInterval,
+		}, ledger, db, projector, nil)
 		go func() {
 			if e := scanner.Run(ctx); e != nil {
 				log.Printf("ERROR: aggregator: %v", e)

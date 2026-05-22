@@ -75,10 +75,10 @@ func NewVerifyConsistencyHandler(deps *Dependencies) *VerifyConsistencyHandler {
 // to remain useful for those one-off audits without operational
 // pre-wiring.
 type consistencyRequest struct {
-	SourceLogDID string         `json:"source_log_did"`
-	OldHead      consistencyTH  `json:"old_head"`
-	NewHead      consistencyTH  `json:"new_head"`
-	TileBaseURL  string         `json:"tile_base_url"`
+	SourceLogDID string        `json:"source_log_did"`
+	OldHead      consistencyTH `json:"old_head"`
+	NewHead      consistencyTH `json:"new_head"`
+	TileBaseURL  string        `json:"tile_base_url"`
 }
 
 // consistencyTH is the wire shape of one cosigned-head pair.

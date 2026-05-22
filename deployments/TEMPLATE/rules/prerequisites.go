@@ -27,7 +27,7 @@ package rules
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/judicial-network/prerequisites"
+	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 )
 
 // PrerequisiteRules returns the TEMPLATE skeleton vocabulary.

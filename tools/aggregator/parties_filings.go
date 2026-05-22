@@ -25,7 +25,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // PartiesFilingRow is the in-memory shape one row produces. The

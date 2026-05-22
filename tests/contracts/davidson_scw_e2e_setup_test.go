@@ -24,10 +24,10 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	keysigner "github.com/clearcompass-ai/attesta-tools/libs/keystore/signer"
 	composerapi "github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
-	keysigner "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/signer"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 	"github.com/clearcompass-ai/judicial-network/cases"

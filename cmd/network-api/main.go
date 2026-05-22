@@ -52,15 +52,15 @@ import (
 	"syscall"
 	"time"
 
+	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
-	"github.com/clearcompass-ai/judicial-network/api/middleware"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
@@ -68,6 +68,10 @@ import (
 // shutdownTimeout caps how long Shutdown will wait for in-flight
 // requests to drain before forcing close.
 const shutdownTimeout = 30 * time.Second
+
+// Version is the build version, stamped at link time via
+// -ldflags "-X main.Version=...". Defaults to "dev" for un-stamped builds.
+var Version = "dev"
 
 func main() {
 	if err := run(os.Args[1:], realDeps()); err != nil {
@@ -203,29 +207,12 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("signature verifier: %w", err)
 	}
 
-	// Durable gossip store — the JN's sovereign auditor memory. Postgres
-	// when GossipStore.PostgresDSN is set; in-memory otherwise. Shared by
-	// the inbound pull pipeline (D7 persistence) and the serve feed. Built
-	// before the puller so both share one store; closed on shutdown.
-	gossipStore, closeGossipStore, err := buildGossipStore(cfg, slog.Default())
-	if err != nil {
-		return fmt.Errorf("gossip store: %w", err)
-	}
-	defer func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := closeGossipStore(closeCtx); err != nil {
-			log.Printf("network-api: gossip store close: %v", err)
-		}
-	}()
-
-	// Inbound gossip anti-entropy: pull peer feeds, verify each event
-	// (envelope + finding proof) against JN-local trust, persist the
-	// verified event (D7), and drive enforcers. nil when GossipIngest is
-	// disabled / has no peers. Built before the listener so a
-	// misconfiguration aborts boot rather than failing silently in a
-	// background goroutine.
-	gossipPuller, err := buildGossipIngest(cfg, sigVerifier, gossipStore, slog.Default())
+	// Inbound gossip anti-entropy (verify-only): pull peer feeds, re-verify
+	// each event (envelope + finding proof) against JN-local trust, and advance
+	// JN's trusted view. The JN hosts NO durable store and serves NO feed —
+	// custody of evidence is the external auditor's role (Separation of Duties).
+	// nil when GossipIngest is disabled / has no peers.
+	gossipPuller, err := buildGossipIngest(cfg, sigVerifier, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
 	}
@@ -246,7 +233,7 @@ func run(argv []string, d deps) error {
 	// listener so a misconfiguration aborts boot rather than failing in a
 	// background goroutine.
 	monScheduler, err := buildMonitoringScheduler(
-		cfg, judicialDeps, gossipStore,
+		cfg, judicialDeps,
 		observability.NewMonitoringMetrics(obs.Metrics()), slog.Default())
 	if err != nil {
 		return fmt.Errorf("monitoring scheduler: %w", err)
@@ -256,27 +243,6 @@ func run(argv []string, d deps) error {
 	// reachability via GET /healthz on each. k8s scrapes /readyz
 	// to gate traffic to a replica that can fulfill its job.
 	readyzChecks := buildReadyzChecks(cfg)
-
-	// Phase 4 gossip feed mount. When enabled, registers
-	// /v1/gossip/since on the composer mux so independent
-	// auditors and peer ledgers can pull cosigned-tree-head /
-	// equivocation findings via standard HTTP with ETag +
-	// Cache-Control semantics (Trust Alignment 11). Serves from the same
-	// durable store the inbound puller writes to.
-	gossipFeed, err := buildGossipFeed(cfg, gossipStore)
-	if err != nil {
-		return fmt.Errorf("gossip feed: %w", err)
-	}
-
-	// Proactive equivocation scanner: the JN as ACTIVE auditor. When
-	// enabled, a background loop polls peer ledgers' tree heads and
-	// emits a signed gossip EquivocationFinding on proving a fork. nil
-	// when disabled. Built before the listener so a misconfigured
-	// auditor identity aborts boot rather than failing in a goroutine.
-	equivScanner, equivPublisher, err := buildEquivocationScanner(cfg, registry, slog.Default())
-	if err != nil {
-		return fmt.Errorf("equivocation scanner: %w", err)
-	}
 
 	srv, err := api.NewServer(api.Config{
 		Addr:          cfg.ListenAddr,
@@ -316,7 +282,6 @@ func run(argv []string, d deps) error {
 			LeafReader: judicialDeps.LeafReader,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
-		Gossip:   gossipFeed,
 	})
 	if err != nil {
 		return fmt.Errorf("compose server: %w", err)
@@ -337,23 +302,6 @@ func run(argv []string, d deps) error {
 			}
 		}()
 		log.Printf("network-api: gossip ingest pulling %d peer(s)", len(cfg.GossipIngest.Peers))
-	}
-
-	// Start the equivocation scanner (if configured) under the signal
-	// ctx so it drains on shutdown. Like the puller it is a background
-	// auditor — read-only against ledgers, never blocking the hot-path.
-	// The publisher is drained last (defer) so in-flight findings flush.
-	if equivScanner != nil {
-		go equivScanner.Run(ctx)
-		log.Printf("network-api: equivocation scanner auditing %d log(s)",
-			len(cfg.Witness.Sets))
-		defer func() {
-			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := equivPublisher.Close(closeCtx); err != nil {
-				log.Printf("network-api: gossip publisher close: %v", err)
-			}
-		}()
 	}
 
 	// Start the continuous-monitoring scheduler (if enabled) under the

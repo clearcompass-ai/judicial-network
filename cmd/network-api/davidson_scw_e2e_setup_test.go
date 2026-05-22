@@ -34,7 +34,7 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 	"github.com/clearcompass-ai/attesta/did"
 
-	"github.com/clearcompass-ai/judicial-network/api/middleware"
+	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
 	"github.com/clearcompass-ai/judicial-network/cases"
 
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"

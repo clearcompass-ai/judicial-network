@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // CreateCase handles POST /v1/cases.

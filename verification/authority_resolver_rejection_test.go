@@ -30,7 +30,7 @@ func TestAuthorityResolver_RejectsExpired(t *testing.T) {
 	f.put(pos, entry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(context.Background(),"did:key:zQ3shS", ref, "case_filing")
+	auth := r.Resolve(context.Background(), "did:key:zQ3shS", ref, "case_filing")
 	if auth.Rejection != RejectExpired {
 		t.Errorf("expected RejectExpired, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -43,7 +43,7 @@ func TestAuthorityResolver_RejectsRevocationTip(t *testing.T) {
 	f.put(revPos, makeRevocation(t, "did:web:x", target))
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(context.Background(),"did:key:zQ3shS", target, "case_filing")
+	auth := r.Resolve(context.Background(), "did:key:zQ3shS", target, "case_filing")
 	if auth.Rejection != RejectRevoked {
 		t.Errorf("expected RejectRevoked, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -60,7 +60,7 @@ func TestAuthorityResolver_RejectsScopeOutsideChain(t *testing.T) {
 	f.put(cjPos, cjEntry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(context.Background(),cjDID, cjRef, "case_decision") // not in scope
+	auth := r.Resolve(context.Background(), cjDID, cjRef, "case_decision") // not in scope
 	if auth.Rejection != RejectScopeViolation {
 		t.Errorf("expected RejectScopeViolation, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -78,7 +78,7 @@ func TestAuthorityResolver_RejectsCatalogViolation(t *testing.T) {
 	f.put(clerkPos, clerkEntry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(context.Background(),clerkDID, clerkRef, "case_decision")
+	auth := r.Resolve(context.Background(), clerkDID, clerkRef, "case_decision")
 	if auth.Rejection != RejectCatalogViolation {
 		t.Errorf("expected RejectCatalogViolation, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -92,7 +92,7 @@ func TestAuthorityResolver_RejectsGranteeMismatch(t *testing.T) {
 	f.put(pos, entry)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(context.Background(),"did:key:zQ3shIMPOSTER", ref, "case_filing")
+	auth := r.Resolve(context.Background(), "did:key:zQ3shIMPOSTER", ref, "case_filing")
 	if auth.Rejection != RejectSignerMismatch {
 		t.Errorf("expected RejectSignerMismatch, got %s (%s)", auth.Rejection, auth.Reason)
 	}
@@ -127,7 +127,7 @@ func TestAuthorityResolver_RejectsDepthExceeded(t *testing.T) {
 	f.put(pD, eD)
 
 	r := &AuthorityResolver{Fetcher: f, Catalog: davidson.MustRoleCatalog()}
-	auth := r.Resolve(context.Background(),d, rD, "case_filing")
+	auth := r.Resolve(context.Background(), d, rD, "case_filing")
 	if auth.Rejection != RejectDepthExceeded {
 		t.Errorf("expected RejectDepthExceeded, got %s (%s)", auth.Rejection, auth.Reason)
 	}

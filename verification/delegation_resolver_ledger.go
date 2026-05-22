@@ -74,7 +74,7 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/types"
 
-	"github.com/clearcompass-ai/judicial-network/verification/policycache"
+	policycache "github.com/clearcompass-ai/attesta-tools/libs/cache"
 )
 
 // ErrLedgerDelegationResolver is the umbrella sentinel for every

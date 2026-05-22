@@ -27,7 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 )
 
 func TestObservability_MetricsEndpoint_Reachable(t *testing.T) {

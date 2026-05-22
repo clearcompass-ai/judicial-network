@@ -25,7 +25,7 @@ package sup_ct
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/judicial-network/prerequisites"
+	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 )
 
 // PrerequisiteRules returns the closed-set TN Sup Ct

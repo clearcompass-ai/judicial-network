@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 type contextKey string

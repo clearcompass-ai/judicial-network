@@ -7,7 +7,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // VerifyDelegationHandler handles GET /v1/verify/delegation/{logID}/{pos}.

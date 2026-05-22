@@ -137,34 +137,12 @@ type Operational struct {
 	// bootstrap inputs.
 	NetworkBootstrapFile string `json:"network_bootstrap_file"`
 
-	// GossipFeed enables the SDK gossip feed mount at /v1/gossip/*.
-	// Zero-value leaves the mount disabled (no /v1/gossip routes).
-	// Trust Alignment 11 — CDN-offloaded anti-entropy.
-	GossipFeed GossipFeedConfig `json:"gossip_feed"`
-
 	// GossipIngest configures the INBOUND anti-entropy plane: a
 	// background loop that PULLS peer ledgers' gossip feeds, verifies
 	// each event (envelope + finding proof) against JN-local trust, and
 	// drives the enforcers (trusted-head tracking, equivocation slashing).
 	// Disabled by default — JN serves its own feed without it.
 	GossipIngest GossipIngestConfig `json:"gossip_ingest"`
-
-	// EquivocationScanner configures the proactive split-brain hunter:
-	// a background loop that polls peer ledgers' latest cosigned tree
-	// heads and, on proving a same-size/different-root fork, emits a
-	// SIGNED gossip EquivocationFinding to peers — burning the rogue
-	// ledger's identity across the federation. Disabled by default; the
-	// JN audits passively until an operator provisions the auditor
-	// identity (GossipDID + SigningKeyFile).
-	EquivocationScanner EquivocationScannerConfig `json:"equivocation_scanner"`
-
-	// GossipStore selects the backend for the gossip feed + inbound
-	// persistence. Empty PostgresDSN ⇒ in-memory (dev/test boots
-	// dependency-free); a DSN ⇒ a durable Postgres-backed store (the
-	// peer_gossip table) that survives restarts. The JN owns this store
-	// — never a ledger (custody of evidence-about-ledgers must sit with
-	// the auditor).
-	GossipStore GossipStoreConfig `json:"gossip_store"`
 
 	// Monitoring configures the continuous-monitoring scheduler — the
 	// JN's autonomous audit pulse (mirror consistency, anchor freshness,
@@ -218,23 +196,6 @@ type SealingAuditConfig struct {
 	ScanCount    int    `json:"scan_count,omitempty"`
 }
 
-// GossipStoreConfig configures the durable gossip store. Zero value ⇒
-// in-memory.
-type GossipStoreConfig struct {
-	// PostgresDSN is the lib/pq connection string (e.g.
-	// "postgres://user:pass@host:5432/db?sslmode=require"). Empty ⇒ the
-	// in-memory store is used and a warning is logged (NOT durable).
-	PostgresDSN string `json:"postgres_dsn,omitempty"`
-
-	// RetentionDays bounds the peer_gossip table; the scheduler prunes
-	// rows older than this (D8). Zero ⇒ default 30. Pruned findings
-	// re-hydrate via stateless catch-up from peers if ever needed.
-	RetentionDays int `json:"retention_days,omitempty"`
-
-	// MaxOpenConns caps the pool. Zero ⇒ default 8.
-	MaxOpenConns int `json:"max_open_conns,omitempty"`
-}
-
 // ─────────────────────────────────────────────────────────────────────
 // Gossip ingest (inbound anti-entropy)
 // ─────────────────────────────────────────────────────────────────────
@@ -250,6 +211,13 @@ type GossipIngestConfig struct {
 	// only a byte source; each event is verified on its own cryptography, so
 	// listing a peer grants it no trust. Empty ⇒ nothing to pull.
 	Peers []GossipPeerConfig `json:"peers,omitempty"`
+
+	// PeerURL is the env-driven single-peer source for the verify-only ingest:
+	// the external auditor's /v1/gossip base URL. When Peers is empty and ingest
+	// is enabled, the binary derives one peer = {bootstrap log, PeerURL}. Empty ⇒
+	// the derivation falls back to LedgerEndpoint. A peer is only a byte source;
+	// every pulled event is re-verified, so this grants the auditor no trust.
+	PeerURL string `json:"peer_url,omitempty"`
 
 	// PollInterval is the wait between catch-up rounds per peer. Zero applies
 	// the puller default (5s).
@@ -287,61 +255,6 @@ type TileMirrorConfig struct {
 	// BaseURL is the Static-CT tile root URL (the tessera fetcher appends
 	// /tile/* paths).
 	BaseURL string `json:"base_url"`
-}
-
-// GossipFeedConfig configures the SDK gossip feed mount.
-//
-// Phase 4 — wires gossipfeed.Feed (over the SDK's
-// gossip.NewFeedHandler) under /v1/gossip/*. The mount is opt-in
-// because publishing a feed requires operators to commit to the
-// implied indefinite retention contract; dev / single-node
-// deployments leave it disabled.
-type GossipFeedConfig struct {
-	// Enabled gates the mount. Disabled → no /v1/gossip routes
-	// register on the API mux.
-	Enabled bool `json:"enabled"`
-
-	// PathPrefix overrides the default gossip path prefix
-	// (gossip.DefaultFeedPathPrefix = "/v1/gossip"). Leave empty
-	// to use the SDK default; misconfiguring this breaks
-	// interoperability with off-the-shelf gossip clients.
-	PathPrefix string `json:"path_prefix,omitempty"`
-}
-
-// EquivocationScannerConfig configures the proactive equivocation
-// scanner (equivocation.Scanner). The scanner is the JN acting as an
-// active auditor: it polls peer ledgers' latest cosigned tree heads and
-// emits a SIGNED gossip EquivocationFinding when witness.
-// DetectEquivocation proves a same-size/different-root fork.
-//
-// Disabled by default. Enabling it requires the JN to hold its own
-// gossip signing key (SigningKeyFile) — emitting a finding makes the JN
-// an originator on the gossip plane, not a passive receiver. The
-// originator DID is a self-certifying did:key DERIVED from that key
-// (gossipfeed.DIDKeyForSigningKey), never a DID string in this config:
-// Operational forbids DID-bearing fields so identity can never leak in
-// via JSON. The scan set is every log JN holds a witness set for
-// (Witness.Sets); the trust root never comes from a peer.
-type EquivocationScannerConfig struct {
-	// Enabled gates the whole loop. Disabled ⇒ no scanner goroutine.
-	Enabled bool `json:"enabled"`
-
-	// PollInterval is the cadence between full sweeps of every tracked
-	// log. Zero applies the scanner default (30s).
-	PollInterval time.Duration `json:"poll_interval,omitempty"`
-
-	// SigningKeyFile is the path to the JN's secp256k1 gossip signing
-	// key in PEM form (block type "ATTESTA SECP256K1 PRIVATE KEY"). The
-	// originator did:key is derived from this key at boot. Required when
-	// Enabled.
-	SigningKeyFile string `json:"signing_key_file,omitempty"`
-
-	// EmitPeers optionally overrides the gossip emit fan-out targets
-	// (base URLs; the SDK sink appends /v1/gossip). Empty ⇒ reuse
-	// GossipIngest.Peers — gossip topologies are symmetric, so the peers
-	// JN ingests from are exactly the peers that must hear its
-	// equivocation alarms.
-	EmitPeers []string `json:"emit_peers,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -573,18 +486,15 @@ func LoadFromFile(path string) (Operational, error) {
 //	API_NONCE_STORE_BACKEND       (memory|redis)
 //	API_NONCE_STORE_REDIS_ADDR
 //	API_AUTH_MODE                 (mtls|jwt)
-//	API_GOSSIP_STORE_DSN          (lib/pq DSN; empty ⇒ in-memory store)
-//	API_GOSSIP_STORE_RETENTION_DAYS
 //	API_NETWORK_BOOTSTRAP_FILE    (shared trust root; falls back to
 //	                               LEDGER_NETWORK_BOOTSTRAP_FILE — the var
 //	                               the standalone-witness fleet emits)
 //	API_AUTH_CLIENT_CA_FILE       (mTLS; Secret/mount path)
 //	API_AUTH_TLS_CERT_FILE        (mTLS; Secret/mount path)
 //	API_AUTH_TLS_KEY_FILE         (mTLS; Secret/mount path)
-//	API_EQUIVOCATION_SCANNER_ENABLED          (bool)
-//	API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE (gossip key PEM path)
 //	API_GOSSIP_INGEST_ENABLED     (bool)
-//	API_GOSSIP_FEED_ENABLED       (bool)
+//	API_GOSSIP_INGEST_PEER_URL    (verify-only ingest source: the auditor's
+//	                               /v1/gossip base URL; falls back to the ledger)
 //	API_MONITORING_ENABLED        (bool)
 //	API_WITNESS_QUORUM_K          (int; derive witness set from bootstrap)
 //
@@ -614,14 +524,6 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_AUTH_MODE"); v != "" {
 		cfg.Auth.Mode = AuthMode(strings.ToLower(strings.TrimSpace(v)))
-	}
-	if v := os.Getenv("API_GOSSIP_STORE_DSN"); v != "" {
-		cfg.GossipStore.PostgresDSN = v
-	}
-	if v := os.Getenv("API_GOSSIP_STORE_RETENTION_DAYS"); v != "" {
-		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
-			cfg.GossipStore.RetentionDays = n
-		}
 	}
 	// Discover the shared trust root (network bootstrap doc → NetworkID +
 	// witness keysets) from env. API_NETWORK_BOOTSTRAP_FILE is the explicit
@@ -654,17 +556,11 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	// drives native, docker-compose, and k8s — the witness set + gossip
 	// peers derive from the (env-pointed) bootstrap, so only toggles + file
 	// paths + K are set here.
-	if b, ok := envBool("API_EQUIVOCATION_SCANNER_ENABLED"); ok {
-		cfg.EquivocationScanner.Enabled = b
-	}
-	if v := os.Getenv("API_EQUIVOCATION_SCANNER_SIGNING_KEY_FILE"); v != "" {
-		cfg.EquivocationScanner.SigningKeyFile = v
-	}
 	if b, ok := envBool("API_GOSSIP_INGEST_ENABLED"); ok {
 		cfg.GossipIngest.Enabled = b
 	}
-	if b, ok := envBool("API_GOSSIP_FEED_ENABLED"); ok {
-		cfg.GossipFeed.Enabled = b
+	if v := os.Getenv("API_GOSSIP_INGEST_PEER_URL"); v != "" {
+		cfg.GossipIngest.PeerURL = v
 	}
 	if b, ok := envBool("API_MONITORING_ENABLED"); ok {
 		cfg.Monitoring.Enabled = b
@@ -746,19 +642,6 @@ func (cfg Operational) Validate() error {
 	}
 	if err := cfg.SmartContractWallet.validate(); err != nil {
 		return err
-	}
-	if err := cfg.EquivocationScanner.validate(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s EquivocationScannerConfig) validate() error {
-	if !s.Enabled {
-		return nil
-	}
-	if s.SigningKeyFile == "" {
-		return fmt.Errorf("%w: EquivocationScanner.SigningKeyFile required when enabled", ErrInvalidConfig)
 	}
 	return nil
 }

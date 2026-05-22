@@ -44,7 +44,7 @@ package davidsonlegacy
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/judicial-network/prerequisites"
+	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 )
 
 // PrerequisiteRules returns the legacy v1.6 Davidson prereq

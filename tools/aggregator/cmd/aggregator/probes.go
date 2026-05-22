@@ -34,8 +34,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 )
 
 // errMissingDB / errMissingLedger are surfaced from run() when

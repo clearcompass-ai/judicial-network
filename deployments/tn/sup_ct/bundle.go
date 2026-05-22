@@ -17,9 +17,9 @@ package sup_ct
 import (
 	"fmt"
 
+	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/policy"
-	"github.com/clearcompass-ai/judicial-network/prerequisites"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

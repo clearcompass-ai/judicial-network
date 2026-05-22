@@ -18,24 +18,19 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
 	_ "github.com/lib/pq" // postgres driver for the durable gossip store
 
-	"github.com/clearcompass-ai/attesta/gossip"
-
+	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	pkcs11ks "github.com/clearcompass-ai/attesta-tools/libs/keystore/pkcs11"
+	vaultks "github.com/clearcompass-ai/attesta-tools/libs/keystore/vault"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
-	pkcs11ks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/pkcs11"
-	vaultks "github.com/clearcompass-ai/judicial-network/api/exchange/keystore/vault"
-	"github.com/clearcompass-ai/judicial-network/api/middleware"
-	"github.com/clearcompass-ai/judicial-network/api/middleware/observability"
-	"github.com/clearcompass-ai/judicial-network/gossipfeed"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
@@ -221,59 +216,6 @@ func buildAuthenticator(cfg config.AuthConfig) (middleware.Authenticator, error)
 	}
 }
 
-// buildGossipStore constructs the gossip.Store shared by the serve feed
-// and (when wired) inbound persistence. A configured PostgresDSN yields
-// a durable PostgresStore (the JN's sovereign auditor memory, surviving
-// restarts); an empty DSN falls back to the in-memory store so dev/test
-// boots stay dependency-free. Returns the store plus a closer the caller
-// defers on shutdown.
-func buildGossipStore(cfg config.Operational, logger *slog.Logger) (gossip.Store, func(context.Context) error, error) {
-	if cfg.GossipStore.PostgresDSN == "" {
-		logger.Warn("gossip store: no PostgresDSN configured; using in-memory store (NOT durable across restarts)")
-		store := gossip.NewInMemoryStore()
-		return store, store.Close, nil
-	}
-
-	db, err := sql.Open("postgres", cfg.GossipStore.PostgresDSN)
-	if err != nil {
-		return nil, nil, fmt.Errorf("gossip store: open postgres: %w", err)
-	}
-	maxConns := cfg.GossipStore.MaxOpenConns
-	if maxConns <= 0 {
-		maxConns = 8
-	}
-	db.SetMaxOpenConns(maxConns)
-	if err := db.PingContext(context.Background()); err != nil {
-		_ = db.Close()
-		return nil, nil, fmt.Errorf("gossip store: ping postgres: %w", err)
-	}
-	store, err := gossipfeed.NewPostgresStore(db)
-	if err != nil {
-		_ = db.Close()
-		return nil, nil, fmt.Errorf("gossip store: %w", err)
-	}
-	if err := store.Migrate(context.Background()); err != nil {
-		_ = db.Close()
-		return nil, nil, fmt.Errorf("gossip store: migrate: %w", err)
-	}
-	logger.Info("gossip store: durable Postgres backend ready (peer_gossip)")
-	return store, store.Close, nil
-}
-
-// buildGossipFeed constructs the SDK gossip feed mount over the supplied
-// store when cfg.GossipFeed.Enabled is true. Returns (nil, nil) when
-// disabled — api.NewServer treats a nil Gossip as "skip mount." The
-// store is shared (not owned) here; the caller owns its lifecycle.
-func buildGossipFeed(cfg config.Operational, store gossip.Store) (*gossipfeed.Feed, error) {
-	if !cfg.GossipFeed.Enabled {
-		return nil, nil
-	}
-	feed, err := gossipfeed.NewFeedMount(gossipfeed.FeedConfig{
-		Store:      store,
-		PathPrefix: cfg.GossipFeed.PathPrefix,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("gossip feed mount: %w", err)
-	}
-	return feed, nil
-}
+// Custody (the durable gossip.Store + the serve feed) belongs to the external
+// auditor, not the JN enforcer (Separation of Duties). buildGossipStore +
+// buildGossipFeed were removed in Phase B — the JN hosts neither.

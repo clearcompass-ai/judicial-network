@@ -60,8 +60,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/identity"
 	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

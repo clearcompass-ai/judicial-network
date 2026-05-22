@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/clearcompass-ai/judicial-network/api/middleware/reliability"
+	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 )
 
 // wrapReliability stacks the  reliability middleware in

@@ -4,6 +4,9 @@
 # But allow .githooks (pre-commit hooks shared via repo)
 !.githooks/
 !.githooks/**
+# ...and .github (CI workflows, issue templates — project config, tracked)
+!.github/
+!.github/**
 # --- Environment Variables & Secrets ---
 # Ignore env files by default...
 .env

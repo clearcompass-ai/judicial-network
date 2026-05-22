@@ -1,0 +1,101 @@
+name: publish-image
+
+# Build the service container and publish it to the GitHub Container Registry
+# as a signed, multi-arch image with an SBOM and SLSA provenance.
+#
+# This workflow is intentionally IDENTICAL across every ClearCompass service
+# repo (ledger, standalone-witness, judicial-network). The only per-repo knob
+# is DOCKERFILE below; the image name derives from the repo itself, so there is
+# nothing else to keep in sync. Image: ghcr.io/clearcompass-ai/<repo>.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-image-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read # checkout
+  packages: write # push to ghcr
+  id-token: write # cosign keyless signing + provenance (OIDC)
+  attestations: write # GitHub build-provenance attestations
+
+env:
+  REGISTRY: ghcr.io
+  # ghcr.io/<owner>/<repo> — resolves correctly in every repo with no edits.
+  IMAGE_NAME: ${{ github.repository }}
+  # ── The ONLY per-repo difference: path to the service Dockerfile. ──
+  DOCKERFILE: deployment/local/Dockerfile.network-api
+  BUILD_CONTEXT: .
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (cross-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive tags + OCI labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.DOCKERFILE }}
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          # The private SDK (github.com/clearcompass-ai/*) is fetched during the
+          # build via this token; it is optional and harmless if the modules are
+          # public. Provide a token with read access to the private module repos
+          # as the GH_MODULE_TOKEN secret (the default GITHUB_TOKEN only grants
+          # access to THIS repo, not the SDK repo).
+          secrets: |
+            gh_token=${{ secrets.GH_MODULE_TOKEN }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max # SLSA provenance attestation
+          sbom: true # SBOM attestation
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the image (keyless / Sigstore OIDC)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        # Sign by digest so the signature covers the multi-arch index and every
+        # tag that points at it. Keyless: identity = this workflow's OIDC token,
+        # transparency-logged in Rekor — no long-lived signing key to hold.
+        run: cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"

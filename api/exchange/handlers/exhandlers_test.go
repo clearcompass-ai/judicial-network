@@ -10,8 +10,8 @@ import (
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/keystore"
 )
 
 // -------------------------------------------------------------------------

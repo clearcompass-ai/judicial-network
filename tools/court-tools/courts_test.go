@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/tools/common"
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // -------------------------------------------------------------------------
