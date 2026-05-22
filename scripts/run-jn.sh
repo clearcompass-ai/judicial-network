@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
-# scripts/run-jn.sh — run the JN auditor (network-api) in Docker. DOCKER ONLY.
+# scripts/run-jn.sh — run the JN enforcer (network-api) in Docker. DOCKER ONLY.
 #
 # Fully ENV-DRIVEN: network-api reads its whole config from env, so the SAME
 # image runs here (docker-compose) or in k8s — only the injected env + mounted
 # file paths differ. No DID, no path is baked into the Go.
 #
-# The JN's Smart-Edge daemon: verifies the ledger's cosigned tree heads, owns
-# the durable gossip store, and (with a bootstrap present) is an ACTIVE auditor
-# — equivocation scanner + gossip ingest + the bootstrap-derived witness set.
+# The JN's Smart-Edge daemon is the ENFORCER (Separation of Duties): it verifies
+# the ledger's cosigned tree heads, admits/enforces on the commit clock, and runs
+# a VERIFY-ONLY gossip ingest — it PULLS the external auditor's curated /v1/gossip
+# feed and re-verifies every event against JN-local trust. It hosts NO custody:
+# no gossip store, no served feed, no equivocation scanner. Custody + detection
+# live in the external auditor service (deployment/local/docker-compose.auditor.yml).
 # Inputs:
 #
 #   mTLS material   identity infra (make identity)   → mounted Secret → API_AUTH_*
-#   gossip store    make infra-up (docker)           → API_GOSSIP_STORE_DSN
 #   the ledger      the running ledger               → API_LEDGER_ENDPOINT (REQUIRED, probed at boot)
+#   the auditor     the running auditor's feed        → API_GOSSIP_INGEST_PEER_URL (verify-only source)
 #   trust root      witness fleet's bootstrap        → API_NETWORK_BOOTSTRAP_FILE
 #     (falls back to LEDGER_NETWORK_BOOTSTRAP_FILE, the var the witness emits)
 #   quorum K        witness fleet                    → API_WITNESS_QUORUM_K (from LEDGER_WITNESS_QUORUM_K)
 #
-# The witness set + gossip peer DERIVE from the bootstrap (the JN never
+# The witness set + ingest peer DERIVE from the bootstrap (the JN never
 # hand-lists witness DIDs). The artifact store is left OUT (ledger-only).
 #
 # Usage:
@@ -32,8 +35,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${REPO_ROOT}"
 CERTS="${REPO_ROOT}/.run/certs"
-AUD="${REPO_ROOT}/.run/auditor"
 COMPOSE="${REPO_ROOT}/deployment/local/docker-compose.jn.yml"
+IMAGE="ghcr.io/clearcompass-ai/judicial-network:${JN_IMAGE_TAG:-dev}"
 
 SUBCMD="up"
 for arg in "$@"; do
@@ -50,7 +53,7 @@ if [ "${SUBCMD}" = "down" ]; then
 fi
 
 if ! docker info >/dev/null 2>&1; then
-    echo "FATAL: docker daemon not reachable. The JN auditor runs in Docker only." >&2
+    echo "FATAL: docker daemon not reachable. The JN enforcer runs in Docker only." >&2
     exit 1
 fi
 
@@ -60,26 +63,8 @@ if [ ! -s "${CERTS}/ca.crt" ] || [ ! -s "${CERTS}/server.crt" ] || [ ! -s "${CER
     make identity
 fi
 
-# 2. The JN's gossip signing key (the auditor's self-certifying did:key
-#    identity). Minted ONCE; in prod this is a mounted Secret, never generated
-#    on the box. PEM = "ATTESTA SECP256K1 PRIVATE KEY" (raw 32-byte scalar).
-mkdir -p "${AUD}"
-if [ ! -s "${AUD}/gossip.pem" ]; then
-    echo "== minting JN gossip signing key (auditor identity) =="
-    [ -x "${REPO_ROOT}/bin/judicial-cli" ] || make judicial-cli >/dev/null
-    "${REPO_ROOT}/bin/judicial-cli" keygen --method key --out "${AUD}/jn.key.json" >/dev/null
-    HEX="$(grep -o '"private_key_hex"[^,]*' "${AUD}/jn.key.json" | sed 's/.*"\([0-9a-f]*\)"$/\1/')"
-    command -v python3 >/dev/null 2>&1 || { echo "FATAL: python3 needed to encode the gossip key PEM locally (prod mounts a Secret instead)" >&2; exit 1; }
-    python3 -c "import base64,sys; b=bytes.fromhex(sys.argv[1]); open(sys.argv[2],'w').write('-----BEGIN ATTESTA SECP256K1 PRIVATE KEY-----\n'+base64.encodebytes(b).decode()+'-----END ATTESTA SECP256K1 PRIVATE KEY-----\n')" "${HEX}" "${AUD}/gossip.pem"
-fi
-
-# 3. Durable gossip store (docker). The CONTAINER reaches it via
-#    host.docker.internal (compose default) — so we do NOT export a localhost
-#    DSN that would leak into the container.
-make infra-up >/dev/null
-
-# 4. Shared trust root → ACTIVE auditor. API_* explicit; else the LEDGER_* var
-#    the witness fleet emits. Quorum K from the witness fleet's emit.
+# 2. Shared trust root → witness sets for verify-only ingest. API_* explicit;
+#    else the LEDGER_* var the witness fleet emits. Quorum K from the fleet.
 BOOT="${API_NETWORK_BOOTSTRAP_FILE:-${LEDGER_NETWORK_BOOTSTRAP_FILE:-}}"
 K="${API_WITNESS_QUORUM_K:-${LEDGER_WITNESS_QUORUM_K:-5}}"
 if [ -z "${BOOT}" ]; then
@@ -88,16 +73,29 @@ if [ -z "${BOOT}" ]; then
     exit 1
 fi
 
-# In-container, the ledger + gossip PG are host.docker.internal (compose
-# defaults). Drop any localhost values from this shell so a leftover export
-# can't leak into the container.
-unset API_LEDGER_ENDPOINT API_GOSSIP_STORE_DSN
-export JN_BOOTSTRAP_FILE="${BOOT}" JN_WITNESS_QUORUM_K="${K}"
+# 3. Build the image. Inject the egress proxy's CA when present (CI sandbox /
+#    corporate net) so module + apk fetches verify; no-op on an open network.
+CA_BUNDLE="${JN_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
+BUILD_SECRET=()
+[ -s "${CA_BUNDLE}" ] && BUILD_SECRET=(--secret "id=ca_bundle,src=${CA_BUNDLE}")
+echo "== building network-api image (${IMAGE}) =="
+DOCKER_BUILDKIT=1 docker build -f deployment/local/Dockerfile.network-api \
+    "${BUILD_SECRET[@]}" \
+    --build-arg VERSION="$(git -C "${REPO_ROOT}" describe --tags --always 2>/dev/null || echo dev)" \
+    -t "${IMAGE}" "${REPO_ROOT}"
 
-echo "== network-api (docker · ACTIVE auditor) =="
+# In-container, the ledger + auditor are host.docker.internal (compose defaults).
+# Drop any localhost endpoints from this shell so a leftover export can't leak in.
+unset API_LEDGER_ENDPOINT
+export JN_BOOTSTRAP_FILE="${BOOT}" JN_WITNESS_QUORUM_K="${K}"
+# The verify-only ingest source: the external auditor's /v1/gossip (override to
+# point elsewhere). The auditor runs separately (docker-compose.auditor.yml).
+export API_GOSSIP_INGEST_PEER_URL="${API_GOSSIP_INGEST_PEER_URL:-http://host.docker.internal:8088}"
+
+echo "== network-api (docker · ENFORCER · verify-only ingest) =="
 echo "  bootstrap : ${BOOT}  (mounted ro)   quorum_k: ${K}"
 echo "  ledger    : http://host.docker.internal:8080 (REQUIRED — probed at boot)"
-echo "  gossip    : host.docker.internal:5433 (durable Postgres)"
+echo "  auditor   : ${API_GOSSIP_INGEST_PEER_URL} (verify-only /v1/gossip source)"
 echo "  health    : curl --cacert ${CERTS}/ca.crt --cert ${CERTS}/judge-adams.client.crt --key ${CERTS}/judge-adams.client.key https://localhost:8443/healthz"
 echo ""
-exec docker compose -f "${COMPOSE}" up --build
+exec docker compose -f "${COMPOSE}" up

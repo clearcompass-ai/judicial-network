@@ -1,0 +1,62 @@
+# judicial-network — aggregator (rebuildable read-projection) + its Postgres.
+#
+# The aggregator polls the ledger, classifies entries (judicial Projector), and
+# indexes them into its OWN Postgres — a CACHE, never truth (Ledger Principle
+# 12). It is self-migrating (the schema is embedded), so this compose only
+# stands up the binary + an empty DB. Distinct from the JN auditor (network-api)
+# and the external evidence custodian (auditor): the aggregator holds no keys
+# and serves no gossip — it is a write-only projection with a probe surface.
+#
+# The aggregator reaches the host-run ledger via host.docker.internal; its DB is
+# a sibling service on this compose's network. Build the image with the proxy CA
+# secret (TLS-inspecting sandboxes) then `up` (no --build), or plain `up --build`
+# on an unintercepted network.
+#
+# Inputs (the e2e / run script export these):
+#   TOOLS_LEDGER_URL    ledger base URL (default host.docker.internal:8080)
+#   TOOLS_*_LOG         officers/cases/parties log DIDs to scan
+#   JN_IMAGE_TAG        aggregator image tag (default: local)
+
+name: jn-aggregator
+
+services:
+  aggregator-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: "${AGG_PG_USER:-attesta}"
+      POSTGRES_PASSWORD: "${AGG_PG_PASS:-attestapassword}"
+      POSTGRES_DB: "${AGG_PG_DB:-aggregator}"
+    volumes:
+      - agg_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AGG_PG_USER:-attesta} -d ${AGG_PG_DB:-aggregator}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  aggregator:
+    image: "jn-aggregator:${JN_IMAGE_TAG:-local}"
+    build:
+      context: ../..
+      dockerfile: deployment/local/Dockerfile.aggregator
+    container_name: jn-aggregator
+    depends_on:
+      aggregator-db:
+        condition: service_healthy
+    ports:
+      - "${AGG_PROBE_PORT:-8092}:8092"
+    environment:
+      # The aggregator's OWN projection DB (tools-local, never the domain's).
+      TOOLS_DATABASE_URL: "postgres://${AGG_PG_USER:-attesta}:${AGG_PG_PASS:-attestapassword}@aggregator-db:5432/${AGG_PG_DB:-aggregator}?sslmode=disable"
+      # The ledger it scans (host-run, like the JN's own dev flow).
+      TOOLS_LEDGER_URL: "${TOOLS_LEDGER_URL:-http://host.docker.internal:8080}"
+      # Log DIDs to scan. Empty ⇒ the clitools defaults (courts.localhost:*); the
+      # e2e points all three at the network's bootstrap log.
+      TOOLS_OFFICERS_LOG: "${TOOLS_OFFICERS_LOG:-}"
+      TOOLS_CASES_LOG: "${TOOLS_CASES_LOG:-}"
+      TOOLS_PARTIES_LOG: "${TOOLS_PARTIES_LOG:-}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  agg_pgdata:

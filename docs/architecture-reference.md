@@ -110,26 +110,30 @@ All previously-listed gaps are now wired (config-gated, off by default, so dev/t
 | v1.14.0 adoption | `go.mod` at v1.14.0; fixtures declare `SchemeTag` | `go.mod` |
 
 ### 8.1 Activation & validation notes
-- Activation is opt-in by config: scanner needs a `did:key` gossip signing PEM + emit peers; durable store needs `GossipStore.PostgresDSN` (env: `API_GOSSIP_STORE_DSN`); scheduler needs `Monitoring.Enabled` + per-court audit specs.
+- **Separation of Duties (Phase C):** custody (the durable gossip store) and equivocation detection have MOVED to the external auditor service; the JN runs **verify-only** — it pulls the auditor's `/v1/gossip` feed (`API_GOSSIP_INGEST_PEER_URL`) and re-verifies every event, hosting no store / feed / scanner of its own. The monitoring scheduler (mirror/anchor/sealing audits) stays in the JN, gated by `Monitoring.Enabled` + per-court audit specs.
 - The mirror/anchor/sealing scheduler adapters reuse the pre-tested `Check*` funcs but need a deploy-time smoke test against a live ledger.
 
-## 9. Running the durable gossip store locally
+## 9. Running the stack locally
 
-Postgres-in-Docker, docker-only, env-driven (mirrors the ledger's config-from-env):
-
-A single authoritative launcher (`scripts/infra.sh`) — **docker by default**, with an optional **native** (no-docker) fallback that stands up Postgres via `initdb`/`pg_ctl`:
+The whole realistic stack comes up with **one command** — witnesses → ledger →
+auditor → aggregator → JN, each health-checked in dependency order:
 
 ```bash
-make infra-up                           # docker (default) — gossip Postgres on :5433
-#   no docker daemon? use the optional fallback:
-make infra-up INFRA_BACKEND=native      # local Postgres via initdb/pg_ctl (no docker)
-
-export "$(make -s infra-dsn)"           # API_GOSSIP_STORE_DSN=postgres://…/jn_gossip
-./bin/network-api -config <config.json> # PostgresStore.Migrate creates peer_gossip at boot
-make infra-down                         # stop (keeps data); 'destroy' wipes it
+make clarity-up        # or: ./e2e/clarity_e2e.py up
+make clarity-status    # probe what's currently up
+make clarity-down      # tear it all down (clears stale processes + WAL locks)
 ```
 
-Launcher: `scripts/infra.sh` (the source of truth) · docker backend: `deployment/local/docker-compose.gossip-db.yml` · native backend: `.run/gossip-db` · the JN reads the DSN from `API_GOSSIP_STORE_DSN` (`api/config/operational.go::ApplyEnvOverrides`).
+Runtime Separation of Duties — three distinct stores, one per role:
+
+| Role | Launcher | Custody | Port |
+|---|---|---|---|
+| **auditor** (evidence custodian + detection) | `deployment/local/docker-compose.auditor.yml` | own Postgres; serves `/v1/gossip` | :8088 |
+| **aggregator** (rebuildable read-projection) | `deployment/local/docker-compose.aggregator.yml` | own Postgres; self-migrating | :8092 |
+| **JN** (enforcer, verify-only) | `scripts/run-jn.sh` | **none** — pulls + re-verifies the auditor's feed | :8443 (mTLS) |
+
+The JN reads its verify-only ingest source from `API_GOSSIP_INGEST_PEER_URL` (the
+auditor's `/v1/gossip`); it holds no store, serves no feed, runs no scanner.
 
 ## 10. Discovering the witness/network trust from env
 

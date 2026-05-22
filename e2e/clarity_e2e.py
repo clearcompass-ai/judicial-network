@@ -3,15 +3,20 @@
 clarity_e2e.py — one-command local end-to-end bring-up + verification for the
 Clarity stack. Orchestrates three sibling repos under a "clarity root":
 
-    <root>/standalone-witness   K-of-N witness fleet (cosigns tree heads)
+    <root>/standalone-witness   K-of-N witness fleet (cosigns tree heads) +
+                                the auditor image (attesta-tools services/auditor)
     <root>/ledger               ledger + infra (Postgres + SeaweedFS, Docker)
-    <root>/judicial-network     JN Smart-Edge auditor (network-api)
+    <root>/judicial-network     JN enforcer (network-api) + aggregator + composes
 
 It brings them up IN ORDER, seeds the first entry (so the ledger produces a
-cosigned tree head), starts the JN active auditor, and CHECKS each tier:
+cosigned tree head), stands up the external auditor (custody + detection) and
+the rebuildable aggregator projection, starts the JN enforcer, and CHECKS each
+tier (Separation of Duties: custody is the auditor's, the JN re-verifies):
 
     witnesses healthy → ledger healthy → cosigned tree head (K sigs)
-        → JN healthy (mTLS) + ready (ledger-gated) → scanner verifying
+        → auditor healthy (custody store + inbound verify pipeline)
+        → aggregator healthy (projection db + ledger gated)
+        → JN healthy (mTLS) + ready (ledger-gated) + verify-only ingest ← auditor
 
 Why a script (not copy-paste): the manual flow is fragile — a stale ledger
 keeps the Badger WAL lock (`run-local.sh down` only stops infra, not the
@@ -217,10 +222,16 @@ class Cfg:
         self.witness = self.root / "standalone-witness"
         self.ledger = self.root / "ledger"
         self.jn = self.root / "judicial-network"
+        self.deploy = self.jn / "deployment" / "local"
+        # The auditor (evidence custodian) ships from attesta-tools, which the
+        # e2e consumes via the standalone-witness checkout (services/auditor).
+        self.auditor_src = self.witness / "services" / "auditor"
         self.n = args.witnesses
         self.port_base = args.port_base
         self.ledger_addr = args.ledger_addr
         self.jn_addr = args.jn_addr
+        self.auditor_addr = args.auditor_addr
+        self.aggregator_addr = args.aggregator_addr
         self.timeout = args.timeout
         self.keep_state = args.keep_state
 
@@ -248,6 +259,14 @@ class Cfg:
         return int(self.jn_addr.lstrip(":").rsplit(":", 1)[-1])
 
     @property
+    def auditor_port(self) -> int:
+        return int(self.auditor_addr.lstrip(":").rsplit(":", 1)[-1])
+
+    @property
+    def aggregator_port(self) -> int:
+        return int(self.aggregator_addr.lstrip(":").rsplit(":", 1)[-1])
+
+    @property
     def certs(self) -> Path:
         return self.jn / ".run" / "certs"
 
@@ -271,6 +290,9 @@ def check_prereqs(cfg: Cfg) -> None:
         d = cfg.root / r
         if not (d / "scripts").is_dir() and r != "judicial-network":
             warn(f"{d} has no scripts/ — unexpected layout")
+    if not (cfg.auditor_src / "Dockerfile").exists():
+        warn(f"auditor source missing at {cfg.auditor_src} "
+             "(attesta-tools services/auditor) — the auditor stage will fail")
     ok(f"clarity root: {cfg.root}")
 
 
@@ -284,6 +306,14 @@ def teardown(cfg: Cfg, full: bool = True) -> None:
     kill_port(cfg.jn_port)
     if st.get("jn_pid"):
         kill_pgid(int(st["jn_pid"]))
+
+    # Auditor + aggregator (each compose bundles the service's own Postgres;
+    # `down -v` drops the volumes for a clean next run).
+    for comp in ("docker-compose.auditor.yml", "docker-compose.aggregator.yml"):
+        run(["docker", "compose", "-f", str(cfg.deploy / comp), "down", "-v"],
+            cwd=cfg.jn, check=False, quiet=True)
+    kill_port(cfg.auditor_port)
+    kill_port(cfg.aggregator_port)
 
     # Ledger: kill the PROCESS first to release the Badger WAL lock, THEN
     # tear down infra and (optionally) wipe local state. run-local.sh down
@@ -396,8 +426,79 @@ def seed_ledger(cfg: Cfg, st: dict) -> dict:
     return st
 
 
+def docker_build(dockerfile: str, context: Path, tag: str, cwd: Path) -> None:
+    """Build an image, injecting the TLS-inspecting proxy's CA as a build secret
+    when the host trust bundle is present (CI sandbox / corporate net); a no-op on
+    an open network. BuildKit required — the Dockerfiles use --mount=type=secret."""
+    ca = os.environ.get("JN_CA_BUNDLE", "/etc/ssl/certs/ca-certificates.crt")
+    cmd = ["docker", "build", "-f", dockerfile, "-t", tag]
+    if Path(ca).is_file():
+        cmd += ["--secret", f"id=ca_bundle,src={ca}"]
+    cmd.append(str(context))
+    run(cmd, cwd=cwd, env={"DOCKER_BUILDKIT": "1"})
+
+
+def bring_up_auditor(cfg: Cfg, st: dict) -> dict:
+    stage(f"auditor (evidence custodian + detection) on {cfg.auditor_addr}  [docker]")
+    if not (cfg.auditor_src / "Dockerfile").exists():
+        die(f"auditor source not found at {cfg.auditor_src} "
+            "(attesta-tools services/auditor — shipped in the standalone-witness checkout)")
+    # Build the auditor image (cross-module: context = the attesta-tools repo root).
+    docker_build("services/auditor/Dockerfile", cfg.witness, "auditor:local", cwd=cfg.witness)
+    compose = cfg.deploy / "docker-compose.auditor.yml"
+    env = {
+        "AUDITOR_IMAGE": "auditor:local",
+        "AUDITOR_BOOTSTRAP_FILE": st["bootstrap"],
+        "AUDITOR_WITNESS_QUORUM_K": str(st["quorum_k"]),
+        # Pull + re-verify the ledger's raw /v1/gossip; persist + serve our own.
+        "AUDITOR_PEERS": f'{st["log_did"]}=http://host.docker.internal:{cfg.ledger_port}',
+    }
+    run(["docker", "compose", "-f", str(compose), "up", "-d"], cwd=cfg.jn, env=env)
+    poll("auditor /healthz == ok",
+         lambda: http_body(f"http://localhost:{cfg.auditor_port}/healthz").strip() == "ok",
+         timeout=cfg.timeout)
+    poll("auditor /readyz == 200",
+         lambda: http_code(f"http://localhost:{cfg.auditor_port}/readyz") == 200,
+         timeout=cfg.timeout)
+    # Active integrity detection + custody now live HERE (re-homed from the JN by
+    # the SoD split): the auditor stands up its durable store + inbound verify
+    # pipeline (pull → SDK finding router → reconcile → persist → serve /v1/gossip).
+    dl = run(["docker", "logs", "attesta-auditor"], check=False, quiet=True)
+    if "custody + inbound pipeline up" in (dl.stdout + dl.stderr):
+        ok("auditor custody + inbound verify pipeline up (detection re-homed here)")
+    else:
+        warn("auditor custody-pipeline log line not seen yet (store/peers configured?)")
+    st["auditor_url"] = f"http://host.docker.internal:{cfg.auditor_port}"
+    return st
+
+
+def bring_up_aggregator(cfg: Cfg, st: dict) -> dict:
+    stage(f"aggregator (rebuildable read-projection) on {cfg.aggregator_addr}  [docker]")
+    docker_build("deployment/local/Dockerfile.aggregator", cfg.jn, "jn-aggregator:local", cwd=cfg.jn)
+    compose = cfg.deploy / "docker-compose.aggregator.yml"
+    env = {
+        "JN_IMAGE_TAG": "local",
+        "TOOLS_LEDGER_URL": f"http://host.docker.internal:{cfg.ledger_port}",
+        # The e2e network has one bootstrap log; point all three scan logs at it.
+        "TOOLS_OFFICERS_LOG": st["log_did"],
+        "TOOLS_CASES_LOG": st["log_did"],
+        "TOOLS_PARTIES_LOG": st["log_did"],
+    }
+    run(["docker", "compose", "-f", str(compose), "up", "-d"], cwd=cfg.jn, env=env)
+    poll("aggregator /healthz == 200",
+         lambda: http_code(f"http://localhost:{cfg.aggregator_port}/healthz") == 200,
+         timeout=cfg.timeout)
+    # /readyz gates on BOTH Postgres + the ledger — proves the projection DB is
+    # migrated + wired and the ledger scan source is reachable.
+    poll("aggregator /readyz == 200 (db + ledger gated)",
+         lambda: http_code(f"http://localhost:{cfg.aggregator_port}/readyz") == 200,
+         timeout=cfg.timeout)
+    ok("aggregator projection up (self-migrated; rebuildable from watermark 0)")
+    return st
+
+
 def bring_up_jn(cfg: Cfg, st: dict) -> dict:
-    stage(f"JN active auditor (network-api) on {cfg.jn_addr}  [docker]")
+    stage(f"JN enforcer (network-api) on {cfg.jn_addr}  [docker]")
     log = LOG_DIR / "jn.log"
     env = {
         "LEDGER_NETWORK_BOOTSTRAP_FILE": st["bootstrap"],
@@ -436,7 +537,9 @@ def summary(cfg: Cfg, st: dict) -> None:
     c = cfg.certs
     print(f"""  witnesses : :{cfg.port_base}..:{cfg.port_base + cfg.n - 1}   (K={st['quorum_k']})
   ledger    : http://localhost:{cfg.ledger_port}      log={st['log_did']}
-  JN auditor: https://localhost:{cfg.jn_port}     (mTLS; active auditor)
+  auditor   : http://localhost:{cfg.auditor_port}      (evidence custodian + detection; serves /v1/gossip)
+  aggregator: http://localhost:{cfg.aggregator_port}      (rebuildable read-projection)
+  JN enforcer: https://localhost:{cfg.jn_port}    (mTLS; verify-only ingest ← auditor)
   bootstrap : {st['bootstrap']}
 
   health (JN, needs a client cert):
@@ -460,6 +563,8 @@ def cmd_up(cfg: Cfg) -> None:
     st = bring_up_witnesses(cfg, st)
     st = bring_up_ledger(cfg, st)
     st = seed_ledger(cfg, st)
+    st = bring_up_auditor(cfg, st)
+    st = bring_up_aggregator(cfg, st)
     st = bring_up_jn(cfg, st)
     save_state(st)
     summary(cfg, st)
@@ -484,6 +589,10 @@ def cmd_status(cfg: Cfg) -> None:
             print(f"     tree_size={h.get('tree_size')} witness_sigs={len(h.get('signatures', []) or [])}")
         except json.JSONDecodeError:
             print("     (no cosigned tree head yet)")
+    aud = http_body(f"http://localhost:{cfg.auditor_port}/healthz").strip() == "ok"
+    print(f"  auditor :{cfg.auditor_port:<6} {'UP' if aud else 'down'}")
+    agg = http_code(f"http://localhost:{cfg.aggregator_port}/healthz") == 200
+    print(f"  aggreg  :{cfg.aggregator_port:<6} {'UP' if agg else 'down'}")
     code = http_code(f"https://localhost:{cfg.jn_port}/healthz", mtls=cfg.mtls()) if cfg.certs.exists() else 0
     print(f"  JN      :{cfg.jn_port:<6} {'UP' if code == 200 else 'down'}")
 
@@ -496,6 +605,8 @@ def main() -> None:
     ap.add_argument("--port-base", type=int, default=19001)
     ap.add_argument("--ledger-addr", default=":8080")
     ap.add_argument("--jn-addr", default=":8443")
+    ap.add_argument("--auditor-addr", default=":8088")
+    ap.add_argument("--aggregator-addr", default=":8092")
     ap.add_argument("--timeout", type=int, default=120, help="per-stage health timeout (s)")
     ap.add_argument("--keep-state", action="store_true", help="skip the clean teardown before `up`")
     args = ap.parse_args()

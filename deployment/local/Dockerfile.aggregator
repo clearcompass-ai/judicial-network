@@ -1,16 +1,17 @@
 # syntax=docker/dockerfile:1
-# Multi-stage Dockerfile for cmd/network-api (the JN Smart-Edge enforcer).
+# Multi-stage Dockerfile for tools/aggregator/cmd/aggregator — the rebuildable
+# read-projection ingester (ledger scan → judicial classify → Postgres).
 #
-# The binary is fully env-driven (api/config.ApplyEnvOverrides) — the same image
-# runs under docker-compose (deployment/local) or k8s, configured only by env +
-# mounted Secret/ConfigMap files. No config file is baked in.
+# The binary is fully env-driven (clitools.Config + TOOLS_* overrides) and
+# self-migrating (the projection schema is embedded), so the same image runs
+# under docker-compose or k8s; only the injected env + DB differ.
 #
 # Build from the repo root:
-#   docker build -f deployment/local/Dockerfile.network-api .
+#   docker build -f deployment/local/Dockerfile.aggregator .
 #
 # Behind a TLS-inspecting egress proxy (CI sandbox / corporate net), pass the
 # trust bundle so module + package fetches verify (no-op when absent):
-#   docker build -f deployment/local/Dockerfile.network-api \
+#   docker build -f deployment/local/Dockerfile.aggregator \
 #     --secret id=ca_bundle,src=/etc/ssl/certs/ca-certificates.crt .
 FROM golang:1.25-alpine AS builder
 
@@ -31,17 +32,15 @@ RUN --mount=type=secret,id=ca_bundle \
 
 COPY . .
 
-# VERSION is stamped into main.Version; defaults to "docker" for unstamped
-# (local) builds. Static, reproducible binary: CGO off so the runtime needs no
-# glibc shim, -trimpath strips local paths, -buildvcs=false avoids requiring the
-# .git dir in the build context.
+# Static, reproducible binary: CGO off (no glibc shim), -trimpath strips local
+# paths, -buildvcs=false avoids requiring the .git dir in the build context.
 ARG VERSION=docker
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build \
     -trimpath -buildvcs=false \
     -ldflags "-X main.Version=${VERSION}" \
-    -o /network-api ./cmd/network-api
+    -o /aggregator ./tools/aggregator/cmd/aggregator
 
 # ── Runtime ────────────────────────────────────────────────────
 # Pinned base (not :latest) for reproducible, auditable rebuilds.
@@ -51,15 +50,20 @@ RUN --mount=type=secret,id=ca_bundle \
     if [ -s /run/secrets/ca_bundle ]; then \
       cat /run/secrets/ca_bundle >> /etc/ssl/certs/ca-certificates.crt; \
     fi; \
-    apk --no-cache add ca-certificates tzdata wget
+    apk --no-cache add ca-certificates tzdata wget \
+    && adduser -D -H -u 65532 aggregator
 
 WORKDIR /
-COPY --from=builder /network-api /network-api
+COPY --from=builder /aggregator /aggregator
 
-EXPOSE 8443
+# Non-root: the aggregator reads the public ledger + writes its own projection
+# DB; it holds no signing keys.
+USER 65532:65532
 
-# No Docker HEALTHCHECK: /healthz is served over mTLS, so a liveness probe must
-# present a client cert + CA. That belongs in the orchestrator (a k8s httpGet
-# probe with the mounted certs, or the e2e's external poll) — not a baked-in
-# wget that has no certs to offer.
-ENTRYPOINT ["/network-api"]
+EXPOSE 8092
+
+# Liveness over plain HTTP — the aggregator's probe surface needs no client cert.
+HEALTHCHECK --interval=5s --timeout=3s --retries=10 --start-period=3s \
+    CMD wget -q -O- http://localhost:8092/healthz >/dev/null 2>&1 || exit 1
+
+ENTRYPOINT ["/aggregator"]
