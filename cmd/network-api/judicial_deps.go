@@ -71,7 +71,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
-	"github.com/clearcompass-ai/judicial-network/crosslog"
+	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -146,7 +146,13 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	if err != nil {
 		return nil, fmt.Errorf("load network id: %w", err)
 	}
-	return crosslog.BuildWitnessSets(cfg.Witness.Sets, networkID)
+	// libs/crosslog is domain-free: map the JN config rows into its neutral
+	// WitnessSetSpec (identical fields) before building the keysets.
+	specs := make([]crosslog.WitnessSetSpec, len(cfg.Witness.Sets))
+	for i, s := range cfg.Witness.Sets {
+		specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
+	}
+	return crosslog.BuildWitnessSets(specs, networkID)
 }
 
 // loadBootstrapDoc reads + parses the network bootstrap document. It is the
