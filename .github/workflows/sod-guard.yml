@@ -1,0 +1,23 @@
+name: sod-guard
+
+# Separation of Duties (the enforcer↔custodian split). The JN must host no
+# custodial gossip.Store and serve no gossip feed — custody belongs to the
+# external auditor. This is the JN side of attesta-tools' dependency law.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sod-guard:
+    name: separation of duties (no custody in the enforcer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: enforce SoD (no gossip.Store / feed in the JN)
+        run: bash scripts/sod-guard.sh
