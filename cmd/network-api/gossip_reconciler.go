@@ -61,23 +61,23 @@ func buildGossipIngest(
 	cfg config.Operational,
 	sigVerifier attestation.SignatureVerifier,
 	logger *slog.Logger,
-) (*peers.PeerPuller, error) {
+) (*peers.PeerPuller, *monitoring.TrustedHeadStore, error) {
 	if !cfg.GossipIngest.Enabled || len(cfg.GossipIngest.Peers) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
 	if cfg.NetworkBootstrapFile == "" {
-		return nil, fmt.Errorf("gossip ingest enabled but NetworkBootstrapFile is empty (envelope + witness verification need the network ID)")
+		return nil, nil, fmt.Errorf("gossip ingest enabled but NetworkBootstrapFile is empty (envelope + witness verification need the network ID)")
 	}
 	networkID, err := loadNetworkID(cfg.NetworkBootstrapFile)
 	if err != nil {
-		return nil, fmt.Errorf("load network id: %w", err)
+		return nil, nil, fmt.Errorf("load network id: %w", err)
 	}
 	witnessSets, err := buildWitnessSets(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("build witness sets: %w", err)
+		return nil, nil, fmt.Errorf("build witness sets: %w", err)
 	}
 
 	// The originator (envelope) + signer verifiers are the SAME DID
@@ -86,11 +86,11 @@ func buildGossipIngest(
 	// registry; the admission gate hands it back as the interface.
 	registry, ok := sigVerifier.(*did.VerifierRegistry)
 	if !ok {
-		return nil, fmt.Errorf("gossip ingest requires a *did.VerifierRegistry signature verifier, got %T", sigVerifier)
+		return nil, nil, fmt.Errorf("gossip ingest requires a *did.VerifierRegistry signature verifier, got %T", sigVerifier)
 	}
 	originator, err := gossip.NewDIDOriginatorVerifier(registry)
 	if err != nil {
-		return nil, fmt.Errorf("originator verifier: %w", err)
+		return nil, nil, fmt.Errorf("originator verifier: %w", err)
 	}
 
 	witnessRegistry := gossipverify.NewWitnessSetRegistry(witnessSets, networkID)
@@ -107,7 +107,7 @@ func buildGossipIngest(
 		}
 		htm, terr := gossipverify.NewHTTPTileMirrors(mirrors, nil)
 		if terr != nil {
-			return nil, fmt.Errorf("tile mirrors: %w", terr)
+			return nil, nil, fmt.Errorf("tile mirrors: %w", terr)
 		}
 		tiles = htm
 	}
@@ -121,7 +121,7 @@ func buildGossipIngest(
 		Tiles:          tiles,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("gossip verifier: %w", err)
+		return nil, nil, fmt.Errorf("gossip verifier: %w", err)
 	}
 
 	reconciler, err := monitoring.NewReconciler(monitoring.ReconcilerConfig{
@@ -137,18 +137,24 @@ func buildGossipIngest(
 		Logger:  logger,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("reconciler: %w", err)
+		return nil, nil, fmt.Errorf("reconciler: %w", err)
 	}
 
 	feeds := make([]peers.PeerFeed, len(cfg.GossipIngest.Peers))
 	for i, p := range cfg.GossipIngest.Peers {
 		feeds[i] = peers.PeerFeed{LogDID: p.LogDID, BaseURL: p.BaseURL}
 	}
-	return peers.NewPeerPuller(peers.PeerPullerConfig{
+	puller, err := peers.NewPeerPuller(peers.PeerPullerConfig{
 		Peers:     feeds,
 		Sink:      reconciler,
 		Interval:  cfg.GossipIngest.PollInterval,
 		PageLimit: cfg.GossipIngest.PageLimit,
 		Logger:    logger,
 	})
+	if err != nil {
+		return nil, nil, err
+	}
+	// heads is returned so the API server can surface the verify-only trusted
+	// view read-only (GET /v1/judicial/monitoring/peer-consistency).
+	return puller, heads, nil
 }
