@@ -3,7 +3,14 @@ FILE PATH: cases/initiation.go
 DESCRIPTION: New case → root entity on cases log via SDK BuildRootEntity.
 KEY ARCHITECTURAL DECISIONS:
   - BuildRootEntity creates SMT leaf with OriginTip=self, AuthorityTip=self.
-  - Docket number, initial status, filed_date in Domain Payload.
+  - Domain Payload carries event_type="case_initiated" (the closed-set
+    Event Dictionary key the cosignature gate reads) plus docket_number,
+    case_type, filed_date, status.
+  - Cosigners are emitted into the payload's signed_by_capacities block so
+    the destination's cosignature policy (tn/trial requires a court_clerk
+    cosignature on a new case) is verifiable with no off-log registry. The
+    cosigner SIGNATURES are attached client-side (the JN holds no keys);
+    this builder only declares who must sign.
   - Returns root entity position for all subsequent filings.
   - AttestationPolicyName is OPTIONAL: when set the entry adopts the
     named policy declared on the case schema (see
@@ -45,6 +52,18 @@ type InitiationConfig struct {
 	// schemas.PolicyCriminalSeniorJudgeConcurrence. nil = no policy
 	// (default behavior: primary signature alone admits the entry).
 	AttestationPolicyName *string
+
+	// Cosigners declares the Signer cosigners (other than the primary
+	// filer at Signatures[0]) whose signatures the destination's
+	// cosignature policy requires on a case_initiated entry. For the
+	// TN trial framework the court_clerk who accepts the filing is
+	// declared here; the policy (deployments/tn/trial) requires their
+	// intra-exchange cosignature. Each entry is emitted into the
+	// payload's signed_by_capacities block so the verifier's
+	// PayloadRoleResolver can map cosigner DID → role + exchange. The
+	// actual signatures are attached client-side; this only declares
+	// who must sign.
+	Cosigners []schemas.SignedByCapacity
 }
 
 // InitiationResult holds the root entity entry.
@@ -60,6 +79,11 @@ func InitiateCase(cfg InitiationConfig) (*InitiationResult, error) {
 	if cfg.DocketNumber == "" {
 		return nil, fmt.Errorf("cases/initiation: empty docket number")
 	}
+	for i := range cfg.Cosigners {
+		if err := cfg.Cosigners[i].Validate(); err != nil {
+			return nil, fmt.Errorf("cases/initiation: cosigner[%d]: %w", i, err)
+		}
+	}
 
 	payload := map[string]interface{}{
 		"docket_number": cfg.DocketNumber,
@@ -69,6 +93,13 @@ func InitiateCase(cfg InitiationConfig) (*InitiationResult, error) {
 	}
 	for k, v := range cfg.ExtraPayload {
 		payload[k] = v
+	}
+	// event_type is the closed-set Event Dictionary key the cosignature
+	// gate reads (verification/cosignature_check.go). Set AFTER
+	// ExtraPayload so a caller cannot clobber the load-bearing value.
+	payload["event_type"] = "case_initiated"
+	if len(cfg.Cosigners) > 0 {
+		payload["signed_by_capacities"] = cfg.Cosigners
 	}
 
 	payloadBytes, err := json.Marshal(payload)

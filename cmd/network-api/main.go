@@ -261,6 +261,11 @@ func run(argv []string, d deps) error {
 			NonceStores:           nonceStores,
 			LedgerBreaker:         ledgerBreaker,
 			LedgerMetrics:         ledgerMetrics,
+			// Per-jurisdiction admission gate: cosignature policy +
+			// prerequisite walker on POST /v1/entries/submit, resolved
+			// from the same frozen Bundle registry. Without this the
+			// submit path is a pass-through proxy (the gate is dormant).
+			SubmitGate: exchange.NewBundleSubmitGate(registry),
 		},
 		Verification: verification.ServerConfig{
 			// SignatureVerifier is the native v1.7.1 receipt-aware

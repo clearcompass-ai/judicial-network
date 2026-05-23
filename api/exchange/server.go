@@ -40,6 +40,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
+	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
 
 // ServerConfig configures the exchange service.
@@ -83,6 +84,21 @@ type ServerConfig struct {
 	// LedgerMetrics records per-submit metrics.
 	// observability primitive. nil → no metrics observed.
 	LedgerMetrics *observability.LedgerSubmitMetrics
+
+	// SubmitGate is the per-jurisdiction admission gate run on
+	// POST /v1/entries/submit before the entry is forwarded to the
+	// ledger (cosignature policy + prerequisite walker). nil keeps
+	// the pre-3E.4 pass-through proxy (tests / pre-roster dev).
+	// Production wires NewBundleSubmitGate(registry).
+	SubmitGate handlers.SubmitGater
+}
+
+// NewBundleSubmitGate builds the production per-jurisdiction submit
+// gate over a frozen registry. The cosignature RoleResolver is
+// derived per-entry from each entry's signed_by_capacities block, so
+// the gate needs no off-log registry beyond the compiled-in Bundles.
+func NewBundleSubmitGate(r *jurisdiction.Registry) handlers.SubmitGater {
+	return &handlers.BundleSubmitGate{Registry: r}
 }
 
 // Server is the exchange HTTP server.
@@ -108,6 +124,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		Index:                 cfg.Index,
 		LedgerBreaker:         cfg.LedgerBreaker,
 		LedgerMetrics:         cfg.LedgerMetrics,
+		SubmitGate:            cfg.SubmitGate,
 	}
 
 	mux := http.NewServeMux()

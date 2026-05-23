@@ -32,6 +32,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases"
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // registerCaseRoutes installs every cases.* handler on mux.
@@ -59,6 +60,33 @@ type caseInitiateRequest struct {
 	ExtraPayload          map[string]any `json:"extra_payload,omitempty"`
 	EventTime             int64          `json:"event_time,omitempty"`
 	AttestationPolicyName *string        `json:"attestation_policy_name,omitempty"`
+	// Cosigners declares the Signer cosigners the destination's
+	// cosignature policy requires (for tn/trial: the court_clerk who
+	// accepts the filing). Emitted into the built entry's
+	// signed_by_capacities block; the cosigner signatures are
+	// attached client-side before submit.
+	Cosigners []caseCosigner `json:"cosigners,omitempty"`
+}
+
+// caseCosigner is the request shape for one declared cosigner. Maps
+// to schemas.SignedByCapacity. delegation_ref is omitted: the submit
+// gate's PayloadRoleResolver runs in trust mode (role + exchange from
+// the payload); the verifying-mode chain walk is a separate surface.
+type caseCosigner struct {
+	DID      string `json:"did"`
+	Role     string `json:"role"`
+	Exchange string `json:"exchange"`
+}
+
+func toSignedByCapacities(in []caseCosigner) []schemas.SignedByCapacity {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]schemas.SignedByCapacity, len(in))
+	for i, c := range in {
+		out[i] = schemas.SignedByCapacity{DID: c.DID, Role: c.Role, Exchange: c.Exchange}
+	}
+	return out
 }
 
 type caseInitiateHandler struct{ deps *Dependencies }
@@ -86,6 +114,7 @@ func (h *caseInitiateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		ExtraPayload:          req.ExtraPayload,
 		EventTime:             req.EventTime,
 		AttestationPolicyName: req.AttestationPolicyName,
+		Cosigners:             toSignedByCapacities(req.Cosigners),
 	}
 	if req.SchemaRef != nil && req.SchemaLogDID != "" {
 		cfg.SchemaRef = &types.LogPosition{LogDID: req.SchemaLogDID, Sequence: *req.SchemaRef}
