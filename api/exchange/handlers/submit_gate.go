@@ -62,15 +62,19 @@ type Rejection struct {
 }
 
 // BundleSubmitGate implements SubmitGater on top of a frozen
-// jurisdiction.Registry plus a RoleResolver for cosig checking.
-// Production exchange handlers construct one of these at boot.
+// jurisdiction.Registry. Production exchange handlers construct one
+// of these at boot via exchange.NewBundleSubmitGate(registry).
 type BundleSubmitGate struct {
 	// Registry maps destination DID → Bundle. Required, frozen at
 	// boot. Lookup keys are entry.Header.Destination values.
 	Registry *jurisdiction.Registry
 
-	// Resolver maps Signer DIDs → role + destination. Required.
-	// Tests may use a verification.MapRoleResolver.
+	// Resolver maps cosigner DIDs → role + exchange. OPTIONAL: when
+	// nil (the production default) Admit derives a per-entry
+	// verification.PayloadRoleResolver from the entry's
+	// signed_by_capacities block, so the gate needs no off-log
+	// registry. Tests may set a verification.MapRoleResolver for a
+	// deterministic role map.
 	Resolver verification.RoleResolver
 }
 
@@ -81,8 +85,11 @@ type BundleSubmitGate struct {
 // Order:
 //  1. envelope.Deserialize → "deserialize_failed" on parse error.
 //  2. Resolve Bundle      → "unknown_exchange" on miss.
-//  3. CheckCosignature    → bubble the verifier rejection.
-//  4. Walker.Check        → bubble Hard rejections; Advisory
+//  3. Derive RoleResolver → per-entry PayloadRoleResolver from the
+//     entry's signed_by_capacities (unless g.Resolver overrides);
+//     "malformed_capacities" when that block is present but invalid.
+//  4. CheckCosignature    → bubble the verifier rejection.
+//  5. Walker.Check        → bubble Hard rejections; Advisory
 //     violations are forwarded (treat as accept).
 //
 // Implementations MUST NOT depend on any aggregator state — the
@@ -110,10 +117,26 @@ func (g *BundleSubmitGate) Admit(entryBytes []byte) *Rejection {
 		}
 	}
 
-	// Cosignature gate.
+	// Cosignature gate. The RoleResolver maps each cosigner DID →
+	// role + exchange. In production it is derived per-entry from the
+	// entry's own signed_by_capacities block (the "no off-log
+	// registry" model — verification/payload_role_resolver.go); a
+	// non-nil g.Resolver overrides this (tests inject a
+	// MapRoleResolver for a deterministic role map).
+	resolver := g.Resolver
+	if resolver == nil {
+		pr, err := verification.NewPayloadRoleResolver(entry.DomainPayload)
+		if err != nil {
+			return &Rejection{
+				Code:   "malformed_capacities",
+				Reason: err.Error(),
+			}
+		}
+		resolver = pr
+	}
 	verdict := verification.CheckCosignature(entry,
 		bundle.CosignaturePolicy(),
-		g.Resolver,
+		resolver,
 		bundle.ExchangeDID())
 	if !verdict.OK {
 		return &Rejection{
