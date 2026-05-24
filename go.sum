@@ -14,8 +14,8 @@ github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1x
 github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/clearcompass-ai/attesta v1.15.0 h1:IfqRkpv6tVhkTZuCsnFFbLu0qgTum8zut0rhEPgVFJ8=
-github.com/clearcompass-ai/attesta v1.15.0/go.mod h1:7pE41DqquoLBwe/jHC4gKAT6gZLLWuuyA/uErvDTV34=
+github.com/clearcompass-ai/attesta v1.18.0 h1:IuidlRPyveuOlgwqWXTQ1mjfRxPARrM6Ina/zXbsxz4=
+github.com/clearcompass-ai/attesta v1.18.0/go.mod h1:7pE41DqquoLBwe/jHC4gKAT6gZLLWuuyA/uErvDTV34=
 github.com/clearcompass-ai/attesta-tools/libs v0.1.2 h1:3lr9eIM4cGi+nH6M2SylAljZquOYotzxQWa1hZ1lbm4=
 github.com/clearcompass-ai/attesta-tools/libs v0.1.2/go.mod h1:0j1EcBeqfYkN+KFw2Sl23hDHqgfuYDZSSogf8B1Ks28=
 github.com/consensys/gnark-crypto v0.20.1 h1:PXDUBvk8AzhvWowHLWBEAfUQcV1/aZgWIqD6eMpXmDg=
