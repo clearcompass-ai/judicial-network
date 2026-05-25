@@ -212,9 +212,16 @@ func run(argv []string, d deps) error {
 	// JN's trusted view. The JN hosts NO durable store and serves NO feed —
 	// custody of evidence is the external auditor's role (Separation of Duties).
 	// nil when GossipIngest is disabled / has no peers.
-	gossipPuller, err := buildGossipIngest(cfg, sigVerifier, slog.Default())
+	gossipPuller, trustedHeads, err := buildGossipIngest(cfg, sigVerifier, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
+	}
+	// Surface the verify-only ingest's trusted-head view read-only via
+	// GET /v1/judicial/monitoring/peer-consistency. The source DIDs are the
+	// configured gossip peers' log DIDs (= the source logs the store records).
+	judicialDeps.TrustedHeads = trustedHeads
+	for _, p := range cfg.GossipIngest.Peers {
+		judicialDeps.TrustedSources = append(judicialDeps.TrustedSources, p.LogDID)
 	}
 
 	//  observability bundle is constructed once and shared

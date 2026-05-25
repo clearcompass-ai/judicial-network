@@ -18,6 +18,7 @@ package judicial
 
 import (
 	"context"
+	"encoding/hex"
 	"net/http"
 	"time"
 
@@ -37,6 +38,52 @@ func registerMonitoringRoutes(mux *http.ServeMux, deps *Dependencies) {
 	mux.Handle("POST /v1/judicial/monitoring/sealing-compliance", &monSealingComplianceHandler{deps: deps})
 	mux.Handle("POST /v1/judicial/monitoring/grant-compliance", &monGrantComplianceHandler{deps: deps})
 	mux.Handle("POST /v1/judicial/monitoring/dashboard", &monDashboardHandler{deps: deps})
+	mux.Handle("GET /v1/judicial/monitoring/peer-consistency", &monPeerConsistencyHandler{deps: deps})
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// GET /v1/judicial/monitoring/peer-consistency
+//
+// Read-only view of the verify-only gossip ingest: per source log, the
+// highest CosignedTreeHead JN has independently re-verified (advanced into
+// TrustedHeadStore). This is how an operator (or the e2e validator) observes
+// that auditor→JN propagation actually advanced JN's trusted view — without
+// trusting any publisher's JSON. Optional ?source=<logDID> filters to one.
+// ─────────────────────────────────────────────────────────────────────
+
+type peerHeadView struct {
+	SourceLogDID string `json:"source_log_did"`
+	TreeSize     uint64 `json:"tree_size"`
+	RootHash     string `json:"root_hash"` // hex of the 32-byte Merkle root
+	Trusted      bool   `json:"trusted"`
+}
+
+type monPeerConsistencyHandler struct{ deps *Dependencies }
+
+func (h *monPeerConsistencyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if requireCaller(w, r) == "" {
+		return
+	}
+	out := []peerHeadView{}
+	if h.deps.TrustedHeads != nil {
+		sources := h.deps.TrustedSources
+		if q := r.URL.Query().Get("source"); q != "" {
+			sources = []string{q}
+		}
+		for _, did := range sources {
+			head, ok := h.deps.TrustedHeads.TrustedHead(did)
+			if !ok {
+				continue
+			}
+			out = append(out, peerHeadView{
+				SourceLogDID: did,
+				TreeSize:     head.TreeSize,
+				RootHash:     hex.EncodeToString(head.RootHash[:]),
+				Trusted:      true,
+			})
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sources": out})
 }
 
 // ─────────────────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import (
 	"github.com/clearcompass-ai/attesta/verifier"
 	"github.com/clearcompass-ai/attesta/witness"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
@@ -99,6 +100,19 @@ type Dependencies struct {
 	// relationships. Consumed by topology.DiscoverAnchorChain. nil
 	// → anchor-chain handler returns 503.
 	Hierarchy *topology.Hierarchy
+
+	// TrustedHeads is the verify-only ingest's per-source trusted-head view
+	// (CosignedTreeHeads pulled from the auditor and re-verified against
+	// JN-local trust). Surfaced read-only by GET /v1/judicial/monitoring/
+	// peer-consistency. nil when gossip ingest is disabled → that handler
+	// returns an empty source set.
+	TrustedHeads *monitoring.TrustedHeadStore
+
+	// TrustedSources is the set of source log DIDs the verify-only ingest
+	// tracks (the gossip peers' log DIDs). Used to enumerate TrustedHeads for
+	// the peer-consistency endpoint. Empty ⇒ enumerate nothing unless a
+	// ?source= filter is supplied.
+	TrustedSources []string
 }
 
 // ─────────────────────────────────────────────────────────────────────
