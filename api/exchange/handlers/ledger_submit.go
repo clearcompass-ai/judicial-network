@@ -49,14 +49,14 @@ import (
 // dev deploys that don't configure the breaker.
 func submitToLedgerProtected(w http.ResponseWriter, deps *Dependencies, signed []byte) {
 	if deps.LedgerBreaker == nil {
-		submitToLedger(w, deps.LedgerEndpoint, signed)
+		submitToLedger(w, deps, signed)
 		return
 	}
 
 	cap := newCapturingResponseWriter()
 	start := time.Now()
 	err := deps.LedgerBreaker.Call(func() error {
-		submitToLedger(cap, deps.LedgerEndpoint, signed)
+		submitToLedger(cap, deps, signed)
 		// 5xx from the ledger counts as a breaker-trippable
 		// failure. 4xx is the caller's problem and does NOT
 		// trip the breaker (the ledger is healthy; the request

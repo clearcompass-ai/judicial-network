@@ -95,7 +95,7 @@ func TestSubmitToLedger_RetriesOn503(t *testing.T) {
 	defer srv.Close()
 
 	rec := httptest.NewRecorder()
-	submitToLedger(rec, srv.URL, []byte("signed-entry-bytes"))
+	submitToLedger(rec, &Dependencies{LedgerEndpoint: srv.URL}, []byte("signed-entry-bytes"))
 
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("status: got %d, want 202\nbody: %s", rec.Code, rec.Body.String())
