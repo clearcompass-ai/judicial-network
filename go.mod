@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/alicebob/miniredis/v2 v2.33.0
-	github.com/clearcompass-ai/attesta-tools/libs v0.2.0
+	github.com/clearcompass-ai/attesta-tools/libs v1.24.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/getkin/kin-openapi v0.137.0
