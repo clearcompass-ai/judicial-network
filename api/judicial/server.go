@@ -89,11 +89,17 @@ type Dependencies struct {
 	// Cross-log proof prover (used by appeals / county transfer flows).
 	SourceProver verifier.MerkleProver
 
-	// TreeHeadClient fetches cosigned tree heads from ledgers +
-	// witness fallbacks. Required by the anchor / topology handlers
-	// and by anchor-freshness monitoring. nil → those handlers
+	// TreeHeadClient fetches cosigned tree heads (/v1/tree/head) from ledgers +
+	// witness fallbacks. Used by anchor-chain discovery and anchor-freshness
+	// monitoring (both need only the live head's TreeSize). nil → those handlers
 	// surface 503 (configured via witness operational config).
 	TreeHeadClient *witness.TreeHeadClient
+
+	// CheckpointClient fetches a log's PUBLISHED, witness-cosigned horizon
+	// (/v1/tree/horizon) by DID. Used by anchor publishing, which must embed the
+	// durable, quorum-finalized checkpoint (not the live head). nil → the
+	// publish-anchor handler surfaces 503.
+	CheckpointClient *sdklog.ResolvingCheckpointClient
 
 	// Hierarchy is the JN-side anchor hierarchy (county → state →
 	// federal). Built at boot from the registered Bundles' parent
