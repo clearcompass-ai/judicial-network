@@ -379,6 +379,17 @@ func loadConfig(argv []string) (config.Operational, error) {
 	if err != nil {
 		return config.Operational{}, fmt.Errorf("%w: %w", config.ErrInvalidConfig, err)
 	}
+	// Resolve any did:web gossip-peer base to its AttestaLedger endpoint (parity
+	// with the auditor's AUDITOR_PEERS did:web form). No-op when ingest is off or
+	// every peer base is already an http(s) URL.
+	if cfg.GossipIngest.Enabled && len(cfg.GossipIngest.Peers) > 0 {
+		resolved, rerr := resolveGossipPeerEndpoints(dctx, cfg.GossipIngest.Peers,
+			newDIDWebPeerResolver(cfg.GossipIngest.PeerResolveTTL))
+		if rerr != nil {
+			return config.Operational{}, fmt.Errorf("%w: %w", config.ErrInvalidConfig, rerr)
+		}
+		cfg.GossipIngest.Peers = resolved
+	}
 	if err := cfg.Validate(); err != nil {
 		return config.Operational{}, err
 	}

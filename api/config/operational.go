@@ -223,7 +223,19 @@ type GossipIngestConfig struct {
 	// is enabled, the binary derives one peer = {bootstrap log, PeerURL}. Empty ⇒
 	// the derivation falls back to LedgerEndpoint. A peer is only a byte source;
 	// every pulled event is re-verified, so this grants the auditor no trust.
+	//
+	// PeerURL (and any Peers[].BaseURL) may be given as a bare did:web instead of
+	// an http(s) URL; the binary then resolves the gossip base from the DID
+	// document's AttestaLedger service endpoint at boot (parity with the auditor's
+	// AUDITOR_PEERS did:web form). An http(s) value is used verbatim.
 	PeerURL string `json:"peer_url,omitempty"`
+
+	// PeerResolveTTL caps how long a resolved did:web peer base is cached (the
+	// TTL on the WebDIDResolver behind did:web peer-base resolution). Zero
+	// applies a 5-minute default. Env: API_GOSSIP_INGEST_DIDWEB_TTL (the env
+	// name mirrors the auditor's AUDITOR_DIDWEB_TTL; the field is named without
+	// "DID" to satisfy the no-DID-in-config invariant).
+	PeerResolveTTL time.Duration `json:"peer_resolve_ttl,omitempty"`
 
 	// DiscoverOriginator controls how the genesis witness set is bound to a
 	// source log's gossip identity. STH gossip is originated under a log's
@@ -579,6 +591,11 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_GOSSIP_INGEST_PEER_URL"); v != "" {
 		cfg.GossipIngest.PeerURL = v
+	}
+	if v := os.Getenv("API_GOSSIP_INGEST_DIDWEB_TTL"); v != "" {
+		if d, err := time.ParseDuration(strings.TrimSpace(v)); err == nil && d > 0 {
+			cfg.GossipIngest.PeerResolveTTL = d
+		}
 	}
 	if b, ok := envBool("API_GOSSIP_INGEST_DISCOVER_ORIGINATOR"); ok {
 		cfg.GossipIngest.DiscoverOriginator = b
