@@ -78,6 +78,7 @@ import (
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
+	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
 // buildJudicialDeps composes a judicial.Dependencies for the
@@ -117,7 +118,7 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	}
 	deps.LogQueries = logQueries
 	deps.Fetcher = buildEntryFetcher(cfg.LedgerEndpoint)
-	deps.LeafReader = buildLeafReader(cfg.LedgerEndpoint)
+	deps.LeafReader = buildLeafReader(cfg, registry, witnessSets)
 	resolver, err := buildDIDResolver()
 	if err != nil {
 		return judicial.Dependencies{}, fmt.Errorf("build DID resolver: %w", err)
@@ -125,6 +126,7 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	deps.Resolver = resolver
 	deps.SchemaResolver = newSchemaResolverShim()
 	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
+	deps.CheckpointClient = buildCheckpointClient(cfg, registry)
 	return deps, nil
 }
 
@@ -400,6 +402,24 @@ func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry
 	return witness.NewTreeHeadClient(endpoints, thcCfg)
 }
 
+// buildCheckpointClient constructs the DID-addressed horizon client used by
+// anchor publishing (it must embed the durable /v1/tree/horizon, not the live
+// head). It resolves log DID → ledger URL through the SAME static endpoint map
+// as buildTreeHeadClient (witness.StaticEndpoints satisfies sdklog.EndpointResolver);
+// no witness fallback applies — witnesses don't serve the horizon. Returns nil in
+// dev/test mode (empty LedgerEndpoint) → the publish-anchor handler surfaces 503.
+func buildCheckpointClient(cfg config.Operational, registry *jurisdiction.Registry) *sdklog.ResolvingCheckpointClient {
+	if cfg.LedgerEndpoint == "" {
+		return nil
+	}
+	endpoints := &witness.StaticEndpoints{Ledgers: ledgerEndpointMap(cfg, registry)}
+	ccfg := sdklog.HTTPCheckpointClientConfig{}
+	if cfg.Witness.HTTPTimeout > 0 {
+		ccfg.Timeout = cfg.Witness.HTTPTimeout
+	}
+	return sdklog.NewResolvingCheckpointClient(endpoints, ccfg)
+}
+
 // ledgerEndpointMap maps every log the binary must reach a tree head for →
 // its ledger base URL. Two sources:
 //   - registered JN court destinations (registry.ExchangeDIDs())
@@ -458,10 +478,84 @@ func buildEntryFetcher(ledgerEndpoint string) types.EntryFetcher {
 	})
 }
 
-func buildLeafReader(ledgerEndpoint string) smt.LeafReader {
-	return smt.NewHTTPLeafReader(smt.HTTPLeafReaderConfig{
-		BaseURL: ledgerEndpoint,
+// buildLeafReader returns the smt.LeafReader the SDK verifier walkers
+// (EvaluateAuthority / EvaluateOrigin / WalkDelegationTree) read SMT state
+// through. When the own log's witness set is known it returns a
+// PROOF-ANCHORED reader (verification.VerifyingLeafReader): every read is
+// verified against the K-of-N witness-cosigned horizon, so a judicial
+// ruling on ledger state trusts the witness quorum, not the ledger. When
+// no witness set resolves to the ledger endpoint (dev / test, or a
+// witness-less deployment) it falls back to the plain HTTPLeafReader —
+// reads work but are UNVERIFIED — and logs that loudly so a deployer
+// knows the trust boundary is the ledger itself.
+func buildLeafReader(cfg config.Operational, registry *jurisdiction.Registry, witnessSets map[string]*cosign.WitnessKeySet) smt.LeafReader {
+	plain := smt.NewHTTPLeafReader(smt.HTTPLeafReaderConfig{BaseURL: cfg.LedgerEndpoint})
+
+	set, logDID := primaryWitnessSet(cfg, registry, witnessSets)
+	if set == nil {
+		slog.Warn("jn: leaf reader is UNVERIFIED — no witness set resolves to the ledger endpoint; "+
+			"SMT-state decisions trust the ledger. Configure API_WITNESS_QUORUM_K (env-derived) or "+
+			"witness.sets to enable proof-anchored reads",
+			"ledger", cfg.LedgerEndpoint)
+		return plain
+	}
+
+	// The checkpoint client (horizon), proof reader, and the leaf endpoint
+	// all target the SAME ledger URL — the leaf, its proof, and the horizon
+	// the proof is verified against must come from the one log being read.
+	cp := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{
+		BaseURL: cfg.LedgerEndpoint,
+		Timeout: cfg.Witness.HTTPTimeout, // zero → SDK default
 	})
+	pr := smt.NewHTTPProofReader(smt.HTTPProofReaderConfig{
+		BaseURL: cfg.LedgerEndpoint,
+		Timeout: cfg.Witness.HTTPTimeout, // zero → SDK default
+	})
+	vr, err := verification.NewVerifyingLeafReader(verification.VerifyingLeafReaderConfig{
+		Checkpoint: cp,
+		Proofs:     pr,
+		WitnessSet: set,
+		HorizonTTL: cfg.Witness.CacheTTL, // zero → default
+	})
+	if err != nil {
+		// set is non-nil here, so the constructor cannot fail on a nil dep;
+		// fall back defensively rather than panic the binary.
+		slog.Warn("jn: verifying leaf reader construction failed; falling back to UNVERIFIED reader",
+			"error", err, "ledger", cfg.LedgerEndpoint)
+		return plain
+	}
+	slog.Info("jn: leaf reads are proof-anchored on the witness-cosigned horizon",
+		"ledger", cfg.LedgerEndpoint, "log_did", logDID, "quorum", set.Quorum())
+	return vr
+}
+
+// primaryWitnessSet returns the witness set for the log served at
+// cfg.LedgerEndpoint — the trust root for proof-anchored leaf reads.
+//
+// The leaf reader reads leaves + proofs + horizon from cfg.LedgerEndpoint,
+// which serves exactly one log. That log's witness set is found by reverse-
+// mapping the ledger-endpoint table: among log DIDs that (a) have a
+// configured witness set and (b) resolve to cfg.LedgerEndpoint, the own log
+// is the unique match. Picking the wrong set fails loudly (cosignatures
+// won't verify → every read errors), so this returns (nil, "") when none
+// or several match — dev / test with no sets, or an ambiguous multi-log
+// config — and the caller falls back to an unverified reader rather than
+// guessing a trust root.
+func primaryWitnessSet(cfg config.Operational, registry *jurisdiction.Registry, witnessSets map[string]*cosign.WitnessKeySet) (*cosign.WitnessKeySet, string) {
+	endpoints := ledgerEndpointMap(cfg, registry)
+	var found *cosign.WitnessKeySet
+	var foundDID string
+	for did, set := range witnessSets {
+		if set == nil || endpoints[did] != cfg.LedgerEndpoint {
+			continue
+		}
+		if found != nil {
+			return nil, "" // ambiguous — refuse to guess the trust root
+		}
+		found = set
+		foundDID = did
+	}
+	return found, foundDID
 }
 
 // buildDIDResolver composes the FULL DID-resolution pipeline JN

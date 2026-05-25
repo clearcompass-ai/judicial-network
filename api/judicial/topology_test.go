@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/witness"
 
 	"github.com/clearcompass-ai/judicial-network/topology"
@@ -40,6 +41,18 @@ func stubTreeHeadClient() *witness.TreeHeadClient {
 		Witnesses: map[string][]string{},
 	}
 	return witness.NewTreeHeadClient(endpoints, witness.DefaultTreeHeadClientConfig())
+}
+
+// stubCheckpointClient returns a real *log.ResolvingCheckpointClient
+// pointed at empty StaticEndpoints — non-nil so the publish-anchor
+// 503 unconfigured-gate doesn't trip; the request fails later (missing
+// fields / witness set) before any network call.
+func stubCheckpointClient() *sdklog.ResolvingCheckpointClient {
+	endpoints := &witness.StaticEndpoints{
+		Ledgers:   map[string]string{},
+		Witnesses: map[string][]string{},
+	}
+	return sdklog.NewResolvingCheckpointClient(endpoints, sdklog.HTTPCheckpointClientConfig{})
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -58,7 +71,7 @@ func TestTopologyPublishAnchor_NoCaller_401(t *testing.T) {
 	}
 }
 
-func TestTopologyPublishAnchor_NoTreeHeadClient_503(t *testing.T) {
+func TestTopologyPublishAnchor_NoCheckpointClient_503(t *testing.T) {
 	withCaller(t, testJudge)
 	h := newTestHandler(Dependencies{})
 	rec := httptest.NewRecorder()
@@ -69,14 +82,14 @@ func TestTopologyPublishAnchor_NoTreeHeadClient_503(t *testing.T) {
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want 503", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "TreeHeadClient") {
-		t.Errorf("body should mention TreeHeadClient; got %q", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "checkpoint client") {
+		t.Errorf("body should mention checkpoint client; got %q", rec.Body.String())
 	}
 }
 
 func TestTopologyPublishAnchor_MissingFields_400(t *testing.T) {
 	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{TreeHeadClient: stubTreeHeadClient()})
+	h := newTestHandler(Dependencies{CheckpointClient: stubCheckpointClient()})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,
 		"/v1/judicial/topology/publish-anchor",

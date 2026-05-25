@@ -52,9 +52,9 @@ func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.
 	if signer == "" {
 		return
 	}
-	if h.deps.TreeHeadClient == nil {
+	if h.deps.CheckpointClient == nil {
 		writeError(w, http.StatusServiceUnavailable,
-			"topology.publish-anchor requires a configured *witness.TreeHeadClient; "+
+			"topology.publish-anchor requires a configured checkpoint client; "+
 				"populate witness operational config + restart")
 		return
 	}
@@ -87,7 +87,7 @@ func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.
 		SourceLogDID: req.SourceLogDID,
 		EventTime:    req.EventTime,
 		NetworkID:    networkID,
-	}, h.deps.TreeHeadClient)
+	}, h.deps.CheckpointClient, set)
 
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

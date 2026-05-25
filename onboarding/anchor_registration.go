@@ -28,7 +28,7 @@ import (
 	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/witness"
+	sdklog "github.com/clearcompass-ai/attesta/log"
 )
 
 // AnchorRegistrationConfig configures the initial anchor publication.
@@ -72,7 +72,8 @@ type AnchorRegistrationResult struct {
 func RegisterFirstAnchor(
 	ctx context.Context,
 	cfg AnchorRegistrationConfig,
-	treeHeadClient *witness.TreeHeadClient,
+	cp *sdklog.ResolvingCheckpointClient,
+	set *cosign.WitnessKeySet,
 ) (*AnchorRegistrationResult, error) {
 	if cfg.CountyLedgerDID == "" {
 		return nil, fmt.Errorf("onboarding/anchor_registration: empty county ledger DID")
@@ -80,8 +81,11 @@ func RegisterFirstAnchor(
 	if cfg.CountyLogDID == "" || cfg.ParentLogDID == "" {
 		return nil, fmt.Errorf("onboarding/anchor_registration: both log DIDs required")
 	}
-	if treeHeadClient == nil {
-		return nil, fmt.Errorf("onboarding/anchor_registration: nil tree head client")
+	if cp == nil {
+		return nil, fmt.Errorf("onboarding/anchor_registration: nil checkpoint client")
+	}
+	if set == nil {
+		return nil, fmt.Errorf("onboarding/anchor_registration: nil witness key set for %s", cfg.CountyLogDID)
 	}
 
 	eventTime := cfg.EventTime
@@ -89,11 +93,13 @@ func RegisterFirstAnchor(
 		eventTime = time.Now().UTC().UnixMicro()
 	}
 
-	// Fetch the county log's current tree head.
-	head, _, err := treeHeadClient.FetchLatestTreeHead(ctx, cfg.CountyLogDID)
+	// Fetch the county log's PUBLISHED, witness-cosigned horizon (the durable
+	// checkpoint that includes the provisioning entries), not the live head — so
+	// the embedded head the state log verifies offline carries a full K-of-N quorum.
+	head, err := cp.FetchVerifiedHorizon(ctx, cfg.CountyLogDID, set)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"onboarding/anchor_registration: county log %s has no available tree head yet: %w",
+			"onboarding/anchor_registration: county log %s has no verified horizon yet: %w",
 			cfg.CountyLogDID, err,
 		)
 	}

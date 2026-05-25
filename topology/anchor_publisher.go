@@ -30,7 +30,7 @@ import (
 	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/witness"
+	sdklog "github.com/clearcompass-ai/attesta/log"
 )
 
 // AnchorConfig configures an anchor publishing operation.
@@ -49,14 +49,20 @@ type AnchorResult struct {
 	TreeSize    uint64
 }
 
-// PublishAnchor fetches the latest cosigned tree head for the source log
-// and builds a self-contained cosigned_tree_head_v1 anchor commentary entry
-// suitable for submission to the parent (state) log. ctx bounds the
-// FetchLatestTreeHead RPC.
+// PublishAnchor fetches the source log's PUBLISHED, witness-cosigned horizon and
+// builds a self-contained cosigned_tree_head_v1 anchor commentary entry suitable
+// for submission to the parent (state) log. ctx bounds the resolve+fetch.
+//
+// The horizon — not the live /v1/tree/head — is anchored: it is the durable
+// checkpoint whose K-of-N quorum is finalized, so the embedded head a consumer
+// verifies offline always carries a full quorum. The live head can be ahead of
+// the published checkpoint and carry fewer than K cosignatures, which would make
+// the offline quorum check on the anchor fail.
 func PublishAnchor(
 	ctx context.Context,
 	cfg AnchorConfig,
-	client *witness.TreeHeadClient,
+	cp *sdklog.ResolvingCheckpointClient,
+	set *cosign.WitnessKeySet,
 ) (*AnchorResult, error) {
 	if cfg.SignerDID == "" {
 		return nil, fmt.Errorf("topology/anchor: empty signer DID")
@@ -64,13 +70,16 @@ func PublishAnchor(
 	if cfg.SourceLogDID == "" {
 		return nil, fmt.Errorf("topology/anchor: empty source log DID")
 	}
-	if client == nil {
-		return nil, fmt.Errorf("topology/anchor: nil tree head client")
+	if cp == nil {
+		return nil, fmt.Errorf("topology/anchor: nil checkpoint client")
+	}
+	if set == nil {
+		return nil, fmt.Errorf("topology/anchor: nil witness key set for %s", cfg.SourceLogDID)
 	}
 
-	head, _, err := client.FetchLatestTreeHead(ctx, cfg.SourceLogDID)
+	head, err := cp.FetchVerifiedHorizon(ctx, cfg.SourceLogDID, set)
 	if err != nil {
-		return nil, fmt.Errorf("topology/anchor: fetch tree head: %w", err)
+		return nil, fmt.Errorf("topology/anchor: fetch verified horizon for %s: %w", cfg.SourceLogDID, err)
 	}
 
 	headHash, err := cosign.TreeHeadDigest(head.TreeHead, cfg.NetworkID)

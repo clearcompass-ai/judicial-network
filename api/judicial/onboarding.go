@@ -108,8 +108,8 @@ func (h *courtProvisionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		"court provisioning is bootstrap-script-driven; submit the entries directly to /v1/entries/submit")
 }
 
-// RegisterFirstAnchor needs a *witness.TreeHeadClient — federation
-// boot, owned by the federation ledger's tooling rather than HTTP.
+// RegisterFirstAnchor needs a checkpoint client + the county log's witness set —
+// federation boot, owned by the federation ledger's tooling rather than HTTP.
 type anchorRegistrationHandler struct{ deps *Dependencies }
 
 func (h *anchorRegistrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +118,7 @@ func (h *anchorRegistrationHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeError(w, http.StatusNotImplemented,
-		"anchor registration requires *witness.TreeHeadClient injection; run via federation tool")
+		"anchor registration requires checkpoint-client injection; run via federation tool")
 }
 
 // MigrateLegacyRecords is a bulk-import that ingests N records,
