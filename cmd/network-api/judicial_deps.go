@@ -52,8 +52,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/clearcompass-ai/attesta/builder"
@@ -68,10 +71,10 @@ import (
 
 	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -200,7 +203,7 @@ func loadNetworkID(path string) (cosign.NetworkID, error) {
 //
 // No-op when nothing needs deriving. When something does but the bootstrap
 // path is empty, the downstream builder surfaces the precise error.
-func applyBootstrapDerivations(cfg config.Operational) (config.Operational, error) {
+func applyBootstrapDerivations(ctx context.Context, cfg config.Operational) (config.Operational, error) {
 	needWitness := len(cfg.Witness.Sets) == 0 && cfg.Witness.QuorumK > 0
 	needPeer := cfg.GossipIngest.Enabled && len(cfg.GossipIngest.Peers) == 0
 	if (!needWitness && !needPeer) || cfg.NetworkBootstrapFile == "" {
@@ -213,6 +216,8 @@ func applyBootstrapDerivations(cfg config.Operational) (config.Operational, erro
 	if doc.ExchangeDID == "" {
 		return cfg, fmt.Errorf("bootstrap %s missing exchange_did", cfg.NetworkBootstrapFile)
 	}
+	// Cheap validation before any network call (so a misconfigured quorum fails
+	// fast, not after discovery).
 	if needWitness {
 		if len(doc.GenesisWitnessSet) == 0 {
 			return cfg, fmt.Errorf("bootstrap %s has no genesis_witness_set to derive a witness set from", cfg.NetworkBootstrapFile)
@@ -221,8 +226,18 @@ func applyBootstrapDerivations(cfg config.Operational) (config.Operational, erro
 			return cfg, fmt.Errorf("API_WITNESS_QUORUM_K=%d exceeds N=%d witnesses in bootstrap",
 				cfg.Witness.QuorumK, len(doc.GenesisWitnessSet))
 		}
+	}
+	// Key both the witness set and the peer on the source log's GOSSIP-ORIGINATOR
+	// did:key (what STHs are originated under), discovered from the ledger's
+	// /v1/log-info — NOT exchange_did. gossipverify routes WitnessSets[ev.Originator],
+	// so keying by exchange_did leaves every STH unmatched.
+	logDID, err := gossipOriginatorLogDID(ctx, cfg, doc)
+	if err != nil {
+		return cfg, fmt.Errorf("bootstrap derivations: %w", err)
+	}
+	if needWitness {
 		cfg.Witness.Sets = []config.WitnessSetConfig{{
-			LogDID:      doc.ExchangeDID,
+			LogDID:      logDID,
 			WitnessDIDs: append([]string(nil), doc.GenesisWitnessSet...),
 			QuorumK:     cfg.Witness.QuorumK,
 		}}
@@ -236,11 +251,121 @@ func applyBootstrapDerivations(cfg config.Operational) (config.Operational, erro
 			base = cfg.GossipIngest.PeerURL
 		}
 		cfg.GossipIngest.Peers = []config.GossipPeerConfig{{
-			LogDID:  doc.ExchangeDID,
+			LogDID:  logDID,
 			BaseURL: base,
 		}}
 	}
 	return cfg, nil
+}
+
+// gossipOriginatorLogDID returns the DID the gossip witness set + peer must key
+// on: the source log's operational gossip-originator did:key when
+// DiscoverOriginator is set (resolved from the ledger's /v1/log-info ledger_did),
+// else the bootstrap exchange_did. Self-report is safe for ROUTING — the trust
+// root is the K-of-N witness cosignatures, which a peer cannot forge by
+// misreporting its DID.
+func gossipOriginatorLogDID(ctx context.Context, cfg config.Operational, doc *sdknetwork.BootstrapDocument) (string, error) {
+	if !cfg.GossipIngest.DiscoverOriginator {
+		return doc.ExchangeDID, nil
+	}
+	if cfg.LedgerEndpoint == "" {
+		return "", fmt.Errorf("originator discovery enabled but LedgerEndpoint empty (set API_LEDGER_ENDPOINT or disable API_GOSSIP_INGEST_DISCOVER_ORIGINATOR)")
+	}
+	info, err := discoverLedgerOriginator(ctx, cfg.LedgerEndpoint)
+	if err != nil {
+		return "", fmt.Errorf("discover gossip originator from %s/v1/log-info: %w", cfg.LedgerEndpoint, err)
+	}
+	if info.LedgerDID == "" {
+		return "", fmt.Errorf("ledger %s advertised empty ledger_did", cfg.LedgerEndpoint)
+	}
+	// Cross-network guard: refuse to bind trust to a log on a different network
+	// (only when both sides advertise a comparable id).
+	if ids, derr := doc.IDs(); derr == nil {
+		if want := networkIDHexPrefix(ids.NetworkID); want != "" && info.NetworkID != "" && info.NetworkID != want {
+			return "", fmt.Errorf("ledger %s network_id %q != bootstrap %q — refusing to bind trust across networks",
+				cfg.LedgerEndpoint, info.NetworkID, want)
+		}
+	}
+	if info.LogDID != "" && doc.ExchangeDID != "" && info.LogDID != doc.ExchangeDID {
+		slog.Warn("jn: ledger log_did != bootstrap exchange_did",
+			"ledger", cfg.LedgerEndpoint, "advertised", info.LogDID, "bootstrap", doc.ExchangeDID)
+	}
+	slog.Info("jn: bound gossip witness set to discovered originator",
+		"canonical_did", doc.ExchangeDID, "originator_did", info.LedgerDID)
+	return info.LedgerDID, nil
+}
+
+// ledgerLogInfo is the subset of the ledger's GET /v1/log-info the JN needs to
+// bind trust: the operational gossip-originator did:key (ledger_did), the
+// canonical log DID, and the network_id prefix (for the cross-network guard).
+type ledgerLogInfo struct {
+	LogDID    string `json:"log_did"`
+	LedgerDID string `json:"ledger_did"`
+	NetworkID string `json:"network_id"`
+}
+
+// discoverLedgerOriginator fetches GET {ledgerEndpoint}/v1/log-info, retrying
+// with bounded exponential backoff (the ledger may still be starting). Returns
+// once it answers, or ctx is cancelled / retries are spent.
+func discoverLedgerOriginator(ctx context.Context, ledgerEndpoint string) (ledgerLogInfo, error) {
+	url := strings.TrimRight(ledgerEndpoint, "/") + "/v1/log-info"
+	hc := &http.Client{Timeout: 10 * time.Second}
+	const maxAttempts = 6
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if ctx.Err() != nil {
+			return ledgerLogInfo{}, ctx.Err()
+		}
+		info, err := fetchLedgerLogInfo(ctx, url, hc)
+		if err == nil {
+			return info, nil
+		}
+		lastErr = err
+		select {
+		case <-ctx.Done():
+			return ledgerLogInfo{}, ctx.Err()
+		case <-time.After(retryBackoff(attempt)):
+		}
+	}
+	return ledgerLogInfo{}, lastErr
+}
+
+func fetchLedgerLogInfo(ctx context.Context, url string, hc *http.Client) (ledgerLogInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return ledgerLogInfo{}, err
+	}
+	resp, err := hc.Do(req)
+	if err != nil {
+		return ledgerLogInfo{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return ledgerLogInfo{}, fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
+	}
+	var info ledgerLogInfo
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&info); err != nil {
+		return ledgerLogInfo{}, fmt.Errorf("decode %s: %w", url, err)
+	}
+	return info, nil
+}
+
+// retryBackoff is exponential (1s,2s,4s,…) capped at 16s.
+func retryBackoff(attempt int) time.Duration {
+	d := time.Duration(1<<uint(attempt-1)) * time.Second
+	if d > 16*time.Second {
+		return 16 * time.Second
+	}
+	return d
+}
+
+// networkIDHexPrefix renders the first-8-bytes hex of the NetworkID, matching
+// the ledger's /v1/log-info "network_id" format (cmd/ledger networkIDHex).
+func networkIDHexPrefix(nid cosign.NetworkID) string {
+	if nid == (cosign.NetworkID{}) {
+		return ""
+	}
+	return fmt.Sprintf("%x", nid[:8])
 }
 
 // buildTreeHeadClient constructs the witness.TreeHeadClient from

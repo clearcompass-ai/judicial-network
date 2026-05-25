@@ -85,6 +85,12 @@ func Defaults() Operational {
 		Auth: AuthConfig{
 			Mode: AuthModeMTLS,
 		},
+		// Bind the gossip witness set to the source log's operational did:key
+		// (discovered from the ledger's /v1/log-info) by default — STHs are
+		// originated under that key, not exchange_did.
+		GossipIngest: GossipIngestConfig{
+			DiscoverOriginator: true,
+		},
 	}
 }
 
@@ -218,6 +224,18 @@ type GossipIngestConfig struct {
 	// the derivation falls back to LedgerEndpoint. A peer is only a byte source;
 	// every pulled event is re-verified, so this grants the auditor no trust.
 	PeerURL string `json:"peer_url,omitempty"`
+
+	// DiscoverOriginator controls how the genesis witness set is bound to a
+	// source log's gossip identity. STH gossip is originated under a log's
+	// OPERATIONAL did:key (the ledger's signer key), not its canonical
+	// exchange_did, and gossipverify routes the witness-set lookup by that
+	// originator (WitnessSets[ev.Originator]). When true (the default), the
+	// derived witness set + peer key on the operational did:key resolved from
+	// the ledger's GET /v1/log-info (ledger_did). When false, exchange_did is
+	// used verbatim. Keying by exchange_did while STHs arrive under a did:key
+	// leaves every event unmatched ("no witness set for source_log_did
+	// <did:key…>").
+	DiscoverOriginator bool `json:"discover_originator,omitempty"`
 
 	// PollInterval is the wait between catch-up rounds per peer. Zero applies
 	// the puller default (5s).
@@ -561,6 +579,9 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_GOSSIP_INGEST_PEER_URL"); v != "" {
 		cfg.GossipIngest.PeerURL = v
+	}
+	if b, ok := envBool("API_GOSSIP_INGEST_DISCOVER_ORIGINATOR"); ok {
+		cfg.GossipIngest.DiscoverOriginator = b
 	}
 	if b, ok := envBool("API_MONITORING_ENABLED"); ok {
 		cfg.Monitoring.Enabled = b
