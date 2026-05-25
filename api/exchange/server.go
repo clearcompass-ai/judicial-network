@@ -91,6 +91,12 @@ type ServerConfig struct {
 	// the pre-3E.4 pass-through proxy (tests / pre-roster dev).
 	// Production wires NewBundleSubmitGate(registry).
 	SubmitGate handlers.SubmitGater
+
+	// AdmissionAuthorizer mints the gate-5 WriteAuthorization (gating axis)
+	// attached at the submit chokepoint after SubmitGate accepts. nil → no
+	// attach (ungated logs / tests). main.go wires it from
+	// API_ADMISSION_AUTHORITY_KEY_FILE (the JN's on-log admission EOA).
+	AdmissionAuthorizer *handlers.AdmissionAuthorizer
 }
 
 // NewBundleSubmitGate builds the production per-jurisdiction submit
@@ -125,6 +131,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		LedgerBreaker:         cfg.LedgerBreaker,
 		LedgerMetrics:         cfg.LedgerMetrics,
 		SubmitGate:            cfg.SubmitGate,
+		AdmissionAuthorizer:   cfg.AdmissionAuthorizer,
 	}
 
 	mux := http.NewServeMux()

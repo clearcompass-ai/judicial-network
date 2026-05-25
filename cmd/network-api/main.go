@@ -59,6 +59,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
+	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
@@ -234,6 +235,17 @@ func run(argv []string, d deps) error {
 	ledgerBreaker := reliability.NewBreaker(reliability.DefaultCircuitConfig())
 	ledgerMetrics := observability.NewLedgerSubmitMetrics(obs.Metrics())
 
+	// Gate-5 issuance (gating axis): load the JN's on-log admission EOA (J) from
+	// API_ADMISSION_AUTHORITY_KEY_FILE. When set, the exchange mints + attaches a
+	// detached WriteAuthorization to every forwarded write; the ledger verifies it
+	// against its current admission keyset and drops it. Unset → no attach
+	// (ungated logs / dev). The as-of anchor is the ledger's cosigned tree head.
+	admissionAuthorizer, err := handlers.LoadAdmissionAuthorizer(
+		os.Getenv("API_ADMISSION_AUTHORITY_KEY_FILE"), cfg.LedgerEndpoint)
+	if err != nil {
+		return fmt.Errorf("admission authorizer: %w", err)
+	}
+
 	// Continuous-monitoring scheduler: autonomous audits (mirror /
 	// anchor / sealing) + gossip retention prune, publishing per-job OTel
 	// health gauges (jn_monitor_*). nil when disabled. Built before the
@@ -273,6 +285,9 @@ func run(argv []string, d deps) error {
 			// from the same frozen Bundle registry. Without this the
 			// submit path is a pass-through proxy (the gate is dormant).
 			SubmitGate: exchange.NewBundleSubmitGate(registry),
+			// Gate-5 issuance: mint+attach a WriteAuthorization on every forwarded
+			// write when J is configured (nil → ungated proxy).
+			AdmissionAuthorizer: admissionAuthorizer,
 		},
 		Verification: verification.ServerConfig{
 			// SignatureVerifier is the native v1.7.1 receipt-aware

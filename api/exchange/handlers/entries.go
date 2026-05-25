@@ -39,7 +39,6 @@ KEY DEPENDENCIES:
 package handlers
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -185,6 +184,13 @@ type Dependencies struct {
 	// for /metrics so jn_ledger_submit_* metrics are scraped
 	// alongside the inbound jn_http_* RED triad.
 	LedgerMetrics *observability.LedgerSubmitMetrics
+
+	// AdmissionAuthorizer mints the gate-5 WriteAuthorization (gating axis)
+	// attached at the submitToLedger chokepoint after SubmitGate accepts. nil →
+	// no attach (ungated logs / tests); the forward path stays a pure proxy.
+	// Production wires it from API_ADMISSION_AUTHORITY_KEY_FILE (the JN's on-log
+	// admission EOA, J).
+	AdmissionAuthorizer *AdmissionAuthorizer
 }
 
 // scopeOrAllowAll returns the configured checker or the AllowAll
@@ -373,25 +379,11 @@ func (h *EntrySubmitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Forward to ledger via the SDK-tuned shared client
-	// (sdklog.DefaultClient — RetryAfterRoundTripper + 100-conn
-	// pool). See management.go::ledgerSubmitClient.
-	resp, err := ledgerSubmitClient.Post(
-		h.deps.LedgerEndpoint+"/v1/entries",
-		"application/octet-stream",
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "ledger unreachable")
-		return
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
-	w.Write(respBody)
+	// Forward through the SINGLE chokepoint (management.go::submitToLedger):
+	// breaker + metrics + the gate-5 WriteAuthorization attach. Unifies this
+	// path with build-sign-submit + the management forwards, so gating is
+	// applied uniformly to every write the JN relays — not just this handler.
+	submitToLedgerProtected(w, h.deps, body)
 }
 
 // ─── Build+Sign+Submit ──────────────────────────────────────────────

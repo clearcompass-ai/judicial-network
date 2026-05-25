@@ -562,17 +562,35 @@ func proposalTypeFromString(s string) lifecycle.ProposalType {
 // wrapper around an arbitrary inner Transport.
 var ledgerSubmitClient = sdklog.DefaultClient(30 * time.Second)
 
-// submitToLedger posts signed canonical wire bytes to the
-// ledger's /v1/entries endpoint via the SDK-tuned client. Every
-// submit-to-ledger site in api/exchange/handlers routes through
-// here so the wire shape, retry policy, and timeout are owned in
-// one place.
-func submitToLedger(w http.ResponseWriter, endpoint string, signed []byte) {
-	resp, err := ledgerSubmitClient.Post(
-		endpoint+"/v1/entries",
-		"application/octet-stream",
-		bytes.NewReader(signed),
-	)
+// submitToLedger posts signed canonical wire bytes to the ledger's
+// /v1/entries endpoint via the SDK-tuned client. Every submit-to-ledger site
+// in api/exchange/handlers routes through here — the SINGLE chokepoint — so the
+// wire shape, retry policy, timeout, AND the gate-5 WriteAuthorization attach
+// are owned in one place.
+//
+// Gating (gate-5) attach: when deps.AdmissionAuthorizer is wired, mint a
+// detached WriteAuthorization over the entry's canonical identity and carry it
+// out-of-band in WriteAuthHeader. The ledger verifies + DROPS it (never
+// sequenced, never stored) — gating leaves zero footprint on the log. When the
+// authorizer is nil (ungated logs / tests) this is byte-for-byte the prior
+// proxy.
+func submitToLedger(w http.ResponseWriter, deps *Dependencies, signed []byte) {
+	req, err := http.NewRequest(http.MethodPost, deps.LedgerEndpoint+"/v1/entries",
+		bytes.NewReader(signed))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "build ledger request: "+err.Error())
+		return
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	if deps.AdmissionAuthorizer != nil {
+		hdr, mErr := deps.AdmissionAuthorizer.MintHeader(signed)
+		if mErr != nil {
+			writeError(w, http.StatusInternalServerError, "mint write authorization: "+mErr.Error())
+			return
+		}
+		req.Header.Set(WriteAuthHeader, hdr)
+	}
+	resp, err := ledgerSubmitClient.Do(req)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "ledger unreachable")
 		return
