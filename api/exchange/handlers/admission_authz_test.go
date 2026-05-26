@@ -30,7 +30,7 @@ func TestAdmissionAuthorizer_MintHeader_VerifiesAgainstJ(t *testing.T) {
 	for i := range anchor {
 		anchor[i] = byte(i + 1)
 	}
-	a := NewAdmissionAuthorizer(j, func() ([32]byte, error) { return anchor, nil })
+	a := NewAdmissionAuthorizer(j, func(string) ([32]byte, error) { return anchor, nil })
 
 	// Confirm the authorizer reports J's address (the value that must be in the
 	// ledger's admission keyset for gate 5 to accept).

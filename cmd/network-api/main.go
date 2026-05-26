@@ -52,6 +52,7 @@ import (
 	"syscall"
 	"time"
 
+	sdklog "github.com/clearcompass-ai/attesta/log"
 	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
@@ -239,11 +240,38 @@ func run(argv []string, d deps) error {
 	// API_ADMISSION_AUTHORITY_KEY_FILE. When set, the exchange mints + attaches a
 	// detached WriteAuthorization to every forwarded write; the ledger verifies it
 	// against its current admission keyset and drops it. Unset → no attach
-	// (ungated logs / dev). The as-of anchor is the ledger's cosigned tree head.
-	admissionAuthorizer, err := handlers.LoadAdmissionAuthorizer(
-		os.Getenv("API_ADMISSION_AUTHORITY_KEY_FILE"), cfg.LedgerEndpoint)
-	if err != nil {
-		return fmt.Errorf("admission authorizer: %w", err)
+	// (ungated logs / dev).
+	//
+	// ZERO-TRUST anchor: the as-of anchor is a WITNESS-COSIGNED, verified horizon
+	// (sdklog.FetchVerifiedHorizon over the per-log K-of-N cosign.WitnessKeySet —
+	// the same trust root VerifyingLeafReader uses), NOT the ledger's unverified
+	// /v1/tree/head word. Fail-closed: no witness set for the log ⇒ refuse to mint.
+	var admissionAuthorizer *handlers.AdmissionAuthorizer
+	if keyFile := os.Getenv("API_ADMISSION_AUTHORITY_KEY_FILE"); keyFile != "" {
+		anchorWitnessSets, wErr := buildWitnessSets(cfg)
+		if wErr != nil {
+			return fmt.Errorf("admission anchor witness sets: %w", wErr)
+		}
+		checkpointClient := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{
+			BaseURL: cfg.LedgerEndpoint,
+		})
+		verifiedAnchor := func(logDID string) ([32]byte, error) {
+			set := anchorWitnessSets[logDID]
+			if set == nil {
+				return [32]byte{}, fmt.Errorf("no witness set for log %q — cannot verify anchor (fail-closed)", logDID)
+			}
+			actx, acancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer acancel()
+			head, hErr := checkpointClient.FetchVerifiedHorizon(actx, set)
+			if hErr != nil {
+				return [32]byte{}, fmt.Errorf("verified horizon for %q: %w", logDID, hErr)
+			}
+			return head.RootHash, nil
+		}
+		admissionAuthorizer, err = handlers.LoadAdmissionAuthorizer(keyFile, verifiedAnchor)
+		if err != nil {
+			return fmt.Errorf("admission authorizer: %w", err)
+		}
 	}
 
 	// Continuous-monitoring scheduler: autonomous audits (mirror /
