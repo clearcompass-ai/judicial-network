@@ -20,6 +20,8 @@ github.com/clearcompass-ai/attesta v1.24.2 h1:G1CIgG1WISj0Taj5ghIyMmSDWnKmIlxVV8
 github.com/clearcompass-ai/attesta v1.24.2/go.mod h1:7pE41DqquoLBwe/jHC4gKAT6gZLLWuuyA/uErvDTV34=
 github.com/clearcompass-ai/attesta-tools/libs v1.24.0 h1:b5rThUPiXBH6KmWhNOrOZmrpyAC/VfGqLnuGAoXxE18=
 github.com/clearcompass-ai/attesta-tools/libs v1.24.0/go.mod h1:RRTD5Izhp/tsSQz9jsCe2KCvmtaBIfu93prAtUg/3Rk=
+github.com/clearcompass-ai/attesta-tools/libs v1.24.2 h1:DY+5XXFcEqXK4bDBaXlW8ZuK8nvrPmKo0lvJfvbrO7s=
+github.com/clearcompass-ai/attesta-tools/libs v1.24.2/go.mod h1:khuce1QPieVDFHenij2WP7N6WvAIGUomazZRPyvvHvs=
 github.com/consensys/gnark-crypto v0.20.1 h1:PXDUBvk8AzhvWowHLWBEAfUQcV1/aZgWIqD6eMpXmDg=
 github.com/consensys/gnark-crypto v0.20.1/go.mod h1:RBWrSgy+IDbGR69RRV313th3M/aZU1ubk2om+qHuTSc=
 github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 h1:uX1JmpONuD549D73r6cgnxyUu18Zb7yHAy5AYU0Pm4Q=
