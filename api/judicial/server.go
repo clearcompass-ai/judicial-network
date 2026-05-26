@@ -27,6 +27,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/topology"
+	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -58,6 +59,16 @@ type Dependencies struct {
 	LogQueries map[string]sdklog.LedgerQueryAPI // logDID → query API
 	Fetcher    types.EntryFetcher
 	LeafReader smt.LeafReader
+
+	// DelegateQueriers backs Stage 6's delegation-chain walker. One
+	// shim per registered destination, keyed by destination DID, each
+	// carrying the boot-wired mTLS http.Client. nil ⇒ Stage 6 falls
+	// back to its no-op behaviour (no delegations resolved); production
+	// wires one per destination (cmd/network-api/judicial_deps.go).
+	//
+	// Folds into LogQueries once sdklog.LedgerQueryAPI grows
+	// QueryByDelegateDID; see verification/ledger_delegate_query.go.
+	DelegateQueriers map[string]verification.DelegateDIDQuerier
 
 	// SDK utility deps. Set by the binary at boot.
 	SchemaResolver builder.SchemaResolver

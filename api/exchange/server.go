@@ -34,10 +34,11 @@ import (
 	"os"
 	"time"
 
-	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
@@ -107,6 +108,13 @@ type ServerConfig struct {
 	// for production. The ledger refuses non-mTLS connections (see
 	// ledger/api/server.go::buildServerTLSConfig).
 	LedgerSubmitClient *http.Client
+
+	// ContentStore is the boot-wired SDK content store used by the artifact-
+	// publish handler. Production wires storage.NewHTTPContentStore once at
+	// boot with the configured artifact-store endpoint + http.Client
+	// (cmd/network-api/main.go). nil ⇒ the artifact-publish handler surfaces
+	// 503; the rest of the exchange surface keeps working.
+	ContentStore storage.ContentStore
 }
 
 // NewBundleSubmitGate builds the production per-jurisdiction submit
@@ -143,6 +151,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		SubmitGate:            cfg.SubmitGate,
 		AdmissionAuthorizer:   cfg.AdmissionAuthorizer,
 		LedgerSubmitClient:    cfg.LedgerSubmitClient,
+		ContentStore:          cfg.ContentStore,
 	}
 
 	mux := http.NewServeMux()

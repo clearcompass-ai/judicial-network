@@ -87,16 +87,43 @@ import (
 // invalid). Dev / test deployments may pass an empty
 // LedgerEndpoint — the deps that need it remain nil and the
 // dependent handlers return 500 with a clear error.
-func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) (judicial.Dependencies, error) {
+//
+// ledgerHTTPClient is the boot-wired mTLS client built in main.go
+// (BuildLedgerSubmitClient over cfg.Ledger{Cert,Key,CA}). When non-nil
+// it is threaded into every SDK constructor that calls the ledger so
+// peer-mTLS-required ledgers accept the connection. nil preserves the
+// prior server-verify-only behaviour for dev / pre-cert deployments.
+//
+// SDK v1.25.0 wires the HTTP client through these config types:
+//   - storage.HTTPContentStoreConfig.Client       (artifact store)
+//   - sdklog.HTTPEntryFetcherConfig.Client
+//   - sdklog.HTTPLedgerQueryAPIConfig.Client
+//   - sdklog.HTTPCheckpointClientConfig.Client    (used by both
+//     NewHTTPCheckpointClient and NewResolvingCheckpointClient)
+//
+// SDK GAP (tracked):
+//   - witness.TreeHeadClient — config has HTTPTimeout but no Client
+//     field; mTLS posture cannot be threaded yet.
+//   - smt.HTTPProofReader / smt.HTTPLeafReader — same. The leaf-read
+//     hot path (proof-anchored verifier) therefore cannot present a
+//     client cert; a peer-mTLS-required ledger refuses these reads.
+//     Fixed by a follow-up SDK PR adding Client *http.Client to those
+//     config types.
+func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, ledgerHTTPClient *http.Client) (judicial.Dependencies, error) {
 	witnessSets, err := buildWitnessSets(cfg)
 	if err != nil {
 		return judicial.Dependencies{}, fmt.Errorf("build witness sets: %w", err)
 	}
 
+	contentStore, err := newContentStore(cfg.ArtifactStoreEndpoint, ledgerHTTPClient)
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("artifact content store: %w", err)
+	}
+
 	deps := judicial.Dependencies{
 		Registry:     registry,
 		Extractor:    schemas.NewRegistry(),
-		ContentStore: newContentStore(cfg.ArtifactStoreEndpoint),
+		ContentStore: contentStore,
 		KeyStore:     lifecycleartifact.NewInMemoryKeyStore(),
 		DelKeyStore:  artifact.NewInMemoryDelegationKeyStore(),
 		// One *cosign.WitnessKeySet per source/peer log DID, resolved from
@@ -112,13 +139,18 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 		return deps, nil
 	}
 
-	logQueries, err := buildLogQueries(cfg.LedgerEndpoint, registry)
+	logQueries, err := buildLogQueries(cfg.LedgerEndpoint, registry, ledgerHTTPClient)
 	if err != nil {
 		return judicial.Dependencies{}, fmt.Errorf("build log queries: %w", err)
 	}
 	deps.LogQueries = logQueries
-	deps.Fetcher = buildEntryFetcher(cfg.LedgerEndpoint)
-	deps.LeafReader = buildLeafReader(cfg, registry, witnessSets)
+	deps.Fetcher = buildEntryFetcher(cfg.LedgerEndpoint, ledgerHTTPClient)
+	deps.LeafReader = buildLeafReader(cfg, registry, witnessSets, ledgerHTTPClient)
+	delegateQueriers, err := buildDelegateQueriers(cfg.LedgerEndpoint, registry, ledgerHTTPClient)
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("build delegate queriers: %w", err)
+	}
+	deps.DelegateQueriers = delegateQueriers
 	resolver, err := buildDIDResolver()
 	if err != nil {
 		return judicial.Dependencies{}, fmt.Errorf("build DID resolver: %w", err)
@@ -126,7 +158,7 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry) 
 	deps.Resolver = resolver
 	deps.SchemaResolver = newSchemaResolverShim()
 	deps.TreeHeadClient = buildTreeHeadClient(cfg, registry)
-	deps.CheckpointClient = buildCheckpointClient(cfg, registry)
+	deps.CheckpointClient = buildCheckpointClient(cfg, registry, ledgerHTTPClient)
 	return deps, nil
 }
 
@@ -233,7 +265,12 @@ func applyBootstrapDerivations(ctx context.Context, cfg config.Operational) (con
 	// did:key (what STHs are originated under), discovered from the ledger's
 	// /v1/log-info — NOT exchange_did. gossipverify routes WitnessSets[ev.Originator],
 	// so keying by exchange_did leaves every STH unmatched.
-	logDID, err := gossipOriginatorLogDID(ctx, cfg, doc)
+	// nil ledgerHTTPClient: bootstrap derivation runs in loadConfig BEFORE the
+	// mTLS client is materialised, so the discovery probe uses a plain
+	// client. A peer-mTLS-required ledger will refuse the probe — in that
+	// posture, operators must hand-list witness sets / peers (set
+	// API_GOSSIP_INGEST_DISCOVER_ORIGINATOR=false) so derivation is skipped.
+	logDID, err := gossipOriginatorLogDID(ctx, cfg, doc, nil)
 	if err != nil {
 		return cfg, fmt.Errorf("bootstrap derivations: %w", err)
 	}
@@ -266,14 +303,14 @@ func applyBootstrapDerivations(ctx context.Context, cfg config.Operational) (con
 // else the bootstrap exchange_did. Self-report is safe for ROUTING — the trust
 // root is the K-of-N witness cosignatures, which a peer cannot forge by
 // misreporting its DID.
-func gossipOriginatorLogDID(ctx context.Context, cfg config.Operational, doc *sdknetwork.BootstrapDocument) (string, error) {
+func gossipOriginatorLogDID(ctx context.Context, cfg config.Operational, doc *sdknetwork.BootstrapDocument, ledgerHTTPClient *http.Client) (string, error) {
 	if !cfg.GossipIngest.DiscoverOriginator {
 		return doc.ExchangeDID, nil
 	}
 	if cfg.LedgerEndpoint == "" {
 		return "", fmt.Errorf("originator discovery enabled but LedgerEndpoint empty (set API_LEDGER_ENDPOINT or disable API_GOSSIP_INGEST_DISCOVER_ORIGINATOR)")
 	}
-	info, err := discoverLedgerOriginator(ctx, cfg.LedgerEndpoint)
+	info, err := discoverLedgerOriginator(ctx, cfg.LedgerEndpoint, ledgerHTTPClient)
 	if err != nil {
 		return "", fmt.Errorf("discover gossip originator from %s/v1/log-info: %w", cfg.LedgerEndpoint, err)
 	}
@@ -309,9 +346,16 @@ type ledgerLogInfo struct {
 // discoverLedgerOriginator fetches GET {ledgerEndpoint}/v1/log-info, retrying
 // with bounded exponential backoff (the ledger may still be starting). Returns
 // once it answers, or ctx is cancelled / retries are spent.
-func discoverLedgerOriginator(ctx context.Context, ledgerEndpoint string) (ledgerLogInfo, error) {
+//
+// ledgerHTTPClient is the boot-wired mTLS client; nil falls back to a
+// plain &http.Client{Timeout} so dev/test against a plaintext ledger keeps
+// working (same posture as the pre-mTLS version of this function).
+func discoverLedgerOriginator(ctx context.Context, ledgerEndpoint string, ledgerHTTPClient *http.Client) (ledgerLogInfo, error) {
 	url := strings.TrimRight(ledgerEndpoint, "/") + "/v1/log-info"
-	hc := &http.Client{Timeout: 10 * time.Second}
+	hc := ledgerHTTPClient
+	if hc == nil {
+		hc = &http.Client{Timeout: 10 * time.Second}
+	}
 	const maxAttempts = 6
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -408,12 +452,14 @@ func buildTreeHeadClient(cfg config.Operational, registry *jurisdiction.Registry
 // as buildTreeHeadClient (witness.StaticEndpoints satisfies sdklog.EndpointResolver);
 // no witness fallback applies — witnesses don't serve the horizon. Returns nil in
 // dev/test mode (empty LedgerEndpoint) → the publish-anchor handler surfaces 503.
-func buildCheckpointClient(cfg config.Operational, registry *jurisdiction.Registry) *sdklog.ResolvingCheckpointClient {
+func buildCheckpointClient(cfg config.Operational, registry *jurisdiction.Registry, ledgerHTTPClient *http.Client) *sdklog.ResolvingCheckpointClient {
 	if cfg.LedgerEndpoint == "" {
 		return nil
 	}
 	endpoints := &witness.StaticEndpoints{Ledgers: ledgerEndpointMap(cfg, registry)}
-	ccfg := sdklog.HTTPCheckpointClientConfig{}
+	ccfg := sdklog.HTTPCheckpointClientConfig{
+		Client: ledgerHTTPClient, // nil ⇒ plain http.Client w/ Timeout
+	}
 	if cfg.Witness.HTTPTimeout > 0 {
 		ccfg.Timeout = cfg.Witness.HTTPTimeout
 	}
@@ -456,13 +502,15 @@ func ledgerEndpointMap(cfg config.Operational, registry *jurisdiction.Registry) 
 // buildLogQueries constructs one HTTPLedgerQueryAPI per registered
 // destination. The map is keyed by destination DID so judicial
 // handlers can route per-destination read queries (case lookup,
-// docket scan) to the right log.
-func buildLogQueries(ledgerEndpoint string, registry *jurisdiction.Registry) (map[string]sdklog.LedgerQueryAPI, error) {
+// docket scan) to the right log. ledgerHTTPClient (nil ⇒ SDK default)
+// presents the JN's client cert when peer mTLS is configured.
+func buildLogQueries(ledgerEndpoint string, registry *jurisdiction.Registry, ledgerHTTPClient *http.Client) (map[string]sdklog.LedgerQueryAPI, error) {
 	out := make(map[string]sdklog.LedgerQueryAPI, registry.Len())
 	for _, didStr := range registry.ExchangeDIDs() {
 		q, err := sdklog.NewHTTPLedgerQueryAPI(sdklog.HTTPLedgerQueryAPIConfig{
 			BaseURL: ledgerEndpoint,
 			LogDID:  didStr,
+			Client:  ledgerHTTPClient, // nil ⇒ SDK default (server-verify only)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("query api for %s: %w", didStr, err)
@@ -472,10 +520,37 @@ func buildLogQueries(ledgerEndpoint string, registry *jurisdiction.Registry) (ma
 	return out, nil
 }
 
-func buildEntryFetcher(ledgerEndpoint string) types.EntryFetcher {
+func buildEntryFetcher(ledgerEndpoint string, ledgerHTTPClient *http.Client) types.EntryFetcher {
 	return sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
 		BaseURL: ledgerEndpoint,
+		Client:  ledgerHTTPClient, // nil ⇒ SDK default (server-verify only)
 	})
+}
+
+// buildDelegateQueriers constructs one verification.LedgerDelegateQuerier per
+// registered destination — the read-time shim Stage 6's delegation walker
+// consumes (via DelegateDIDQuerier interface). The map is keyed by destination
+// DID so each query routes to the right log. ledgerHTTPClient (nil ⇒ plain
+// http.Client with timeout) carries the JN's client cert when peer mTLS is
+// configured.
+//
+// The SDK's LedgerQueryAPI does not yet expose QueryByDelegateDID; this shim
+// fills that gap until the SDK lands the typed query method (then this folds
+// into buildLogQueries and the shim is deleted).
+func buildDelegateQueriers(ledgerEndpoint string, registry *jurisdiction.Registry, ledgerHTTPClient *http.Client) (map[string]verification.DelegateDIDQuerier, error) {
+	out := make(map[string]verification.DelegateDIDQuerier, registry.Len())
+	for _, didStr := range registry.ExchangeDIDs() {
+		q, err := verification.NewLedgerDelegateQuerier(verification.LedgerDelegateQuerierConfig{
+			BaseURL: ledgerEndpoint,
+			LogDID:  didStr,
+			Client:  ledgerHTTPClient, // nil ⇒ default plain client w/ Timeout
+		})
+		if err != nil {
+			return nil, fmt.Errorf("delegate querier for %s: %w", didStr, err)
+		}
+		out[didStr] = q
+	}
+	return out, nil
 }
 
 // buildLeafReader returns the smt.LeafReader the SDK verifier walkers
@@ -488,7 +563,7 @@ func buildEntryFetcher(ledgerEndpoint string) types.EntryFetcher {
 // witness-less deployment) it falls back to the plain HTTPLeafReader —
 // reads work but are UNVERIFIED — and logs that loudly so a deployer
 // knows the trust boundary is the ledger itself.
-func buildLeafReader(cfg config.Operational, registry *jurisdiction.Registry, witnessSets map[string]*cosign.WitnessKeySet) smt.LeafReader {
+func buildLeafReader(cfg config.Operational, registry *jurisdiction.Registry, witnessSets map[string]*cosign.WitnessKeySet, ledgerHTTPClient *http.Client) smt.LeafReader {
 	plain := smt.NewHTTPLeafReader(smt.HTTPLeafReaderConfig{BaseURL: cfg.LedgerEndpoint})
 
 	set, logDID := primaryWitnessSet(cfg, registry, witnessSets)
@@ -503,9 +578,15 @@ func buildLeafReader(cfg config.Operational, registry *jurisdiction.Registry, wi
 	// The checkpoint client (horizon), proof reader, and the leaf endpoint
 	// all target the SAME ledger URL — the leaf, its proof, and the horizon
 	// the proof is verified against must come from the one log being read.
+	//
+	// SDK GAP (tracked): smt.HTTPProofReaderConfig + smt.HTTPLeafReaderConfig
+	// do not yet expose Client *http.Client; the proof/leaf hot path
+	// therefore cannot present a client cert. Peer-mTLS-required ledgers
+	// will refuse these reads until a follow-up SDK PR adds the field.
 	cp := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{
 		BaseURL: cfg.LedgerEndpoint,
 		Timeout: cfg.Witness.HTTPTimeout, // zero → SDK default
+		Client:  ledgerHTTPClient,        // nil ⇒ plain client (SDK default)
 	})
 	pr := smt.NewHTTPProofReader(smt.HTTPProofReaderConfig{
 		BaseURL: cfg.LedgerEndpoint,
@@ -639,12 +720,29 @@ func buildDIDResolver() (did.DIDResolver, error) {
 // store endpoint is configured, falling back to an in-memory store
 // for dev / test. Either way the interface contract is identical;
 // only the backend differs.
-func newContentStore(endpoint string) storage.ContentStore {
+//
+// httpClient (nil ⇒ a plain &http.Client{Timeout: 30s}) carries the
+// JN's client cert when the artifact store is fronted by mTLS — same
+// instance the ledger-bound surfaces use, since today the JN does not
+// distinguish artifact-store cert material from ledger cert material.
+// (If/when those diverge, take a second *http.Client parameter and
+// hand it in here.)
+//
+// SDK v1.25.0: HTTPContentStoreConfig.Timeout is gone; the new
+// required field is Client *http.Client. NewHTTPContentStore now
+// returns (*HTTPContentStore, error). The in-memory branch keeps its
+// nil-error shape so callers see a uniform return signature.
+func newContentStore(endpoint string, httpClient *http.Client) (storage.ContentStore, error) {
 	if endpoint == "" {
-		return storage.NewInMemoryContentStore()
+		return storage.NewInMemoryContentStore(), nil
+	}
+	c := httpClient
+	if c == nil {
+		c = &http.Client{Timeout: 30 * time.Second}
 	}
 	return storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: endpoint,
+		Client:  c,
 	})
 }
 

@@ -175,27 +175,34 @@ func (s *Server) GetFiling(w http.ResponseWriter, r *http.Request) {
 // the URL shape, X-Artifact-CID header, accepted status set, and
 // 404 → ErrContentNotFound mapping are all SDK-owned.
 func (s *Server) pushToArtifactStore(ctx context.Context, ciphertext []byte, cidStr string) error {
+	cs := s.contentStore()
+	if cs == nil {
+		return fmt.Errorf("artifact store not configured")
+	}
 	cid, err := storage.ParseCID(cidStr)
 	if err != nil {
 		return fmt.Errorf("parse CID: %w", err)
 	}
-	return s.contentStore().Push(ctx, cid, ciphertext)
+	return cs.Push(ctx, cid, ciphertext)
 }
 
 func (s *Server) fetchFromArtifactStore(ctx context.Context, cidStr string) ([]byte, error) {
+	cs := s.contentStore()
+	if cs == nil {
+		return nil, fmt.Errorf("artifact store not configured")
+	}
 	cid, err := storage.ParseCID(cidStr)
 	if err != nil {
 		return nil, fmt.Errorf("parse CID: %w", err)
 	}
-	return s.contentStore().Fetch(ctx, cid)
+	return cs.Fetch(ctx, cid)
 }
 
-// contentStore returns a freshly-configured SDK HTTPContentStore for
-// each call. The SDK constructor is cheap (struct + http.Client).
-// Production deployments may want to cache one per Server; this
-// shape keeps the test scaffolding simple.
+// contentStore returns the boot-wired SDK content store. Single
+// instance per Server; carries the http.Client (mTLS material when
+// configured) and the artifact-store base URL. The caller MUST
+// nil-check — when artifact-store wiring is disabled (no URL) the
+// field is nil and the handler must surface 503.
 func (s *Server) contentStore() *storage.HTTPContentStore {
-	return storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
-		BaseURL: s.cfg.ArtifactStoreURL,
-	})
+	return s.cs
 }

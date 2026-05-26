@@ -63,7 +63,7 @@ func testServer(t *testing.T) (*Server, *atomic.Int64) {
 
 	exchange := common.NewExchangeClient(mock.URL)
 	verify := common.NewVerifyClient("http://localhost:0") // not used in write tests
-	s := NewServer(cfg, exchange, verify, nil)             // nil DB
+	s := NewServer(cfg, exchange, verify, nil, nil)        // nil DB, nil content store
 	return s, seq
 }
 

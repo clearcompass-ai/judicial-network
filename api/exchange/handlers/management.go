@@ -556,7 +556,12 @@ func proposalTypeFromString(s string) lifecycle.ProposalType {
 // ServerConfig.Ledger{Cert,Key,CA}) so the exchange→ledger hop carries the
 // exchange's client cert. The ledger refuses connections without one (see
 // ledger/api/server.go::buildServerTLSConfig).
-var defaultLedgerSubmitClient = sdklog.DefaultClient(30 * time.Second)
+// v1.25.0 collapsed DefaultClient(t) and DefaultClientWithTLS(t, cfg) into a
+// single canonical form: DefaultClient(t, tlsCfg). nil tlsCfg preserves the
+// prior server-verify-only behaviour. Production deployments inject an
+// mTLS-wired client via Dependencies.LedgerSubmitClient (see
+// ledgerSubmitClientFor); this fallback is the test / pre-cert posture.
+var defaultLedgerSubmitClient = sdklog.DefaultClient(30*time.Second, nil)
 
 // ledgerSubmitClientFor returns the per-request client: the one wired into
 // Dependencies (mTLS-enabled in production) or the package-level fallback when

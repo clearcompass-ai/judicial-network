@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/storage"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
@@ -146,7 +147,19 @@ func TestArtifactPublish_OversizeBody_Returns413(t *testing.T) {
 // full happy flow against the mock artifact store.
 func TestArtifactPublish_HappyPath_Accepted(t *testing.T) {
 	deps := testDeps(t)
-	deps.ArtifactStoreEndpoint = mockArtifactStore(t).URL
+	srv := mockArtifactStore(t)
+	deps.ArtifactStoreEndpoint = srv.URL
+	// v1.25.0: the handler now reads the boot-wired deps.ContentStore
+	// instead of constructing one per request. Wire a real store
+	// pointed at the mock for this happy-path test.
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+		BaseURL: srv.URL,
+		Client:  srv.Client(),
+	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
+	deps.ContentStore = cs
 	h := NewArtifactPublishHandler(deps)
 
 	body := []byte("court filing PDF bytes — short enough to round-trip cleanly")

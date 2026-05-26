@@ -51,7 +51,7 @@ func freshRegistry(t *testing.T) *jurisdiction.Registry {
 
 func TestBuildJudicialDeps_NoLedger_StillBoots(t *testing.T) {
 	reg := freshRegistry(t)
-	deps, err := buildJudicialDeps(config.Operational{}, reg)
+	deps, err := buildJudicialDeps(config.Operational{}, reg, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestBuildJudicialDeps_NoLedger_StillBoots(t *testing.T) {
 }
 
 func TestBuildJudicialDeps_WitnessMapsInitialized(t *testing.T) {
-	deps, err := buildJudicialDeps(config.Operational{}, freshRegistry(t))
+	deps, err := buildJudicialDeps(config.Operational{}, freshRegistry(t), nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestBuildJudicialDeps_WithLedger_PerDestinationQueries(t *testing.T) {
 	reg := freshRegistry(t)
 	deps, err := buildJudicialDeps(config.Operational{
 		LedgerEndpoint: "https://ledger.example",
-	}, reg)
+	}, reg, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestBuildJudicialDeps_ContentStore_FlipsToHTTP(t *testing.T) {
 	deps, err := buildJudicialDeps(config.Operational{
 		LedgerEndpoint:        "https://ledger.example",
 		ArtifactStoreEndpoint: "https://artifacts.example",
-	}, freshRegistry(t))
+	}, freshRegistry(t), nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestBuildJudicialDeps_ContentStore_DefaultsInMemory(t *testing.T) {
 	deps, err := buildJudicialDeps(config.Operational{
 		LedgerEndpoint: "https://ledger.example",
 		// ArtifactStoreEndpoint deliberately empty
-	}, freshRegistry(t))
+	}, freshRegistry(t), nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}

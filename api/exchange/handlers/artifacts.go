@@ -85,23 +85,17 @@ func (h *ArtifactPublishHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	// Compute content digest of plaintext.
 	digest := sha256.Sum256(plaintext)
 
-	// Push ciphertext to artifact store via the SDK's
-	// storage.HTTPContentStore. Per the architecture spec, the
-	// judicial-network never imports attesta-artifact-store/
-	// directly — every wire call to it goes through the SDK's
-	// ContentStore interface. The SDK owns:
-	//   - URL shape (POST /v1/artifacts)
-	//   - X-Artifact-CID header contract
-	//   - 200/201/204 acceptance set
-	//   - error mapping (storage.ErrContentNotFound on 404)
-	// Caller injection of the ContentStore would be more ideal; this
-	// site uses the SDK's default HTTP client today, with the
-	// interface in place so a future Dependency wire-up swap is
-	// trivial.
-	contentStore := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
-		BaseURL: h.deps.ArtifactStoreEndpoint,
-	})
-	if err := contentStore.Push(ctx, cid, ciphertext); err != nil {
+	// Push ciphertext to the boot-wired SDK ContentStore. Single
+	// source of truth — the binary constructs ONE *storage.HTTPContentStore
+	// at boot (cmd/network-api/judicial_deps.go::newContentStore) and
+	// injects it via Dependencies.ContentStore. mTLS material, timeouts,
+	// and the X-Artifact-CID contract live on that one client; the
+	// handler is content-agnostic.
+	if h.deps.ContentStore == nil {
+		writeError(w, http.StatusServiceUnavailable, "artifact store not configured")
+		return
+	}
+	if err := h.deps.ContentStore.Push(ctx, cid, ciphertext); err != nil {
 		writeError(w, http.StatusBadGateway, "artifact store: "+err.Error())
 		return
 	}

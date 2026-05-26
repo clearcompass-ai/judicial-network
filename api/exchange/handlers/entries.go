@@ -49,6 +49,7 @@ import (
 
 	"github.com/clearcompass-ai/attesta/builder"
 	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
@@ -156,6 +157,14 @@ type Dependencies struct {
 	VerificationEndpoint  string
 	KeyStore              keystore.KeyStore
 	Index                 *index.LogIndex
+
+	// ContentStore is the boot-wired SDK content store used by the
+	// artifact-publish handler (api/exchange/handlers/artifacts.go).
+	// Production wires storage.NewHTTPContentStore once at boot with
+	// the appropriate mTLS material via cmd/network-api/main.go.
+	// nil ⇒ the artifact-publish handler returns 503; the rest of
+	// the exchange surface keeps working.
+	ContentStore storage.ContentStore
 
 	// LedgerSubmitClient is the HTTP client used by submitToLedger to
 	// POST entries to LedgerEndpoint. When nil, the package-level

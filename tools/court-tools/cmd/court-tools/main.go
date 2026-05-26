@@ -35,14 +35,17 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "github.com/lib/pq" // postgres driver for the projection store (clitools.NewDB)
 
 	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 	"github.com/clearcompass-ai/judicial-network/tools/court-tools"
 )
@@ -61,9 +64,36 @@ func main() {
 		log.Fatalf("FATAL: config: %v", err)
 	}
 
-	exchange := common.NewExchangeClient(cfg.ExchangeURL)
-	ledger := common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
-	verify := common.NewVerifyClient(cfg.VerificationURL)
+	// Upstream clients: mTLS when the operator configured cert+key for
+	// each surface, plaintext (server-verify only) otherwise. Failures
+	// to load TLS material are FATAL — a misconfigured mTLS deploy
+	// must die at boot, not silently demote to plaintext.
+	exchange, err := buildExchangeClient(cfg)
+	if err != nil {
+		log.Fatalf("FATAL: exchange client: %v", err)
+	}
+	ledger, err := buildLedgerClient(cfg)
+	if err != nil {
+		log.Fatalf("FATAL: ledger client: %v", err)
+	}
+	verify, err := buildVerifyClient(cfg)
+	if err != nil {
+		log.Fatalf("FATAL: verify client: %v", err)
+	}
+
+	// SDK v1.25.0: storage.HTTPContentStoreConfig requires Client; the
+	// in-binary content store carries the same posture as the ledger
+	// client. nil cs ⇒ artifact-store reads/writes surface 503.
+	var cs *storage.HTTPContentStore
+	if cfg.ArtifactStoreURL != "" {
+		cs, err = storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+			BaseURL: cfg.ArtifactStoreURL,
+			Client:  &http.Client{Timeout: 30 * time.Second},
+		})
+		if err != nil {
+			log.Fatalf("FATAL: content store: %v", err)
+		}
+	}
 
 	// -------------------------------------------------------------------------
 	// 2) Database (optional — degrades gracefully)
@@ -119,7 +149,7 @@ func main() {
 	// 4) HTTP server
 	// -------------------------------------------------------------------------
 
-	srv := courts.NewServer(cfg, exchange, verify, db)
+	srv := courts.NewServer(cfg, exchange, verify, db, cs)
 	go func() {
 		if e := srv.ListenAndServe(); e != nil {
 			log.Fatalf("FATAL: court-tools: %v", e)
@@ -135,4 +165,31 @@ func awaitSignal(cancel context.CancelFunc) {
 	sig := <-ch
 	log.Printf("received %v — shutting down", sig)
 	cancel()
+}
+
+// buildExchangeClient returns an mTLS-wired client when the operator
+// has populated cfg.Exchange{ClientCert,ClientKey}File, otherwise the
+// plaintext (server-verify only) client. A misconfigured mTLS deploy
+// (cert+key present but unreadable) returns (nil, err) so the caller
+// can fail boot — silent demotion to plaintext is a confused-deputy
+// bug the constructor refuses to commit.
+func buildExchangeClient(cfg common.Config) (*common.ExchangeClient, error) {
+	if cfg.ExchangeMTLSConfigured() {
+		return common.NewMTLSExchangeClient(cfg.ExchangeURL, cfg.ExchangeTLS())
+	}
+	return common.NewExchangeClient(cfg.ExchangeURL), nil
+}
+
+func buildLedgerClient(cfg common.Config) (*common.LedgerClient, error) {
+	if cfg.LedgerMTLSConfigured() {
+		return common.NewMTLSLedgerClient(cfg.LedgerURL, cfg.LedgerTLS(), cfg.CasesLogDID)
+	}
+	return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID), nil
+}
+
+func buildVerifyClient(cfg common.Config) (*common.VerifyClient, error) {
+	if cfg.VerificationMTLSConfigured() {
+		return common.NewMTLSVerifyClient(cfg.VerificationURL, cfg.VerificationTLS())
+	}
+	return common.NewVerifyClient(cfg.VerificationURL), nil
 }

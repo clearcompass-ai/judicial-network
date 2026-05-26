@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // Server is the court tools HTTP server.
@@ -13,16 +14,23 @@ type Server struct {
 	exchange *common.ExchangeClient
 	verify   *common.VerifyClient
 	db       *common.DB
+	cs       *storage.HTTPContentStore
 	mux      *http.ServeMux
 }
 
 // NewServer creates a court tools server wired to upstream services.
-func NewServer(cfg common.Config, exchange *common.ExchangeClient, verify *common.VerifyClient, db *common.DB) *Server {
+//
+// contentStore is the boot-wired SDK content store; it owns the
+// http.Client (mTLS material when configured) and the artifact-store
+// base URL. nil ⇒ artifact-store reads + writes surface 503 (filings
+// can still be queried from Postgres).
+func NewServer(cfg common.Config, exchange *common.ExchangeClient, verify *common.VerifyClient, db *common.DB, contentStore *storage.HTTPContentStore) *Server {
 	s := &Server{
 		cfg:      cfg,
 		exchange: exchange,
 		verify:   verify,
 		db:       db,
+		cs:       contentStore,
 		mux:      http.NewServeMux(),
 	}
 	s.routes()
