@@ -76,11 +76,14 @@ func TestLedgerContract_RawEndpoint_HappyPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	f := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
+	f, err := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
 		BaseURL: srv.URL,
 		LogDID:  "did:web:courts.davidson:cases",
-		Timeout: 5 * time.Second,
+		Client:  &http.Client{Timeout: 5 * time.Second},
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPEntryFetcher: %v", err)
+	}
 
 	got, err := f.Fetch(ctx, types.LogPosition{
 		LogDID:   "did:web:courts.davidson:cases",
@@ -119,11 +122,14 @@ func TestLedgerContract_RawEndpoint_MissingXLogTime(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	f := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
+	f, err := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
 		BaseURL: srv.URL,
 		LogDID:  "did:test",
-		Timeout: 5 * time.Second,
+		Client:  &http.Client{Timeout: 5 * time.Second},
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPEntryFetcher: %v", err)
+	}
 	got, err := f.Fetch(ctx, types.LogPosition{LogDID: "did:test", Sequence: 1})
 	if err != nil {
 		t.Fatalf("Fetch tolerated absence: %v", err)
@@ -147,9 +153,12 @@ func TestLedgerContract_RawEndpoint_404(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	f := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
-		BaseURL: srv.URL, LogDID: "x", Timeout: 5 * time.Second,
+	f, err := sdklog.NewHTTPEntryFetcher(sdklog.HTTPEntryFetcherConfig{
+		BaseURL: srv.URL, LogDID: "x", Client: &http.Client{Timeout: 5 * time.Second},
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPEntryFetcher: %v", err)
+	}
 	got, err := f.Fetch(ctx, types.LogPosition{LogDID: "x", Sequence: 999})
 	if err != nil {
 		t.Fatalf("404 should not error: %v", err)
@@ -223,7 +232,7 @@ func TestLedgerContract_ScanEndpoint_HappyPath(t *testing.T) {
 	q, err := sdklog.NewHTTPLedgerQueryAPI(sdklog.HTTPLedgerQueryAPIConfig{
 		BaseURL: srv.URL,
 		LogDID:  "did:web:courts.davidson:cases",
-		Timeout: 5 * time.Second,
+		Client:  &http.Client{Timeout: 5 * time.Second},
 	})
 	if err != nil {
 		t.Fatalf("NewHTTPLedgerQueryAPI: %v", err)
@@ -294,7 +303,7 @@ func TestLedgerContract_SubmitEndpoint_HappyPath(t *testing.T) {
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	client := sdklog.DefaultClient(5 * time.Second)
+	client := sdklog.DefaultClient(5*time.Second, nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Do: %v", err)
@@ -332,7 +341,7 @@ func TestLedgerContract_SubmitEndpoint_503Retried(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := sdklog.DefaultClient(10 * time.Second)
+	client := sdklog.DefaultClient(10*time.Second, nil)
 	req, _ := http.NewRequestWithContext(context.Background(),
 		http.MethodPost, srv.URL+"/v1/entries",
 		bytes.NewReader([]byte("retry-test")))

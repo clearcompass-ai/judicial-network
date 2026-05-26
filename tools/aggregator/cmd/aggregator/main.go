@@ -50,20 +50,30 @@ import (
 // step independently. realDeps points at the production wiring;
 // tests substitute fakes.
 type deps struct {
-	loadConfig    func(string) (common.Config, error)
-	openDB        func(string) (*common.DB, error)
-	migrate       func(*common.DB) error
-	newLedger     func(string, string) *common.LedgerClient
+	loadConfig func(string) (common.Config, error)
+	openDB     func(string) (*common.DB, error)
+	migrate    func(*common.DB) error
+	// newLedger takes the FULL Config so the production factory can
+	// branch on cfg.LedgerMTLSConfigured() — mTLS deploys transparently
+	// get NewMTLSLedgerClient, plaintext deploys keep NewLedgerClient.
+	// Returns (nil, err) on TLS-material failure so the binary refuses
+	// to start rather than silently demote to plaintext.
+	newLedger     func(common.Config) (*common.LedgerClient, error)
 	startScanner  func(context.Context, *libagg.Scanner) error
 	listenAndServ func(*http.Server) error
 }
 
 func realDeps() deps {
 	return deps{
-		loadConfig:    common.LoadConfig,
-		openDB:        common.NewDB,
-		migrate:       aggregator.Migrate,
-		newLedger:     func(url, did string) *common.LedgerClient { return common.NewLedgerClient(url, did) },
+		loadConfig: common.LoadConfig,
+		openDB:     common.NewDB,
+		migrate:    aggregator.Migrate,
+		newLedger: func(cfg common.Config) (*common.LedgerClient, error) {
+			if cfg.LedgerMTLSConfigured() {
+				return common.NewMTLSLedgerClient(cfg.LedgerURL, cfg.LedgerTLS(), cfg.CasesLogDID)
+			}
+			return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
+		},
 		startScanner:  func(ctx context.Context, s *libagg.Scanner) error { return s.Run(ctx) },
 		listenAndServ: func(srv *http.Server) error { return srv.ListenAndServe() },
 	}
@@ -133,7 +143,10 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("aggregator: migrate: %w", err)
 	}
 
-	ledger := d.newLedger(cfg.LedgerURL, cfg.CasesLogDID)
+	ledger, err := d.newLedger(cfg)
+	if err != nil {
+		return fmt.Errorf("aggregator: ledger client: %w", err)
+	}
 	// The agnostic engine (libs/aggregator) polls/decodes/advances the
 	// watermark; the judicial projector classifies + indexes each entry.
 	projector := aggregator.NewJudicialProjector(aggregator.NewIndexer(db))

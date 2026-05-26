@@ -113,10 +113,11 @@ func (s *Server) GetDocument(w http.ResponseWriter, r *http.Request) {
 		writeProviderError(w, http.StatusBadRequest, "invalid CID")
 		return
 	}
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
-		BaseURL: s.cfg.ArtifactStoreURL,
-	})
-	ct, err := cs.Fetch(r.Context(), cid)
+	if s.cs == nil {
+		writeProviderError(w, http.StatusServiceUnavailable, "artifact store not configured")
+		return
+	}
+	ct, err := s.cs.Fetch(r.Context(), cid)
 	if err != nil {
 		if errors.Is(err, storage.ErrContentNotFound) {
 			writeProviderError(w, http.StatusNotFound, "artifact not found")

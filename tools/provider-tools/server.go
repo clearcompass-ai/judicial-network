@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // Server is the data provider tools HTTP server. Read-only — never touches exchange.
@@ -12,15 +13,18 @@ type Server struct {
 	cfg    common.Config
 	verify *common.VerifyClient
 	db     *common.DB
+	cs     *storage.HTTPContentStore
 	mux    *http.ServeMux
 }
 
-// NewServer creates a provider tools server.
-func NewServer(cfg common.Config, verify *common.VerifyClient, db *common.DB) *Server {
+// NewServer creates a provider tools server. contentStore (nil ⇒
+// document-fetch surfaces 503) carries the http.Client.
+func NewServer(cfg common.Config, verify *common.VerifyClient, db *common.DB, contentStore *storage.HTTPContentStore) *Server {
 	s := &Server{
 		cfg:    cfg,
 		verify: verify,
 		db:     db,
+		cs:     contentStore,
 		mux:    http.NewServeMux(),
 	}
 	s.routes()

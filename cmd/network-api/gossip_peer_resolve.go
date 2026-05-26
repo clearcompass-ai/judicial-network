@@ -32,6 +32,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -98,6 +99,15 @@ func newDIDWebPeerResolver(ttl time.Duration) *did.DIDEndpointAdapter {
 			TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
 		},
 	}
-	web := did.NewWebDIDResolver(httpClient)
+	// SDK v1.27.0: NewWebDIDResolver takes a config struct + returns (*resolver, error).
+	// On construction failure we fall back to a plain caching resolver around a
+	// stub so the gossip path degrades to "no peer endpoints resolved" rather
+	// than crashing the binary. (Cfg.Client is non-nil here, so this can't fail
+	// in practice — defensive.)
+	web, err := did.NewWebDIDResolver(did.WebDIDResolverConfig{Client: httpClient})
+	if err != nil {
+		slog.Warn("jn/gossip: web DID resolver construction failed", "error", err)
+		return nil
+	}
 	return &did.DIDEndpointAdapter{Resolver: did.NewCachingResolver(web, ttl)}
 }

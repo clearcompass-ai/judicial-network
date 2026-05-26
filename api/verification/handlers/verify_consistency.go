@@ -110,9 +110,17 @@ func (h *VerifyConsistencyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "new_head: "+err.Error())
 		return
 	}
+	// SDK v1.26.0+ requires Client *http.Client on TesseraFetcherConfig.
+	// Reuse the boot-wired mTLS client so this tile fetch presents the
+	// JN's client cert when reaching out to a peer ledger in a mutually-
+	// authenticated federation. nil ⇒ plain 15s client for dev / pre-cert.
+	httpClient := h.deps.LedgerHTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 15 * time.Second}
+	}
 	fetcher, err := sdklog.NewTesseraFetcher(sdklog.TesseraFetcherConfig{
 		BaseURL: req.TileBaseURL,
-		Timeout: 15 * time.Second,
+		Client:  httpClient,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "tile_base_url: "+err.Error())

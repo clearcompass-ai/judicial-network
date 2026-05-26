@@ -77,9 +77,13 @@ func TestArtifactStoreContract_Push_RequestShape(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
+		Client:  srv.Client(),
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 	if err := cs.Push(ctx, cid, plaintext); err != nil {
 		t.Fatalf("Push: %v", err)
 	}
@@ -113,11 +117,15 @@ func TestArtifactStoreContract_Push_ErrorMapping(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
+		Client:  srv.Client(),
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 	cid := storage.Compute([]byte("x"))
-	err := cs.Push(ctx, cid, []byte("x"))
+	err = cs.Push(ctx, cid, []byte("x"))
 	if err == nil {
 		t.Fatal("expected error on 400")
 	}
@@ -144,9 +152,13 @@ func TestArtifactStoreContract_Fetch_HappyPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
+		Client:  srv.Client(),
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 	got, err := cs.Fetch(ctx, cid)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
@@ -167,11 +179,15 @@ func TestArtifactStoreContract_Fetch_404_ReturnsErrContentNotFound(t *testing.T)
 	}))
 	defer srv.Close()
 
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
+		Client:  srv.Client(),
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 	cid := storage.Compute([]byte("absent"))
-	_, err := cs.Fetch(ctx, cid)
+	_, err = cs.Fetch(ctx, cid)
 	if err == nil {
 		t.Fatal("expected error on 404")
 	}
@@ -244,9 +260,13 @@ func TestArtifactStoreContract_Push_RetriesOn503(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
+		Client:  srv.Client(),
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 	// SDK's HTTPContentStore uses its own bare http.Client by default.
 	// The 503-retry honoring lives at the ledger artifact-store
 	// integration boundary (storage backend, not the consumer-side
@@ -258,7 +278,7 @@ func TestArtifactStoreContract_Push_RetriesOn503(t *testing.T) {
 	// We assert the push succeeds OR fails cleanly — no panic, no
 	// silent corruption. If/when the SDK adds retry to
 	// HTTPContentStore, this test pins the success path.
-	err := cs.Push(ctx, cid, plaintext)
+	err = cs.Push(ctx, cid, plaintext)
 	if err != nil {
 		// SDK's HTTPContentStore today does not retry; one 503 is
 		// surfaced. This is the documented current state.

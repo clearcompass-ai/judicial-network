@@ -35,7 +35,7 @@ func testProviderServer(t *testing.T) *Server {
 	cfg := common.DefaultConfig()
 	cfg.ProviderAPIKeyHeader = "X-API-Key"
 	verify := common.NewVerifyClient("http://localhost:0")
-	return NewServer(cfg, verify, nil) // nil DB
+	return NewServer(cfg, verify, nil, nil) // nil DB, nil content store
 }
 
 func doProviderRequest(t *testing.T, handler http.Handler, method, path string, body any, apiKey string) *httptest.ResponseRecorder {

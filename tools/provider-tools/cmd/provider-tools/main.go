@@ -42,11 +42,14 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/judicial-network/tools/provider-tools"
 )
 
@@ -63,7 +66,23 @@ func main() {
 		log.Fatalf("FATAL: config: %v", err)
 	}
 
-	verify := common.NewVerifyClient(cfg.VerificationURL)
+	verify, err := buildVerifyClient(cfg)
+	if err != nil {
+		log.Fatalf("FATAL: verify client: %v", err)
+	}
+
+	// SDK v1.25.0: storage.HTTPContentStoreConfig requires Client; nil
+	// cs ⇒ document-fetch handler surfaces 503.
+	var cs *storage.HTTPContentStore
+	if cfg.ArtifactStoreURL != "" {
+		cs, err = storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+			BaseURL: cfg.ArtifactStoreURL,
+			Client:  &http.Client{Timeout: 30 * time.Second},
+		})
+		if err != nil {
+			log.Fatalf("FATAL: content store: %v", err)
+		}
+	}
 
 	// -------------------------------------------------------------------------
 	// 2) Database (optional — degrades gracefully)
@@ -86,7 +105,7 @@ func main() {
 	// 3) HTTP server
 	// -------------------------------------------------------------------------
 
-	srv := providers.NewServer(cfg, verify, db)
+	srv := providers.NewServer(cfg, verify, db, cs)
 	go func() {
 		if e := srv.ListenAndServe(); e != nil {
 			log.Fatalf("FATAL: provider-tools: %v", e)
@@ -102,4 +121,15 @@ func awaitSignal(cancel context.CancelFunc) {
 	sig := <-ch
 	log.Printf("received %v — shutting down", sig)
 	cancel()
+}
+
+// buildVerifyClient returns an mTLS-wired verify client when the
+// operator has populated cfg.Verification{ClientCert,ClientKey}File,
+// otherwise the plaintext (server-verify only) client. Fail-closed
+// on any TLS-material error.
+func buildVerifyClient(cfg common.Config) (*common.VerifyClient, error) {
+	if cfg.VerificationMTLSConfigured() {
+		return common.NewMTLSVerifyClient(cfg.VerificationURL, cfg.VerificationTLS())
+	}
+	return common.NewVerifyClient(cfg.VerificationURL), nil
 }

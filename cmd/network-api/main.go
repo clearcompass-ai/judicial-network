@@ -52,11 +52,11 @@ import (
 	"syscall"
 	"time"
 
-	sdklog "github.com/clearcompass-ai/attesta/log"
 	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
@@ -174,10 +174,34 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("authenticator: %w", err)
 	}
 
+	// Exchange→ledger mTLS client: composed ONCE at boot so the entire
+	// outbound surface (admission write path AND judicial reads —
+	// /v1/log-info discovery, entry fetchers, query APIs, checkpoint
+	// client, content-store push) shares one pool + retry semantics +
+	// cert material. Fail-closed when cert/key are set but the
+	// material is unreadable. When both are empty (dev / pre-cert
+	// deploys pointing at a plaintext ledger), nil propagates and
+	// every SDK constructor falls back to its server-verify-only
+	// default. Production ledgers refuse non-mTLS connections at the
+	// transport layer (ledger/api/server.go::buildServerTLSConfig).
+	var ledgerSubmitClient *http.Client
+	if cfg.LedgerCertFile != "" || cfg.LedgerKeyFile != "" {
+		ledgerSubmitClient, err = exchange.BuildLedgerSubmitClient(exchange.ServerConfig{
+			LedgerCert: cfg.LedgerCertFile,
+			LedgerKey:  cfg.LedgerKeyFile,
+			LedgerCA:   cfg.LedgerCAFile,
+		})
+		if err != nil {
+			return fmt.Errorf("ledger submit client: %w", err)
+		}
+	}
+
 	// Build the judicial-domain Dependencies. The composer mounts
 	// /v1/judicial/ regardless; the deps decide which handlers can
-	// actually fulfil their work vs. surface a clean 500 / 501.
-	judicialDeps, err := buildJudicialDeps(cfg, registry)
+	// actually fulfil their work vs. surface a clean 500 / 501. The
+	// mTLS client (when configured) is threaded into every SDK call
+	// that touches the ledger.
+	judicialDeps, err := buildJudicialDeps(cfg, registry, ledgerSubmitClient)
 	if err != nil {
 		return fmt.Errorf("judicial deps: %w", err)
 	}
@@ -252,9 +276,20 @@ func run(argv []string, d deps) error {
 		if wErr != nil {
 			return fmt.Errorf("admission anchor witness sets: %w", wErr)
 		}
-		checkpointClient := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{
+		// SDK v1.26.0: HTTPCheckpointClientConfig.Client is required. Reuse
+		// the boot-wired mTLS client (or a plain default) so the admission
+		// authorizer's verified-horizon fetch presents the JN's cert.
+		anchorHTTPClient := ledgerSubmitClient
+		if anchorHTTPClient == nil {
+			anchorHTTPClient = sdklog.DefaultClient(15*time.Second, nil)
+		}
+		checkpointClient, ccErr := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{
 			BaseURL: cfg.LedgerEndpoint,
+			Client:  anchorHTTPClient,
 		})
+		if ccErr != nil {
+			return fmt.Errorf("admission anchor checkpoint client: %w", ccErr)
+		}
 		verifiedAnchor := func(logDID string) ([32]byte, error) {
 			set := anchorWitnessSets[logDID]
 			if set == nil {
@@ -291,26 +326,9 @@ func run(argv []string, d deps) error {
 	// to gate traffic to a replica that can fulfill its job.
 	readyzChecks := buildReadyzChecks(cfg)
 
-	// Exchange→ledger mTLS client: composed once at boot so the entire
-	// admission write path shares one pool + retry semantics + cert
-	// material. Fail-closed when cert/key are set but the material
-	// is unreadable. When both are empty (dev / pre-cert deploys
-	// pointing at a plaintext ledger), nil propagates and the
-	// handler chokepoint falls back to the SDK's server-verify-only
-	// client — acceptable for tests, NOT for production. Production
-	// ledgers refuse non-mTLS connections at the transport layer
-	// (ledger/api/server.go::buildServerTLSConfig).
-	var ledgerSubmitClient *http.Client
-	if cfg.LedgerCertFile != "" || cfg.LedgerKeyFile != "" {
-		ledgerSubmitClient, err = exchange.BuildLedgerSubmitClient(exchange.ServerConfig{
-			LedgerCert: cfg.LedgerCertFile,
-			LedgerKey:  cfg.LedgerKeyFile,
-			LedgerCA:   cfg.LedgerCAFile,
-		})
-		if err != nil {
-			return fmt.Errorf("ledger submit client: %w", err)
-		}
-	}
+	// ledgerSubmitClient was built once at boot above (see the
+	// hoisted construction near buildJudicialDeps) so the exchange
+	// AND the judicial deps share the same outbound client.
 
 	srv, err := api.NewServer(api.Config{
 		Addr:          cfg.ListenAddr,
@@ -332,6 +350,10 @@ func run(argv []string, d deps) error {
 			NonceStores:           nonceStores,
 			LedgerBreaker:         ledgerBreaker,
 			LedgerMetrics:         ledgerMetrics,
+			// SDK-wired content store: same instance the judicial deps hold.
+			// Carries the mTLS client when configured; nil ⇒ the artifact-
+			// publish handler surfaces 503.
+			ContentStore: judicialDeps.ContentStore,
 			// mTLS client for the exchange→ledger hop. nil when no cert/key are
 			// configured (dev/test against a plaintext ledger) — exchange falls
 			// back to the SDK's server-verify-only client in that case. In
@@ -365,6 +387,10 @@ func run(argv []string, d deps) error {
 			// where the inclusion stages return a clean error.
 			LogQueries: judicialDeps.LogQueries,
 			LeafReader: judicialDeps.LeafReader,
+			// VerifyConsistencyHandler's Static-CT tile fetcher carries
+			// this client cert when peer mTLS is in effect; nil falls
+			// back to a plain 15s client for dev / pre-cert deployments.
+			LedgerHTTPClient: ledgerSubmitClient,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 	})

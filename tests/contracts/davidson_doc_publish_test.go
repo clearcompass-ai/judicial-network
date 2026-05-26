@@ -170,9 +170,13 @@ Counsel for Defendant: ...
 	cid := storage.Compute(ciphertext)
 
 	// ── Step 3: push via SDK ContentStore ─────────────────────
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: storeURL,
+		Client:  &http.Client{},
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 	if err := cs.Push(ctx, cid, ciphertext); err != nil {
 		t.Fatalf("ContentStore.Push: %v", err)
 	}
@@ -284,9 +288,13 @@ Case 2027-CR-4471 — Officer Martinez — 2027-04-15 14:32:11
 
 	// ── Step 3: CID + Step 4: push to artifact store ─────────
 	cid := storage.Compute(ciphertext)
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: storeURL,
+		Client:  &http.Client{},
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 	if err := cs.Push(ctx, cid, ciphertext); err != nil {
 		t.Fatalf("ContentStore.Push: %v", err)
 	}
@@ -424,9 +432,13 @@ func TestDavidson_SealedDocument_NotRetrievable(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cs := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
+	cs, err := storage.NewHTTPContentStore(storage.HTTPContentStoreConfig{
 		BaseURL: srv.URL,
+		Client:  srv.Client(),
 	})
+	if err != nil {
+		t.Fatalf("NewHTTPContentStore: %v", err)
+	}
 
 	// Push succeeds (sealed gate is read-side, not write-side).
 	if err := cs.Push(ctx, cid, ciphertext); err != nil {
