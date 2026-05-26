@@ -91,6 +91,13 @@ type ServerConfig struct {
 	// Absent map / absent logID / flag off → the handler runs only
 	// Signatures + Authority + Origin, the shape PR D shipped.
 	PolicyStage map[string]handlers.PolicyStageDeps
+
+	// LedgerHTTPClient is the boot-wired *http.Client used by the
+	// VerifyConsistencyHandler's Static-CT tile fetcher to reach an
+	// arbitrary caller-named tile base URL. Carries the JN's client
+	// cert when peer mTLS is configured. nil ⇒ a plain 15s client.
+	// SDK v1.26.0+: TesseraFetcherConfig.Client is required.
+	LedgerHTTPClient *http.Client
 }
 
 // Server is the verification service HTTP server.
@@ -116,6 +123,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		SignatureVerifier:  cfg.SignatureVerifier,
 		PolicyStage:        cfg.PolicyStage,
 		PolicyStageEnabled: policyStageEnabledFromEnv(),
+		LedgerHTTPClient:   cfg.LedgerHTTPClient,
 	}
 
 	mux := http.NewServeMux()

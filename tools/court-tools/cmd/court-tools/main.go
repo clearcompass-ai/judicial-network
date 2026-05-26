@@ -184,7 +184,7 @@ func buildLedgerClient(cfg common.Config) (*common.LedgerClient, error) {
 	if cfg.LedgerMTLSConfigured() {
 		return common.NewMTLSLedgerClient(cfg.LedgerURL, cfg.LedgerTLS(), cfg.CasesLogDID)
 	}
-	return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID), nil
+	return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
 }
 
 func buildVerifyClient(cfg common.Config) (*common.VerifyClient, error) {

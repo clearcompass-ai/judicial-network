@@ -132,7 +132,7 @@ func TestRun_BootShutdownRoundTrip(t *testing.T) {
 		},
 		migrate: func(_ *common.DB) error { return nil },
 		newLedger: func(cfg common.Config) (*common.LedgerClient, error) {
-			return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID), nil
+			return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
 		},
 		startScanner: func(ctx context.Context, _ *libagg.Scanner) error {
 			scannerStarted <- struct{}{}

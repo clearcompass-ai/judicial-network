@@ -276,9 +276,20 @@ func run(argv []string, d deps) error {
 		if wErr != nil {
 			return fmt.Errorf("admission anchor witness sets: %w", wErr)
 		}
-		checkpointClient := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{
+		// SDK v1.26.0: HTTPCheckpointClientConfig.Client is required. Reuse
+		// the boot-wired mTLS client (or a plain default) so the admission
+		// authorizer's verified-horizon fetch presents the JN's cert.
+		anchorHTTPClient := ledgerSubmitClient
+		if anchorHTTPClient == nil {
+			anchorHTTPClient = sdklog.DefaultClient(15*time.Second, nil)
+		}
+		checkpointClient, ccErr := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{
 			BaseURL: cfg.LedgerEndpoint,
+			Client:  anchorHTTPClient,
 		})
+		if ccErr != nil {
+			return fmt.Errorf("admission anchor checkpoint client: %w", ccErr)
+		}
 		verifiedAnchor := func(logDID string) ([32]byte, error) {
 			set := anchorWitnessSets[logDID]
 			if set == nil {
@@ -376,6 +387,10 @@ func run(argv []string, d deps) error {
 			// where the inclusion stages return a clean error.
 			LogQueries: judicialDeps.LogQueries,
 			LeafReader: judicialDeps.LeafReader,
+			// VerifyConsistencyHandler's Static-CT tile fetcher carries
+			// this client cert when peer mTLS is in effect; nil falls
+			// back to a plain 15s client for dev / pre-cert deployments.
+			LedgerHTTPClient: ledgerSubmitClient,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 	})

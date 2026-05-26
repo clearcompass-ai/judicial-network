@@ -68,6 +68,18 @@ type Dependencies struct {
 	// JN_VERIFY_POLICY_STAGE_ENABLE. Default off until real
 	// cosignature traffic exists to validate against.
 	PolicyStageEnabled bool
+
+	// LedgerHTTPClient is the boot-wired *http.Client used for
+	// outbound HTTPS calls this handler set makes against an arbitrary
+	// caller-named base URL — currently the Static-CT tile fetch in
+	// VerifyConsistencyHandler. nil ⇒ a plain 15s client is used so
+	// dev / pre-cert deployments behave as before. When the JN runs in
+	// a peer-mTLS federation, this client carries the JN's client cert
+	// so peer ledgers accept the connection.
+	//
+	// Wired in cmd/network-api/main.go (BuildLedgerSubmitClient over
+	// cfg.Ledger{Cert,Key,CA}).
+	LedgerHTTPClient *http.Client
 }
 
 // PolicyStageDeps is the per-log injection point for read-time

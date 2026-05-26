@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/witness"
@@ -40,7 +41,13 @@ func stubTreeHeadClient() *witness.TreeHeadClient {
 		Ledgers:   map[string]string{},
 		Witnesses: map[string][]string{},
 	}
-	return witness.NewTreeHeadClient(endpoints, witness.DefaultTreeHeadClientConfig())
+	cfg := witness.DefaultTreeHeadClientConfig()
+	cfg.Client = &http.Client{Timeout: time.Second} // SDK v1.26.0: Client required.
+	c, err := witness.NewTreeHeadClient(endpoints, cfg)
+	if err != nil {
+		panic("stubTreeHeadClient: " + err.Error())
+	}
+	return c
 }
 
 // stubCheckpointClient returns a real *log.ResolvingCheckpointClient
@@ -52,7 +59,13 @@ func stubCheckpointClient() *sdklog.ResolvingCheckpointClient {
 		Ledgers:   map[string]string{},
 		Witnesses: map[string][]string{},
 	}
-	return sdklog.NewResolvingCheckpointClient(endpoints, sdklog.HTTPCheckpointClientConfig{})
+	c, err := sdklog.NewResolvingCheckpointClient(endpoints, sdklog.HTTPCheckpointClientConfig{
+		Client: &http.Client{Timeout: time.Second}, // SDK v1.26.0: Client required.
+	})
+	if err != nil {
+		panic("stubCheckpointClient: " + err.Error())
+	}
+	return c
 }
 
 // ─────────────────────────────────────────────────────────────────────

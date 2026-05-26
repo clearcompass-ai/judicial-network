@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
@@ -137,9 +138,18 @@ func lightClientServer(t *testing.T, cosigned types.CosignedTreeHead, proofRoot 
 
 func newReader(t *testing.T, url string, set *cosign.WitnessKeySet) *VerifyingLeafReader {
 	t.Helper()
+	hc := &http.Client{Timeout: 5 * time.Second}
+	cp, err := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{BaseURL: url, Client: hc})
+	if err != nil {
+		t.Fatalf("NewHTTPCheckpointClient: %v", err)
+	}
+	pr, err := smt.NewHTTPProofReader(smt.HTTPProofReaderConfig{BaseURL: url, Client: hc})
+	if err != nil {
+		t.Fatalf("NewHTTPProofReader: %v", err)
+	}
 	r, err := NewVerifyingLeafReader(VerifyingLeafReaderConfig{
-		Checkpoint: sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{BaseURL: url}),
-		Proofs:     smt.NewHTTPProofReader(smt.HTTPProofReaderConfig{BaseURL: url}),
+		Checkpoint: cp,
+		Proofs:     pr,
 		WitnessSet: set,
 	})
 	if err != nil {
@@ -248,8 +258,15 @@ func TestVerifyingLeafReader_HorizonCached(t *testing.T) {
 
 func TestNewVerifyingLeafReader_NilDeps(t *testing.T) {
 	_, set, _ := mintWitnesses(t, 1, 1)
-	cp := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{BaseURL: "http://x"})
-	pr := smt.NewHTTPProofReader(smt.HTTPProofReaderConfig{BaseURL: "http://x"})
+	hc := &http.Client{Timeout: 5 * time.Second}
+	cp, err := sdklog.NewHTTPCheckpointClient(sdklog.HTTPCheckpointClientConfig{BaseURL: "http://x", Client: hc})
+	if err != nil {
+		t.Fatalf("NewHTTPCheckpointClient: %v", err)
+	}
+	pr, err := smt.NewHTTPProofReader(smt.HTTPProofReaderConfig{BaseURL: "http://x", Client: hc})
+	if err != nil {
+		t.Fatalf("NewHTTPProofReader: %v", err)
+	}
 	cases := []VerifyingLeafReaderConfig{
 		{Checkpoint: nil, Proofs: pr, WitnessSet: set},
 		{Checkpoint: cp, Proofs: nil, WitnessSet: set},

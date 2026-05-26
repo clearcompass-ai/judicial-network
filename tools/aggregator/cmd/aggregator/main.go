@@ -72,7 +72,7 @@ func realDeps() deps {
 			if cfg.LedgerMTLSConfigured() {
 				return common.NewMTLSLedgerClient(cfg.LedgerURL, cfg.LedgerTLS(), cfg.CasesLogDID)
 			}
-			return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID), nil
+			return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
 		},
 		startScanner:  func(ctx context.Context, s *libagg.Scanner) error { return s.Run(ctx) },
 		listenAndServ: func(srv *http.Server) error { return srv.ListenAndServe() },
