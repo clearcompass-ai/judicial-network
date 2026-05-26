@@ -291,6 +291,27 @@ func run(argv []string, d deps) error {
 	// to gate traffic to a replica that can fulfill its job.
 	readyzChecks := buildReadyzChecks(cfg)
 
+	// Exchange→ledger mTLS client: composed once at boot so the entire
+	// admission write path shares one pool + retry semantics + cert
+	// material. Fail-closed when cert/key are set but the material
+	// is unreadable. When both are empty (dev / pre-cert deploys
+	// pointing at a plaintext ledger), nil propagates and the
+	// handler chokepoint falls back to the SDK's server-verify-only
+	// client — acceptable for tests, NOT for production. Production
+	// ledgers refuse non-mTLS connections at the transport layer
+	// (ledger/api/server.go::buildServerTLSConfig).
+	var ledgerSubmitClient *http.Client
+	if cfg.LedgerCertFile != "" || cfg.LedgerKeyFile != "" {
+		ledgerSubmitClient, err = exchange.BuildLedgerSubmitClient(exchange.ServerConfig{
+			LedgerCert: cfg.LedgerCertFile,
+			LedgerKey:  cfg.LedgerKeyFile,
+			LedgerCA:   cfg.LedgerCAFile,
+		})
+		if err != nil {
+			return fmt.Errorf("ledger submit client: %w", err)
+		}
+	}
+
 	srv, err := api.NewServer(api.Config{
 		Addr:          cfg.ListenAddr,
 		TLSCertFile:   cfg.Auth.TLSCertFile,
@@ -301,6 +322,9 @@ func run(argv []string, d deps) error {
 		ReadyzChecks:  readyzChecks,
 		Exchange: exchange.ServerConfig{
 			LedgerEndpoint:        cfg.LedgerEndpoint,
+			LedgerCert:            cfg.LedgerCertFile,
+			LedgerKey:             cfg.LedgerKeyFile,
+			LedgerCA:              cfg.LedgerCAFile,
 			ArtifactStoreEndpoint: cfg.ArtifactStoreEndpoint,
 			VerificationEndpoint:  cfg.VerificationEndpoint,
 			KeyStore:              ks,
@@ -308,6 +332,12 @@ func run(argv []string, d deps) error {
 			NonceStores:           nonceStores,
 			LedgerBreaker:         ledgerBreaker,
 			LedgerMetrics:         ledgerMetrics,
+			// mTLS client for the exchange→ledger hop. nil when no cert/key are
+			// configured (dev/test against a plaintext ledger) — exchange falls
+			// back to the SDK's server-verify-only client in that case. In
+			// production this must be wired: the ledger's TLS listener refuses
+			// connections without a verified client cert.
+			LedgerSubmitClient: ledgerSubmitClient,
 			// Per-jurisdiction admission gate: cosignature policy +
 			// prerequisite walker on POST /v1/entries/submit, resolved
 			// from the same frozen Bundle registry. Without this the

@@ -116,6 +116,22 @@ type Operational struct {
 	ArtifactStoreEndpoint string `json:"artifact_store_endpoint,omitempty"`
 	VerificationEndpoint  string `json:"verification_endpoint"`
 
+	// LedgerCertFile / LedgerKeyFile / LedgerCAFile are the mTLS
+	// material the exchange presents to (and verifies against) the
+	// ledger. REQUIRED in production: the ledger's TLS listener
+	// refuses connections without a verified client cert
+	// (ledger/api/server.go::buildServerTLSConfig). Dev / test
+	// deployments pointed at a plaintext ledger (LedgerEndpoint
+	// starting with "http://") leave these empty.
+	//
+	// LedgerCAFile pins server verification to the configured CA
+	// bundle; empty falls back to the system pool (NOT recommended
+	// — pin the CA in production so a compromised root in the
+	// system pool can't substitute for the ledger).
+	LedgerCertFile string `json:"ledger_cert_file,omitempty"`
+	LedgerKeyFile  string `json:"ledger_key_file,omitempty"`
+	LedgerCAFile   string `json:"ledger_ca_file,omitempty"`
+
 	// SmartContractWallet configures multi-chain EIP-1271 K-of-N
 	// executor consensus (one quorum per onboarded EVM chain). Zero
 	// value (Enabled=false) → EOA-only verification (did:key +
@@ -536,6 +552,15 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_LEDGER_ENDPOINT"); v != "" {
 		cfg.LedgerEndpoint = v
+	}
+	if v := os.Getenv("API_LEDGER_CERT_FILE"); v != "" {
+		cfg.LedgerCertFile = v
+	}
+	if v := os.Getenv("API_LEDGER_KEY_FILE"); v != "" {
+		cfg.LedgerKeyFile = v
+	}
+	if v := os.Getenv("API_LEDGER_CA_FILE"); v != "" {
+		cfg.LedgerCAFile = v
 	}
 	if v := os.Getenv("API_ARTIFACT_STORE_ENDPOINT"); v != "" {
 		cfg.ArtifactStoreEndpoint = v
