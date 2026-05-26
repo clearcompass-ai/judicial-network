@@ -546,21 +546,29 @@ func proposalTypeFromString(s string) lifecycle.ProposalType {
 	}
 }
 
-// ledgerSubmitClient is package-level so all 4 submit-to-ledger
-// sites share the SDK's tuned transport: MaxIdleConnsPerHost=100
-// (vs stdlib 2) plus the RetryAfterRoundTripper that honors the
-// ledger's WAL-pressure 503 + Retry-After responses transparently.
-// One client, one conn pool, one retry policy — no behavior drift
-// across the 4 sites.
+// defaultLedgerSubmitClient is the fallback when Dependencies.LedgerSubmitClient
+// is nil. It uses the SDK's tuned transport (MaxIdleConnsPerHost=100 vs stdlib
+// 2) plus the RetryAfterRoundTripper that honors the ledger's WAL-pressure 503
+// + Retry-After responses transparently. NO TLS material — server-verify only.
 //
-//	ships api/middleware/reliability.NewTunedClient as a
-//
-// MaxConnsPerHost-capped alternative (256 idle / 1024 max). Wiring
-// it here requires composing it with sdklog.RetryAfterRoundTripper
-// so ledger-backpressure handling is preserved; deferred until
-// the SDK exposes the round-tripper as a RoundTripper-compatible
-// wrapper around an arbitrary inner Transport.
-var ledgerSubmitClient = sdklog.DefaultClient(30 * time.Second)
+// Production deployments MUST populate Dependencies.LedgerSubmitClient with a
+// client built via reliability.NewMTLSClient (cert+key+CA from
+// ServerConfig.Ledger{Cert,Key,CA}) so the exchange→ledger hop carries the
+// exchange's client cert. The ledger refuses connections without one (see
+// ledger/api/server.go::buildServerTLSConfig).
+var defaultLedgerSubmitClient = sdklog.DefaultClient(30 * time.Second)
+
+// ledgerSubmitClientFor returns the per-request client: the one wired into
+// Dependencies (mTLS-enabled in production) or the package-level fallback when
+// Dependencies is missing it (tests / pre-cert dev). Centralising this
+// selection keeps the chokepoint intact — every submit-to-ledger path resolves
+// the client identically.
+func ledgerSubmitClientFor(deps *Dependencies) *http.Client {
+	if deps != nil && deps.LedgerSubmitClient != nil {
+		return deps.LedgerSubmitClient
+	}
+	return defaultLedgerSubmitClient
+}
 
 // submitToLedger posts signed canonical wire bytes to the ledger's
 // /v1/entries endpoint via the SDK-tuned client. Every submit-to-ledger site
@@ -590,7 +598,7 @@ func submitToLedger(w http.ResponseWriter, deps *Dependencies, signed []byte) {
 		}
 		req.Header.Set(WriteAuthHeader, hdr)
 	}
-	resp, err := ledgerSubmitClient.Do(req)
+	resp, err := ledgerSubmitClientFor(deps).Do(req)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "ledger unreachable")
 		return

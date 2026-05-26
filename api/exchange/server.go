@@ -34,6 +34,7 @@ import (
 	"os"
 	"time"
 
+	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
@@ -97,6 +98,15 @@ type ServerConfig struct {
 	// attach (ungated logs / tests). main.go wires it from
 	// API_ADMISSION_AUTHORITY_KEY_FILE (the JN's on-log admission EOA).
 	AdmissionAuthorizer *handlers.AdmissionAuthorizer
+
+	// LedgerSubmitClient is the HTTP client the exchange uses to POST entries
+	// to LedgerEndpoint. Production deployments wire a mutually-authenticated
+	// client built from LedgerCert / LedgerKey / LedgerCA via
+	// BuildLedgerSubmitClient (this package). nil falls back to the SDK's
+	// server-verify-only default — acceptable for tests / pre-cert dev, NOT
+	// for production. The ledger refuses non-mTLS connections (see
+	// ledger/api/server.go::buildServerTLSConfig).
+	LedgerSubmitClient *http.Client
 }
 
 // NewBundleSubmitGate builds the production per-jurisdiction submit
@@ -132,6 +142,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		LedgerMetrics:         cfg.LedgerMetrics,
 		SubmitGate:            cfg.SubmitGate,
 		AdmissionAuthorizer:   cfg.AdmissionAuthorizer,
+		LedgerSubmitClient:    cfg.LedgerSubmitClient,
 	}
 
 	mux := http.NewServeMux()
@@ -221,6 +232,35 @@ func (s *Server) Start() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
+}
+
+// BuildLedgerSubmitClient constructs the mutually-authenticated HTTP client
+// the exchange uses to POST entries to the ledger. It pairs the SDK's
+// retry-aware transport (RetryAfterRoundTripper) with the production-tuned
+// connection pool and the exchange's client cert/key + the ledger's CA.
+//
+// Returns (nil, err) on any TLS-material failure: missing cert, missing key,
+// unparseable CA, mismatched keypair. main.go is expected to fail startup
+// rather than fall back to plaintext — the ledger's transport-layer mTLS
+// requirement makes plaintext fallback an immediate connect failure anyway.
+//
+// Callers that want a server-verify-only client (tests / pre-cert dev) leave
+// ServerConfig.LedgerCert / LedgerKey empty and the BuildHandler caller passes
+// nil into Dependencies.LedgerSubmitClient — the fallback path in
+// handlers.ledgerSubmitClientFor handles that case.
+func BuildLedgerSubmitClient(cfg ServerConfig) (*http.Client, error) {
+	c, err := reliability.NewMTLSClient(
+		reliability.ClientConfig{Timeout: 30 * time.Second},
+		sdklog.ClientTLSConfig{
+			ClientCertFile: cfg.LedgerCert,
+			ClientKeyFile:  cfg.LedgerKey,
+			RootCAFile:     cfg.LedgerCA,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func buildTLSConfig(caFile string) (*tls.Config, error) {

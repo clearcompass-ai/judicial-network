@@ -157,6 +157,16 @@ type Dependencies struct {
 	KeyStore              keystore.KeyStore
 	Index                 *index.LogIndex
 
+	// LedgerSubmitClient is the HTTP client used by submitToLedger to
+	// POST entries to LedgerEndpoint. When nil, the package-level
+	// default client is used (no mTLS, SDK retry semantics only) —
+	// matches the pre-mTLS posture for tests and pre-cert dev. When
+	// non-nil, every submit-to-ledger path uses this client; production
+	// wires a *http.Client built via reliability.NewMTLSClient
+	// (cert+key+CA from ServerConfig.Ledger{Cert,Key,CA}) so the
+	// transport carries the exchange's client cert.
+	LedgerSubmitClient *http.Client
+
 	// ScopeChecker authorizes every build/full request BEFORE the
 	// exchange invokes its key custody. nil → AllowAllScopeChecker
 	// (tests / pre-roster deployments). Production wires an
