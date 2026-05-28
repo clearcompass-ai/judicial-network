@@ -230,7 +230,7 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	for i, s := range cfg.Witness.Sets {
 		specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
 	}
-	return crosslog.BuildWitnessSets(specs, networkID)
+	return crosslog.BuildWitnessSetsECDSAOnly(specs, networkID)
 }
 
 // loadBootstrapDoc reads + parses the network bootstrap document. It is the
