@@ -56,6 +56,7 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	"github.com/clearcompass-ai/attesta-tools/libs/sdkguard"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
@@ -217,6 +218,15 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("judicial deps: %w", err)
 	}
 
+	// T7: assert the v1.32+ authoritative resolver is properly populated
+	// when present. In strict mode (ATTESTA_FAIL_ON_PLAINTEXT_FALLBACK=true)
+	// a misconfigured resolver panics at boot rather than at first lookup;
+	// no-op in dev. Skip when the resolver is nil (no bootstrap configured,
+	// dev / pre-cert deployments).
+	if judicialDeps.AuthoritativeResolver != nil {
+		sdkguard.AssertResolverPopulated(judicialDeps.AuthoritativeResolver, "jn-authoritative-resolver")
+	}
+
 	// Bind api/judicial's caller-DID resolver to the composer's
 	// auth-set callerDID. Without this hook the judicial handlers
 	// never see the authenticated caller — every request 401s. The
@@ -248,8 +258,10 @@ func run(argv []string, d deps) error {
 	// each event (envelope + finding proof) against JN-local trust, and advance
 	// JN's trusted view. The JN hosts NO durable store and serves NO feed —
 	// custody of evidence is the external auditor's role (Separation of Duties).
-	// nil when GossipIngest is disabled / has no peers.
-	gossipPuller, trustedHeads, err := buildGossipIngest(cfg, sigVerifier, slog.Default())
+	// nil when GossipIngest is disabled / has no peers. judicialDeps is passed
+	// in so the reconciler can install the v1.33.x auditor-scope gate inputs
+	// (AuditorRegistry, AuditorAmendments, AuditorScopeAsOf).
+	gossipPuller, trustedHeads, _, err := buildGossipIngest(cfg, sigVerifier, judicialDeps, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
 	}
