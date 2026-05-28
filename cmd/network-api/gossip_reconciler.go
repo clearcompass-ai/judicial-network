@@ -50,6 +50,7 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
+	"github.com/clearcompass-ai/judicial-network/api/judicial"
 )
 
 // buildGossipIngest assembles the inbound, verify-only pull pipeline from
@@ -57,27 +58,34 @@ import (
 // ingest is disabled or no peers are configured. Returns an error only on a
 // misconfiguration that should abort boot (enabled but no bootstrap/network
 // identity, or a signature verifier that cannot back an originator check).
+//
+// judicialDeps threads the v1.33.x auditor-scope inputs (AuditorRegistry,
+// AuditorAmendments, AuditorScopeAsOf) into the Reconciler so a verified
+// finding emitted by an out-of-scope auditor is rejected before it can
+// advance JN's trusted view. nil slices leave the reconciler in pre-v1.33
+// behaviour (every verified finding advances).
 func buildGossipIngest(
 	cfg config.Operational,
 	sigVerifier attestation.SignatureVerifier,
+	judicialDeps judicial.Dependencies,
 	logger *slog.Logger,
-) (*peers.PeerPuller, *monitoring.TrustedHeadStore, error) {
+) (*peers.PeerPuller, *monitoring.TrustedHeadStore, *monitoring.Reconciler, error) {
 	if !cfg.GossipIngest.Enabled || len(cfg.GossipIngest.Peers) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
 	if cfg.NetworkBootstrapFile == "" {
-		return nil, nil, fmt.Errorf("gossip ingest enabled but NetworkBootstrapFile is empty (envelope + witness verification need the network ID)")
+		return nil, nil, nil, fmt.Errorf("gossip ingest enabled but NetworkBootstrapFile is empty (envelope + witness verification need the network ID)")
 	}
 	networkID, err := loadNetworkID(cfg.NetworkBootstrapFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load network id: %w", err)
+		return nil, nil, nil, fmt.Errorf("load network id: %w", err)
 	}
 	witnessSets, err := buildWitnessSets(cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("build witness sets: %w", err)
+		return nil, nil, nil, fmt.Errorf("build witness sets: %w", err)
 	}
 
 	// The originator (envelope) + signer verifiers are the SAME DID
@@ -86,11 +94,11 @@ func buildGossipIngest(
 	// registry; the admission gate hands it back as the interface.
 	registry, ok := sigVerifier.(*did.VerifierRegistry)
 	if !ok {
-		return nil, nil, fmt.Errorf("gossip ingest requires a *did.VerifierRegistry signature verifier, got %T", sigVerifier)
+		return nil, nil, nil, fmt.Errorf("gossip ingest requires a *did.VerifierRegistry signature verifier, got %T", sigVerifier)
 	}
 	originator, err := gossip.NewDIDOriginatorVerifier(registry)
 	if err != nil {
-		return nil, nil, fmt.Errorf("originator verifier: %w", err)
+		return nil, nil, nil, fmt.Errorf("originator verifier: %w", err)
 	}
 
 	witnessRegistry := gossipverify.NewWitnessSetRegistry(witnessSets, networkID)
@@ -107,7 +115,7 @@ func buildGossipIngest(
 		}
 		htm, terr := gossipverify.NewHTTPTileMirrors(mirrors, nil)
 		if terr != nil {
-			return nil, nil, fmt.Errorf("tile mirrors: %w", terr)
+			return nil, nil, nil, fmt.Errorf("tile mirrors: %w", terr)
 		}
 		tiles = htm
 	}
@@ -121,9 +129,14 @@ func buildGossipIngest(
 		Tiles:          tiles,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("gossip verifier: %w", err)
+		return nil, nil, nil, fmt.Errorf("gossip verifier: %w", err)
 	}
 
+	// v1.33.x auditor-scope gate. nil registry leaves the reconciler in
+	// pre-v1.33 behaviour (no scope check); cfg.Validate guarantees an
+	// Enforce=true config arrives here with a populated registry slice.
+	// AuditorScopeAsOf is the closure that resolves the as-of position
+	// for scope merging at finding-handling time.
 	reconciler, err := monitoring.NewReconciler(monitoring.ReconcilerConfig{
 		Verifier: verifier,
 		Heads:    heads,
@@ -133,11 +146,14 @@ func buildGossipIngest(
 		// The witness-set registry IS the rotator: a Tier-2-verified
 		// WitnessRotationFinding advances the live trust root (verify-before-
 		// swap, standing quorum).
-		Rotator: witnessRegistry,
-		Logger:  logger,
+		Rotator:           witnessRegistry,
+		Logger:            logger,
+		AuditorRegistry:   judicialDeps.AuditorRegistry,
+		AuditorAmendments: judicialDeps.AuditorAmendments,
+		AuditorScopeAsOf:  judicialDeps.AuditorScopeAsOf,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("reconciler: %w", err)
+		return nil, nil, nil, fmt.Errorf("reconciler: %w", err)
 	}
 
 	feeds := make([]peers.PeerFeed, len(cfg.GossipIngest.Peers))
@@ -152,9 +168,11 @@ func buildGossipIngest(
 		Logger:    logger,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// heads is returned so the API server can surface the verify-only trusted
 	// view read-only (GET /v1/judicial/monitoring/peer-consistency).
-	return puller, heads, nil
+	// reconciler is returned so a SIGHUP handler (D13, optional) can call
+	// RefreshRegistry()/RefreshAmendments() to hot-reload the gate inputs.
+	return puller, heads, reconciler, nil
 }

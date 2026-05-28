@@ -172,6 +172,61 @@ type Operational struct {
 	// Disabled by default; the on-demand /v1/judicial/monitoring/* HTTP
 	// endpoints remain available regardless.
 	Monitoring MonitoringConfig `json:"monitoring"`
+
+	// AuditorScope configures the v1.33.x auditor-scope gate. The gate
+	// rejects gossip findings emitted by an auditor outside its current
+	// registered scope (network.AuditorRegistration.Scope), so a slasher
+	// can't claim cross-log inclusion authority when its registration
+	// only covers equivocation. Off by default for backward compat with
+	// pre-v1.33 deployments; flip Enforce=true once registry + amendment
+	// files are provisioned.
+	AuditorScope AuditorScopeConfig `json:"auditor_scope"`
+
+	// URLDriftInterval configures the periodic URL-drift audit (libs/
+	// monitoring/url_drift_audit.go). Zero (the default) disables the
+	// job. When non-zero AND the resolver inputs are populated AND
+	// LocalLogDID is set, the scheduler registers a `url_drift_audit`
+	// job that walks WitnessEndpointDeclaration + AuditorRegistration
+	// records and emits alerts when an endpoint URL drifts from its
+	// most-recent on-log declaration. Env: API_URL_DRIFT_INTERVAL.
+	URLDriftInterval time.Duration `json:"url_drift_interval,omitempty"`
+}
+
+// AuditorScopeConfig configures the v1.33.x auditor-scope gate.
+//
+// The scope gate refuses to advance JN's trusted view from a gossip
+// finding whose Kind falls outside the emitting auditor's current
+// registered Scope. Two file-pointed inputs feed the gate:
+//
+//   - RegistryFile: JSON-encoded []network.AuditorRegistrationRecord
+//     (the on-log registrations). Required when Enforce=true.
+//   - AmendmentFile: JSON-encoded []network.AuditorScopeAmendmentRecord
+//     (optional scope amendments that override an auditor's
+//     registered Scope as of a specific log position). Optional
+//     independently of Enforce: an empty amendments slice is valid.
+//
+// Both files mirror the attesta-tools auditor service's
+// AUDITOR_REGISTRY_FILE / AUDITOR_AMENDMENT_FILE shape — same JSON,
+// same sort discipline (ascending by EffectivePos).
+//
+// Validate enforces: Enforce=true && RegistryFile=="" → boot-fast-fail
+// with "refusing to boot with a silent scope-gate downgrade."
+type AuditorScopeConfig struct {
+	// Enforce gates the whole reconciler-side scope check. False (the
+	// default) leaves the reconciler in pre-v1.33 behaviour: every
+	// verified finding advances the trusted view regardless of scope.
+	// Env: API_ENFORCE_SCOPES.
+	Enforce bool `json:"enforce,omitempty"`
+
+	// RegistryFile is the path to a JSON file holding the on-log
+	// auditor registrations (sorted by EffectivePos ascending). Required
+	// when Enforce=true. Env: API_AUDITOR_REGISTRY_FILE.
+	RegistryFile string `json:"registry_file,omitempty"`
+
+	// AmendmentFile is the path to a JSON file holding scope amendments
+	// (sorted by EffectivePos ascending). Optional independent of
+	// Enforce. Env: API_AUDITOR_AMENDMENT_FILE.
+	AmendmentFile string `json:"amendment_file,omitempty"`
 }
 
 // MonitoringConfig configures the scheduled-audit engine. A check job
@@ -218,9 +273,9 @@ type SealingAuditConfig struct {
 	ScanCount    int    `json:"scan_count,omitempty"`
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Gossip ingest (inbound anti-entropy)
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // GossipIngestConfig configures the inbound gossip pull loop. Witness sets
 // (the trust root for verifying pulled CosignedTreeHead / equivocation
@@ -303,9 +358,9 @@ type TileMirrorConfig struct {
 	BaseURL string `json:"base_url"`
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Witness
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // WitnessConfig configures the binary's witness wiring:
 //
@@ -376,9 +431,9 @@ type WitnessSetConfig struct {
 	QuorumK int `json:"quorum_k"`
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // KeyStore
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // KeyStoreBackend names the deployment-time custody backend for
 // signing keys. Stable string values for env / JSON.
@@ -430,9 +485,9 @@ type VaultConfig struct {
 	KeyName   string `json:"key_name"`   // e.g., "exchange-davidson-signer-1"
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // NonceStore
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // NonceStoreBackend names the deployment-time nonce-store backend for
 // signed-request replay protection. Stable string values for env /
@@ -457,14 +512,14 @@ type NonceStoreOpConfig struct {
 
 	// Redis-only fields. Empty/ignored for memory backend.
 	RedisAddr      string `json:"redis_addr,omitempty"`
-	RedisPassword  string `json:"redis_password,omitempty"`
+	RedisPassword string `json:"redis_password,omitempty"`
 	RedisDB        int    `json:"redis_db,omitempty"`
 	RedisKeyPrefix string `json:"redis_key_prefix,omitempty"`
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Auth
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // AuthMode names the deployment-time auth mode for the api/ surface.
 // Routing dispatch is ALWAYS payload-driven (entry.Header.Destination);
@@ -495,9 +550,9 @@ type AuthConfig struct {
 	TLSKeyFile  string `json:"tls_key_file,omitempty"`
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Loading
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // LoadFromFile reads a JSON file into an Operational, applying it on
 // top of Defaults(). Returns ErrInvalidConfig wrapped with the
@@ -633,6 +688,30 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 			cfg.Witness.QuorumK = n
 		}
 	}
+
+	// Auditor-scope gate (v1.33.x). Off by default; flip on once registry +
+	// amendment files are provisioned. Mirrors the attesta-tools auditor's
+	// AUDITOR_ENFORCE_SCOPES / AUDITOR_REGISTRY_FILE / AUDITOR_AMENDMENT_FILE
+	// env surface so one operator manifest drives both auditor and JN.
+	if b, ok := envBool("API_ENFORCE_SCOPES"); ok {
+		cfg.AuditorScope.Enforce = b
+	}
+	if v := os.Getenv("API_AUDITOR_REGISTRY_FILE"); v != "" {
+		cfg.AuditorScope.RegistryFile = v
+	}
+	if v := os.Getenv("API_AUDITOR_AMENDMENT_FILE"); v != "" {
+		cfg.AuditorScope.AmendmentFile = v
+	}
+
+	// URL-drift audit interval (libs/monitoring/url_drift_audit.go). Zero
+	// (the default) disables the job. Non-zero registers a `url_drift_audit`
+	// scheduler job when the resolver inputs are populated.
+	if v := os.Getenv("API_URL_DRIFT_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(strings.TrimSpace(v)); err == nil && d > 0 {
+			cfg.URLDriftInterval = d
+		}
+	}
+
 	return cfg
 }
 
@@ -652,9 +731,9 @@ func envBool(name string) (val, present bool) {
 	return b, true
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Validation
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // Validate enforces operational consistency at boot. Each rule is
 // independent; the first failure is returned with a descriptive
@@ -705,6 +784,24 @@ func (cfg Operational) Validate() error {
 	}
 	if err := cfg.SmartContractWallet.validate(); err != nil {
 		return err
+	}
+	if err := cfg.AuditorScope.validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validate enforces the boot-fast-fail rule for the auditor-scope gate:
+// Enforce=true && RegistryFile=="" is a misconfiguration. Without the
+// registry the reconciler has no way to learn which auditors are scoped
+// for which finding kinds, so enforcement would silently allow every
+// finding through — exactly the downgrade the gate exists to prevent.
+//
+// AmendmentFile is optional independent of Enforce: an empty amendments
+// slice is the legal "no amendments yet" state (registry-only scope).
+func (a AuditorScopeConfig) validate() error {
+	if a.Enforce && a.RegistryFile == "" {
+		return fmt.Errorf("%w: AuditorScope.Enforce=true but RegistryFile empty (refusing to boot with a silent scope-gate downgrade; set API_AUDITOR_REGISTRY_FILE)", ErrInvalidConfig)
 	}
 	return nil
 }

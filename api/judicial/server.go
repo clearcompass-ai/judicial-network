@@ -15,6 +15,8 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/did"
 	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/log/discover"
+	"github.com/clearcompass-ai/attesta/network"
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/attesta/types"
@@ -30,17 +32,17 @@ import (
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Errors
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // ErrInvalidRequest wraps every JSON-decode / required-field failure
 // surfaced from a handler. Maps to 400 Bad Request.
 var ErrInvalidRequest = errors.New("api/judicial: invalid request")
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Dependencies
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // Dependencies bundles every external interface the judicial handlers
 // share. Populated once at boot by the composer; injected into every
@@ -130,11 +132,48 @@ type Dependencies struct {
 	// the peer-consistency endpoint. Empty ⇒ enumerate nothing unless a
 	// ?source= filter is supplied.
 	TrustedSources []string
+
+	// AuditorRegistry is the on-log auditor registration snapshot used by
+	// the v1.33.x reconciler-side scope gate. Each record carries an
+	// AuditorDID, public key, Scope bitmap, and EffectivePos. Sorted
+	// ascending by EffectivePos. nil disables the gate (pre-v1.33
+	// behaviour: every verified finding advances the trusted view). Loaded
+	// at boot from cfg.AuditorScope.RegistryFile when present.
+	AuditorRegistry network.AuditorRegistrationByPosition
+
+	// AuditorAmendments is the on-log auditor scope-amendment snapshot
+	// (v1.33.x). Each record overrides an auditor's registered Scope as of
+	// a specific log position. Sorted ascending by EffectivePos. nil /
+	// empty is the legal "no amendments yet" state (registry-only scope).
+	// Loaded at boot from cfg.AuditorScope.AmendmentFile when present.
+	AuditorAmendments network.AuditorScopeAmendmentByPosition
+
+	// AuditorScopeAsOf returns the log position at which the reconciler
+	// resolves auditor scopes. Production reads the JN's most recent
+	// observed head; tests inject a fixed position. nil falls back to
+	// types.LogPosition{} (genesis), which resolves to each auditor's
+	// initial registration scope without any amendment overlay.
+	AuditorScopeAsOf func(context.Context) types.LogPosition
+
+	// AuthoritativeResolver is the v1.32+ unified endpoint resolver
+	// (constructed via crosslog.NewDefaultAuthoritativeResolver) that
+	// the JN holds for downstream lookups: ResolveLedger, ResolveWitness,
+	// ResolveAuditor, ResolvePeer. Populated at boot from the network
+	// bootstrap document + the same registry/amendments slices above.
+	// nil when no NetworkBootstrapFile is configured (dev / pre-cert
+	// deployments) — call sites then fall back to their bespoke discovery
+	// paths.
+	//
+	// The Materialized record slices (WitnessEndpointRecords,
+	// WitnessLabelRecords) start empty pending an on-log walker; the
+	// resolver still serves ResolveLedger from MirrorManifest and the
+	// auditor surfaces from AuditorRegistryRecords/AuditorScopeAmendmentRecords.
+	AuthoritativeResolver *discover.DefaultAuthoritativeResolver
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Server / BuildHandler / NewServer
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // ServerConfig configures the judicial service.
 type ServerConfig struct {
@@ -159,27 +198,27 @@ type Server struct {
 func BuildHandler(cfg ServerConfig) http.Handler {
 	mux := http.NewServeMux()
 
-	// ── Cases ────────────────────────────────────────────────────
+	// ── Cases ─────────────────────────────────────────────
 	registerCaseRoutes(mux, &cfg.Deps)
-	// ── Appeals ──────────────────────────────────────────────────
+	// ── Appeals ───────────────────────────────────────────
 	registerAppealsRoutes(mux, &cfg.Deps)
-	// ── Enforcement ──────────────────────────────────────────────
+	// ── Enforcement ───────────────────────────────────────
 	registerEnforcementRoutes(mux, &cfg.Deps)
-	// ── Parties ──────────────────────────────────────────────────
+	// ── Parties ───────────────────────────────────────────
 	registerPartiesRoutes(mux, &cfg.Deps)
-	// ── Onboarding ───────────────────────────────────────────────
+	// ── Onboarding ────────────────────────────────────────
 	registerOnboardingRoutes(mux, &cfg.Deps)
-	// ── Artifacts ────────────────────────────────────────────────
+	// ── Artifacts ─────────────────────────────────────────
 	registerArtifactRoutes(mux, &cfg.Deps)
-	// ── Verification (read-side) ─────────────────────────────────
+	// ── Verification (read-side) ─────────────────────────────
 	registerVerificationRoutes(mux, &cfg.Deps)
-	// ── Monitoring ───────────────────────────────────────────────
+	// ── Monitoring ────────────────────────────────────────
 	registerMonitoringRoutes(mux, &cfg.Deps)
-	// ── Consortium (federation) ─────────────────────────────────
+	// ── Consortium (federation) ──────────────────────────────
 	registerConsortiumRoutes(mux, &cfg.Deps)
 	// ── Delegation + Topology (operational stubs) ───────────────
 	registerDelegationTopologyRoutes(mux, &cfg.Deps)
-	// ── Escrow recovery ──────────────────────────────
+	// ── Escrow recovery ────────────────────────────────
 	registerEscrowRoutes(mux, &cfg.Deps)
 
 	// Health (stand-alone deployments). Composed mode shadows this
@@ -221,9 +260,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Shared helpers
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // callerDID extracts the authenticated caller's DID. Composer-level
 // auth (api/middleware) sets this; handlers call this once at the top
@@ -263,9 +302,9 @@ func SetCallerDIDResolver(fn func(*http.Request) string) {
 	middlewareCallerDID = func(r *http.Request) string { return fn(r) }
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Request/response envelope helpers
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // buildResponse is the canonical wire shape every handler returns on
 // successful build. Carries the signing payload (what the caller

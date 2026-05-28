@@ -176,15 +176,25 @@ func probeLedgerReachable(ctx context.Context, cfg config.Operational) error {
 // when EVERY configured check passes; missing checks neither
 // pass nor fail. With the artifact store left out (empty endpoint),
 // readiness gates on the ledger alone.
-func buildReadyzChecks(cfg config.Operational) []observability.ReadyCheck {
+//
+// readyzClient threads the binary's hoisted outbound *http.Client so
+// the probe shares the operator-chosen mTLS posture (libs/v1.29.0
+// CheckHTTPGet panics on nil to prevent silent demotion). When no
+// ledger cert/key is configured (dev / pre-cert deploys pointing at
+// plaintext), the hoisted client is nil and we fall back to
+// http.DefaultClient — matching the deployment's plaintext mode.
+func buildReadyzChecks(cfg config.Operational, readyzClient *http.Client) []observability.ReadyCheck {
+	if readyzClient == nil {
+		readyzClient = http.DefaultClient
+	}
 	var checks []observability.ReadyCheck
 	if cfg.LedgerEndpoint != "" {
 		checks = append(checks, observability.CheckHTTPGet(
-			"ledger", cfg.LedgerEndpoint+"/healthz"))
+			"ledger", cfg.LedgerEndpoint+"/healthz", readyzClient))
 	}
 	if cfg.ArtifactStoreEndpoint != "" {
 		checks = append(checks, observability.CheckHTTPGet(
-			"artifact_store", cfg.ArtifactStoreEndpoint+"/healthz"))
+			"artifact_store", cfg.ArtifactStoreEndpoint+"/healthz", readyzClient))
 	}
 	return checks
 }
@@ -195,19 +205,26 @@ func buildReadyzChecks(cfg config.Operational) []observability.ReadyCheck {
 //	mtls → middleware.MTLSAuth{} (composer's listener already verifies
 //	       the cert chain when ClientCAFile is set; this middleware
 //	       lifts the SAN URI DID into request context).
-//	jwt  → *middleware.JWTAuth fetched against cfg.JWKSURL.
+//	jwt  → *middleware.JWTAuth fetched against cfg.JWKSURL using the
+//	       supplied hoisted outbound client (libs/v1.29.0 JWTConfig
+//	       rejects a nil Client to prevent silent demotion from the
+//	       operator-chosen mTLS posture).
 //	""   → nil, nil (no auth; dev / single-process deployments).
 //
 // Any other Mode value is a config-validation failure and never
 // reaches here — config.Validate rejects unknown modes at boot.
-func buildAuthenticator(cfg config.AuthConfig) (middleware.Authenticator, error) {
+func buildAuthenticator(cfg config.AuthConfig, jwksClient *http.Client) (middleware.Authenticator, error) {
 	switch cfg.Mode {
 	case config.AuthModeMTLS:
 		return middleware.MTLSAuth{}, nil
 	case config.AuthModeJWT:
+		if jwksClient == nil {
+			jwksClient = http.DefaultClient
+		}
 		return middleware.NewJWTAuth(middleware.JWTConfig{
 			Issuer:  cfg.JWTIssuer,
 			JWKSURL: cfg.JWKSURL,
+			Client:  jwksClient,
 		})
 	case "":
 		return nil, nil

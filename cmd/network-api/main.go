@@ -56,6 +56,7 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	"github.com/clearcompass-ai/attesta-tools/libs/sdkguard"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
@@ -103,8 +104,9 @@ type deps struct {
 	// tests substitute a stub that authenticates with a fixed DID.
 	// Returning nil + nil means "no composer auth"; the composer
 	// then runs unwrapped (constituent handlers' own auth still
-	// applies).
-	newAuthenticator func(config.AuthConfig) (middleware.Authenticator, error)
+	// applies). The *http.Client is the hoisted outbound client used
+	// for JWKS fetches in JWT mode (libs/v1.29.0 requires non-nil).
+	newAuthenticator func(config.AuthConfig, *http.Client) (middleware.Authenticator, error)
 
 	// requireLedger enforces the JN's hard dependency on the ledger at
 	// boot: the network is an AUDITOR of a ledger and has no purpose
@@ -166,14 +168,6 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("keystore: %w", err)
 	}
 
-	// Construct the composer-level authenticator (mTLS or JWT) per
-	// cfg.Auth.Mode. nil return means "no composer auth"; the
-	// constituent handlers' own auth still applies.
-	authenticator, err := d.newAuthenticator(cfg.Auth)
-	if err != nil {
-		return fmt.Errorf("authenticator: %w", err)
-	}
-
 	// Exchange→ledger mTLS client: composed ONCE at boot so the entire
 	// outbound surface (admission write path AND judicial reads —
 	// /v1/log-info discovery, entry fetchers, query APIs, checkpoint
@@ -184,6 +178,10 @@ func run(argv []string, d deps) error {
 	// every SDK constructor falls back to its server-verify-only
 	// default. Production ledgers refuse non-mTLS connections at the
 	// transport layer (ledger/api/server.go::buildServerTLSConfig).
+	//
+	// Built BEFORE the authenticator so the JWT-mode JWKS fetch shares
+	// the same operator-chosen mTLS posture (libs/v1.29.0 JWTConfig
+	// rejects a nil Client to prevent silent demotion).
 	var ledgerSubmitClient *http.Client
 	if cfg.LedgerCertFile != "" || cfg.LedgerKeyFile != "" {
 		ledgerSubmitClient, err = exchange.BuildLedgerSubmitClient(exchange.ServerConfig{
@@ -196,6 +194,20 @@ func run(argv []string, d deps) error {
 		}
 	}
 
+	// Construct the composer-level authenticator (mTLS or JWT) per
+	// cfg.Auth.Mode. nil return means "no composer auth"; the
+	// constituent handlers' own auth still applies. JWT mode threads
+	// the hoisted outbound client (or http.DefaultClient in dev) into
+	// the JWKS fetcher.
+	authClient := ledgerSubmitClient
+	if authClient == nil {
+		authClient = http.DefaultClient
+	}
+	authenticator, err := d.newAuthenticator(cfg.Auth, authClient)
+	if err != nil {
+		return fmt.Errorf("authenticator: %w", err)
+	}
+
 	// Build the judicial-domain Dependencies. The composer mounts
 	// /v1/judicial/ regardless; the deps decide which handlers can
 	// actually fulfil their work vs. surface a clean 500 / 501. The
@@ -204,6 +216,15 @@ func run(argv []string, d deps) error {
 	judicialDeps, err := buildJudicialDeps(cfg, registry, ledgerSubmitClient)
 	if err != nil {
 		return fmt.Errorf("judicial deps: %w", err)
+	}
+
+	// T7: assert the v1.32+ authoritative resolver is properly populated
+	// when present. In strict mode (ATTESTA_FAIL_ON_PLAINTEXT_FALLBACK=true)
+	// a misconfigured resolver panics at boot rather than at first lookup;
+	// no-op in dev. Skip when the resolver is nil (no bootstrap configured,
+	// dev / pre-cert deployments).
+	if judicialDeps.AuthoritativeResolver != nil {
+		sdkguard.AssertResolverPopulated(judicialDeps.AuthoritativeResolver, "jn-authoritative-resolver")
 	}
 
 	// Bind api/judicial's caller-DID resolver to the composer's
@@ -237,8 +258,10 @@ func run(argv []string, d deps) error {
 	// each event (envelope + finding proof) against JN-local trust, and advance
 	// JN's trusted view. The JN hosts NO durable store and serves NO feed —
 	// custody of evidence is the external auditor's role (Separation of Duties).
-	// nil when GossipIngest is disabled / has no peers.
-	gossipPuller, trustedHeads, err := buildGossipIngest(cfg, sigVerifier, slog.Default())
+	// nil when GossipIngest is disabled / has no peers. judicialDeps is passed
+	// in so the reconciler can install the v1.33.x auditor-scope gate inputs
+	// (AuditorRegistry, AuditorAmendments, AuditorScopeAsOf).
+	gossipPuller, trustedHeads, _, err := buildGossipIngest(cfg, sigVerifier, judicialDeps, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
 	}
@@ -324,7 +347,7 @@ func run(argv []string, d deps) error {
 	// Priority 3 /readyz checks: ledger + artifact-store
 	// reachability via GET /healthz on each. k8s scrapes /readyz
 	// to gate traffic to a replica that can fulfill its job.
-	readyzChecks := buildReadyzChecks(cfg)
+	readyzChecks := buildReadyzChecks(cfg, ledgerSubmitClient)
 
 	// ledgerSubmitClient was built once at boot above (see the
 	// hoisted construction near buildJudicialDeps) so the exchange
@@ -450,9 +473,9 @@ func run(argv []string, d deps) error {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Boot helpers
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // loadConfig parses --config flag, loads the JSON file (if any),
 // applies env overrides, and validates. Returns the merged config.

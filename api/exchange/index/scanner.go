@@ -24,11 +24,14 @@ package index
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"time"
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	sdklog "github.com/clearcompass-ai/attesta/log"
+
+	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 )
 
 // Scanner reads entries sequentially from an ledger and feeds them
@@ -119,8 +122,28 @@ func (s *Scanner) scanBatch(ctx context.Context, fromPos uint64) (uint64, error)
 
 		signerDID := entry.Header.SignerDID
 
-		// Index by signer DID.
+		// Index by signer DID — every entry contributes regardless of kind.
 		s.store.AddDIDMapping(s.logID, signerDID, pos)
+
+		// T8: kind-discriminate the domain payload. Network-walker entries
+		// (witness endpoints, witness labels, auditor registrations,
+		// auditor scope amendments) are NOT case data — they're admin-
+		// surface records for the resolver. Skip the per-case index
+		// (docket_number / artifact_cid) for them. ErrMalformedNetworkPayload
+		// is logged + skipped (the operator has a structural bug to fix).
+		// nil / nil from DecodeNetworkEntry means "not a network kind" —
+		// fall through to the regular per-case indexer.
+		decoded, dErr := crosslog.DecodeNetworkEntry(entry.DomainPayload)
+		if dErr != nil {
+			if errors.Is(dErr, crosslog.ErrMalformedNetworkPayload) {
+				log.Printf("index/scanner: malformed network payload at pos %d: %v", pos, dErr)
+			}
+			continue
+		}
+		if decoded != nil {
+			// Network entry — no per-case indexing, just count under signer.
+			continue
+		}
 
 		// Parse Domain Payload for domain-specific fields.
 		s.indexDomainPayload(pos, entry.DomainPayload)

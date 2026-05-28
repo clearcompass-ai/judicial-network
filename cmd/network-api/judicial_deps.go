@@ -64,6 +64,7 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/did"
 	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/clearcompass-ai/attesta/log/discover"
 	sdknetwork "github.com/clearcompass-ai/attesta/network"
 	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/attesta/types"
@@ -134,6 +135,19 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, 
 		return judicial.Dependencies{}, fmt.Errorf("artifact content store: %w", err)
 	}
 
+	// Auditor-scope inputs for the v1.33.x reconciler-side scope gate.
+	// Boot-fast-fail on a malformed file (sort discipline + JSON shape) so
+	// the binary refuses to install a partial snapshot. Empty paths leave
+	// the slices nil — the reconciler then runs in pre-v1.33 behaviour.
+	auditorRegistry, err := loadAuditorRegistry(cfg.AuditorScope.RegistryFile)
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("load auditor registry: %w", err)
+	}
+	auditorAmendments, err := loadAuditorAmendments(cfg.AuditorScope.AmendmentFile)
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("load auditor amendments: %w", err)
+	}
+
 	deps := judicial.Dependencies{
 		Registry:     registry,
 		Extractor:    schemas.NewRegistry(),
@@ -145,6 +159,15 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, 
 		// sets are configured → cross-log handlers surface 503 with a clear
 		// "no witness set for source_log_did" error.
 		WitnessSets: witnessSets,
+		// v1.33.x auditor-scope gate inputs. Both nil when the operator
+		// hasn't provisioned the files; the reconciler then runs without
+		// scope enforcement (legal pre-v1.33 behaviour). cfg.Validate
+		// guarantees Enforce=true comes with a non-empty RegistryFile, so
+		// any (Enforce=true, registry=nil) at this point is a load failure
+		// already surfaced above.
+		AuditorRegistry:   auditorRegistry,
+		AuditorAmendments: auditorAmendments,
+		AuditorScopeAsOf:  buildAuditorScopeAsOf(cfg),
 	}
 
 	if cfg.LedgerEndpoint == "" {
@@ -200,7 +223,124 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, 
 		return judicial.Dependencies{}, fmt.Errorf("build checkpoint client: %w", err)
 	}
 	deps.CheckpointClient = cpClient
+
+	// v1.32+ authoritative resolver. Constructed AFTER the auditor records are
+	// loaded (D2) and the DID resolver is built (above) so it can hold the
+	// fully-populated record slices + the JN's mTLS-aware DID fallback.
+	// Returns (nil, nil) when no bootstrap is configured — the resolver becomes
+	// nil-on-deps and call sites that need it fall back to their bespoke
+	// discovery paths (currently: gossip ingest derivation in main.go).
+	authResolver, err := buildAuthoritativeResolver(cfg, auditorRegistry, auditorAmendments, resolver)
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("build authoritative resolver: %w", err)
+	}
+	deps.AuthoritativeResolver = authResolver
 	return deps, nil
+}
+
+// buildAuthoritativeResolver constructs the v1.32+ unified endpoint resolver
+// (*discover.DefaultAuthoritativeResolver) used by downstream lookups
+// (ResolveLedger, ResolveAuditor, ResolveWitness, ResolvePeer). Returns
+// (nil, nil) when cfg.NetworkBootstrapFile is empty — that's the dev /
+// pre-cert posture in which the resolver remains nil and call sites use
+// bespoke discovery (e.g., cmd/network-api/judicial_deps.go's
+// discoverLedgerOriginator) until a bootstrap is provisioned.
+//
+// The Materialized record slices for Witness Endpoints + Labels start
+// EMPTY pending an on-log walker; the resolver still serves ResolveLedger
+// from MirrorManifest and ResolveAuditor from the file-loaded auditor
+// registry + amendments. When a JN-side on-log walker lands (D2 follow-up),
+// inject its populated slices into Materialized.{Endpoints, Labels} and the
+// resolver returns the new records without any other wiring change.
+//
+// DIDFallback wires the JN's DID resolver (web/key/pkh router) so the
+// resolver can fall through to off-log DID resolution when the on-log
+// records lack an answer. Policy defaults to FallbackDisabled (the
+// high-assurance posture); operators wanting advisory cross-check or
+// permitted fallthrough flip the env knob.
+func buildAuthoritativeResolver(
+	cfg config.Operational,
+	auditorRegistry sdknetwork.AuditorRegistrationByPosition,
+	auditorAmendments sdknetwork.AuditorScopeAmendmentByPosition,
+	didFallback did.DIDResolver,
+) (*discover.DefaultAuthoritativeResolver, error) {
+	if cfg.NetworkBootstrapFile == "" {
+		return nil, nil
+	}
+	doc, err := loadBootstrapDoc(cfg.NetworkBootstrapFile)
+	if err != nil {
+		return nil, fmt.Errorf("load bootstrap: %w", err)
+	}
+	if doc.ExchangeDID == "" {
+		return nil, nil
+	}
+
+	// MirrorManifest.LogDID identifies the network the resolver serves.
+	// Mirrors[] lists the URL surfaces this log offers (entries/tiles/
+	// bundles). For dev / single-ledger deployments this is the one
+	// cfg.LedgerEndpoint serving entry reads.
+	manifest := discover.MirrorManifest{LogDID: doc.ExchangeDID}
+	if cfg.LedgerEndpoint != "" {
+		manifest.Mirrors = []discover.MirrorEntry{
+			{URL: cfg.LedgerEndpoint, Kind: discover.MirrorKindEntries, Source: "bootstrap"},
+		}
+	}
+
+	// LogWitnessSets is the LOG-DID → PubKeyID list map ResolveWitness
+	// consults for the per-log witness fallback path. Build from the
+	// SAME witness specs the cosign side uses (cfg.Witness.Sets). When
+	// Sets is empty, the JN runs without per-log witness records — the
+	// resolver still serves ResolveLedger from MirrorManifest.
+	logWitnessSets := map[string][][32]byte{}
+	if len(cfg.Witness.Sets) > 0 {
+		specs := make([]crosslog.WitnessSetSpec, len(cfg.Witness.Sets))
+		for i, s := range cfg.Witness.Sets {
+			specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
+		}
+		logWitnessSets, err = crosslog.BuildLogWitnessSets(specs)
+		if err != nil {
+			return nil, fmt.Errorf("build log witness sets: %w", err)
+		}
+	}
+
+	return crosslog.NewDefaultAuthoritativeResolver(crosslog.ResolverInputs{
+		MirrorManifest: manifest,
+		Materialized: crosslog.MaterializedNetwork{
+			Auditors:   auditorRegistry,
+			Amendments: auditorAmendments,
+			// Endpoints + Labels start empty; populate from an on-log
+			// walker when one lands (T8 + future).
+		},
+		LogWitnessSets:    logWitnessSets,
+		DIDFallback:       didFallback,
+		DIDFallbackPolicy: discover.FallbackDisabled,
+	})
+}
+
+// buildAuditorScopeAsOf returns the closure the reconciler invokes per
+// finding to determine the log position at which auditor scopes are
+// resolved. For v1.33.x adoption, JN uses the bootstrap's exchange_did
+// (when configured) paired with sequence 0 — i.e., "as-of genesis."
+// This resolves to each auditor's INITIAL registration scope without
+// any amendment overlay, which is the conservative pre-on-log-walker
+// behaviour. When the JN gains an on-log walker that tracks its own
+// observed head, swap this closure for one that returns the walker's
+// most recent position so amendments flow through automatically.
+//
+// nil is returned when the bootstrap LogDID isn't resolvable — the
+// reconciler then falls back to its built-in default (also genesis).
+func buildAuditorScopeAsOf(cfg config.Operational) func(context.Context) types.LogPosition {
+	if cfg.NetworkBootstrapFile == "" {
+		return nil
+	}
+	doc, err := loadBootstrapDoc(cfg.NetworkBootstrapFile)
+	if err != nil || doc.ExchangeDID == "" {
+		return nil
+	}
+	logDID := doc.ExchangeDID
+	return func(_ context.Context) types.LogPosition {
+		return types.LogPosition{LogDID: logDID, Sequence: 0}
+	}
 }
 
 // buildWitnessSets resolves cfg.Witness.Sets into the per-source-log
@@ -230,7 +370,7 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	for i, s := range cfg.Witness.Sets {
 		specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
 	}
-	return crosslog.BuildWitnessSets(specs, networkID)
+	return crosslog.BuildWitnessSetsECDSAOnly(specs, networkID)
 }
 
 // loadBootstrapDoc reads + parses the network bootstrap document. It is the

@@ -33,6 +33,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/witness"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	jnmon "github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
@@ -96,6 +97,25 @@ func buildMonitoringScheduler(
 			Run:      sealingJob(deps, m.Sealing),
 		}); err != nil {
 			return nil, err
+		}
+	}
+
+	// D12 — URL drift audit (libs v1.29.0 monitoring.CheckURLDrift). Registers
+	// only when ALL four conditions are met: URLDriftInterval > 0, the
+	// AuthoritativeResolver is populated, the DID resolver is wired, and the
+	// bootstrap LocalLogDID is known. Mirrors the attesta-tools auditor's
+	// 4-condition gate (services/auditor/internal/app/app.go) — any missing
+	// piece silently disables the job (it's purely advisory).
+	if cfg.URLDriftInterval > 0 && deps.AuthoritativeResolver != nil && deps.Resolver != nil {
+		localLogDID := deps.AuthoritativeResolver.MirrorManifest.LogDID
+		if localLogDID != "" {
+			if err := sched.Register(jnmon.Job{
+				Name:     "url_drift_audit",
+				Interval: cfg.URLDriftInterval,
+				Run:      urlDriftJob(deps, localLogDID),
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -167,6 +187,36 @@ func anchorJob(deps judicial.Dependencies, specs []config.AnchorAuditConfig) jnm
 			all = append(all, alerts...)
 		}
 		return all, errs
+	}
+}
+
+// urlDriftJob runs one URL drift audit cycle per scheduler tick. The
+// MaterializedSource closure reads the AuthoritativeResolver's CURRENT
+// record slices — when an on-log walker lands and pushes new records into
+// the resolver, the next tick picks them up without re-registering the job.
+// Today (no walker) the closure returns a snapshot built from the file-
+// loaded auditor registry + amendments, so the audit cross-checks the
+// FindingsURLs against the DID resolver. Empty Endpoints + Labels yields a
+// best-effort audit until the walker lands.
+func urlDriftJob(deps judicial.Dependencies, localLogDID string) jnmon.JobFunc {
+	source := func(_ context.Context) (crosslog.MaterializedNetwork, error) {
+		// Read live record slices off the resolver so a future on-log
+		// walker that swaps in new records (via SDK-internal mutation
+		// or via a JN re-construct path) is picked up next tick.
+		r := deps.AuthoritativeResolver
+		return crosslog.MaterializedNetwork{
+			Endpoints:  r.WitnessEndpointRecords,
+			Labels:     r.WitnessLabelRecords,
+			Auditors:   r.AuditorRegistryRecords,
+			Amendments: r.AuditorScopeAmendmentRecords,
+		}, nil
+	}
+	return func(ctx context.Context) ([]monitoring.Alert, error) {
+		return jnmon.CheckURLDrift(ctx, jnmon.URLDriftAuditConfig{
+			LocalLogDID:        localLogDID,
+			MaterializedSource: source,
+			Resolver:           deps.Resolver,
+		}, slog.Default(), time.Now().UTC())
 	}
 }
 

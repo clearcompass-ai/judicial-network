@@ -23,11 +23,15 @@ package load_accounting
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/types"
+
+	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 )
 
 // SettlementLedger records per-member usage between two tree head
@@ -54,7 +58,14 @@ type MemberUsage struct {
 	SchemaCount     uint64 `json:"schema_count"`
 	CommentaryCount uint64 `json:"commentary_count"`
 	AmendmentCount  uint64 `json:"amendment_count"`
-	OtherCount      uint64 `json:"other_count"`
+	// NetworkCount counts v1.32+ network-walker entries (witness
+	// endpoint declarations, witness identity labels, auditor
+	// registrations, auditor scope amendments) the signer published.
+	// Distinct from AmendmentCount (which is JN-domain authority-scope
+	// amendments) — network records are admin surfaces, not member
+	// case load.
+	NetworkCount uint64 `json:"network_count"`
+	OtherCount   uint64 `json:"other_count"`
 }
 
 // Aggregator computes settlement ledgers from log scans.
@@ -95,6 +106,33 @@ func (a *Aggregator) ComputeSettlement(ctx context.Context, startPos, endPos uin
 		}
 		signerDID := entry.Header.SignerDID
 		usage := ledger.ensureMember(signerDID)
+
+		// T8: kind-discriminate the domain payload BEFORE the
+		// JN-domain header classification. Network-walker entries
+		// (witness endpoints/labels, auditor registrations + scope
+		// amendments) are admin surfaces, not member case load — they
+		// get their own counter so a settlement run that includes a
+		// burst of admin records doesn't mis-attribute them to the
+		// signer's OtherCount bucket.
+		decoded, ndErr := crosslog.DecodeNetworkEntry(entry.DomainPayload)
+		if ndErr != nil {
+			if errors.Is(ndErr, crosslog.ErrMalformedNetworkPayload) {
+				slog.Warn("load_accounting/aggregator: malformed network payload",
+					"pos", meta.Position.Sequence, "err", ndErr)
+			}
+			// Either malformed (counted as Other below for visibility)
+			// or a kind-matched SDK validation failure (same — operator
+			// has a structural bug; an Other increment surfaces it via
+			// the settlement diff).
+			usage.OtherCount++
+			usage.EntryCount++
+			continue
+		}
+		if decoded != nil {
+			usage.NetworkCount++
+			usage.EntryCount++
+			continue
+		}
 
 		// Lightweight classification from header fields.
 		// Full ClassifyEntry requires LeafReader+Fetcher (not available here).
