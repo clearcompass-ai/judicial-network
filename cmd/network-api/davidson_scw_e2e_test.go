@@ -114,7 +114,7 @@ func TestBinaryE2E_DavidsonSCW_HappyPath(t *testing.T) {
 		newKeyStore: func(_ config.KeyStoreConfig) (keystore.KeyStore, error) {
 			return ks, nil
 		},
-		newAuthenticator: func(_ config.AuthConfig) (middleware.Authenticator, error) {
+		newAuthenticator: func(_ config.AuthConfig, _ *http.Client) (middleware.Authenticator, error) {
 			return injectingAuth{did: scwDID}, nil
 		},
 		requireLedger: func(context.Context, config.Operational) error { return nil },

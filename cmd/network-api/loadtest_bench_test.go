@@ -131,7 +131,7 @@ func runLoadtest(b testing.TB, name string, makeReq func(addr string) *http.Requ
 			_, _ = ks.Generate(binE2EOwnerDID, "signing")
 			return ks, nil
 		},
-		newAuthenticator: func(_ config.AuthConfig) (middleware.Authenticator, error) {
+		newAuthenticator: func(_ config.AuthConfig, _ *http.Client) (middleware.Authenticator, error) {
 			return injectingAuth{did: scwDID}, nil
 		},
 		requireLedger: func(context.Context, config.Operational) error { return nil },
@@ -246,9 +246,9 @@ func clearAPIBenchEnv(t testing.TB) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Scenarios
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func BenchmarkBinary_Healthz(b *testing.B) {
 	runLoadtest(b, "healthz", func(addr string) *http.Request {
@@ -274,9 +274,9 @@ func BenchmarkBinary_Cases(b *testing.B) {
 	})
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Acceptance test — sanity-check the load harness itself
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // TestLoadtest_Smoke runs a 1-second, 8-worker burst against
 // /healthz so `go test ./cmd/network-api/...` always exercises the
