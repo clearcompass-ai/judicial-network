@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/alicebob/miniredis/v2 v2.33.0
-	github.com/clearcompass-ai/attesta-tools/libs v1.27.1
+	github.com/clearcompass-ai/attesta-tools/libs v1.28.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/getkin/kin-openapi v0.137.0
@@ -15,6 +15,7 @@ require (
 )
 
 require (
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/miekg/pkcs11 v1.1.2 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
@@ -37,7 +38,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/clearcompass-ai/attesta v1.27.1
+	github.com/clearcompass-ai/attesta v1.33.1
 	github.com/consensys/gnark-crypto v0.20.1 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
