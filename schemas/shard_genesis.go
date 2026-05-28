@@ -9,10 +9,12 @@ package schemas
 
 import (
 	"encoding/json"
+
+	"github.com/clearcompass-ai/attesta/kinds"
 	sdkschema "github.com/clearcompass-ai/attesta/schema"
 )
 
-const SchemaShardGenesisV1 = "shard-genesis-v1"
+const SchemaShardGenesisV1 = kinds.EntrySchemaShardGenesisV1
 
 func DefaultShardGenesisParams() []byte {
 	b, _ := json.Marshal(map[string]interface{}{

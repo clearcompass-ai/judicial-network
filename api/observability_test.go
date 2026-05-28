@@ -109,9 +109,9 @@ func TestObservability_MetricsReachableWhenRateLimited(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // /readyz (Priority 3)
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestReadyz_NoChecks_200(t *testing.T) {
 	// Default mustComposer config has no ReadyzChecks → /readyz is
@@ -133,7 +133,7 @@ func TestReadyz_AllPass_200(t *testing.T) {
 	srv, err := NewServer(Config{
 		Addr: ":0",
 		ReadyzChecks: []observability.ReadyCheck{
-			observability.CheckHTTPGet("ledger", upstream.URL),
+			observability.CheckHTTPGet("ledger", upstream.URL, upstream.Client()),
 		},
 	})
 	if err != nil {
@@ -158,7 +158,7 @@ func TestReadyz_OneFails_503(t *testing.T) {
 	srv, err := NewServer(Config{
 		Addr: ":0",
 		ReadyzChecks: []observability.ReadyCheck{
-			observability.CheckHTTPGet("ledger", upstream.URL),
+			observability.CheckHTTPGet("ledger", upstream.URL, upstream.Client()),
 		},
 	})
 	if err != nil {
