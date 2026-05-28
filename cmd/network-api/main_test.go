@@ -48,9 +48,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // loadConfig
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestLoadConfig_NoFlag_ReturnsDefaultsPlusEnv(t *testing.T) {
 	clearAPIEnv(t)
@@ -138,9 +138,9 @@ func TestLoadConfig_BadFlag_Errors(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // registerProductionBundles
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestRegisterProductionBundles_AllThreeRegistered(t *testing.T) {
 	r := jurisdiction.NewRegistry()
@@ -185,9 +185,9 @@ func TestRegisterProductionBundles_FreezesAfterCallChainSucceeds(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // buildNonceStores
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestBuildNonceStores_MemoryBackend_OnePerDestination(t *testing.T) {
 	r := jurisdiction.NewRegistry()
@@ -239,9 +239,9 @@ func TestBuildNonceStores_RedisWithoutAddr_Errors(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // buildKeyStore
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestBuildKeyStore_Memory_ReturnsInMemoryStore(t *testing.T) {
 	ks, err := buildKeyStore(config.KeyStoreConfig{Backend: config.KeyStoreBackendMemory})
@@ -319,12 +319,12 @@ func TestBuildKeyStore_UnknownBackend_Errors(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // buildAuthenticator ( wiring)
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestBuildAuthenticator_MTLS_ReturnsMTLSAuth(t *testing.T) {
-	a, err := buildAuthenticator(config.AuthConfig{Mode: config.AuthModeMTLS})
+	a, err := buildAuthenticator(config.AuthConfig{Mode: config.AuthModeMTLS}, http.DefaultClient)
 	if err != nil {
 		t.Fatalf("buildAuthenticator(mtls): %v", err)
 	}
@@ -341,7 +341,7 @@ func TestBuildAuthenticator_JWT_ReturnsJWTAuth(t *testing.T) {
 		Mode:      config.AuthModeJWT,
 		JWTIssuer: "https://idp.test",
 		JWKSURL:   "https://idp.test/.well-known/jwks.json",
-	})
+	}, http.DefaultClient)
 	if err != nil {
 		t.Fatalf("buildAuthenticator(jwt): %v", err)
 	}
@@ -358,14 +358,14 @@ func TestBuildAuthenticator_JWT_MissingIssuerErrors(t *testing.T) {
 		Mode:    config.AuthModeJWT,
 		JWKSURL: "https://idp.test/.well-known/jwks.json",
 		// JWTIssuer left empty
-	})
+	}, http.DefaultClient)
 	if err == nil {
 		t.Fatal("expected error: jwt mode requires JWTIssuer")
 	}
 }
 
 func TestBuildAuthenticator_EmptyMode_ReturnsNil(t *testing.T) {
-	a, err := buildAuthenticator(config.AuthConfig{})
+	a, err := buildAuthenticator(config.AuthConfig{}, http.DefaultClient)
 	if err != nil {
 		t.Fatalf("empty Mode should not error: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestBuildAuthenticator_EmptyMode_ReturnsNil(t *testing.T) {
 }
 
 func TestBuildAuthenticator_UnknownMode_Errors(t *testing.T) {
-	_, err := buildAuthenticator(config.AuthConfig{Mode: "oidc-implicit"})
+	_, err := buildAuthenticator(config.AuthConfig{Mode: "oidc-implicit"}, http.DefaultClient)
 	if err == nil {
 		t.Fatal("unknown mode should error")
 	}
@@ -392,7 +392,7 @@ func TestBuildAuthenticator_FlowsThroughRunDeps(t *testing.T) {
 	stub := deps{
 		registerBundles: registerProductionBundles,
 		newKeyStore:     buildKeyStore,
-		newAuthenticator: func(cfg config.AuthConfig) (middleware.Authenticator, error) {
+		newAuthenticator: func(cfg config.AuthConfig, _ *http.Client) (middleware.Authenticator, error) {
 			called = true
 			return middleware.MTLSAuth{}, nil
 		},
@@ -441,9 +441,9 @@ func TestBuildAuthenticator_FlowsThroughRunDeps(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // End-to-end run() lifecycle
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 // TestRun_HealthzServedThenShutdown is the load-bearing boot smoke
 // test. It:
@@ -543,9 +543,9 @@ func TestRun_HealthzServedThenShutdown(t *testing.T) {
 	wg.Wait()
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func writeJSON(t testing.TB, v any) string {
 	t.Helper()
