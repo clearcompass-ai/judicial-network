@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 env:
-  REQUIRED_ATTESTA_VERSION: v1.33.1
-  REQUIRED_LIBS_VERSION: v1.29.0
+  REQUIRED_ATTESTA_VERSION: v1.37.0
+  REQUIRED_LIBS_VERSION: v1.32.0
 
 jobs:
   sdk-version-pin:
