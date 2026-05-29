@@ -170,6 +170,27 @@ who stamp each new page without reading it; the **Auditors** are outside
 - **Boundaries.** Runs no servers, stores no state — a pure library. Infrastructure blindly drops whatever it rejects.
 - **Why.** It is *where truth lives*; without it the SoD story has no subject.
 
+#### SDK internal architecture (three evidence-based views)
+
+**View A — the 4-layer cross-log trust spine** (the verification core everything hangs off; `docs/design/cross-log-authority-resolution.md`). *"Every hop is verified under its own log's trust root; the as-of selector unifies time, cross-log, and fork into one mechanism."* Higher layers compose lower ones and never bypass them; **3 and 4 both consume 1 but are independent of each other.**
+
+| # | Layer | Symbol (verified in code) | Gap-catalog tie-in |
+|---|---|---|---|
+| **1** | Trust provider (the seam) | `verifier.LogTrustProvider` (`verifier/log_trust.go`) — yields `(WitnessSet, Head, EntryProof, LeafProof)` per `LogDID` at an `asOf` | **SDK-1** (mandatory `asOf`), **SDK-2** (RootHash on the selector) |
+| **2** | Implementations | `verifier.SingleLog` (degenerate) · `anchor.MultiLog` (`anchor/multilog.go:56`) · JN `MultiJurisdictionTrust` | **JN-1** (RootHash pin), **JN-2** (journal-backed sets) |
+| **3** | Trust-aware walkers | `verifier.EvaluateAuthorityWithTrust` / `VerifyDelegationProvenanceWithTrust` | **JN-4** (Time-of-Receipt `asOf`) |
+| **4** | Cross-log composites | `verifier.VerifyCrossLogProof` (`cross_log.go:128`) · `VerifyCompoundProof` / `ResolveCrossLogRef` (`cross_log_compound.go:155,211`) | **SDK-4 / JN-3** (burn-gate) |
+
+**View B — the dependency foundation** (derived from `go list`, *not* docs). The SDK is a one-way DAG with a genuinely pure base:
+- **Pure base** (imports *nothing* internal): `types`, and the leaf crypto `crypto/hash`, `crypto/signatures`.
+- **Wire/core:** `core/envelope` (→`types`), `core/smt` (→`core/envelope`).
+- **Crypto compositions (NOT pure):** `crypto/cosign` (→`crypto/signatures`,`types`,`internal/wireerror`), `crypto/escrow`/`crypto/artifact` (→`core/envelope`,`core/vss`,`storage`,…).
+- **Domain / verification:** `schema`, `attestation`, `authz`, `did`, `network`, then `verifier`, with `anchor` and `gossip/findings` at the top (`anchor`→`verifier`+`gossip`).
+
+> ⚠️ **`crypto/about.md` is outdated — do not cite it.** It calls `crypto/` the *"Pure Cryptography Layer (Layer 1)… imports nothing but standard Go."* `go list` disproves this: `crypto/cosign` imports `types`+`crypto/signatures`+`internal/wireerror`; `crypto/escrow`/`artifact` import `core/envelope`/`core/vss`/`storage`. **Only the leaf crypto packages are pure.** The DAG above (toolchain-derived) is the truth.
+
+**View C — the 5-layer package-role model** (`docs/layers-roles.md`, secondary): **1** Entry plane (`core/envelope`,`crypto/signatures`,`types`) · **2** Schema & policy (`schema`,`attestation`) · **3** On-log policy walkers (`network`,`authz`) · **4** Witness plane (`crypto/cosign`,`witness`) · **5** Federation & cross-log (`anchor`, cross-log composites). This is a *role* grouping, **not** a strict import order — e.g. role-L3 `network` imports role-L4 `crypto/cosign`, so the numbers label planes, not topological height. (Use View B when you need the real dependency direction.)
+
 ## Sub-systems
 
 ### Tessera — *the log storage engine & transparent tiles*
@@ -232,3 +253,49 @@ is why the system stays melt-proof at scale while remaining zero-trust.
 2. An **Auditor** (or the **JN**) ingests them, records every head into the **Heads Journal**, and re-runs the **SDK** math.
 3. A conflicting RootHash at one sequence → `KindEquivocationFinding` → the log is **burned**.
 4. To verify a **Cross-Log Proof** or an authority `asOf`, the Auditor resolves the historical **Witness Set** from the Journal and authenticates a **Bundle** — fetching any needed **Tessera tiles transparently** (anonymous, deterministic-addressed, root-checked, from any mirror), with **no live operator API** (`ZT-SCN-07`).
+
+---
+
+# Layer 4 — Repo topology & cross-repo connectivity
+
+> Derived from `go.mod` requires + actual imports (`go list`), not prose.
+
+## The dependency graph (who imports whom)
+
+```
+        attesta  (SDK — the foundation; imports no sibling repo)
+        ▲   ▲   ▲
+        │   │   └─────────────── ledger              imports attesta ONLY
+        │   └────── attesta-tools (libs + services)  imports attesta
+        │                  ▲
+        └──────────────────┴──── judicial-network    imports attesta + attesta-tools/libs
+```
+
+| Repo | Imports (verified) | Role in the stack |
+|---|---|---|
+| **attesta** (SDK) | — (foundation) | The Smart Brain. Every repo imports it; it imports none of them. Houses the 4-layer trust spine (View A). |
+| **ledger** | `attesta` **only** (`go.mod`; **0** files import attesta-tools) | The operator stack: network admission gate + Badger WAL + Tessera sequencer + gossipnet equivocation monitor. A self-contained SDK consumer. |
+| **attesta-tools** | `attesta` | Operator/auditor **libs** (`libs/monitoring` heads-journal, `libs/crosslog`, `libs/gossipingest`, `libs/auditing/gossipverify` tile-mirrors, …) **+ services** (`services/auditor`, `services/witness`) — each service is its **own module** that **never imports the ledger**. |
+| **judicial-network** | `attesta` **+** `attesta-tools/libs` (**71** non-test files) | The domain consumer: court business logic over the SDK trust spine + tools libs. |
+
+**Two facts worth pinning:**
+- **The ledger does *not* depend on attesta-tools** — it is a pure SDK consumer; the auditor/witness tooling sits *beside* it, not beneath it.
+- **The witness & auditor services never import the ledger** (separation of duties enforced at the *module* boundary, not just by convention) — so detection/attestation cannot be coupled to sequencing.
+
+## JN internal layers (derived — JN ships no canonical layer doc)
+
+| JN layer | Packages | Maps to the SDK trust spine (View A) |
+|---|---|---|
+| **Domain** | `cases/`, `appeals/`, `parties/`, `escrow/`, `delegation/`, `jurisdiction/`, `policy/`, `enforcement/`, `topology/`, `schemas/` | Populates SDK **View C Layer 2** (schema & policy) with court schemas |
+| **Verification / trust** | `verification/`, `verification/trust/` (`MultiJurisdictionTrust`) | **Spine Layer 2 impl**; consumes Spine Layers 3 & 4 |
+| **API** | `api/` (verify handlers, judicial + cross-log-proof endpoints) | Drives **Spine Layer 4** composites (`VerifyCrossLog`) and **Layer 3** walkers |
+| **Federation** | `consortium/` | **Spine Layer 4 / View C Layer 5** (cross-log) |
+| **Composition root** | `cmd/network-api/` | Boots the trust provider + Heads Journal + foreign witness sets |
+
+## End-to-end connectivity (one hop per line)
+
+1. The **ledger** (SDK-only) sequences a Network's entries behind its admission gate and publishes cosigned heads over gossip.
+2. **attesta-tools** `gossipingest`+`monitoring` ingest those heads into the **Heads Journal**; `services/auditor` re-verifies and slashes; `services/witness` cosigns on the commit path — all on **SDK** crypto/verifier, **none importing the ledger**.
+3. The **JN** builds `MultiJurisdictionTrust` (**Spine Layer 2**) over the tools **Heads Journal** + **tile mirrors**, drives the SDK **WithTrust walkers** (**Layer 3**) and **cross-log composites** (**Layer 4**) from its **API** layer, and applies its **domain** packages for court policy.
+
+> The throughline: a single **SDK trust spine** (View A) is instantiated by `anchor.MultiLog` in-process, by `MultiJurisdictionTrust` in the JN, and consumed by the ledger's admission gate — so cross-log verification resolves *identically* whoever runs it. That uniformity is the whole point of pushing trust into the SDK.
