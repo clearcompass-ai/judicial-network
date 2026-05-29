@@ -34,64 +34,51 @@ import (
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
-	cacoa4 "github.com/clearcompass-ai/judicial-network/deployments/ca/coa/fourth"
-	cacoa6 "github.com/clearcompass-ai/judicial-network/deployments/ca/coa/sixth"
-	casc "github.com/clearcompass-ai/judicial-network/deployments/ca/sc"
-	casuperiorriv "github.com/clearcompass-ai/judicial-network/deployments/ca/superior/riverside"
-	casuperiorsc "github.com/clearcompass-ai/judicial-network/deployments/ca/superior/santa_clara"
-	fed6th "github.com/clearcompass-ai/judicial-network/deployments/fed/circuit/sixth"
-	feddist "github.com/clearcompass-ai/judicial-network/deployments/fed/district/tn_middle"
-	fedscotus "github.com/clearcompass-ai/judicial-network/deployments/fed/scotus"
+	"github.com/clearcompass-ai/judicial-network/deployments/registry"
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
-	tnsupct "github.com/clearcompass-ai/judicial-network/deployments/tn/sup_ct"
 )
 
-// registerProductionBundles imports every JN deployment Bundle and
-// registers it into the registry. New deployments add an import line
-// + one Register call here — the only place in production code where
-// destination DIDs cross from compiled-in Bundle definitions into a
-// runtime structure.
+// registerProductionBundles loads every JN deployment Bundle from the
+// declarative registry (deployments/registry/) and registers it.
+//
+// The registry is the single source of truth for which courts exist
+// across TN, CA, and the federal hierarchy. Adding a new state or new
+// court = adding a Spec entry in deployments/registry/<state>.go; no
+// change to this function.
+//
+// Two legacy single-DID bundles (Davidson umbrella + TN COA umbrella)
+// are registered alongside the registry-loaded bundles. These exist
+// for backward compatibility with end-to-end tests that hardcode
+// did:web:state:tn:davidson and did:web:state:tn:coa as targets; the
+// registry provides finer-grained division-level DIDs on top. Both
+// can coexist because the DIDs don't collide.
 //
 // Network isolation is NOT enforced at registry time — the registry
 // is a catalog of destination policies, identical across every JN
 // binary. Per-network isolation lives at the ledger boundary: the
 // network-api binds to one ledger (LEDGER_ENDPOINT); the ledger
-// validates that an entry's destination is under its own
-// network_id (see attesta/exchange/admission). The e2e provisioner
-// brings up two JN binaries (jn-federal + jn-tn) sharing this same
-// registry; cross-network admission is enforced downstream.
+// validates that an entry's destination is under its own network_id
+// (see attesta/exchange/admission). The e2e provisioner brings up
+// multiple JN binaries sharing this same registry; cross-network
+// admission is enforced downstream.
 func registerProductionBundles(r *jurisdiction.Registry) error {
+	// Legacy umbrella DIDs preserved for backward-compat with
+	// existing end-to-end tests. The framework's division-level
+	// DIDs (registered below by registry.LoadInto) are the new
+	// canonical entries.
 	for _, factory := range []func() jurisdiction.Bundle{
-		// TN Courts network destinations.
-		tndavidson.MustBundle,
-		tncoa.MustBundle,
-		tnsupct.MustBundle,
-		// Federal Court System network destinations (e2e topology
-		// — see deployments/fed/*/bundle.go for the placeholder
-		// policy framework note). Standard US federal court
-		// terminology: SCOTUS, Circuit Courts of Appeals, US
-		// District Courts.
-		fedscotus.MustBundle,
-		fed6th.MustBundle,
-		feddist.MustBundle,
-		// California Courts network destinations. CA's hierarchy:
-		// Supreme Court of California → California Court of Appeal
-		// (6 districts) → Superior Court of California (county-level).
-		// Riverside (4th District) and Santa Clara (6th District) are
-		// the two superior courts the e2e topology covers.
-		casc.MustBundle,
-		cacoa4.MustBundle,
-		cacoa6.MustBundle,
-		casuperiorriv.MustBundle,
-		casuperiorsc.MustBundle,
+		tndavidson.MustBundle, // did:web:state:tn:davidson (umbrella)
+		tncoa.MustBundle,      // did:web:state:tn:coa     (umbrella)
 	} {
 		b := factory()
 		if err := r.Register(b); err != nil {
 			return fmt.Errorf("register %s: %w", b.ExchangeDID(), err)
 		}
 	}
-	return nil
+	// Framework-loaded bundles: 7 Federal + 49 TN + 7 CA (see
+	// deployments/registry/registry_test.go for the count pin).
+	return registry.LoadInto(r)
 }
 
 // buildNonceStores constructs one sdkauth.NonceStore per

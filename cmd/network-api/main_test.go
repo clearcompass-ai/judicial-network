@@ -152,34 +152,39 @@ func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 	// renaming a Bundle's ExchangeDID would surface here. Adding a
 	// new destination = a new entry in this map + the import +
 	// Register call in registerProductionBundles.
-	want := map[string]bool{
-		// TN Courts network.
-		"did:web:state:tn:davidson": false,
-		"did:web:state:tn:coa":      false,
-		"did:web:state:tn:sc":       false,
-		// Federal Court System network (e2e topology).
-		"did:web:fed:scotus:us":          false,
-		"did:web:fed:circuit:6th":        false,
-		"did:web:fed:district:tn_middle": false,
-		// California Courts network (e2e topology).
-		"did:web:state:ca:sc":                  false,
-		"did:web:state:ca:coa:4":               false,
-		"did:web:state:ca:coa:6":               false,
-		"did:web:state:ca:superior:riverside":  false,
-		"did:web:state:ca:superior:santa_clara": false,
+	// Anchor DIDs we know MUST be present. The full roster comes from
+	// deployments/registry/ (see registry_test.go for the count pin);
+	// this test verifies the two legacy umbrella DIDs are still
+	// registered alongside a sampling of registry-loaded DIDs.
+	mustHave := []string{
+		// Legacy umbrella DIDs (backward-compat).
+		"did:web:state:tn:davidson",
+		"did:web:state:tn:coa",
+		// Registry-loaded — sample one per state to confirm
+		// LoadInto ran end-to-end.
+		"did:web:state:tn:sc",
+		"did:web:state:tn:davidson:circuit:7",
+		"did:web:state:tn:knox:chancery:1",
+		"did:web:fed:scotus:us",
+		"did:web:fed:circuit:6th",
+		"did:web:fed:circuit:9th",
+		"did:web:fed:district:ca_northern",
+		"did:web:state:ca:sc",
+		"did:web:state:ca:superior:riverside",
 	}
-	if len(dids) != len(want) {
-		t.Errorf("registered DIDs = %d, want %d; got %v", len(dids), len(want), dids)
+	have := make(map[string]bool, len(dids))
+	for _, d := range dids {
+		have[d] = true
 	}
-	for _, did := range dids {
-		if _, ok := want[did]; ok {
-			want[did] = true
+	for _, d := range mustHave {
+		if !have[d] {
+			t.Errorf("expected destination %s registered; not found in %d DIDs", d, len(dids))
 		}
 	}
-	for did, found := range want {
-		if !found {
-			t.Errorf("expected destination %s registered; got %v", did, dids)
-		}
+	// Expected total: 2 legacy umbrellas + 7 Federal + 49 TN + 7 CA = 65.
+	const want = 2 + 7 + 49 + 7
+	if len(dids) != want {
+		t.Errorf("registered DIDs = %d, want %d", len(dids), want)
 	}
 }
 
