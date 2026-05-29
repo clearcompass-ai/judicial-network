@@ -265,16 +265,26 @@ func run(argv []string, d deps) error {
 	// nil when GossipIngest is disabled / has no peers. judicialDeps is passed
 	// in so the reconciler can install the v1.33.x auditor-scope gate inputs
 	// (AuditorRegistry, AuditorAmendments, AuditorScopeAsOf).
-	gossipPuller, trustedHeads, _, err := buildGossipIngest(cfg, sigVerifier, judicialDeps, slog.Default())
+	//
+	// v1.34+ MULTI-NETWORK: one pipeline per home network + one per
+	// cfg.GossipIngest.PeerLogs entry. All pipelines share the same
+	// TrustedHeadStore + HeadsJournal so cross-log reads see a unified
+	// worldview (LogDID-keyed, globally unique).
+	gossipPipelines, err := buildGossipIngest(cfg, sigVerifier, judicialDeps, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
 	}
-	// Surface the verify-only ingest's trusted-head view read-only via
-	// GET /v1/judicial/monitoring/peer-consistency. The source DIDs are the
-	// configured gossip peers' log DIDs (= the source logs the store records).
-	judicialDeps.TrustedHeads = trustedHeads
+	// Surface the verify-only ingest's trusted-head view + durable
+	// archive to the judicial handlers. The source DIDs are the
+	// configured gossip peers' log DIDs (home) PLUS each foreign
+	// PeerLog's LogDID (multi-network enumeration).
+	judicialDeps.TrustedHeads = gossipPipelines.Heads
+	judicialDeps.HeadsJournal = gossipPipelines.Journal
 	for _, p := range cfg.GossipIngest.Peers {
 		judicialDeps.TrustedSources = append(judicialDeps.TrustedSources, p.LogDID)
+	}
+	for _, pl := range cfg.GossipIngest.PeerLogs {
+		judicialDeps.TrustedSources = append(judicialDeps.TrustedSources, pl.LogDID)
 	}
 
 	//  observability bundle is constructed once and shared
@@ -454,16 +464,24 @@ func run(argv []string, d deps) error {
 		syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Start the inbound gossip puller (if configured) under the signal ctx so
-	// it drains on shutdown. It is a background observer — it never blocks the
-	// listener or the commit hot-path (the two-clock discipline).
-	if gossipPuller != nil {
+	// Start every inbound gossip puller (home + per foreign PeerLog) under
+	// the signal ctx so they drain on shutdown. Each pipeline is a
+	// background observer — none blocks the listener or the commit
+	// hot-path (the two-clock discipline). All pipelines write through to
+	// the SHARED TrustedHeadStore + HeadsJournal so cross-log reads see
+	// a unified worldview.
+	for i, puller := range gossipPipelines.Pullers {
+		puller := puller
+		i := i
 		go func() {
-			if err := gossipPuller.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-				log.Printf("network-api: gossip ingest stopped: %v", err)
+			if err := puller.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				log.Printf("network-api: gossip pipeline %d stopped: %v", i, err)
 			}
 		}()
-		log.Printf("network-api: gossip ingest pulling %d peer(s)", len(cfg.GossipIngest.Peers))
+	}
+	if n := len(gossipPipelines.Pullers); n > 0 {
+		log.Printf("network-api: gossip ingest running %d pipeline(s) — %d home peer(s), %d foreign peer log(s)",
+			n, len(cfg.GossipIngest.Peers), len(cfg.GossipIngest.PeerLogs))
 	}
 
 	// Start the continuous-monitoring scheduler (if enabled) under the
