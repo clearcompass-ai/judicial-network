@@ -153,14 +153,28 @@ func TestMemberUsage_Fields(t *testing.T) {
 		SchemaCount:     11,
 		CommentaryCount: 5000,
 		AmendmentCount:  44000,
+		NetworkCount:    37,
 		OtherCount:      789,
 	}
 	if m.EntryCount != 50000 {
 		t.Error("EntryCount mismatch")
 	}
-	total := m.DelegationCount + m.SchemaCount + m.CommentaryCount + m.AmendmentCount + m.OtherCount
+	total := m.DelegationCount + m.SchemaCount + m.CommentaryCount + m.AmendmentCount + m.NetworkCount + m.OtherCount
 	if total == 0 {
 		t.Error("subcounts must be nonzero")
+	}
+}
+
+// T8 — NetworkCount distinguishes network-walker entries (auditor
+// registrations, witness endpoint/label declarations, auditor scope
+// amendments) from JN-domain member load. A settlement run that
+// includes a burst of admin records must NOT mis-attribute them to
+// OtherCount; that bucket would inflate a member's "miscellaneous"
+// usage when the entries are actually network admin, not member load.
+func TestMemberUsage_NetworkCountSeparateFromOther(t *testing.T) {
+	m := MemberUsage{NetworkCount: 100, OtherCount: 7}
+	if m.NetworkCount == m.OtherCount {
+		t.Error("NetworkCount and OtherCount MUST be separate buckets")
 	}
 }
 
