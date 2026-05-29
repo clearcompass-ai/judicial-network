@@ -40,6 +40,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/clearcompass-ai/attesta/attestation"
 	"github.com/clearcompass-ai/attesta/did"
@@ -64,10 +65,16 @@ import (
 // finding emitted by an out-of-scope auditor is rejected before it can
 // advance JN's trusted view. nil slices leave the reconciler in pre-v1.33
 // behaviour (every verified finding advances).
+//
+// ledgerHTTPClient is threaded into the tile-mirror constructor so the
+// fetch shares the operator-chosen mTLS posture. libs v1.30.0 (v1.34.0
+// alignment) rejects nil here; we fall back to http.DefaultClient at
+// the consumer boundary when no mTLS material is configured.
 func buildGossipIngest(
 	cfg config.Operational,
 	sigVerifier attestation.SignatureVerifier,
 	judicialDeps judicial.Dependencies,
+	ledgerHTTPClient *http.Client,
 	logger *slog.Logger,
 ) (*peers.PeerPuller, *monitoring.TrustedHeadStore, *monitoring.Reconciler, error) {
 	if !cfg.GossipIngest.Enabled || len(cfg.GossipIngest.Peers) == 0 {
@@ -107,13 +114,23 @@ func buildGossipIngest(
 	// Cross-log inclusion (ClassMerkle) tile mirrors. Proofs replay against the
 	// source log's TRUSTED head (heads, above), so a mirror is a data source,
 	// not a trust root; empty config ⇒ those findings fail-closed.
+	//
+	// libs v1.30.0 (v1.34.0 alignment): NewHTTPTileMirrors rejects a nil
+	// *http.Client. We thread the boot-wired outbound client when available,
+	// falling back to http.DefaultClient at the consumer boundary when no
+	// mTLS material is configured (matching the same pattern as the readyz
+	// probes and the JWKS fetcher).
 	var tiles gossipverify.TileFetcherSource
 	if len(cfg.GossipIngest.TileMirrors) > 0 {
 		mirrors := make(map[string]string, len(cfg.GossipIngest.TileMirrors))
 		for _, m := range cfg.GossipIngest.TileMirrors {
 			mirrors[m.LogDID] = m.BaseURL
 		}
-		htm, terr := gossipverify.NewHTTPTileMirrors(mirrors, nil)
+		tileClient := ledgerHTTPClient
+		if tileClient == nil {
+			tileClient = http.DefaultClient
+		}
+		htm, terr := gossipverify.NewHTTPTileMirrors(mirrors, tileClient)
 		if terr != nil {
 			return nil, nil, nil, fmt.Errorf("tile mirrors: %w", terr)
 		}
