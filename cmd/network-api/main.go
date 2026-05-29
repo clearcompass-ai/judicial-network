@@ -261,7 +261,7 @@ func run(argv []string, d deps) error {
 	// nil when GossipIngest is disabled / has no peers. judicialDeps is passed
 	// in so the reconciler can install the v1.33.x auditor-scope gate inputs
 	// (AuditorRegistry, AuditorAmendments, AuditorScopeAsOf).
-	gossipPuller, trustedHeads, _, err := buildGossipIngest(cfg, sigVerifier, judicialDeps, slog.Default())
+	gossipPuller, trustedHeads, _, err := buildGossipIngest(cfg, sigVerifier, judicialDeps, ledgerSubmitClient, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
 	}

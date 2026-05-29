@@ -52,11 +52,9 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/clearcompass-ai/attesta/builder"
@@ -72,6 +70,7 @@ import (
 
 	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/auditing/logdiscover"
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
@@ -491,7 +490,16 @@ func gossipOriginatorLogDID(ctx context.Context, cfg config.Operational, doc *sd
 	if cfg.LedgerEndpoint == "" {
 		return "", fmt.Errorf("originator discovery enabled but LedgerEndpoint empty (set API_LEDGER_ENDPOINT or disable API_GOSSIP_INGEST_DISCOVER_ORIGINATOR)")
 	}
-	info, err := discoverLedgerOriginator(ctx, cfg.LedgerEndpoint, ledgerHTTPClient)
+	// libs/logdiscover rejects a nil client (v1.34.0 no-silent-demotion
+	// contract). Bootstrap derivation runs in loadConfig BEFORE the mTLS
+	// client is materialised, so the discovery probe falls back to a
+	// JN-built plain client with the prior 10s timeout — explicit default
+	// at the consumer boundary, not a silent libs-side fallback.
+	hc := ledgerHTTPClient
+	if hc == nil {
+		hc = &http.Client{Timeout: 10 * time.Second}
+	}
+	info, err := logdiscover.FetchLogInfo(ctx, cfg.LedgerEndpoint, hc)
 	if err != nil {
 		return "", fmt.Errorf("discover gossip originator from %s/v1/log-info: %w", cfg.LedgerEndpoint, err)
 	}
@@ -513,77 +521,6 @@ func gossipOriginatorLogDID(ctx context.Context, cfg config.Operational, doc *sd
 	slog.Info("jn: bound gossip witness set to discovered originator",
 		"canonical_did", doc.ExchangeDID, "originator_did", info.LedgerDID)
 	return info.LedgerDID, nil
-}
-
-// ledgerLogInfo is the subset of the ledger's GET /v1/log-info the JN needs to
-// bind trust: the operational gossip-originator did:key (ledger_did), the
-// canonical log DID, and the network_id prefix (for the cross-network guard).
-type ledgerLogInfo struct {
-	LogDID    string `json:"log_did"`
-	LedgerDID string `json:"ledger_did"`
-	NetworkID string `json:"network_id"`
-}
-
-// discoverLedgerOriginator fetches GET {ledgerEndpoint}/v1/log-info, retrying
-// with bounded exponential backoff (the ledger may still be starting). Returns
-// once it answers, or ctx is cancelled / retries are spent.
-//
-// ledgerHTTPClient is the boot-wired mTLS client; nil falls back to a
-// plain &http.Client{Timeout} so dev/test against a plaintext ledger keeps
-// working (same posture as the pre-mTLS version of this function).
-func discoverLedgerOriginator(ctx context.Context, ledgerEndpoint string, ledgerHTTPClient *http.Client) (ledgerLogInfo, error) {
-	url := strings.TrimRight(ledgerEndpoint, "/") + "/v1/log-info"
-	hc := ledgerHTTPClient
-	if hc == nil {
-		hc = &http.Client{Timeout: 10 * time.Second}
-	}
-	const maxAttempts = 6
-	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		if ctx.Err() != nil {
-			return ledgerLogInfo{}, ctx.Err()
-		}
-		info, err := fetchLedgerLogInfo(ctx, url, hc)
-		if err == nil {
-			return info, nil
-		}
-		lastErr = err
-		select {
-		case <-ctx.Done():
-			return ledgerLogInfo{}, ctx.Err()
-		case <-time.After(retryBackoff(attempt)):
-		}
-	}
-	return ledgerLogInfo{}, lastErr
-}
-
-func fetchLedgerLogInfo(ctx context.Context, url string, hc *http.Client) (ledgerLogInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return ledgerLogInfo{}, err
-	}
-	resp, err := hc.Do(req)
-	if err != nil {
-		return ledgerLogInfo{}, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return ledgerLogInfo{}, fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
-	}
-	var info ledgerLogInfo
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&info); err != nil {
-		return ledgerLogInfo{}, fmt.Errorf("decode %s: %w", url, err)
-	}
-	return info, nil
-}
-
-// retryBackoff is exponential (1s,2s,4s,…) capped at 16s.
-func retryBackoff(attempt int) time.Duration {
-	d := time.Duration(1<<uint(attempt-1)) * time.Second
-	if d > 16*time.Second {
-		return 16 * time.Second
-	}
-	return d
 }
 
 // networkIDHexPrefix renders the first-8-bytes hex of the NetworkID, matching
