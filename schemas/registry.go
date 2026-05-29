@@ -121,6 +121,8 @@ func (r *Registry) registerAll() {
 	// serves all four governance events (publication / adoption /
 	// amendment / deprecation) via the Action discriminator.
 	r.Register(schemaLifecycleRegistration())
+	// Issue #67 Part C — §16 Network Topology critical 5.
+	r.Register(networkTopologyRegistration())
 }
 
 func (r *Registry) Register(reg *SchemaRegistration) {
