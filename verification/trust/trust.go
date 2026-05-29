@@ -63,13 +63,15 @@ type LocalTrust struct {
 
 // NewLocalTrust constructs a LocalTrust from the JN's existing
 // (fetcher, leafReader) pair. Both must be non-nil — they ARE the
-// trust root for the legacy walkers and would be for the WithTrust
-// walkers too.
+// trust root for the WithTrust walkers — they read the entry +
+// leaf state through this pair and return a verdict without any
+// additional configuration.
 //
-// Callers SHOULD pass the same fetcher + reader they would have
-// passed to verifier.EvaluateAuthority / VerifyDelegationProvenance
-// pre-migration. The parity contract holds only when the inputs
-// match.
+// Callers pass the same fetcher + leaf reader pre-v1.36 callers
+// passed to the now-deleted legacy single-reader walkers
+// (verifier.EvaluateAuthority / VerifyDelegationProvenance).
+// LocalTrust wraps verifier.SingleLog, which the SDK preserves
+// as the byte-for-byte equivalent of those walkers at AsOf{}.
 func NewLocalTrust(fetcher types.EntryFetcher, leafReader smt.LeafReader) LocalTrust {
 	return LocalTrust{
 		inner: verifier.SingleLog{

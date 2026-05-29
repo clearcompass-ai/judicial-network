@@ -8,9 +8,8 @@ DESCRIPTION: Enforcement timeline verification. Walks the authority lane
 KEY ARCHITECTURAL DECISIONS:
   - Correction #3: uses verifier.EvaluateAuthorityWithTrust (O(A) walker
     that handles snapshots and skip pointers) rather than manual scanning.
-    Fed by a LocalTrust adapter from verification/trust over the same
-    (fetcher, leafReader) inputs the legacy walker took — parity locked
-    by trust.TestLocalTrust_LegacyParity_EvaluateAuthority.
+    Fed by a LocalTrust adapter from verification/trust over the
+    (fetcher, leafReader) pair the call site already holds.
     This is the difference vs verification/sealing_check.go: compliance
     produces a rich timeline for court administration; sealing_check
     returns a compact status for API responses.
@@ -98,12 +97,6 @@ func RunComplianceCheck(
 		now = time.Now().UTC()
 	}
 
-	// v1.34 migration: legacy verifier.EvaluateAuthority is deprecated.
-	// We now consume verifier.EvaluateAuthorityWithTrust through a
-	// LocalTrust adapter built from the same (fetcher, leafReader)
-	// inputs. The trust package's TestLocalTrust_LegacyParity_*
-	// tests pin byte-for-byte equivalence — this is a refactor
-	// under explicit parity, not a behavior change.
 	authEval, err := verifier.EvaluateAuthorityWithTrust(
 		ctx, cfg.CaseRootPos,
 		trust.NewLocalTrust(fetcher, leafReader),

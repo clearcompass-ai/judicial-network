@@ -1,9 +1,8 @@
 /*
 FILE PATH: verification/sealing_check.go
 DESCRIPTION: Authority_Tip → enforcement status via SDK
-verifier.EvaluateAuthorityWithTrust (fed by a verification/trust LocalTrust
-adapter — byte-for-byte parity with the legacy walker; see
-trust.TestLocalTrust_LegacyParity_EvaluateAuthority).
+verifier.EvaluateAuthorityWithTrust, fed by a verification/trust
+LocalTrust adapter.
 KEY ARCHITECTURAL DECISIONS:
   - SDK correction #3: Uses verifier.EvaluateAuthorityWithTrust (walks
     Prior_Authority chain, handles snapshots, skip pointers). Not manual
@@ -44,10 +43,6 @@ func CheckEnforcementStatus(
 	fetcher types.EntryFetcher,
 	extractor schema.SchemaParameterExtractor,
 ) (*EnforcementStatus, error) {
-	// v1.34 migration: legacy verifier.EvaluateAuthority is deprecated.
-	// Migrated to verifier.EvaluateAuthorityWithTrust via a LocalTrust
-	// adapter — same (fetcher, leafReader) inputs, parity locked by
-	// trust.TestLocalTrust_LegacyParity_EvaluateAuthority.
 	authEval, err := verifier.EvaluateAuthorityWithTrust(
 		ctx, caseRootPos,
 		trust.NewLocalTrust(fetcher, leafReader),

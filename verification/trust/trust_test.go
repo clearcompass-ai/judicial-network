@@ -1,30 +1,16 @@
 // Package trust tests for LocalTrust.
 //
-// The load-bearing assertions in this file are the parity tests
-// against the SDK's legacy single-reader walkers:
-//
-//   TestLocalTrust_LegacyParity_EvaluateAuthority
-//   TestLocalTrust_LegacyParity_VerifyDelegationProvenance
-//
-// They construct identical (fetcher, leafReader) inputs and assert
-// that:
-//
-//   verifier.EvaluateAuthority(ctx, key, leaf, fetcher, ext) ==
-//   verifier.EvaluateAuthorityWithTrust(ctx, entity, NewLocalTrust(fetcher, leaf),
-//                                       ext, verifier.AsOf{})
-//
-//   verifier.VerifyDelegationProvenance(ctx, ptrs, fetcher, leaf) ==
-//   verifier.VerifyDelegationProvenanceWithTrust(ctx, ptrs, NewLocalTrust(fetcher, leaf),
-//                                                verifier.AsOf{})
-//
-// If the SDK ever changes its SingleLog/WithTrust contract such
-// that these stop being equal, the parity test surfaces it before
-// any JN handler regressions ship.
+// These tests pin LocalTrust's three LogTrustProvider methods
+// (TrustRoot, Entry, Leaf) plus its constructor + interface
+// satisfaction. The pre-v1.36 *LegacyParity_* tests have been
+// retired (see the "PARITY CONTRACT (historical note)" block at
+// the bottom of this file) because the legacy single-reader
+// walkers they compared against were deleted from the SDK in
+// attesta v1.36.0.
 package trust
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/clearcompass-ai/attesta/core/smt"
@@ -156,104 +142,29 @@ func TestLocalTrust_Leaf_DelegatesToLeafReader(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// PARITY TESTS — the load-bearing contract
+// PARITY CONTRACT (historical note)
 // ─────────────────────────────────────────────────────────────────────
-
-// TestLocalTrust_LegacyParity_EvaluateAuthority pins that
-// verifier.EvaluateAuthority(ctx, key, leaf, fetcher, ext) and
-// verifier.EvaluateAuthorityWithTrust(ctx, entity, LocalTrust{F,L}, ext, AsOf{})
-// return equivalent results. This is the post-migration regression
-// guard for compliance.go, sealing_check.go, verify_authority.go,
-// verify_batch.go.
 //
-// Uses the SDK-shipped "base case" of an entity with no active
-// constraints — the simplest input that exercises both walkers'
-// happy path. A richer fixture (full delegation chain) would not
-// add coverage at the parity boundary; the SDK's own
-// TestEvalAuthWithTrust_LegacyParity already pins the deep-shape
-// equivalence.
-//nolint:staticcheck // SA1019 — intentionally exercises the deprecated entry point to lock parity
-func TestLocalTrust_LegacyParity_EvaluateAuthority(t *testing.T) {
-	entity := types.LogPosition{LogDID: "did:web:logs.example.gov", Sequence: 1}
-	leafKey := smt.DeriveKey(entity)
-	leaf := liveLeafStore(entity)
-	fetcher := fixtureFetcher{}
-
-	legacy, errLegacy := verifier.EvaluateAuthority(
-		context.Background(), leafKey, leaf, fetcher, nil)
-	withTrust, errWithTrust := verifier.EvaluateAuthorityWithTrust(
-		context.Background(), entity,
-		NewLocalTrust(fetcher, leaf), nil, verifier.AsOf{})
-
-	if (errLegacy == nil) != (errWithTrust == nil) {
-		t.Fatalf("error parity broken: legacy=%v withTrust=%v", errLegacy, errWithTrust)
-	}
-	if errLegacy != nil {
-		// Both errored — that's the parity. Specific message text is
-		// the SDK's contract and we deliberately don't pin it here.
-		return
-	}
-	if !reflect.DeepEqual(legacy, withTrust) {
-		t.Fatalf("AuthorityEvaluation parity broken\n  legacy:   %+v\n  withTrust: %+v",
-			legacy, withTrust)
-	}
-}
-
-// TestLocalTrust_LegacyParity_VerifyDelegationProvenance is the
-// post-migration regression guard for delegation_chain.go.
+// Three TestLocalTrust_LegacyParity_* tests lived here during the
+// v1.34 cutover: TestLocalTrust_LegacyParity_EvaluateAuthority,
+// TestLocalTrust_LegacyParity_VerifyDelegationProvenance, and
+// TestLocalTrust_LegacyParity_EmptyPointers. They constructed
+// identical (fetcher, leafReader) inputs to the legacy single-
+// reader walkers (verifier.EvaluateAuthority,
+// verifier.VerifyDelegationProvenance) and to their *WithTrust
+// counterparts fed by LocalTrust, then asserted reflect.DeepEqual
+// on the result.
 //
-//nolint:staticcheck // SA1019 — intentionally exercises the deprecated entry point to lock parity
-func TestLocalTrust_LegacyParity_VerifyDelegationProvenance(t *testing.T) {
-	// Two pointers, both reporting live leaves. With no actual entry
-	// bodies in the fetcher, the SDK's walker reports each hop as
-	// not-live (no entry to inspect), but parity holds — both walkers
-	// reach the same not-live verdict via the same code paths.
-	ptrs := []types.LogPosition{
-		{LogDID: "did:web:logs.example.gov", Sequence: 10},
-		{LogDID: "did:web:logs.example.gov", Sequence: 11},
-	}
-	leaf := liveLeafStore(ptrs...)
-	fetcher := fixtureFetcher{}
-
-	legacy, errLegacy := verifier.VerifyDelegationProvenance(
-		context.Background(), ptrs, fetcher, leaf)
-	withTrust, errWithTrust := verifier.VerifyDelegationProvenanceWithTrust(
-		context.Background(), ptrs,
-		NewLocalTrust(fetcher, leaf), verifier.AsOf{})
-
-	if (errLegacy == nil) != (errWithTrust == nil) {
-		t.Fatalf("error parity broken: legacy=%v withTrust=%v", errLegacy, errWithTrust)
-	}
-	if errLegacy != nil {
-		return
-	}
-	if !reflect.DeepEqual(legacy, withTrust) {
-		t.Fatalf("[]DelegationHop parity broken\n  legacy:    %+v\n  withTrust: %+v",
-			legacy, withTrust)
-	}
-}
-
-// TestLocalTrust_LegacyParity_EmptyPointers — the trivial case the
-// SDK explicitly documents (nil, nil for an empty input). Locks it
-// across the migration boundary.
+// Those tests are deleted at the v1.36 floor. The legacy entry
+// points were removed from the SDK in attesta v1.36.0 (the
+// follow-up the PR #66 commit message tracked); only the
+// *WithTrust variants survive. The parity contract is fulfilled
+// by definition: there is no longer a "legacy" to compare
+// against. The 5 LocalTrust unit tests above (constructor,
+// interface satisfaction, TrustRoot, Entry, Leaf) continue to pin
+// every production-relevant behavior.
 //
-//nolint:staticcheck // SA1019 — intentionally exercises the deprecated entry point to lock parity
-func TestLocalTrust_LegacyParity_EmptyPointers(t *testing.T) {
-	leaf := liveLeafStore()
-	fetcher := fixtureFetcher{}
-
-	legacy, errLegacy := verifier.VerifyDelegationProvenance(
-		context.Background(), nil, fetcher, leaf)
-	withTrust, errWithTrust := verifier.VerifyDelegationProvenanceWithTrust(
-		context.Background(), nil,
-		NewLocalTrust(fetcher, leaf), verifier.AsOf{})
-
-	if errLegacy != nil || errWithTrust != nil {
-		t.Fatalf("empty input must not error: legacy=%v withTrust=%v",
-			errLegacy, errWithTrust)
-	}
-	if legacy != nil || withTrust != nil {
-		t.Fatalf("empty input must return nil slice: legacy=%v withTrust=%v",
-			legacy, withTrust)
-	}
-}
+// The SDK retains its own internal regression tests
+// (TestEvalAuthWithTrust_LegacyParity equivalents) that pinned the
+// pre-deletion equivalence; the v1.34 → v1.36 transition is locked
+// upstream.

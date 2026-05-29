@@ -62,10 +62,6 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			item.Origin = origin
 		}
 
-		// v1.34 migration: legacy verifier.EvaluateAuthority is deprecated.
-		// Migrated to verifier.EvaluateAuthorityWithTrust via a LocalTrust
-		// adapter — parity locked by
-		// trust.TestLocalTrust_LegacyParity_EvaluateAuthority.
 		auth, err := verifier.EvaluateAuthorityWithTrust(
 			ctx, entity,
 			trust.NewLocalTrust(fetcher, h.deps.LeafReader),

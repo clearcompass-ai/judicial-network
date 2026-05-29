@@ -145,11 +145,6 @@ func VerifyFilingDelegation(
 
 	// : cryptographic provenance.
 	//
-	// v1.34 migration: legacy verifier.VerifyDelegationProvenance is
-	// deprecated. Migrated to verifier.VerifyDelegationProvenanceWithTrust
-	// via a LocalTrust adapter — parity locked by
-	// trust.TestLocalTrust_LegacyParity_VerifyDelegationProvenance.
-	//
 	// The contract that fetcher/deserialize errors collapse to
 	// IsLive=false on the affected hop (rather than surfacing as a
 	// returned error) is preserved by SingleLog inside LocalTrust.
