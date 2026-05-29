@@ -287,6 +287,16 @@ func run(argv []string, d deps) error {
 		judicialDeps.TrustedSources = append(judicialDeps.TrustedSources, pl.LogDID)
 	}
 
+	// C-3: assemble the cross-network LogTrustProvider once the
+	// journal + per-log Fetcher/LeafReader are in place. Returns nil
+	// when no foreign PeerLogs are configured — call sites then keep
+	// using trust.NewLocalTrust (the v1.33 single-network path).
+	multiTrust, err := buildMultiJurisdictionTrust(cfg, judicialDeps, gossipPipelines.Journal)
+	if err != nil {
+		return fmt.Errorf("build multi-jurisdiction trust: %w", err)
+	}
+	judicialDeps.MultiTrust = multiTrust
+
 	//  observability bundle is constructed once and shared
 	// between the composer's /metrics endpoint and the ledger-
 	// submit metrics so all jn_* metrics scrape from one registry.
@@ -452,6 +462,13 @@ func run(argv []string, d deps) error {
 			// this client cert when peer mTLS is in effect; nil falls
 			// back to a plain 15s client for dev / pre-cert deployments.
 			LedgerHTTPClient: ledgerSubmitClient,
+			// C-4: thread the cross-network LogTrustProvider so the
+			// VerifyAuthority + VerifyBatch handlers dispatch trust
+			// identically to the judicial surface (one provider, two
+			// HTTP-facing surfaces). nil when no foreign PeerLogs are
+			// declared — handlers then fall back to per-request
+			// LocalTrust (v1.33 byte-for-byte equivalent).
+			MultiTrust: judicialDeps.MultiTrust,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 	})

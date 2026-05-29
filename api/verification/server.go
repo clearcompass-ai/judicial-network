@@ -26,6 +26,7 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
 )
@@ -64,6 +65,17 @@ type ServerConfig struct {
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
 	WitnessSets    map[string]*cosign.WitnessKeySet
+
+	// MultiTrust is the C-3 cross-network LogTrustProvider. When
+	// non-nil it is threaded into handlers.Dependencies.MultiTrust;
+	// the VerifyAuthority + VerifyBatch handlers then dispatch
+	// trust through it (cross-network capability live). When nil
+	// the handlers fall back to per-request LocalTrust — identical
+	// to the v1.33 behavior. Production wires
+	// cmd/network-api/main.go's judicialDeps.MultiTrust here so
+	// the verification surface and the judicial surface read the
+	// same provider.
+	MultiTrust verifier.LogTrustProvider
 
 	// SignatureVerifier feeds /v1/verify/complete's SDK Path C
 	// composite. Optional at boot — leaving it nil keeps the rest
@@ -124,6 +136,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		PolicyStage:        cfg.PolicyStage,
 		PolicyStageEnabled: policyStageEnabledFromEnv(),
 		LedgerHTTPClient:   cfg.LedgerHTTPClient,
+		MultiTrust:         cfg.MultiTrust,
 	}
 
 	mux := http.NewServeMux()

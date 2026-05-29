@@ -242,7 +242,7 @@ func (h *complianceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		CheckContests: true,
 	}
 	report, err := enforcement.RunComplianceCheck(ctx,
-		cfg, h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor)
+		cfg, h.deps.PickTrust(), h.deps.Fetcher, h.deps.LeafReader, h.deps.Extractor)
 
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

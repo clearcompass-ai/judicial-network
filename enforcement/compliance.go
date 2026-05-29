@@ -37,8 +37,6 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
-
-	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // ComplianceConfig configures a compliance check.
@@ -46,6 +44,17 @@ type ComplianceConfig struct {
 	CaseRootPos types.LogPosition
 	// Now is the evaluation time. Zero value uses time.Now().UTC().
 	Now time.Time
+	// AsOf pins the cosigned head that the authority walker evaluates
+	// against (C-4 of PR-C). Zero (AsOf{}) preserves the legacy
+	// "latest known head" semantics — the walker resolves the
+	// current trusted head and uses time.Now().UTC() internally for
+	// activation timestamps. Non-zero AsOf binds the verdict to a
+	// SPECIFIC head: every signer-membership / activation check is
+	// then evaluated under THAT head's witness set, making the
+	// verdict deterministic in the head (Goal 6 — court-admissible
+	// reproducibility) and the witness set frozen across rotations
+	// (Goal 13 — year-15 verification of year-1 bundles).
+	AsOf verifier.AsOf
 	// CheckContests enables per-constraint contest evaluation. Expensive
 	// for long authority chains; recommended true for accuracy.
 	CheckContests bool
@@ -81,15 +90,28 @@ type ComplianceReport struct {
 // verifier.EvaluateAuthorityWithTrust (correction #3) and produces a
 // timeline for court compliance monitoring. Optionally evaluates
 // per-constraint contest state (correction #7).
+//
+// trustProvider is the C-3 dispatch seam. Production callers thread
+// deps.PickTrust() — a MultiJurisdictionTrust when cross-network
+// PeerLogs are declared, else a LocalTrust over the same (fetcher,
+// leafReader) pair the legacy path used. cfg.AsOf pins the head the
+// walker evaluates against (Goal 6 reproducibility; Goal 13 year-15
+// verification). fetcher + leafReader stay in the signature for
+// EvaluateContest's per-constraint check (the SDK has not yet
+// shipped EvaluateContestWithTrust).
 func RunComplianceCheck(
 	ctx context.Context,
 	cfg ComplianceConfig,
+	trustProvider verifier.LogTrustProvider,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	extractor schema.SchemaParameterExtractor,
 ) (*ComplianceReport, error) {
 	if cfg.CaseRootPos.IsNull() {
 		return nil, fmt.Errorf("enforcement/compliance: null case root position")
+	}
+	if trustProvider == nil {
+		return nil, fmt.Errorf("enforcement/compliance: nil trustProvider (use deps.PickTrust())")
 	}
 
 	now := cfg.Now
@@ -98,9 +120,7 @@ func RunComplianceCheck(
 	}
 
 	authEval, err := verifier.EvaluateAuthorityWithTrust(
-		ctx, cfg.CaseRootPos,
-		trust.NewLocalTrust(fetcher, leafReader),
-		extractor, verifier.AsOf{})
+		ctx, cfg.CaseRootPos, trustProvider, extractor, cfg.AsOf)
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/compliance: evaluate authority: %w", err)
 	}

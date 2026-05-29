@@ -8,12 +8,16 @@ import (
 	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
-
-	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // VerifyBatchHandler handles GET /v1/verify/batch/{logID}/{positions}.
 // Positions is a comma-separated list of uint64.
+//
+// C-4 of PR-C: shares the verify_authority.go ?as_of= parameter
+// semantics — the same pinned head is applied to every position in
+// the batch. Mixing as-of policies within one batch would defeat
+// the determinism guarantee (Goal 6); a caller wanting per-position
+// asOfs issues parallel verify/authority calls.
 type VerifyBatchHandler struct{ deps *Dependencies }
 
 func NewVerifyBatchHandler(deps *Dependencies) *VerifyBatchHandler {
@@ -32,11 +36,19 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logID := r.PathValue("logID")
 	positionsStr := r.PathValue("positions")
 
+	asOf, err := parseAsOf(r, logID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	fetcher, err := h.deps.fetcherFor(logID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
+	trustProv := h.deps.PickTrust(fetcher)
 
 	parts := strings.Split(positionsStr, ",")
 	results := make([]batchItem, 0, len(parts))
@@ -63,9 +75,7 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		auth, err := verifier.EvaluateAuthorityWithTrust(
-			ctx, entity,
-			trust.NewLocalTrust(fetcher, h.deps.LeafReader),
-			h.deps.Extractor, verifier.AsOf{})
+			ctx, entity, trustProv, h.deps.Extractor, asOf)
 
 		if err == nil {
 			item.Authority = auth

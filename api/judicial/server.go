@@ -30,6 +30,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/topology"
 	"github.com/clearcompass-ai/judicial-network/verification"
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // ──────────────────────────────────────────────────────────────────
@@ -154,6 +155,24 @@ type Dependencies struct {
 	// custody to disk).
 	HeadsJournal monitoring.HeadsJournal
 
+	// MultiTrust is the cross-network LogTrustProvider — the C-3
+	// successor to the LocalTrust the 5 production call sites use
+	// today. It dispatches by LogDID:
+	//
+	//   - HOME log → delegates to an embedded LocalTrust (byte-
+	//     for-byte parity with the existing single-log path).
+	//   - FOREIGN log → resolves the head from HeadsJournal at the
+	//     requested asOf + pairs it with the pre-declared witness
+	//     keyset (one per cfg.GossipIngest.PeerLogs entry).
+	//   - UNKNOWN log → verifier.ErrUnknownLog (fail-closed).
+	//
+	// Production wires this via buildMultiJurisdictionTrust at boot
+	// (cmd/network-api/judicial_deps.go). nil leaves the v1.33
+	// LocalTrust path in place — the C-4 call-site migration swaps
+	// trust.NewLocalTrust(...) → deps.MultiTrust once the foreign
+	// PeerLogs are operator-declared.
+	MultiTrust verifier.LogTrustProvider
+
 	// TrustedSources is the set of source log DIDs the verify-only ingest
 	// tracks (the gossip peers' log DIDs). Used to enumerate TrustedHeads for
 	// the peer-consistency endpoint. Empty ⇒ enumerate nothing unless a
@@ -196,6 +215,33 @@ type Dependencies struct {
 	// resolver still serves ResolveLedger from MirrorManifest and the
 	// auditor surfaces from AuditorRegistryRecords/AuditorScopeAmendmentRecords.
 	AuthoritativeResolver *discover.DefaultAuthoritativeResolver
+}
+
+// PickTrust returns the active LogTrustProvider for the 5 production
+// verification call sites:
+//
+//   - When MultiTrust is wired (cfg.GossipIngest.PeerLogs declared
+//     ⇒ boot built a cross-network provider), returns it. The home
+//     log dispatches to the embedded LocalTrust unchanged; foreign
+//     logs dispatch to journal-resolved heads + pre-bound foreign
+//     witness keysets.
+//
+//   - When MultiTrust is nil (single-network deployment), falls back
+//     to a freshly-constructed LocalTrust over the existing per-log
+//     Fetcher + LeafReader. Byte-for-byte equivalent to the
+//     pre-C-4 trust.NewLocalTrust(deps.Fetcher, deps.LeafReader)
+//     each call site embedded directly.
+//
+// This is the seam every C-4 site reads — one line of dispatch
+// instead of per-site nil-checks against MultiTrust. A
+// deployment that never declares PeerLogs sees identical behavior
+// to the v1.33 single-network baseline; one that DOES declare them
+// gets cross-network trust resolution at every site simultaneously.
+func (d *Dependencies) PickTrust() verifier.LogTrustProvider {
+	if d.MultiTrust != nil {
+		return d.MultiTrust
+	}
+	return trust.NewLocalTrust(d.Fetcher, d.LeafReader)
 }
 
 // ──────────────────────────────────────────────────────────────────
