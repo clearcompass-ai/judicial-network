@@ -24,10 +24,14 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 
+	"github.com/clearcompass-ai/attesta/did"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	keysigner "github.com/clearcompass-ai/attesta-tools/libs/keystore/signer"
 	composerapi "github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
+	authv2 "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/verification"
 	"github.com/clearcompass-ai/judicial-network/cases"
@@ -103,10 +107,30 @@ func newSCWE2EHarness(t *testing.T) *scwE2EHarness {
 	}
 	reg.Freeze()
 
+	// v2 SignerAuth is required by the composer. This test exercises the
+	// composer's mounting + caller-DID flow; the SCW path bypasses signed-
+	// envelope auth via mTLS (or the harness sets the caller-DID directly
+	// via judicial.SetCallerDIDResolver below). Wire a minimal v2
+	// SignerAuth so the composer mounts cleanly.
+	authRegistry := did.NewVerifierRegistry()
+	if err := authRegistry.Register("key", did.NewKeyVerifier()); err != nil {
+		t.Fatalf("auth registry register: %v", err)
+	}
+	signerAuth, err := authv2.NewSignerAuth(authv2.SignerAuthConfig{
+		Registry:           authRegistry,
+		AlgoID:             envelope.SigAlgoEd25519,
+		FallbackNonceStore: sdkauth.NewInMemoryNonceStore(),
+		MTLSExtractor:      authv2.SANCertExtractor{},
+	})
+	if err != nil {
+		t.Fatalf("SignerAuth: %v", err)
+	}
+
 	srv, err := composerapi.NewServer(composerapi.Config{
 		Addr: "127.0.0.1:0",
 		Exchange: exchange.ServerConfig{
-			KeyStore: ks,
+			KeyStore:   ks,
+			SignerAuth: signerAuth,
 		},
 		Verification: verification.ServerConfig{},
 		Judicial: judicial.ServerConfig{

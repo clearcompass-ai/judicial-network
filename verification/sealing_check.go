@@ -1,9 +1,12 @@
 /*
 FILE PATH: verification/sealing_check.go
-DESCRIPTION: Authority_Tip → enforcement status via SDK verifier.EvaluateAuthority.
+DESCRIPTION: Authority_Tip → enforcement status via SDK
+verifier.EvaluateAuthorityWithTrust, fed by a verification/trust
+LocalTrust adapter.
 KEY ARCHITECTURAL DECISIONS:
-  - SDK correction #3: Uses verifier.EvaluateAuthority (walks Prior_Authority
-    chain, handles snapshots, skip pointers). Not manual authority chain scan.
+  - SDK correction #3: Uses verifier.EvaluateAuthorityWithTrust (walks
+    Prior_Authority chain, handles snapshots, skip pointers). Not manual
+    authority chain scan.
   - SDK correction #7: Checks EvaluateContest for pending enforcements.
 
 OVERVIEW: CheckEnforcementStatus → active/pending constraints + contest status.
@@ -19,6 +22,8 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 type EnforcementStatus struct {
@@ -38,9 +43,10 @@ func CheckEnforcementStatus(
 	fetcher types.EntryFetcher,
 	extractor schema.SchemaParameterExtractor,
 ) (*EnforcementStatus, error) {
-	leafKey := smt.DeriveKey(caseRootPos)
-
-	authEval, err := verifier.EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
+	authEval, err := verifier.EvaluateAuthorityWithTrust(
+		ctx, caseRootPos,
+		trust.NewLocalTrust(fetcher, leafReader),
+		extractor, verifier.AsOf{})
 	if err != nil {
 		return nil, fmt.Errorf("verification/sealing_check: %w", err)
 	}

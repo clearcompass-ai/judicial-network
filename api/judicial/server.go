@@ -25,7 +25,7 @@ import (
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/topology"

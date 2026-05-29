@@ -36,9 +36,9 @@ DESCRIPTION:
 	# SCOPE — DISTINCT FROM verification/delegation_chain.go
 
 	verification/delegation_chain.go walks delegations BY POINTER
-	using verifier.VerifyDelegationProvenance — the entry carries
-	a slice of Header.DelegationPointers, and the verifier confirms
-	that explicit chain. That mechanic is unchanged.
+	using verifier.VerifyDelegationProvenanceWithTrust — the entry
+	carries a slice of Header.DelegationPointers, and the verifier
+	confirms that explicit chain. That mechanic is unchanged.
 
 	This file (delegation_source.go) walks delegations BY DID. The
 	caller supplies a leaf signer's DID; the Resolver walks UP via

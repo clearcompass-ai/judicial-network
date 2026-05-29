@@ -9,7 +9,8 @@ DESCRIPTION:
 	  - BY-POINTER (legacy, v0.x): VerifyFilingDelegation walks an
 	    explicit DelegationPointers slice carried on the filing's
 	    Header. The chain is GIVEN; the verifier confirms each hop's
-	    cryptographic liveness via verifier.VerifyDelegationProvenance.
+	    cryptographic liveness via verifier.VerifyDelegationProvenanceWithTrust
+	    fed by a verification/trust LocalTrust adapter.
 
 	  - BY-DID (v1.2.0+): ResolveDelegationByDID walks UP from a
 	    leaf signer's DID through repeated EntrySource lookups via
@@ -89,6 +90,8 @@ import (
 	sdkdelegation "github.com/clearcompass-ai/attesta/delegation"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // DelegationVerification carries the result of both verification
@@ -142,14 +145,16 @@ func VerifyFilingDelegation(
 
 	// : cryptographic provenance.
 	//
-	// At the pinned SDK commit (v7.75/d6b9792),
-	// verifier.VerifyDelegationProvenance never surfaces fetcher or
-	// deserialize errors as a returned error — they collapse to
-	// IsLive=false on the affected hop. We reflect that contract
-	// here. If a future SDK pin changes the contract to return an
-	// error, this call site needs the wrap-and-return branch
+	// The contract that fetcher/deserialize errors collapse to
+	// IsLive=false on the affected hop (rather than surfacing as a
+	// returned error) is preserved by SingleLog inside LocalTrust.
+	// If a future SDK pin changes the contract to surface those
+	// errors, this call site needs the wrap-and-return branch
 	// reinstated.
-	hops, _ := verifier.VerifyDelegationProvenance(ctx, delegationPointers, fetcher, leafReader)
+	hops, _ := verifier.VerifyDelegationProvenanceWithTrust(
+		ctx, delegationPointers,
+		trust.NewLocalTrust(fetcher, leafReader),
+		verifier.AsOf{})
 
 	result := &DelegationVerification{
 		Hops:    hops,

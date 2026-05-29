@@ -3,7 +3,6 @@ module github.com/clearcompass-ai/judicial-network
 go 1.25.7
 
 require (
-	github.com/alicebob/miniredis/v2 v2.33.0
 	github.com/clearcompass-ai/attesta-tools/libs v1.29.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
@@ -34,11 +33,10 @@ require (
 )
 
 require (
-	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/clearcompass-ai/attesta v1.33.1
+	github.com/clearcompass-ai/attesta v1.36.0
 	github.com/consensys/gnark-crypto v0.20.1 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
@@ -62,7 +60,6 @@ require (
 	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.50.0 // indirect

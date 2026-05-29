@@ -6,8 +6,10 @@ DESCRIPTION: Enforcement timeline verification. Walks the authority lane
 	constraints plus per-constraint contest state.
 
 KEY ARCHITECTURAL DECISIONS:
-  - Correction #3: uses verifier.EvaluateAuthority (O(A) walker that
-    handles snapshots and skip pointers) rather than manual scanning.
+  - Correction #3: uses verifier.EvaluateAuthorityWithTrust (O(A) walker
+    that handles snapshots and skip pointers) rather than manual scanning.
+    Fed by a LocalTrust adapter from verification/trust over the
+    (fetcher, leafReader) pair the call site already holds.
     This is the difference vs verification/sealing_check.go: compliance
     produces a rich timeline for court administration; sealing_check
     returns a compact status for API responses.
@@ -35,6 +37,8 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // ComplianceConfig configures a compliance check.
@@ -74,9 +78,9 @@ type ComplianceReport struct {
 }
 
 // RunComplianceCheck walks the authority lane for a case entity using
-// verifier.EvaluateAuthority (correction #3) and produces a timeline
-// for court compliance monitoring. Optionally evaluates per-constraint
-// contest state (correction #7).
+// verifier.EvaluateAuthorityWithTrust (correction #3) and produces a
+// timeline for court compliance monitoring. Optionally evaluates
+// per-constraint contest state (correction #7).
 func RunComplianceCheck(
 	ctx context.Context,
 	cfg ComplianceConfig,
@@ -93,9 +97,10 @@ func RunComplianceCheck(
 		now = time.Now().UTC()
 	}
 
-	leafKey := smt.DeriveKey(cfg.CaseRootPos)
-
-	authEval, err := verifier.EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
+	authEval, err := verifier.EvaluateAuthorityWithTrust(
+		ctx, cfg.CaseRootPos,
+		trust.NewLocalTrust(fetcher, leafReader),
+		extractor, verifier.AsOf{})
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/compliance: evaluate authority: %w", err)
 	}

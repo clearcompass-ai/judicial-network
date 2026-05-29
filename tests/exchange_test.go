@@ -7,20 +7,16 @@ entry build/sign/submit, artifact publish/grant, index scanner/store.
 package tests
 
 import (
-	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/json"
-	"fmt"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 )
 
@@ -77,76 +73,20 @@ func TestMTLS_BuildCertSAN_InvalidDID(t *testing.T) {
 }
 
 // ─── Signed Request Auth ────────────────────────────────────────────
-
-func TestSignedRequest_NonceStore_Fresh(t *testing.T) {
-	ns := auth.NewNonceStore(5 * time.Minute)
-
-	ok := ns.Check("nonce-1", time.Now())
-	if !ok {
-		t.Fatal("Fresh nonce should pass")
-	}
-}
-
-func TestSignedRequest_NonceStore_Replay(t *testing.T) {
-	ns := auth.NewNonceStore(5 * time.Minute)
-
-	ns.Check("nonce-1", time.Now())
-	ok := ns.Check("nonce-1", time.Now())
-	if ok {
-		t.Fatal("Replayed nonce should fail")
-	}
-}
-
-func TestSignedRequest_NonceStore_Expired(t *testing.T) {
-	ns := auth.NewNonceStore(5 * time.Minute)
-
-	// Timestamp older than window.
-	ok := ns.Check("nonce-old", time.Now().Add(-10*time.Minute))
-	if ok {
-		t.Fatal("Expired timestamp should fail")
-	}
-}
-
-func TestSignedRequest_VerifySignature(t *testing.T) {
-	pub, priv, _ := ed25519.GenerateKey(nil)
-
-	req := &auth.SignedRequest{
-		SignerDID: "did:web:test:signer",
-		Action:    "build_and_sign",
-		Payload:   json.RawMessage(`{"builder":"amendment"}`),
-		Timestamp: time.Now().UTC(),
-		Nonce:     "test-nonce-123",
-	}
-
-	// Sign the canonical form.
-	canonical := fmt.Sprintf("%s|%s|%s|%s|%s",
-		req.SignerDID, req.Action, string(req.Payload),
-		req.Timestamp.Format(time.RFC3339Nano), req.Nonce)
-	req.Signature = ed25519.Sign(priv, []byte(canonical))
-
-	err := auth.VerifySignedRequest(req, pub)
-	if err != nil {
-		t.Fatalf("VerifySignedRequest failed: %v", err)
-	}
-}
-
-func TestSignedRequest_InvalidSignature(t *testing.T) {
-	pub, _, _ := ed25519.GenerateKey(nil)
-
-	req := &auth.SignedRequest{
-		SignerDID: "did:web:test:signer",
-		Action:    "build_and_sign",
-		Payload:   json.RawMessage(`{}`),
-		Timestamp: time.Now().UTC(),
-		Nonce:     "test-nonce",
-		Signature: []byte("definitely-not-valid"),
-	}
-
-	err := auth.VerifySignedRequest(req, pub)
-	if err == nil {
-		t.Fatal("Expected error for invalid signature")
-	}
-}
+//
+// Pre-v2 SignedRequest tests are DELETED. They pinned the bespoke
+// canonical layout (signer_did|action|payload|timestamp|nonce[|destination])
+// which has been replaced by the SDK envelope + length-prefixed
+// JN extension (see api/exchange/auth/v2/request.go). The v2
+// package's own test suite covers every security property the old
+// tests pinned, and more:
+//
+//   - SigningBytes content + layout pins (request_test.go)
+//   - VerifyRequest gates: nonce, domain, validity window,
+//     signature, action mismatch (verify_test.go)
+//   - SignerAuth middleware: mTLS path, signed envelope path,
+//     per-Destination NonceStore routing, fallback, concurrent
+//     replay safety (signer_auth_test.go)
 
 // ─── KeyStore ───────────────────────────────────────────────────────
 

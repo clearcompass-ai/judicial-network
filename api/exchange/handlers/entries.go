@@ -55,7 +55,7 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 )
 
