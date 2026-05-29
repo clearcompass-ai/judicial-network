@@ -142,22 +142,28 @@ func TestLoadConfig_BadFlag_Errors(t *testing.T) {
 // registerProductionBundles
 // ──────────────────────────────────────────────────────────────────
 
-func TestRegisterProductionBundles_AllThreeRegistered(t *testing.T) {
+func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 	r := jurisdiction.NewRegistry()
 	if err := registerProductionBundles(r); err != nil {
 		t.Fatalf("registerProductionBundles: %v", err)
 	}
 	dids := r.ExchangeDIDs()
-	if len(dids) != 3 {
-		t.Errorf("registered DIDs = %d, want 3 (Davidson + COA + Sup. Ct.); got %v",
-			len(dids), dids)
-	}
 	// DIDs come from the deployment Bundles' compiled-in constants;
-	// renaming a Bundle's ExchangeDID would surface here.
+	// renaming a Bundle's ExchangeDID would surface here. Adding a
+	// new destination = a new entry in this map + the import +
+	// Register call in registerProductionBundles.
 	want := map[string]bool{
+		// TN Courts network.
 		"did:web:state:tn:davidson": false,
 		"did:web:state:tn:coa":      false,
 		"did:web:state:tn:sc":       false,
+		// Federal Court System network (e2e topology).
+		"did:web:fed:sup_ct:us":      false,
+		"did:web:fed:appellate:6th_cir": false,
+		"did:web:fed:trial:tn_middle": false,
+	}
+	if len(dids) != len(want) {
+		t.Errorf("registered DIDs = %d, want %d; got %v", len(dids), len(want), dids)
 	}
 	for _, did := range dids {
 		if _, ok := want[did]; ok {
@@ -206,10 +212,14 @@ func TestBuildNonceStores_MemoryBackend_OnePerDestination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildNonceStores: %v", err)
 	}
-	if len(stores) != 3 {
-		t.Errorf("stores = %d, want 3", len(stores))
+	// Per-destination NonceStore: one store per registered exchange DID.
+	// Count comes from registerProductionBundles — any change to that
+	// roster surfaces here.
+	dids := r.ExchangeDIDs()
+	if len(stores) != len(dids) {
+		t.Errorf("stores = %d, want %d (one per registered destination)", len(stores), len(dids))
 	}
-	for _, did := range r.ExchangeDIDs() {
+	for _, did := range dids {
 		if stores[did] == nil {
 			t.Errorf("missing store for %s", did)
 		}

@@ -34,6 +34,9 @@ import (
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
+	feda6th "github.com/clearcompass-ai/judicial-network/deployments/fed/appellate/sixth_circuit"
+	fedussc "github.com/clearcompass-ai/judicial-network/deployments/fed/sup_ct/us"
+	fedtnmd "github.com/clearcompass-ai/judicial-network/deployments/fed/trial/tn_middle"
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 	tnsupct "github.com/clearcompass-ai/judicial-network/deployments/tn/sup_ct"
@@ -44,11 +47,27 @@ import (
 // + one Register call here — the only place in production code where
 // destination DIDs cross from compiled-in Bundle definitions into a
 // runtime structure.
+//
+// Network isolation is NOT enforced at registry time — the registry
+// is a catalog of destination policies, identical across every JN
+// binary. Per-network isolation lives at the ledger boundary: the
+// network-api binds to one ledger (LEDGER_ENDPOINT); the ledger
+// validates that an entry's destination is under its own
+// network_id (see attesta/exchange/admission). The e2e provisioner
+// brings up two JN binaries (jn-federal + jn-tn) sharing this same
+// registry; cross-network admission is enforced downstream.
 func registerProductionBundles(r *jurisdiction.Registry) error {
 	for _, factory := range []func() jurisdiction.Bundle{
+		// TN Courts network destinations.
 		tndavidson.MustBundle,
 		tncoa.MustBundle,
 		tnsupct.MustBundle,
+		// Federal Court System network destinations (e2e topology
+		// — see deployments/fed/*/bundle.go for the placeholder
+		// policy framework note).
+		fedussc.MustBundle,
+		feda6th.MustBundle,
+		fedtnmd.MustBundle,
 	} {
 		b := factory()
 		if err := r.Register(b); err != nil {
