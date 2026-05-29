@@ -299,3 +299,30 @@ is why the system stays melt-proof at scale while remaining zero-trust.
 3. The **JN** builds `MultiJurisdictionTrust` (**Spine Layer 2**) over the tools **Heads Journal** + **tile mirrors**, drives the SDK **WithTrust walkers** (**Layer 3**) and **cross-log composites** (**Layer 4**) from its **API** layer, and applies its **domain** packages for court policy.
 
 > The throughline: a single **SDK trust spine** (View A) is instantiated by `anchor.MultiLog` in-process, by `MultiJurisdictionTrust` in the JN, and consumed by the ledger's admission gate — so cross-log verification resolves *identically* whoever runs it. That uniformity is the whole point of pushing trust into the SDK.
+
+---
+
+# Layer 5 — Protocol & integrity per channel
+
+> Every cross-component message is integrity-protected **at the source**; the
+> transport (HTTP, object store, gossip) is **untrusted**. A receiver never
+> trusts a message because of where it came from — it re-runs the SDK math.
+
+| # | From → To | Channel / wire | Integrity guarantee (verified) |
+|---|---|---|---|
+| 1 | Client → **Network admission gate** | HTTP `POST /v1/entries[/batch]` carrying a signed `envelope.Entry`; returns an **SCT** | Signature over the canonical `SigningPayload` with `Header.Destination` **bound in** (`core/envelope/serialize.go:472`); gate rejects wrong-network (`ledger/api/submission.go:481-486`) + bad signature **pre-WAL** |
+| 2 | **Ledger HeadSync → Witness** | HTTP `POST /v1/cosign` (`cosign.DefaultCosignPath`); `cosign.WireRequest`→`WireResponse` (`crypto/cosign/wire.go:134`) | Signed message = `TreeHeadDigest = Purpose ‖ NetworkID ‖ RootHash ‖ SMTRoot ‖ ReceiptRoot ‖ TreeSize` (`crypto/cosign/treehead.go`) — **purpose- and NetworkID-bound**, so a cosignature cannot replay across purpose or network |
+| 3 | Witnesses ×N → **quorum** | `WitnessCollector` K-of-N aggregation | Each cosig verified under the immutable `WitnessKeySet` (`crypto/cosign/witness_key_set.go`); `1 ≤ K ≤ N`; BLS proof-of-possession defeats rogue-key |
+| 4 | **Ledger → object store** | tile PUT to S3/GCS (`ledger/bytestore/`) | Tiles are content-addressed (`c2sp.org/tlog-tiles`); readers authenticate them against the cosigned `RootHash`, never the bucket |
+| 5 | Ledger / peer ↔ **Gossip peers** | HTTP `POST /v1/gossip` (publish) + bounded pull (`gossip/client.go`, 64 KiB cap) | Events are **signed findings** (`gossip.Sign`), **re-verified by the SDK on receipt**; Lamport time makes re-delivery idempotent; pull-based ⇒ the publisher is never trusted |
+| 6 | Auditor / JN → **foreign tiles** | anonymous GET via `HTTPTileMirrors` (`attesta-tools/libs/auditing/gossipverify/tile_mirror.go`) | **Trust the root, not the server** — Merkle recompute vs the cosigned head; bounded `MaxTileBytes` (`attesta/log/tessera_fetcher.go:79`) |
+| 7 | Auditor → **Heads Journal** | in-process `Record` (`attesta-tools/.../heads_journal.go`) | Only **verified** heads recorded; PK `(LogDID, Seq, RootHash)`; a conflicting root ⇒ store both + `ErrEquivocatedLog` |
+| 8 | JN → **cross-log verify** | `anchor.VerifyCrossLog(proof, sourceSet)` (`attesta/anchor/anchor.go:213`) | Recompute the **source** log's K-of-N quorum **offline** + inclusion vs the verified head's `RootHash`. ⚠ burn-gating is the open **SDK-4 / JN-3** gap |
+| 9 | Witness → Auditor (**equivocation**) | witness cosigs on *both* forks → `witness.DetectEquivocation` → `KindEquivocationFinding` → gossip | The two independently-valid K-of-N cosignatures **are** the fraud proof; no ledger cooperation required |
+
+## The four integrity invariants every channel obeys
+
+1. **Sign at the source.** Entries, tree heads, and findings are signed/canonical-hashed by their originator; HTTP/object-store/gossip carry bytes, not trust.
+2. **Domain + purpose separation.** `NetworkID` and `Purpose` are bound into every cosignature digest; `Destination` is bound into every entry hash — cross-network / cross-purpose replay diverges the hash and fails (`ZT-SCN-05`, `ZT-SDK-11`).
+3. **Trust the root.** Tiles, inclusion proofs, and SMT membership are authenticated by Merkle recomputation against a cosigned `RootHash` — so any mirror, CDN, or even a hostile server is safe to fetch from.
+4. **Fail-closed re-verification.** Receivers re-run the SDK verifier (`VerifyComplete`, `VerifyCrossLog`, `gossip` finding `Verify`) in a single frame and reject on any failure — nothing is accepted on provenance alone (`ZT-SDK-03`).
