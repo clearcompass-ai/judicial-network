@@ -197,6 +197,44 @@ func CosignatureRules() []policy.CosignatureRule {
 			MinSignerCosigners:  1,
 			IntraExchangeOnly:   false,
 		},
+
+		// ── Issue #67 Part A — §6 Court Orders ──────────────────
+		// Generic court-issued orders (scheduling, interlocutory,
+		// protective, warrant). Every entry in this section:
+		//   - Signed by a judge (RequiredSignerRoles=[judge]).
+		//   - No filer permitted (these are pure Signer-only
+		//     judicial acts; the courtroom clerk's role is the
+		//     reduction-to-writing, not the legal act).
+		//   - Intra-exchange (a TN judge cannot issue an order in
+		//     a federal case; cross-exchange would require a
+		//     transfer first).
+		//   - MinSignerCosigners=1 (one Adjudicator's signature is
+		//     authoritative on a single-judge bench; multi-panel
+		//     courts can raise this in their bundle).
+		{
+			EventType:           "scheduling_order",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  1,
+			IntraExchangeOnly:   true,
+		},
+		{
+			EventType:           "interlocutory_order",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  1,
+			IntraExchangeOnly:   true,
+		},
+		{
+			EventType:           "protective_restraining_order",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  1,
+			IntraExchangeOnly:   true,
+		},
+		{
+			EventType:           "warrant_issuance_return",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  1,
+			IntraExchangeOnly:   true,
+		},
 	}
 	// Append every §3A–§3I motion rule. Each motions_3X.go file
 	// returns motionSpecs; motions.go converts them to the

@@ -152,6 +152,20 @@ func motionPrerequisiteRules() map[string][]prerequisites.Prereq {
 	return out
 }
 
+// motionEventNames returns the flat slice of every motion
+// event-type name across the §3A-§3I catalog. Used by §6
+// interlocutory_order's prereq declaration to encode "rules on a
+// prior motion (any kind)" without per-section enumeration
+// boilerplate.
+func motionEventNames() []string {
+	specs := allMotions()
+	out := make([]string, 0, len(specs))
+	for _, s := range specs {
+		out = append(out, s.EventType)
+	}
+	return out
+}
+
 // ─── Empty-section stubs (filled by §3A–§3I files) ────────────────
 //
 // Each motions_3X.go file replaces its stub with the section's

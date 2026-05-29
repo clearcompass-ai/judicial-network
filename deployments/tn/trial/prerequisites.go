@@ -127,6 +127,25 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 
 		// ── hearing: posture event, requires case_initiation ─────
 		"hearing_convened_concluded": {caseInitAncestor},
+
+		// ── Issue #67 Part A — §6 Court Orders ──────────────────
+		//
+		// Each order's prereq mirrors dictionary §6:
+		//
+		//   scheduling_order             → Hard case_initiation
+		//   protective_restraining_order → Hard case_initiation
+		//   warrant_issuance_return      → Hard case_initiation
+		//   interlocutory_order          → Hard prior motion_*
+		//                                  (OR over the full §3A-3I
+		//                                  motion catalog)
+		"scheduling_order":             {caseInitAncestor},
+		"protective_restraining_order": {caseInitAncestor},
+		"warrant_issuance_return":      {caseInitAncestor},
+		"interlocutory_order": {{
+			Mode:             prerequisites.PrereqModeHard,
+			RequiredAncestor: motionEventNames(),
+			Reason:           "interlocutory_order rules on a prior motion (dictionary §6)",
+		}},
 	}
 
 	// Merge every §3A–§3I motion's prereqs (Hard case_initiation

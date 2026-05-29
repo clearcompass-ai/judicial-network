@@ -254,13 +254,16 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 // to motions_3g_test.go when that section lands.
 
 // TestCosignatureRules_ExpectedCount pins the rule count so an
-// accidental addition / deletion shows up in CI. Total = 15 base
-// + every §3 motion declared. Base count dropped from 17 → 14
-// when motion_continuance / motion_summary_judgment /
-// motion_state_dismissal moved into the §3 helpers, then 14 → 15
-// when the §0 case_initiation genesis rule was added.
+// accidental addition / deletion shows up in CI. Total = 19 base
+// + every §3 motion declared. History:
+//   17 → 14: motion_continuance / motion_summary_judgment /
+//            motion_state_dismissal moved into §3 helpers.
+//   14 → 15: §0 case_initiation genesis rule added.
+//   15 → 19: Issue #67 Part A added §6 Court Orders 4 rules
+//            (scheduling_order, interlocutory_order,
+//             protective_restraining_order, warrant_issuance_return).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 15
+	const baseRules = 19
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)

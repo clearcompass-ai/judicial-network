@@ -74,8 +74,13 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 		"case_transfer_outbound":        true,
 		"case_transfer_inbound":         true,
 		"relay_attestation":             true,
-		"case_initiation":                true,
-		"hearing_convened_concluded":                       true,
+		"case_initiation":               true,
+		"hearing_convened_concluded":    true,
+		// Issue #67 Part A — §6 Court Orders.
+		"scheduling_order":             true,
+		"interlocutory_order":          true,
+		"protective_restraining_order": true,
+		"warrant_issuance_return":      true,
 	}
 	// Every base event must be present.
 	for evt := range baseWant {
