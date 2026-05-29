@@ -146,6 +146,41 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 			RequiredAncestor: motionEventNames(),
 			Reason:           "interlocutory_order rules on a prior motion (dictionary §6)",
 		}},
+
+		// ── Issue #67 Part B — §15 Schema Lifecycle ──────────────
+		//
+		// Per dictionary §15:
+		//
+		//   schema_publication  → origin event (no prereqs); a
+		//                         versioned successor sets the
+		//                         predecessor reference in the
+		//                         payload (PredecessorPos), which
+		//                         the verifier checks against the
+		//                         log — not the prereq walker.
+		//   schema_adoption     → Hard prior schema_publication
+		//   schema_amendment    → Hard prior schema_publication
+		//                         (for the predecessor)
+		//   schema_deprecation  → Hard prior schema_publication
+		//
+		// schema_adoption / amendment / deprecation share the
+		// SAME ancestor list (the prior schema_publication entry
+		// on the log). One Prereq encodes that contract.
+		"schema_publication": {},
+		"schema_adoption": {{
+			Mode:             prerequisites.PrereqModeHard,
+			RequiredAncestor: []string{"schema_publication"},
+			Reason:           "schema_adoption requires prior schema_publication of the target schema (dictionary §15)",
+		}},
+		"schema_amendment": {{
+			Mode:             prerequisites.PrereqModeHard,
+			RequiredAncestor: []string{"schema_publication"},
+			Reason:           "schema_amendment requires prior schema_publication of the predecessor (dictionary §15)",
+		}},
+		"schema_deprecation": {{
+			Mode:             prerequisites.PrereqModeHard,
+			RequiredAncestor: []string{"schema_publication"},
+			Reason:           "schema_deprecation requires prior schema_publication of the target (dictionary §15)",
+		}},
 	}
 
 	// Merge every §3A–§3I motion's prereqs (Hard case_initiation

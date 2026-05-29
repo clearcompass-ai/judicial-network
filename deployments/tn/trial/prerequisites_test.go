@@ -81,6 +81,11 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 		"interlocutory_order":          true,
 		"protective_restraining_order": true,
 		"warrant_issuance_return":      true,
+		// Issue #67 Part B — §15 Schema Lifecycle.
+		"schema_publication": true,
+		"schema_adoption":    true,
+		"schema_amendment":   true,
+		"schema_deprecation": true,
 	}
 	// Every base event must be present.
 	for evt := range baseWant {
