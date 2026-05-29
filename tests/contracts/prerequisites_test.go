@@ -17,12 +17,12 @@ DESCRIPTION:
 	           so the gate is independent of the SMT walk.
 
 	Pins:
-	  - Round-trip: motion_continuance with case_initiated ancestor
+	  - Round-trip: motion_continuance with case_initiation ancestor
 	    passes BOTH the cosignature check AND the prereq walk.
 	  - Vocabulary: an unknown event_type is rejected at the prereq
 	    gate even when the cosignature check happens to allow it.
 	  - Hard ancestor missing: motion_continuance without
-	    case_initiated is rejected with WalkRejectMissingAncestor.
+	    case_initiation is rejected with WalkRejectMissingAncestor.
 	  - Authority gate: judicial_appointment requires the right
 	    scope; missing scope rejects with WalkRejectMissingAuthority.
 	  - Advisory rule: transcript_publication without a hearing
@@ -109,7 +109,7 @@ func TestPrereqs_RoundTrip_GatesEntry(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	pv := w.Check("motion_continuance", prerequisites.CaseContext{
 		CaseRef:        "2027-CV-1234",
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if !pv.OK {
 		t.Fatalf("prereq rejected: %s (%s)", pv.Rejection, pv.Reason)
@@ -121,7 +121,7 @@ func TestPrereqs_RoundTrip_GatesEntry(t *testing.T) {
 func TestPrereqs_VocabularyGate_RejectsUnknownEvent(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("wizard_motion", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"}, // doesn't matter
+		ObservedEvents: []string{"case_initiation"}, // doesn't matter
 	})
 	if v.OK {
 		t.Fatal("vocabulary gate must reject unknown events")
@@ -131,16 +131,16 @@ func TestPrereqs_VocabularyGate_RejectsUnknownEvent(t *testing.T) {
 	}
 }
 
-// ─── ancestor gate: motion without case_initiated rejected ─────────
+// ─── ancestor gate: motion without case_initiation rejected ─────────
 
 func TestPrereqs_AncestorGate_RejectsMissingCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("motion_continuance", prerequisites.CaseContext{
 		CaseRef:        "2027-CV-9999",
-		ObservedEvents: []string{}, // case_initiated missing
+		ObservedEvents: []string{}, // case_initiation missing
 	})
 	if v.OK {
-		t.Fatal("must reject motion without case_initiated")
+		t.Fatal("must reject motion without case_initiation")
 	}
 	if v.Rejection != prerequisites.WalkRejectMissingAncestor {
 		t.Errorf("Rejection=%s", v.Rejection)
@@ -180,7 +180,7 @@ func TestPrereqs_AuthorityGate_AcceptsWithScope(t *testing.T) {
 func TestPrereqs_AdvisoryRule_DoesNotBlock(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("transcript_publication", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"}, // hearing absent
+		ObservedEvents: []string{"case_initiation"}, // hearing absent
 	})
 	if !v.OK {
 		t.Errorf("advisory must NOT block: %+v", v)
@@ -195,12 +195,12 @@ func TestPrereqs_AdvisoryRule_DoesNotBlock(t *testing.T) {
 
 // ─── verdict: requires merits posture ──────────────────────────────
 
-// case_initiated alone is NOT enough for a verdict; the dictionary
+// case_initiation alone is NOT enough for a verdict; the dictionary
 // requires a merits-posture event in the subtree.
 func TestPrereqs_Verdict_RejectsWithoutMeritsPosture(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("verdict", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Fatal("verdict must require merits-posture ancestor")
@@ -213,7 +213,7 @@ func TestPrereqs_Verdict_RejectsWithoutMeritsPosture(t *testing.T) {
 func TestPrereqs_Verdict_AcceptsWithMeritsPosture(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
 	v := w.Check("verdict", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated", "responsive_pleading"},
+		ObservedEvents: []string{"case_initiation", "responsive_pleading"},
 	})
 	if !v.OK {
 		t.Errorf("verdict with merits posture must be OK: %+v", v)

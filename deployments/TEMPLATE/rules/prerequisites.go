@@ -4,13 +4,13 @@ FILE PATH: deployments/TEMPLATE/rules/prerequisites.go
 DESCRIPTION:
 
 	TEMPLATE deployment — prerequisite policy skeleton. The
-	skeleton ships ONE event_type (`case_initiated`) — the
+	skeleton ships ONE event_type (`case_initiation`) — the
 	universal bootstrap event with no prereqs — to satisfy
 	jurisdiction.Validate's vocabulary cross-check against the
 	cosignature mix.
 
 	Real deployments expand to cover their full vocabulary:
-	motions (with case_initiated ancestor), judicial outcomes
+	motions (with case_initiation ancestor), judicial outcomes
 	(with merits-posture rules), personnel events (with
 	authority-scope rules), etc. See deployments/tn/trial/
 	prerequisites.go for an 18-event TN trial reference and
@@ -31,11 +31,11 @@ import (
 )
 
 // PrerequisiteRules returns the TEMPLATE skeleton vocabulary.
-// One event (case_initiated) with no prereqs — the universal
+// One event (case_initiation) with no prereqs — the universal
 // case-root anchor.
 func PrerequisiteRules() map[string][]prerequisites.Prereq {
 	return map[string][]prerequisites.Prereq{
-		"case_initiated": {},
+		"case_initiation": {},
 	}
 }
 

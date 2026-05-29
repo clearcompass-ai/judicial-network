@@ -104,7 +104,7 @@ func TestMotions3F_InCosignatureRules(t *testing.T) {
 func TestFunctional_Mistrial_AdvisoryPasses(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	v := w.Check("motion_mistrial", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
 		t.Errorf("Advisory must NOT block: %s", v.Reason)

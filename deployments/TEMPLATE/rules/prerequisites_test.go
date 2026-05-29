@@ -5,8 +5,8 @@ DESCRIPTION:
 
 	Tests for the TEMPLATE prerequisite skeleton. Pins:
 	  - the skeleton validates,
-	  - exactly 1 event (case_initiated) exists with no prereqs,
-	  - a Walker check on case_initiated returns OK.
+	  - exactly 1 event (case_initiation) exists with no prereqs,
+	  - a Walker check on case_initiation returns OK.
 */
 package rules
 
@@ -38,17 +38,17 @@ func TestMustPrerequisitePolicy_DoesNotPanic(t *testing.T) {
 func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
 	got := p.EventTypes()
-	if len(got) != 1 || got[0] != "case_initiated" {
-		t.Errorf("TEMPLATE skeleton vocabulary drift: want [case_initiated], got %v",
+	if len(got) != 1 || got[0] != "case_initiation" {
+		t.Errorf("TEMPLATE skeleton vocabulary drift: want [case_initiation], got %v",
 			got)
 	}
 }
 
-func TestWalk_CaseInitiated_NoPrereqs(t *testing.T) {
+func TestWalk_CaseInitiation_NoPrereqs(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("case_initiated", prerequisites.CaseContext{})
+	v := w.Check("case_initiation", prerequisites.CaseContext{})
 	if !v.OK {
-		t.Errorf("case_initiated must be OK at the bootstrap: %+v", v)
+		t.Errorf("case_initiation must be OK at the bootstrap: %+v", v)
 	}
 }
 

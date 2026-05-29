@@ -11,7 +11,7 @@ DESCRIPTION:
 	  - The catch-all carries CustomTitleRequired=true.
 	  - Every §3A event ends up in CosignatureRules() and
 	    PrerequisiteRules() through the helpers.
-	  - Walker accepts each §3A motion with case_initiated
+	  - Walker accepts each §3A motion with case_initiation
 	    observed.
 */
 package trial
@@ -116,16 +116,16 @@ func TestMotions3A_InPrerequisiteRules(t *testing.T) {
 	}
 }
 
-// ─── functional: Walker accepts each §3A with case_initiated ───
+// ─── functional: Walker accepts each §3A with case_initiation ───
 
 func TestFunctional_AllMotions3A_AcceptedAfterCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	for _, m := range motions3A() {
 		v := w.Check(m.EventType, prerequisites.CaseContext{
-			ObservedEvents: []string{"case_initiated"},
+			ObservedEvents: []string{"case_initiation"},
 		})
 		if !v.OK {
-			t.Errorf("§3A %q must accept after case_initiated: %s",
+			t.Errorf("§3A %q must accept after case_initiation: %s",
 				m.EventType, v.Reason)
 		}
 	}
@@ -136,7 +136,7 @@ func TestFunctional_AllMotions3A_RejectedWithoutCaseInit(t *testing.T) {
 	for _, m := range motions3A() {
 		v := w.Check(m.EventType, prerequisites.CaseContext{})
 		if v.OK {
-			t.Errorf("§3A %q must reject without case_initiated", m.EventType)
+			t.Errorf("§3A %q must reject without case_initiation", m.EventType)
 		}
 	}
 }

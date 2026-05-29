@@ -148,7 +148,7 @@ func (g *BundleSubmitGate) Admit(entryBytes []byte) *Rejection {
 	// Prerequisite gate. The submit handler does not have a
 	// case-root subtree scanner today (that's a v0.7.0 follow-
 	// on). For v0.5.0 we run the Walker with an empty
-	// CaseContext: events with no Hard prereqs (case_initiated,
+	// CaseContext: events with no Hard prereqs (case_initiation,
 	// cross-exchange transfers) accept; events with Hard
 	// ancestor / authority requirements reject — which is the
 	// closed-by-default safety property we want at submission.

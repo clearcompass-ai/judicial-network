@@ -47,7 +47,7 @@ func TestBuildPartiesFilingRows_NilPayload(t *testing.T) {
 func TestBuildPartiesFilingRows_NoCapacityBlocks(t *testing.T) {
 	c := &ClassifiedEntry{
 		Payload: map[string]any{
-			"event_type": "case_initiated",
+			"event_type": "case_initiation",
 			"case_ref":   "DAV-2027-CR-0001",
 		},
 	}

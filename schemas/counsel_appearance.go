@@ -23,7 +23,7 @@ KEY ARCHITECTURAL DECISIONS:
   - represents is a list of binding_id strings. The order is
     preserved so the aggregator can reconstruct
     attorney→party associations exactly.
-  - Per v1.8 prereq policy: case_initiated is Hard ancestor;
+  - Per v1.8 prereq policy: case_initiation is Hard ancestor;
     every binding_id in represents is Advisory ancestor
     (legitimate cross-ordering occurs in real filings).
 

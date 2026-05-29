@@ -5,7 +5,7 @@ DESCRIPTION:
 
 	Tests for the TEMPLATE cosignature-mix skeleton. Pins:
 	  - the skeleton compiles and validates,
-	  - exactly 1 rule (case_initiated) exists,
+	  - exactly 1 rule (case_initiation) exists,
 	  - the rule is intra-exchange and judge-signed.
 */
 package rules
@@ -28,10 +28,10 @@ func TestCosignatureRules_OneRule(t *testing.T) {
 	}
 }
 
-func TestCosignatureRules_CaseInitiatedShape(t *testing.T) {
+func TestCosignatureRules_CaseInitiationShape(t *testing.T) {
 	r := CosignatureRules()[0]
-	if r.EventType != "case_initiated" {
-		t.Errorf("placeholder event_type drift: want case_initiated, got %q",
+	if r.EventType != "case_initiation" {
+		t.Errorf("placeholder event_type drift: want case_initiation, got %q",
 			r.EventType)
 	}
 	if !r.IntraExchangeOnly {

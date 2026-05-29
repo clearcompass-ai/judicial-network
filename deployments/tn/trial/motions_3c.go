@@ -7,7 +7,7 @@ DESCRIPTION:
 	event types covering TRCP 65 injunctions, asset attachment,
 	TRCP 23 class certification, and the catch-all.
 
-	All §3C motions follow the §3 default: Hard case_initiated
+	All §3C motions follow the §3 default: Hard case_initiation
 	ancestor only; no additional prereqs.
 
 	Filer set:

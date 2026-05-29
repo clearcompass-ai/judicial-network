@@ -7,7 +7,7 @@ DESCRIPTION:
 	that resolve a case as a matter of law without a merits
 	trial.
 
-	Prereq variations beyond the §3 default (Hard case_initiated):
+	Prereq variations beyond the §3 default (Hard case_initiation):
 	  motion_judgment_on_pleadings  Hard responsive_pleading
 	                                (pleadings closed)
 	  motion_default_judgment       Hard party_binding for the

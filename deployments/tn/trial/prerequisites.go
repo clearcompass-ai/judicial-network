@@ -8,12 +8,12 @@ DESCRIPTION:
 	internal/testfixtures/davidsonlegacy/prerequisites.go.
 
 	The 18 event_types match the cosignature policy's vocabulary
-	plus two structural anchors (case_initiated, hearing) that
+	plus two structural anchors (case_initiation, hearing) that
 	are not subject to Filer cosignature.
 
 	Categories:
 	  - case-lifecycle filings (motions, pleadings, accountings):
-	    require a case_initiated ancestor in the subtree.
+	    require a case_initiation ancestor in the subtree.
 	  - judicial outcomes (verdict, final_judgment): require a
 	    responsive_pleading, motion_state_dismissal, or
 	    motion_summary_judgment in the subtree (some merits
@@ -67,13 +67,13 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 	}
 	hearingAdvisory := prerequisites.Prereq{
 		Mode:             prerequisites.PrereqModeAdvisory,
-		RequiredAncestor: []string{"hearing"},
+		RequiredAncestor: []string{"hearing_convened_concluded"},
 		Reason:           "transcript_publication advisory: hearing should precede transcript",
 	}
 
 	rules := map[string][]prerequisites.Prereq{
 		// ── §1 Genesis: counsel_appearance ──────────────────────
-		// Hard: case_initiated. The Advisory binding_id-per-
+		// Hard: case_initiation. The Advisory binding_id-per-
 		// represents check is enforced by the verifier-level
 		// payload walk (the prereq Walker does not have a
 		// per-payload "for each X in Y" primitive in v0.5.0;
@@ -123,13 +123,13 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		"relay_attestation":      {},
 
 		// ── case bootstrap: anchor of the subtree, no prereq ────
-		"case_initiated": {},
+		"case_initiation": {},
 
-		// ── hearing: posture event, requires case_initiated ─────
-		"hearing": {caseInitAncestor},
+		// ── hearing: posture event, requires case_initiation ─────
+		"hearing_convened_concluded": {caseInitAncestor},
 	}
 
-	// Merge every §3A–§3I motion's prereqs (Hard case_initiated
+	// Merge every §3A–§3I motion's prereqs (Hard case_initiation
 	// ancestor + the section file's AdditionalPrereqs).
 	for evt, prereqs := range motionPrerequisiteRules() {
 		rules[evt] = prereqs
