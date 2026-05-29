@@ -86,6 +86,12 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 		"schema_adoption":    true,
 		"schema_amendment":   true,
 		"schema_deprecation": true,
+		// Issue #67 Part C — §16 Network Topology.
+		"anchor_registration":     true,
+		"mirror_creation":         true,
+		"mirror_revocation":       true,
+		"network_fork":            true,
+		"scope_division_creation": true,
 	}
 	// Every base event must be present.
 	for evt := range baseWant {

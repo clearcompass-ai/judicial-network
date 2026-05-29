@@ -277,6 +277,42 @@ func CosignatureRules() []policy.CosignatureRule {
 			MinSignerCosigners:  2,
 			IntraExchangeOnly:   true,
 		},
+
+		// ── Issue #67 Part C — §16 Network Topology critical 5 ───
+		// Federation events: joining the network, mirroring,
+		// revoking mirrors, forking, creating divisions.
+		// All require senior approval (2-judge minimum); fork
+		// requires the strictest 3-judge consensus.
+		{
+			EventType:           "anchor_registration",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   true,
+		},
+		{
+			EventType:           "mirror_creation",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   false, // mirrors target external networks
+		},
+		{
+			EventType:           "mirror_revocation",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   false,
+		},
+		{
+			EventType:           "network_fork",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  3, // network fork is consensus-strict
+			IntraExchangeOnly:   false,
+		},
+		{
+			EventType:           "scope_division_creation",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   true,
+		},
 	}
 	// Append every §3A–§3I motion rule. Each motions_3X.go file
 	// returns motionSpecs; motions.go converts them to the

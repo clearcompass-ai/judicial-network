@@ -44,6 +44,8 @@ func TestRegistry_ContainsAll18Schemas(t *testing.T) {
 		// Issue #67 Part B — §15 Schema Lifecycle (one schema
 		// URI serving all four governance events).
 		SchemaSchemaLifecycleV1,
+		// Issue #67 Part C — §16 Network Topology.
+		SchemaNetworkTopologyV1,
 	}
 
 	for _, uri := range expected {

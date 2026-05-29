@@ -181,6 +181,37 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 			RequiredAncestor: []string{"schema_publication"},
 			Reason:           "schema_deprecation requires prior schema_publication of the target (dictionary §15)",
 		}},
+
+		// ── Issue #67 Part C — §16 Network Topology critical 5 ──
+		//
+		// Per dictionary §16:
+		//   anchor_registration:    origin event (no prereqs)
+		//   network_fork:           origin event (no prereqs)
+		//   mirror_creation:        Hard prior entry being
+		//                           mirrored (delegation/schema)
+		//   mirror_revocation:      Hard prior mirror_creation
+		//   scope_division_creation: Hard prior exchange_onboarding
+		//                            (the parent exchange must exist)
+		//                            — until §11 lands we conservatively
+		//                            require no prereq (origin-like)
+		//                            so a court's first division can
+		//                            land alongside its onboarding.
+		"anchor_registration":     {},
+		"network_fork":            {},
+		"scope_division_creation": {},
+		"mirror_creation": {{
+			Mode: prerequisites.PrereqModeHard,
+			RequiredAncestor: []string{
+				"judicial_delegation",
+				"schema_publication",
+			},
+			Reason: "mirror_creation requires prior entry being mirrored (delegation or schema, per dictionary §16)",
+		}},
+		"mirror_revocation": {{
+			Mode:             prerequisites.PrereqModeHard,
+			RequiredAncestor: []string{"mirror_creation"},
+			Reason:           "mirror_revocation requires prior mirror_creation",
+		}},
 	}
 
 	// Merge every §3A–§3I motion's prereqs (Hard case_initiation

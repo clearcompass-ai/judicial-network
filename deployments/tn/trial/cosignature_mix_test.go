@@ -265,8 +265,11 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 //   19 → 23: Issue #67 Part B added §15 Schema Lifecycle 4 events
 //            (schema_publication, schema_adoption, schema_amendment,
 //             schema_deprecation).
+//   23 → 28: Issue #67 Part C added §16 Network Topology 5 events
+//            (anchor_registration, mirror_creation, mirror_revocation,
+//             network_fork, scope_division_creation).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 23
+	const baseRules = 28
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)
