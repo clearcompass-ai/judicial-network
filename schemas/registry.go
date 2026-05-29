@@ -123,6 +123,8 @@ func (r *Registry) registerAll() {
 	r.Register(schemaLifecycleRegistration())
 	// Issue #67 Part C — §16 Network Topology critical 5.
 	r.Register(networkTopologyRegistration())
+	// Issue #67 Part D — §14 Crypto & Key Maintenance.
+	r.Register(cryptoMaintenanceRegistration())
 }
 
 func (r *Registry) Register(reg *SchemaRegistration) {

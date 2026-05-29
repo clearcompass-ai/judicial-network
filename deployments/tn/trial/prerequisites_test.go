@@ -92,6 +92,9 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 		"mirror_revocation":       true,
 		"network_fork":            true,
 		"scope_division_creation": true,
+		// Issue #67 Part D — §14 Crypto.
+		"institutional_key_rotation":     true,
+		"mofn_escrow_recovery_execution": true,
 	}
 	// Every base event must be present.
 	for evt := range baseWant {

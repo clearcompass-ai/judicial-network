@@ -268,8 +268,11 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 //   23 → 28: Issue #67 Part C added §16 Network Topology 5 events
 //            (anchor_registration, mirror_creation, mirror_revocation,
 //             network_fork, scope_division_creation).
+//   28 → 30: Issue #67 Part D added §14 Crypto & Key Maintenance 2
+//            events (institutional_key_rotation,
+//             mofn_escrow_recovery_execution).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 28
+	const baseRules = 30
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)

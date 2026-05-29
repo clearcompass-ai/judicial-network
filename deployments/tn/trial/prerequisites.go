@@ -212,6 +212,30 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 			RequiredAncestor: []string{"mirror_creation"},
 			Reason:           "mirror_revocation requires prior mirror_creation",
 		}},
+
+		// ── Issue #67 Part D — §14 Crypto & Key Maintenance ─────
+		//
+		// institutional_key_rotation requires a prior appointment
+		// event establishing the rotating Signer (dictionary §14).
+		// mofn_escrow_recovery_execution requires a prior
+		// exchange_onboarding for the exchange being recovered
+		// (dictionary §14). Until §11 lands we conservatively
+		// gate it on judicial_appointment (the closest existing
+		// origin event).
+		"institutional_key_rotation": {{
+			Mode: prerequisites.PrereqModeHard,
+			RequiredAncestor: []string{
+				"judicial_appointment",
+				"clerk_appointment",
+				"court_reporter_appointment",
+			},
+			Reason: "institutional_key_rotation requires prior appointment of the rotating Signer (dictionary §14)",
+		}},
+		"mofn_escrow_recovery_execution": {{
+			Mode:             prerequisites.PrereqModeHard,
+			RequiredAncestor: []string{"judicial_appointment"},
+			Reason:           "mofn_escrow_recovery_execution requires prior establishment of the principal whose authority is being recovered (dictionary §14)",
+		}},
 	}
 
 	// Merge every §3A–§3I motion's prereqs (Hard case_initiation
