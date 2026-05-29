@@ -127,6 +127,33 @@ type Dependencies struct {
 	// returns an empty source set.
 	TrustedHeads *monitoring.TrustedHeadStore
 
+	// HeadsJournal is the v1.34+ durable archive — every verified
+	// CosignedTreeHeadFinding that the gossip Reconciler advances into
+	// TrustedHeads is ALSO written to this journal (multi-log keyed by
+	// LogDID). Surfaces three new verification surfaces that the live
+	// anchor cannot:
+	//
+	//   - HISTORICAL-asOf reads (asOfSequence / asOfTime) for
+	//     forensic and year-15 verification (Goal 11 — bundles
+	//     issued today must verify in 2041 against the head the
+	//     log committed to at issue time).
+	//   - FORK detection persisted across restarts — a burn
+	//     transition observed at runtime survives a restart so
+	//     a re-launched JN does not silently re-enter a tainted
+	//     log's enforcement path.
+	//   - CROSS-NETWORK verification — foreign-log heads pulled
+	//     from peer-network gossip pipelines land in the same
+	//     journal, keyed by their LogDID. C-3's MultiJurisdiction
+	//     LogTrustProvider reads this journal to resolve heads
+	//     for cross-log inclusion proofs.
+	//
+	// nil disables the durable archive (the C-1 baseline / dev mode).
+	// Production wires monitoring.MemoryHeadsJournal in-process;
+	// the auditor's PostgresHeadsJournal lives at services/auditor/
+	// internal/store (Separation of Duties: the JN never persists
+	// custody to disk).
+	HeadsJournal monitoring.HeadsJournal
+
 	// TrustedSources is the set of source log DIDs the verify-only ingest
 	// tracks (the gossip peers' log DIDs). Used to enumerate TrustedHeads for
 	// the peer-consistency endpoint. Empty ⇒ enumerate nothing unless a

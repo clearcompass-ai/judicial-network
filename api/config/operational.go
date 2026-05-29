@@ -289,6 +289,16 @@ type GossipIngestConfig struct {
 	// listing a peer grants it no trust. Empty ⇒ nothing to pull.
 	Peers []GossipPeerConfig `json:"peers,omitempty"`
 
+	// PeerLogs declares FOREIGN-NETWORK peer logs whose entries this JN may
+	// encounter as cross-log references (Scenario 1). Each entry brings its
+	// own NetworkID + witness set + gossip endpoint; the binary builds a
+	// PARALLEL gossip ingest pipeline for each. All pipelines share the
+	// home-network HeadsJournal (multi-log keyed by LogDID), so foreign
+	// heads land in the same durable archive home heads do. Empty ⇒ no
+	// cross-network ingest (single-network mode, identical to v1.36
+	// baseline).
+	PeerLogs []PeerLogConfig `json:"peer_logs,omitempty"`
+
 	// PeerURL is the env-driven single-peer source for the verify-only ingest:
 	// the external auditor's /v1/gossip base URL. When Peers is empty and ingest
 	// is enabled, the binary derives one peer = {bootstrap log, PeerURL}. Empty ⇒
@@ -347,6 +357,57 @@ type GossipPeerConfig struct {
 	LogDID string `json:"log_did"`
 	// BaseURL is the peer's base URL; the SDK feed client appends /v1/gossip.
 	BaseURL string `json:"base_url"`
+}
+
+// PeerLogConfig declares a FOREIGN-NETWORK peer log whose entries this
+// JN may encounter as cross-log references (Scenario 1 in the 15-year
+// lifecycle spec). Each foreign log has its own NetworkID and its own
+// witness set — verification against a foreign log's cosigned head
+// MUST use the foreign network's NetworkID and the foreign log's
+// witness set, never the home network's. The PeerLogs list extends
+// the home-network ingest with one PARALLEL gossip pipeline per
+// peer log so foreign heads land in the same shared journal
+// (libs/monitoring.HeadsJournal) the home-network heads do.
+//
+// SECURITY POSTURE
+//
+// Foreign-log ingest is INDEPENDENT of home-network admission. A
+// burned peer log (detected equivocation, KindEquivocationFinding)
+// transitions the journal's BurnStatus to true for the foreign LogDID;
+// every subsequent VerifyCrossLogProof against that LogDID returns
+// ErrEquivocatedLog (the STRICT FAIL-CLOSED mandate). Verification
+// halts globally for that foreign domain until human governance
+// re-establishes a clean trust root — out-of-band.
+type PeerLogConfig struct {
+	// LogDID is the foreign log's DID (e.g., "did:web:federal-courts.example").
+	// Required, unique within PeerLogs.
+	LogDID string `json:"log_did"`
+
+	// NetworkID is the foreign network's NetworkID as hex
+	// (32 bytes / 64 hex chars). Required — foreign-network
+	// cosigned heads bind to THIS NetworkID in their cosign
+	// canonical bytes (Scenario 5: cross-network replay rejection).
+	NetworkID string `json:"network_id"`
+
+	// GossipEndpoint is the foreign log's gossip base URL. The SDK
+	// feed client appends /v1/gossip. Required.
+	GossipEndpoint string `json:"gossip_endpoint"`
+
+	// WitnessDIDs are the foreign log's witness public-key DIDs.
+	// Required, len >= QuorumK.
+	WitnessDIDs []string `json:"witness_dids"`
+
+	// QuorumK is the K-of-N threshold the foreign log's cosignatures
+	// must meet. Required, 1 <= QuorumK <= len(WitnessDIDs).
+	QuorumK int `json:"quorum_k"`
+
+	// PollInterval is the per-peer catch-up cadence. Zero applies
+	// the SDK default (5 seconds — see libs/auditing/peers).
+	PollInterval time.Duration `json:"poll_interval,omitempty"`
+
+	// PageLimit caps events per /since page. Zero applies the SDK
+	// default (256 events — see libs/auditing/peers).
+	PageLimit int `json:"page_limit,omitempty"`
 }
 
 // TileMirrorConfig names one source log's Static-CT tile mirror.
@@ -788,6 +849,9 @@ func (cfg Operational) Validate() error {
 	if err := cfg.AuditorScope.validate(); err != nil {
 		return err
 	}
+	if err := cfg.GossipIngest.ValidatePeerLogs(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -802,6 +866,63 @@ func (cfg Operational) Validate() error {
 func (a AuditorScopeConfig) validate() error {
 	if a.Enforce && a.RegistryFile == "" {
 		return fmt.Errorf("%w: AuditorScope.Enforce=true but RegistryFile empty (refusing to boot with a silent scope-gate downgrade; set API_AUDITOR_REGISTRY_FILE)", ErrInvalidConfig)
+	}
+	return nil
+}
+
+// validate enforces the C-2 PeerLog contract: every foreign-network peer
+// entry must declare its own LogDID, NetworkID (32-byte hex / 64 chars),
+// gossip endpoint, and witness set + quorum. A malformed PeerLogs entry
+// is a startup-fatal misconfiguration — verification of cross-log
+// references would otherwise silently fall back to the home network's
+// trust roots, defeating Scenario 1.
+func (p PeerLogConfig) validate(index int) error {
+	if p.LogDID == "" {
+		return fmt.Errorf("%w: PeerLogs[%d].LogDID required (the foreign log's DID)", ErrInvalidConfig, index)
+	}
+	if p.GossipEndpoint == "" {
+		return fmt.Errorf("%w: PeerLogs[%d] (%s).GossipEndpoint required (the foreign log's /v1/gossip base URL)", ErrInvalidConfig, index, p.LogDID)
+	}
+	// NetworkID must be exactly 64 hex chars (32 bytes); without the
+	// right NetworkID, cosign canonical bytes never match and every
+	// foreign-network head fails verification — the operator deserves
+	// a loud error at boot, not a silent verification dead-end.
+	if len(p.NetworkID) != 64 {
+		return fmt.Errorf("%w: PeerLogs[%d] (%s).NetworkID must be 64 hex chars (32 bytes); got %d chars",
+			ErrInvalidConfig, index, p.LogDID, len(p.NetworkID))
+	}
+	for _, c := range p.NetworkID {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return fmt.Errorf("%w: PeerLogs[%d] (%s).NetworkID must be hex; non-hex character %q",
+				ErrInvalidConfig, index, p.LogDID, c)
+		}
+	}
+	if len(p.WitnessDIDs) == 0 {
+		return fmt.Errorf("%w: PeerLogs[%d] (%s).WitnessDIDs required (foreign log's witness public-key DIDs)",
+			ErrInvalidConfig, index, p.LogDID)
+	}
+	if p.QuorumK <= 0 || p.QuorumK > len(p.WitnessDIDs) {
+		return fmt.Errorf("%w: PeerLogs[%d] (%s).QuorumK = %d, must be 1..%d",
+			ErrInvalidConfig, index, p.LogDID, p.QuorumK, len(p.WitnessDIDs))
+	}
+	return nil
+}
+
+// ValidatePeerLogs enforces uniqueness on LogDID (a duplicate would
+// route conflicting cosigned heads into the same journal slot at
+// publish time) and per-entry well-formedness. Called from
+// Operational.Validate at boot.
+func (g GossipIngestConfig) ValidatePeerLogs() error {
+	seen := make(map[string]int, len(g.PeerLogs))
+	for i, p := range g.PeerLogs {
+		if prev, dup := seen[p.LogDID]; dup {
+			return fmt.Errorf("%w: PeerLogs[%d] duplicates LogDID from PeerLogs[%d] (%s)",
+				ErrInvalidConfig, i, prev, p.LogDID)
+		}
+		if err := p.validate(i); err != nil {
+			return err
+		}
+		seen[p.LogDID] = i
 	}
 	return nil
 }
