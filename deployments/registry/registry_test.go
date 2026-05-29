@@ -99,10 +99,13 @@ func TestLoadAll_CountsPerState(t *testing.T) {
 }
 
 func TestLoadAll_TennesseeCountyCourts(t *testing.T) {
-	// Davidson courts: 8 Circuit + 4 Chancery + 6 Criminal + 4 GS civil
-	// + 4 GS criminal + 1 Juvenile = 27.
-	// Knox: 4 Circuit + 3 Chancery + 3 Criminal + 4 GS + 1 Juvenile = 15.
-	// Total county courts: 42. State-level: 7. Grand total TN: 49.
+	// Davidson: 8 Circuit + 4 Chancery + 6 Criminal + 4 GS civil
+	//           + 4 GS criminal + 1 Juvenile = 27.
+	// Knox:     4 Circuit + 3 Chancery + 3 Criminal + 4 GS
+	//           + 1 Juvenile = 15.
+	// Sullivan: 3 Circuit + 3 Chancery + 3 GS (PerCourthouse:1 × 3
+	//           courthouses each) = 9.
+	// Total county courts: 51. State-level: 7. Grand total TN: 58.
 	specs := AllCourtSpecs()
 	tnCount := 0
 	for _, s := range specs {
@@ -110,13 +113,17 @@ func TestLoadAll_TennesseeCountyCourts(t *testing.T) {
 			tnCount++
 		}
 	}
-	if tnCount != 49 {
-		t.Errorf("TN court count = %d, want 49 (7 state-level + 27 Davidson + 15 Knox)", tnCount)
+	if tnCount != 58 {
+		t.Errorf("TN court count = %d, want 58 (7 state-level + 27 Davidson + 15 Knox + 9 Sullivan)", tnCount)
 	}
 }
 
 func TestLoadAll_TennesseeClerks(t *testing.T) {
-	// Davidson (Large): 4 clerks. Knox (Large): 4 clerks. Total: 8.
+	// Davidson (Large): 4 clerks.
+	// Knox (Large): 4 clerks.
+	// Sullivan (Medium): 3 clerks (County + Circuit-consolidating-
+	//                    Criminal+GS + Clerk and Master).
+	// Total: 11.
 	clerks := AllClerkSpecs()
 	tnClerkCount := 0
 	for _, c := range clerks {
@@ -124,9 +131,62 @@ func TestLoadAll_TennesseeClerks(t *testing.T) {
 			tnClerkCount++
 		}
 	}
-	if tnClerkCount != 8 {
-		t.Errorf("TN clerk count = %d, want 8 (Davidson 4 + Knox 4)", tnClerkCount)
+	if tnClerkCount != 11 {
+		t.Errorf("TN clerk count = %d, want 11 (Davidson 4 + Knox 4 + Sullivan 3)", tnClerkCount)
 	}
+}
+
+func TestLoadAll_SullivanMultiCourthouseDIDs(t *testing.T) {
+	// Sullivan's PerCourthouse: 1 slot for Circuit Court should
+	// produce one DID per courthouse, distinguished by the
+	// courthouse ID, NOT by an ordinal.
+	specs := AllCourtSpecs()
+	want := map[string]bool{
+		"did:web:state:tn:sullivan:circuit:bristol:1":     false,
+		"did:web:state:tn:sullivan:circuit:kingsport:1":   false,
+		"did:web:state:tn:sullivan:circuit:blountville:1": false,
+	}
+	for _, s := range specs {
+		if _, ok := want[s.DID]; ok {
+			want[s.DID] = true
+		}
+	}
+	for did, found := range want {
+		if !found {
+			t.Errorf("expected Sullivan multi-courthouse DID %s not in registry", did)
+		}
+	}
+}
+
+func TestLoadAll_KnoxCountyClerkHasSixBranches(t *testing.T) {
+	// Knox County Clerk has 1 Main + 5 satellite branches encoded in
+	// CountyProfile.ClerkBranches. The expander attaches them to the
+	// ClerkTypeCounty slot.
+	clerks := AllClerkSpecs()
+	for _, c := range clerks {
+		if c.DID == "did:web:state:tn:knox:clerk:county" {
+			if len(c.Branches) != 6 {
+				t.Errorf("Knox County Clerk has %d branches, want 6 (Main + 5 satellites)", len(c.Branches))
+			}
+			// Validate the expected branch IDs are present.
+			wantIDs := map[string]bool{
+				"main": false, "west": false, "farragut": false,
+				"north": false, "south": false, "east": false,
+			}
+			for _, b := range c.Branches {
+				if _, ok := wantIDs[b.ID]; ok {
+					wantIDs[b.ID] = true
+				}
+			}
+			for id, found := range wantIDs {
+				if !found {
+					t.Errorf("Knox County Clerk missing branch %q", id)
+				}
+			}
+			return
+		}
+	}
+	t.Error("Knox County Clerk not in registry")
 }
 
 func TestLoadAll_CaliforniaClerks(t *testing.T) {

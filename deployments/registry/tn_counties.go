@@ -47,6 +47,7 @@ func TennesseeCounties() []county_profile.CountyProfile {
 	return []county_profile.CountyProfile{
 		davidson,
 		knox,
+		sullivan,
 	}
 }
 
@@ -119,6 +120,11 @@ var davidson = county_profile.CountyProfile{
 // (THAT HEAR PROBATE — Knox has no separate Probate Court), 3
 // Criminal Divisions, 4 General Sessions divisions (mixed civil +
 // criminal), separate Juvenile Court (NOT combined with Family).
+//
+// Knox County Clerk (Sherry Witt) operates from Main + 5 satellite
+// branches (West, Farragut, North, South, East). Encoded in
+// ClerkBranches; the expander attaches these to the County Clerk
+// ClerkSlot the state convention generates.
 var knox = county_profile.CountyProfile{
 	State: "TN", Name: "Knox", Size: county_profile.SizeLarge,
 	Courthouses: []county_profile.Courthouse{
@@ -154,6 +160,72 @@ var knox = county_profile.CountyProfile{
 			Type:    composer.CourtTypeJuvenile,
 			Count:   1,
 			NameFmt: "Knox County Juvenile Court",
+		},
+	},
+	// Knox County Clerk (Sherry Witt) operates from 6 physical
+	// locations: the Main Office at the Old Courthouse downtown,
+	// plus 5 satellite branches. Each branch handles civic admin
+	// (vehicle tags, driver's licenses, marriage licenses, Real IDs).
+	// Branches are recorded as metadata on the ClerkSpec for audit-
+	// trail clarity.
+	ClerkBranches: map[county_profile.ClerkType][]county_profile.Branch{
+		county_profile.ClerkTypeCounty: {
+			{ID: "main", Name: "Old Courthouse (Main Office)",
+				Address: "300 Main St, Knoxville, TN 37902"},
+			{ID: "west", Name: "West Knoxville",
+				Address: "Cedar Bluff, Knoxville, TN"},
+			{ID: "farragut", Name: "Farragut",
+				Address: "11409 Municipal Center Dr, Farragut, TN 37934"},
+			{ID: "north", Name: "North Knoxville",
+				Address: "Halls, Knoxville, TN"},
+			{ID: "south", Name: "South Knoxville",
+				Address: "South Knoxville, TN"},
+			{ID: "east", Name: "East Knoxville",
+				Address: "East Knoxville, TN"},
+		},
+	},
+}
+
+// ─── Sullivan County (Bristol / Kingsport / Blountville) ─────────────
+// Multi-courthouse demonstrator. Sullivan is one county with THREE
+// physical courthouses, each carrying its own Circuit + Chancery +
+// General Sessions court instances. Encoded with PerCourthouse: 1
+// on each slot — the expander emits 3 × Circuit + 3 × Chancery + 3
+// × GS = 9 court Specs, each named per its courthouse.
+//
+// DIDs use the courthouse ID as the segment ordinal:
+//   did:web:state:tn:sullivan:circuit:bristol:1
+//   did:web:state:tn:sullivan:circuit:kingsport:1
+//   did:web:state:tn:sullivan:circuit:blountville:1
+//   ... (and similarly for chancery + gen_sessions)
+//
+// Sullivan is SizeMedium so state_profile.TN generates 3 clerks
+// (County, Circuit-consolidating-Criminal+GS, Clerk and Master).
+var sullivan = county_profile.CountyProfile{
+	State: "TN", Name: "Sullivan", Size: county_profile.SizeMedium,
+	Courthouses: []county_profile.Courthouse{
+		{ID: "bristol", Name: "Bristol",
+			Address: "801 Anderson St, Bristol, TN 37620"},
+		{ID: "kingsport", Name: "Kingsport",
+			Address: "225 W Center St, Kingsport, TN 37660"},
+		{ID: "blountville", Name: "Blountville",
+			Address: "140 Blountville Bypass, Blountville, TN 37617"},
+	},
+	Courts: []county_profile.CourtSlot{
+		{
+			Type:          composer.CourtTypeCircuit,
+			PerCourthouse: 1,
+			NameFmt:       "Sullivan County Circuit Court (%s)",
+		},
+		{
+			Type:          composer.CourtTypeChancery,
+			PerCourthouse: 1,
+			NameFmt:       "Sullivan County Chancery Court (%s)",
+		},
+		{
+			Type:          composer.CourtTypeGeneralSessions,
+			PerCourthouse: 1,
+			NameFmt:       "Sullivan County General Sessions Court (%s)",
 		},
 	},
 }

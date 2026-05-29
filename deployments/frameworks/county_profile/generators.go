@@ -254,6 +254,11 @@ func expandClerks(profile CountyProfile, conv Conventions) []ClerkSpec {
 		if strings.Contains(name, "%s") {
 			name = strings.Replace(name, "%s", profile.Name, 1)
 		}
+		// Merge slot's static branches with per-county overrides.
+		branches := append([]Branch(nil), slot.Branches...)
+		if extra, ok := profile.ClerkBranches[slot.Type]; ok {
+			branches = append(branches, extra...)
+		}
 		specs = append(specs, ClerkSpec{
 			DID:                 did,
 			Name:                name,
@@ -261,7 +266,7 @@ func expandClerks(profile CountyProfile, conv Conventions) []ClerkSpec {
 			Selection:           slot.Selection,
 			Jurisdiction:        composer.Jurisdiction{State: profile.State, County: profile.Name},
 			ServesAlso:          slot.ServesAlso,
-			Branches:            slot.Branches,
+			Branches:            branches,
 			RequiredCredentials: clerkCredentials(slot.Type, conv),
 		})
 	}

@@ -193,13 +193,13 @@ func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 	//   2 legacy umbrellas (Davidson, COA)
 	//   7 Federal
 	//   7 TN state-level (1 Supreme + 3 COA + 3 COCA)
-	//   42 TN county courts (Davidson 27 + Knox 15)
-	//   8 TN clerks (Davidson 4 + Knox 4)
+	//   51 TN county courts (Davidson 27 + Knox 15 + Sullivan 9)
+	//   11 TN clerks (Davidson 4 + Knox 4 + Sullivan 3-Medium)
 	//   5 CA state-level (1 Supreme + 4 CoA divisions)
 	//   2 CA county courts (Riverside + Santa Clara Superior)
 	//   2 CA clerks (Riverside CEO + Santa Clara CEO)
-	// Total: 75
-	const want = 2 + 7 + 7 + 42 + 8 + 5 + 2 + 2
+	// Total: 87
+	const want = 2 + 7 + 7 + 51 + 11 + 5 + 2 + 2
 	if len(dids) != want {
 		t.Errorf("registered DIDs = %d, want %d", len(dids), want)
 	}

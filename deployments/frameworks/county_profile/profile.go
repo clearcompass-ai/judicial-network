@@ -126,6 +126,19 @@ type CountyProfile struct {
 	// despite being a "medium-sized" county). Empty for the common
 	// case.
 	SkipClerkTypes []ClerkType
+
+	// ClerkBranches maps a ClerkType to the physical satellite
+	// branches that clerk office operates. The expander attaches
+	// these branches to the matching ClerkSlot the state convention
+	// returned. Example: Knox County Clerk has Main + West + Farragut
+	// + North + South + East = 6 branches; Knox CountyProfile sets
+	// ClerkBranches[ClerkTypeCounty] = [{ID: "main", ...}, ...].
+	//
+	// Branches are recorded as metadata on the resulting ClerkSpec;
+	// they're NOT emitted as separate DIDs in this iteration. A
+	// future expander option could emit per-branch sub-DIDs of the
+	// parent clerk DID for audit-trail granularity.
+	ClerkBranches map[ClerkType][]Branch
 }
 
 // Courthouse is a physical court location. The ID is used in DIDs
