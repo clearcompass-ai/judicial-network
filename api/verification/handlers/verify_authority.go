@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // VerifyAuthorityHandler handles GET /v1/verify/authority/{logID}/{pos}.
@@ -33,10 +34,16 @@ func (h *VerifyAuthorityHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	leafKey := smt.DeriveKey(types.LogPosition{LogDID: logID, Sequence: pos})
+	entity := types.LogPosition{LogDID: logID, Sequence: pos}
 
-	result, err := verifier.EvaluateAuthority(ctx,
-		leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor)
+	// v1.34 migration: legacy verifier.EvaluateAuthority is deprecated.
+	// Migrated to verifier.EvaluateAuthorityWithTrust via a LocalTrust
+	// adapter — same (fetcher, leafReader) inputs, parity locked by
+	// trust.TestLocalTrust_LegacyParity_EvaluateAuthority.
+	result, err := verifier.EvaluateAuthorityWithTrust(
+		ctx, entity,
+		trust.NewLocalTrust(fetcher, h.deps.LeafReader),
+		h.deps.Extractor, verifier.AsOf{})
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "authority evaluation failed")

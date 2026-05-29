@@ -6,8 +6,11 @@ DESCRIPTION: Enforcement timeline verification. Walks the authority lane
 	constraints plus per-constraint contest state.
 
 KEY ARCHITECTURAL DECISIONS:
-  - Correction #3: uses verifier.EvaluateAuthority (O(A) walker that
-    handles snapshots and skip pointers) rather than manual scanning.
+  - Correction #3: uses verifier.EvaluateAuthorityWithTrust (O(A) walker
+    that handles snapshots and skip pointers) rather than manual scanning.
+    Fed by a LocalTrust adapter from verification/trust over the same
+    (fetcher, leafReader) inputs the legacy walker took — parity locked
+    by trust.TestLocalTrust_LegacyParity_EvaluateAuthority.
     This is the difference vs verification/sealing_check.go: compliance
     produces a rich timeline for court administration; sealing_check
     returns a compact status for API responses.
@@ -35,6 +38,8 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // ComplianceConfig configures a compliance check.
@@ -74,9 +79,9 @@ type ComplianceReport struct {
 }
 
 // RunComplianceCheck walks the authority lane for a case entity using
-// verifier.EvaluateAuthority (correction #3) and produces a timeline
-// for court compliance monitoring. Optionally evaluates per-constraint
-// contest state (correction #7).
+// verifier.EvaluateAuthorityWithTrust (correction #3) and produces a
+// timeline for court compliance monitoring. Optionally evaluates
+// per-constraint contest state (correction #7).
 func RunComplianceCheck(
 	ctx context.Context,
 	cfg ComplianceConfig,
@@ -93,9 +98,16 @@ func RunComplianceCheck(
 		now = time.Now().UTC()
 	}
 
-	leafKey := smt.DeriveKey(cfg.CaseRootPos)
-
-	authEval, err := verifier.EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
+	// v1.34 migration: legacy verifier.EvaluateAuthority is deprecated.
+	// We now consume verifier.EvaluateAuthorityWithTrust through a
+	// LocalTrust adapter built from the same (fetcher, leafReader)
+	// inputs. The trust package's TestLocalTrust_LegacyParity_*
+	// tests pin byte-for-byte equivalence — this is a refactor
+	// under explicit parity, not a behavior change.
+	authEval, err := verifier.EvaluateAuthorityWithTrust(
+		ctx, cfg.CaseRootPos,
+		trust.NewLocalTrust(fetcher, leafReader),
+		extractor, verifier.AsOf{})
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/compliance: evaluate authority: %w", err)
 	}
