@@ -3,7 +3,7 @@ module github.com/clearcompass-ai/judicial-network
 go 1.25.7
 
 require (
-	github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529040711-8ea2d35cfe61
+	github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529040759-f75343a9fbb0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/getkin/kin-openapi v0.137.0

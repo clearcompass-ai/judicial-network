@@ -20,6 +20,8 @@ github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529035144-9469c9861
 github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529035144-9469c9861b83/go.mod h1:UVQGayVYzFKH7LvM63orXw7ExO523wbSFvCd4hqXkIs=
 github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529040711-8ea2d35cfe61 h1:pX1+hV64NglXAwjmXxTCDUQMwNXsMrYQuJrECRq0gSQ=
 github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529040711-8ea2d35cfe61/go.mod h1:UVQGayVYzFKH7LvM63orXw7ExO523wbSFvCd4hqXkIs=
+github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529040759-f75343a9fbb0 h1:acTWqv+eiq5Ad/c5YYQWqH7I/mOC5aFBYD/U+CuvvqA=
+github.com/clearcompass-ai/attesta-tools/libs v1.30.1-0.20260529040759-f75343a9fbb0/go.mod h1:UVQGayVYzFKH7LvM63orXw7ExO523wbSFvCd4hqXkIs=
 github.com/cloudflare/circl v1.6.3 h1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=
 github.com/cloudflare/circl v1.6.3/go.mod h1:2eXP6Qfat4O/Yhh8BznvKnJ+uzEoTQ6jVKJRn81BiS4=
 github.com/consensys/gnark-crypto v0.20.1 h1:PXDUBvk8AzhvWowHLWBEAfUQcV1/aZgWIqD6eMpXmDg=
