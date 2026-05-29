@@ -142,32 +142,66 @@ func TestLoadConfig_BadFlag_Errors(t *testing.T) {
 // registerProductionBundles
 // ──────────────────────────────────────────────────────────────────
 
-func TestRegisterProductionBundles_AllThreeRegistered(t *testing.T) {
+func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 	r := jurisdiction.NewRegistry()
 	if err := registerProductionBundles(r); err != nil {
 		t.Fatalf("registerProductionBundles: %v", err)
 	}
 	dids := r.ExchangeDIDs()
-	if len(dids) != 3 {
-		t.Errorf("registered DIDs = %d, want 3 (Davidson + COA + Sup. Ct.); got %v",
-			len(dids), dids)
-	}
 	// DIDs come from the deployment Bundles' compiled-in constants;
-	// renaming a Bundle's ExchangeDID would surface here.
-	want := map[string]bool{
-		"did:web:state:tn:davidson": false,
-		"did:web:state:tn:coa":      false,
-		"did:web:state:tn:sc":       false,
+	// renaming a Bundle's ExchangeDID would surface here. Adding a
+	// new destination = a new entry in this map + the import +
+	// Register call in registerProductionBundles.
+	// Anchor DIDs we know MUST be present. The full roster comes from
+	// deployments/registry/ (see registry_test.go for the count pin);
+	// this test verifies the two legacy umbrella DIDs are still
+	// registered alongside a sampling of registry-loaded DIDs.
+	mustHave := []string{
+		// Legacy umbrella DIDs (backward-compat).
+		"did:web:state:tn:davidson",
+		"did:web:state:tn:coa",
+		// Registry-loaded — sample one per state to confirm LoadInto
+		// ran end-to-end.
+		"did:web:state:tn:sc",
+		"did:web:state:tn:davidson:circuit:7",        // Davidson Probate Division
+		"did:web:state:tn:davidson:juvenile",         // Davidson Juvenile & Family (single court → no ordinal)
+		"did:web:state:tn:knox:chancery:1",
+		"did:web:fed:scotus:us",
+		"did:web:fed:circuit:6th",
+		"did:web:fed:circuit:9th",
+		"did:web:fed:district:ca_northern",
+		"did:web:state:ca:sc",
+		"did:web:state:ca:riverside:unified_superior",      // single Superior → no ordinal
+		"did:web:state:ca:santa_clara:unified_superior",
+		// Clerk offices — confirm BuildClerk path ran.
+		"did:web:state:tn:davidson:clerk:county",
+		"did:web:state:tn:davidson:clerk:circuit",
+		"did:web:state:tn:davidson:clerk:criminal",
+		"did:web:state:tn:davidson:clerk:chancery_master",
+		"did:web:state:ca:riverside:clerk:executive_officer",
 	}
-	for _, did := range dids {
-		if _, ok := want[did]; ok {
-			want[did] = true
+	have := make(map[string]bool, len(dids))
+	for _, d := range dids {
+		have[d] = true
+	}
+	for _, d := range mustHave {
+		if !have[d] {
+			t.Errorf("expected destination %s registered; not found in %d DIDs", d, len(dids))
 		}
 	}
-	for did, found := range want {
-		if !found {
-			t.Errorf("expected destination %s registered; got %v", did, dids)
-		}
+	// Expected total:
+	//   2 legacy umbrellas (Davidson, COA)
+	//   7 Federal
+	//   7 TN state-level (1 Supreme + 3 COA + 3 COCA)
+	//   51 TN county courts (Davidson 27 + Knox 15 + Sullivan 9)
+	//   11 TN clerks (Davidson 4 + Knox 4 + Sullivan 3-Medium)
+	//   5 CA state-level (1 Supreme + 4 CoA divisions)
+	//   2 CA county courts (Riverside + Santa Clara Superior)
+	//   2 CA clerks (Riverside CEO + Santa Clara CEO)
+	// Total: 87
+	const want = 2 + 7 + 7 + 51 + 11 + 5 + 2 + 2
+	if len(dids) != want {
+		t.Errorf("registered DIDs = %d, want %d", len(dids), want)
 	}
 }
 
@@ -206,10 +240,14 @@ func TestBuildNonceStores_MemoryBackend_OnePerDestination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildNonceStores: %v", err)
 	}
-	if len(stores) != 3 {
-		t.Errorf("stores = %d, want 3", len(stores))
+	// Per-destination NonceStore: one store per registered exchange DID.
+	// Count comes from registerProductionBundles — any change to that
+	// roster surfaces here.
+	dids := r.ExchangeDIDs()
+	if len(stores) != len(dids) {
+		t.Errorf("stores = %d, want %d (one per registered destination)", len(stores), len(dids))
 	}
-	for _, did := range r.ExchangeDIDs() {
+	for _, did := range dids {
 		if stores[did] == nil {
 			t.Errorf("missing store for %s", did)
 		}
