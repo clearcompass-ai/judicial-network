@@ -30,7 +30,8 @@ import (
 	pkcs11ks "github.com/clearcompass-ai/attesta-tools/libs/keystore/pkcs11"
 	vaultks "github.com/clearcompass-ai/attesta-tools/libs/keystore/vault"
 	"github.com/clearcompass-ai/judicial-network/api/config"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
@@ -57,24 +58,29 @@ func registerProductionBundles(r *jurisdiction.Registry) error {
 	return nil
 }
 
-// buildNonceStores constructs one *NonceStore per registered
-// destination DID. The resulting map is keyed by destination so the
-// auth middleware can look up the right store per request from
-// entry.Header.Destination.
+// buildNonceStores constructs one sdkauth.NonceStore per
+// registered destination DID. The resulting map is keyed by
+// destination so the v2 auth middleware can look up the right
+// store per request from Request.Destination.
 //
 // Returned errors propagate verbatim so the binary fails loud on
 // missing Redis address / invalid backend / etc.
-func buildNonceStores(cfg config.Operational, r *jurisdiction.Registry) (map[string]*auth.NonceStore, error) {
+//
+// v2 NOTE: the pre-v2 freshness window is GONE — wall-clock
+// freshness is now folded into the SDK envelope's
+// IssuedAt/ExpiresAt + the SDK's MaxValidityWindow ceiling (1h),
+// checked inside sdkauth.VerifyRequest. The NonceStore is replay
+// defense only.
+func buildNonceStores(cfg config.Operational, r *jurisdiction.Registry) (map[string]sdkauth.NonceStore, error) {
 	nonceCfg := auth.NonceStoreConfig{
-		Backend:         auth.NonceStoreBackend(cfg.NonceStore.Backend),
-		FreshnessWindow: cfg.NonceStore.FreshnessWindow,
-		RedisAddr:       cfg.NonceStore.RedisAddr,
-		RedisPassword:   cfg.NonceStore.RedisPassword,
-		RedisDB:         cfg.NonceStore.RedisDB,
-		RedisKeyPrefix:  cfg.NonceStore.RedisKeyPrefix,
+		Backend:        auth.NonceStoreBackend(cfg.NonceStore.Backend),
+		RedisAddr:      cfg.NonceStore.RedisAddr,
+		RedisPassword:  cfg.NonceStore.RedisPassword,
+		RedisDB:        cfg.NonceStore.RedisDB,
+		RedisKeyPrefix: cfg.NonceStore.RedisKeyPrefix,
 	}
 
-	out := make(map[string]*auth.NonceStore, r.Len())
+	out := make(map[string]sdkauth.NonceStore, r.Len())
 	for _, did := range r.ExchangeDIDs() {
 		s, err := nonceCfg.BuildForExchange(did)
 		if err != nil {

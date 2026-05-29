@@ -39,7 +39,7 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
@@ -72,12 +72,17 @@ type ServerConfig struct {
 	// Log index for sequential scanning.
 	Index *index.LogIndex
 
-	// NonceStores maps destination DID → per-destination NonceStore.
-	// Built once at boot via NonceStoreConfig.BuildForExchange (one
-	// call per registered destination). When non-nil, multi-tenant
-	// signed requests with a Destination field route to the matching
-	// store; nil keeps the single-tenant fallback path.
-	NonceStores map[string]*auth.NonceStore
+	// SignerAuth is the v2 signed-request admission middleware,
+	// pre-built by the caller via auth.NewSignerAuth(SignerAuthConfig{...}).
+	// Required.
+	//
+	// The caller wires the full SignerAuthConfig: did.VerifierRegistry
+	// (typically with did:key registered), AlgoID
+	// (envelope.SigAlgoEd25519 etc.), per-destination NonceStores
+	// (built via auth.NonceStoreConfig.BuildForExchange), a fallback
+	// NonceStore, and the optional mTLS extractor. This keeps the
+	// exchange server free of identity / key resolution concerns.
+	SignerAuth *auth.SignerAuth
 
 	// LedgerBreaker fast-fails ledger submits when the ledger
 	// is down.  reliability primitive. nil → no breaker.
@@ -156,15 +161,17 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 
 	mux := http.NewServeMux()
 
-	// Auth middleware: verify signer identity on every write request.
-	// Multi-tenant when cfg.NonceStores is non-empty; single-tenant
-	// fallback otherwise (preserves dev / test behaviour).
-	var signerAuth *auth.SignerAuth
-	if len(cfg.NonceStores) > 0 {
-		signerAuth = auth.NewSignerAuthWithNonceStores(cfg.VerificationEndpoint, cfg.NonceStores, nil)
-	} else {
-		signerAuth = auth.NewSignerAuth(cfg.VerificationEndpoint)
+	// Auth middleware: pre-built by the caller. When cfg.SignerAuth
+	// is nil the exchange handler is mounted in DISABLED mode —
+	// every route returns 503 Service Unavailable. This is the
+	// "exchange not configured" posture used by composer-only tests
+	// that exercise non-exchange endpoints (/metrics, /healthz,
+	// verification routes). Production wiring always supplies a
+	// SignerAuth.
+	if cfg.SignerAuth == nil {
+		return disabledExchangeHandler()
 	}
+	signerAuth := cfg.SignerAuth
 
 	// Entry lifecycle.
 	mux.Handle("POST /v1/entries/build", signerAuth.Wrap(handlers.NewEntryBuildHandler(deps)))
@@ -206,6 +213,19 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	})
 
 	return mux
+}
+
+// disabledExchangeHandler is the placeholder returned by BuildHandler
+// when cfg.SignerAuth is nil. Every route returns 503 with a
+// directive error pointing the operator at the missing config.
+// Composer-only tests (metrics endpoint, verification routes)
+// hit this path without bringing up real exchange auth.
+func disabledExchangeHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w,
+			"exchange not configured (SignerAuth required at boot — build via auth.NewSignerAuth)",
+			http.StatusServiceUnavailable)
+	})
 }
 
 // NewServer creates the exchange service as a stand-alone listener.

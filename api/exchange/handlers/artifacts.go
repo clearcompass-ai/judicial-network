@@ -33,7 +33,7 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/artifact"
 	"github.com/clearcompass-ai/attesta/storage"
 
-	"github.com/clearcompass-ai/judicial-network/api/exchange/auth"
+	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 )
 
 // ─── Publish ────────────────────────────────────────────────────────

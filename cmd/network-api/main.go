@@ -57,9 +57,13 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/attesta-tools/libs/sdkguard"
+	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/clearcompass-ai/attesta/did"
+	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
+	authv2 "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
@@ -353,6 +357,30 @@ func run(argv []string, d deps) error {
 	// hoisted construction near buildJudicialDeps) so the exchange
 	// AND the judicial deps share the same outbound client.
 
+	// v2 signed-request auth middleware. Carries:
+	//   - did:key signature verifier (matches the JN's Ed25519
+	//     signer-DID convention; production adds did:web/did:pkh
+	//     as their consumers come on-log).
+	//   - Per-destination nonce stores from buildNonceStores.
+	//   - A process-local fallback nonce store for empty /
+	//     unknown destination requests.
+	//   - mTLS SAN-cert extractor so mTLS requests bypass the
+	//     envelope check (same posture as pre-v2).
+	authRegistry := did.NewVerifierRegistry()
+	if regErr := authRegistry.Register("key", did.NewKeyVerifier()); regErr != nil {
+		return fmt.Errorf("auth registry: did:key register: %w", regErr)
+	}
+	signerAuth, err := authv2.NewSignerAuth(authv2.SignerAuthConfig{
+		Registry:                  authRegistry,
+		AlgoID:                    envelope.SigAlgoEd25519,
+		PerDestinationNonceStores: nonceStores,
+		FallbackNonceStore:        sdkauth.NewInMemoryNonceStore(),
+		MTLSExtractor:             authv2.SANCertExtractor{},
+	})
+	if err != nil {
+		return fmt.Errorf("signer auth: %w", err)
+	}
+
 	srv, err := api.NewServer(api.Config{
 		Addr:          cfg.ListenAddr,
 		TLSCertFile:   cfg.Auth.TLSCertFile,
@@ -370,7 +398,7 @@ func run(argv []string, d deps) error {
 			VerificationEndpoint:  cfg.VerificationEndpoint,
 			KeyStore:              ks,
 			Index:                 index.NewLogIndex(),
-			NonceStores:           nonceStores,
+			SignerAuth:            signerAuth,
 			LedgerBreaker:         ledgerBreaker,
 			LedgerMetrics:         ledgerMetrics,
 			// SDK-wired content store: same instance the judicial deps hold.
