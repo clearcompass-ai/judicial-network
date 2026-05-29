@@ -227,6 +227,28 @@ type AuditorScopeConfig struct {
 	// (sorted by EffectivePos ascending). Optional independent of
 	// Enforce. Env: API_AUDITOR_AMENDMENT_FILE.
 	AmendmentFile string `json:"amendment_file,omitempty"`
+
+	// ReloadOnSIGHUP enables D13 hot-reload: on SIGHUP, the binary
+	// re-reads RegistryFile and AmendmentFile and installs the new
+	// snapshots into the home Reconciler via its atomic.Pointer-
+	// backed RefreshRegistry / RefreshAmendments methods. Per-file
+	// read failures are logged and the live snapshot for the
+	// failing file is retained (do-not-clobber contract — see
+	// cmd/network-api/sighup_reload.go::applyReload).
+	//
+	// Default false: SIGHUP is ignored unless explicitly enabled.
+	// Operator manifests that ship a k8s ConfigMap reloader (or
+	// any other on-disk file pusher) set this to true; static
+	// deployments leave it off and re-roll the pod on registry
+	// updates.
+	//
+	// When true, ReloadOnSIGHUP is a no-op unless at least one of
+	// RegistryFile / AmendmentFile is configured AND the home
+	// Reconciler is wired (gossip ingest enabled with at least one
+	// home peer).
+	//
+	// Env: API_RELOAD_ON_SIGHUP.
+	ReloadOnSIGHUP bool `json:"reload_on_sighup,omitempty"`
 }
 
 // MonitoringConfig configures the scheduled-audit engine. A check job
@@ -762,6 +784,9 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_AUDITOR_AMENDMENT_FILE"); v != "" {
 		cfg.AuditorScope.AmendmentFile = v
+	}
+	if b, ok := envBool("API_RELOAD_ON_SIGHUP"); ok {
+		cfg.AuditorScope.ReloadOnSIGHUP = b
 	}
 
 	// URL-drift audit interval (libs/monitoring/url_drift_audit.go). Zero
