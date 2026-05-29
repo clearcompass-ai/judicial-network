@@ -29,7 +29,7 @@ reconstruction, or burn-awareness the physics require.
 | **SDK-1** | clearcompass-ai/attesta | Make `verifier.AsOf` mandatory — remove implicit latest/local-clock default | Physics #1 | — |
 | **SDK-2** | clearcompass-ai/attesta | Add `RootHash` fork discriminator to `AsOf`/`LogPosition` | Scenario 4 / Physics #2 | — |
 | **SDK-3** | clearcompass-ai/attesta | Add `WitnessSetAt(asOf)` historical witness-set reconstruction | Scenario 2 (Goal 13) | — |
-| **SDK-4** | clearcompass-ai/attesta | `anchor.VerifyCrossLog` must take a burn oracle and fail closed | Physics #4 | — |
+| **SDK-4** | clearcompass-ai/attesta | Cross-log verification must require a burn/trust input and fail closed | Physics #4 | — |
 | **AT-1** | clearcompass-ai/attesta-tools | Journal-backed `WitnessSetAt` materialization | Scenario 2 | SDK-3 |
 | **AT-2** | clearcompass-ai/attesta-tools | Wire the dormant standalone equivocation `Scanner` | Scenario 12 | — |
 | **JN-1** | clearcompass-ai/judicial-network | Pin cross-network resolution to RootHash (`HeadByRootHash`) | Scenario 4 | SDK-2 |
@@ -66,7 +66,11 @@ actionable gap.
 
 ## Dedup note
 
-`judicial-network#69` reviewed directly. The GitHub API was rate-limited during
-the audit, so open issues in attesta / attesta-tools / ledger / e2e-tests were
-**not** queried — run a dedup pass there (especially attesta, for any existing
-`AsOf`/PQ tickets) before filing SDK-1…SDK-4.
+`judicial-network#69` reviewed directly. **Dedup pass complete (2026-05-29):** the
+four SDK gaps are **already filed** in `clearcompass-ai/attesta` —
+**SDK-1 → #80** ("[GAP-7]", mandatory asOf), **SDK-2 → #79** ("[GAP-3]", AsOf
+RootHash), **SDK-3 → #82** (filed verbatim), **SDK-4 → #78** ("[GAP-8]",
+burn-blind). Do **not** re-file SDK-1/2/4. #80/#79/#78 were re-verified against code
+and reshaped to the structural, objective-aligned fix (each issue carries pinned
+before→after diff comments); these drafts are updated to match. PQ at the witness
+cosign-quorum is tracked separately by **attesta#77** — not a re-fileable gap.
