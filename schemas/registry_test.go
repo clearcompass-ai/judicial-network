@@ -5,12 +5,19 @@ import (
 	"testing"
 )
 
-// ─── Unit: Registry contains all 18 schemas ─────────────────────────
+// ─── Unit: Registry contains the full canonical schema set ──────────
 
 func TestRegistry_ContainsAll18Schemas(t *testing.T) {
 	r := NewRegistry()
 
+	// The 18-schema floor was pinned at v1.4 (the v1.4 court
+	// vocabulary). Issue #67 Part A added 4 more (the §6 Court
+	// Orders generic-portable judicial- schemas — scheduling,
+	// interlocutory, protective, warrant). The count grows over
+	// time; the test pins NAMED MEMBERSHIP rather than just a
+	// number so an accidental rename surfaces.
 	expected := []string{
+		// v1.4 base — 18 schemas.
 		SchemaCriminalCaseV1,
 		SchemaCivilCaseV1,
 		SchemaFamilyCaseV1,
@@ -29,6 +36,11 @@ func TestRegistry_ContainsAll18Schemas(t *testing.T) {
 		SchemaJudicialDelegationV1,
 		SchemaJudicialRevocationV1,
 		SchemaJudicialSuccessionV1,
+		// Issue #67 Part A — §6 Court Orders (generic portable).
+		SchemaSchedulingOrderV1,
+		SchemaInterlocutoryOrderV1,
+		SchemaProtectiveOrderV1,
+		SchemaWarrantV1,
 	}
 
 	for _, uri := range expected {

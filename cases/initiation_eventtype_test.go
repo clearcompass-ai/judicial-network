@@ -4,7 +4,7 @@ FILE PATH: cases/initiation_eventtype_test.go
 DESCRIPTION:
 
 	Pins the cosignature-gate contract for InitiateCase: every
-	case_initiated entry MUST carry event_type="case_initiated" in
+	case_initiation entry MUST carry event_type="case_initiation" in
 	its domain payload (the closed-set Event Dictionary key the
 	submit gate reads), and InitiationConfig.Cosigners MUST surface
 	in the payload's signed_by_capacities block so the destination's
@@ -38,8 +38,8 @@ func TestInitiateCase_EmitsEventType(t *testing.T) {
 	if err := json.Unmarshal(result.Entry.DomainPayload, &p); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
-	if p.EventType != "case_initiated" {
-		t.Errorf("event_type = %q, want case_initiated", p.EventType)
+	if p.EventType != "case_initiation" {
+		t.Errorf("event_type = %q, want case_initiation", p.EventType)
 	}
 }
 
@@ -63,7 +63,7 @@ func TestInitiateCase_EventTypeNotClobberable(t *testing.T) {
 	if err := json.Unmarshal(result.Entry.DomainPayload, &p); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
-	if p.EventType != "case_initiated" {
+	if p.EventType != "case_initiation" {
 		t.Errorf("event_type = %q, ExtraPayload must not clobber it", p.EventType)
 	}
 }

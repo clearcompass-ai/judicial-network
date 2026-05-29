@@ -8,7 +8,7 @@ DESCRIPTION:
 	Particulars, and Rule 15 amendments, plus the catch-all.
 
 	All §3A motions share the §3 default cosig shape (filer +
-	court_clerk cosign + bpr_number) and the Hard case_initiated
+	court_clerk cosign + bpr_number) and the Hard case_initiation
 	ancestor prereq — no §3A motion has additional prereqs
 	beyond the default per v1.8.
 

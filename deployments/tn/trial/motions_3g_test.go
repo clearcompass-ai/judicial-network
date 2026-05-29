@@ -148,14 +148,14 @@ func TestFunctional_WithdrawCounsel_RequiresAppearance(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("motion_withdraw_counsel", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without counsel_appearance")
 	}
 
 	v = w.Check("motion_withdraw_counsel", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated", "counsel_appearance"},
+		ObservedEvents: []string{"case_initiation", "counsel_appearance"},
 	})
 	if !v.OK {
 		t.Errorf("must accept with counsel_appearance: %s", v.Reason)
@@ -166,14 +166,14 @@ func TestFunctional_RecusalRequiresAssignment(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("motion_disqualification_recusal", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without judicial_assignment")
 	}
 
 	v = w.Check("motion_disqualification_recusal", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated", "judicial_assignment"},
+		ObservedEvents: []string{"case_initiation", "judicial_assignment"},
 	})
 	if !v.OK {
 		t.Errorf("must accept with judicial_assignment: %s", v.Reason)
@@ -185,16 +185,16 @@ func TestWalk_MotionContinuance_RequiresCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("motion_continuance", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
-		t.Errorf("with case_initiated must be OK: %+v", v)
+		t.Errorf("with case_initiation must be OK: %+v", v)
 	}
 
 	v = w.Check("motion_continuance", prerequisites.CaseContext{
 		ObservedEvents: nil,
 	})
 	if v.OK {
-		t.Error("without case_initiated must be rejected")
+		t.Error("without case_initiation must be rejected")
 	}
 }

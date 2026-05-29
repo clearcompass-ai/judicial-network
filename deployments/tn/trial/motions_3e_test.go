@@ -8,7 +8,7 @@ DESCRIPTION:
 	  - motion_suppress / motion_competency_evaluation are
 	    criminal-only (defense + prosecutor; no civil_attorney).
 	  - All §3E motions reach both policies via helpers.
-	  - Walker accepts each with case_initiated.
+	  - Walker accepts each with case_initiation.
 */
 package trial
 
@@ -75,10 +75,10 @@ func TestFunctional_AllMotions3E_AcceptedAfterCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	for _, m := range motions3E() {
 		v := w.Check(m.EventType, prerequisites.CaseContext{
-			ObservedEvents: []string{"case_initiated"},
+			ObservedEvents: []string{"case_initiation"},
 		})
 		if !v.OK {
-			t.Errorf("§3E %q must accept after case_initiated: %s",
+			t.Errorf("§3E %q must accept after case_initiation: %s",
 				m.EventType, v.Reason)
 		}
 	}

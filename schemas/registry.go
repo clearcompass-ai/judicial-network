@@ -110,6 +110,13 @@ func (r *Registry) registerAll() {
 	r.Register(judicialDelegationRegistration())
 	r.Register(judicialRevocationRegistration())
 	r.Register(judicialSuccessionRegistration())
+	// Issue #67 Part A — §6 Court Orders. Generic portable
+	// schemas (judicial- prefix) so federal, GA, and any other
+	// consuming network re-uses them verbatim.
+	r.Register(schedulingOrderRegistration())
+	r.Register(interlocutoryOrderRegistration())
+	r.Register(protectiveOrderRegistration())
+	r.Register(warrantRegistration())
 }
 
 func (r *Registry) Register(reg *SchemaRegistration) {

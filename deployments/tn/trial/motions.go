@@ -13,7 +13,7 @@ DESCRIPTION:
 	Defaults applied by the helpers:
 	  - Cosig: court_clerk-signed, intra-exchange, MinSignerCosigners=1.
 	  - Cosig RequiredCredentials: ["bpr_number"] unless overridden.
-	  - Prereq: Hard case_initiated ancestor + every spec.AdditionalPrereqs.
+	  - Prereq: Hard case_initiation ancestor + every spec.AdditionalPrereqs.
 
 	The §3 catch-all motions (motion_pleading_general,
 	motion_dispositive_general, etc.) carry CustomTitleRequired=true
@@ -57,7 +57,7 @@ type motionSpec struct {
 	AllowedFilers []schemas.FilerRole
 
 	// AdditionalPrereqs are appended AFTER the default Hard
-	// case_initiated ancestor. May be Hard or Advisory.
+	// case_initiation ancestor. May be Hard or Advisory.
 	AdditionalPrereqs []prerequisites.Prereq
 
 	// RequiredCredentials override. nil → ["bpr_number"]; empty
@@ -73,12 +73,12 @@ type motionSpec struct {
 }
 
 // caseInitAncestor is the shared Hard "every case-lifecycle
-// event requires a case_initiated ancestor" prereq used by every
+// event requires a case_initiation ancestor" prereq used by every
 // motion. Defined once here so the §3A–§3I files don't duplicate.
 var caseInitAncestor = prerequisites.Prereq{
 	Mode:             prerequisites.PrereqModeHard,
-	RequiredAncestor: []string{"case_initiated"},
-	Reason:           "every case-lifecycle event requires a case_initiated ancestor",
+	RequiredAncestor: []string{"case_initiation"},
+	Reason:           "every case-lifecycle event requires a case_initiation ancestor",
 }
 
 // allMotions is the master concatenation of every §3A–§3I
@@ -122,7 +122,7 @@ func motionCosigRule(spec motionSpec) policy.CosignatureRule {
 	}
 }
 
-// motionPrereqs prepends the default Hard case_initiated
+// motionPrereqs prepends the default Hard case_initiation
 // ancestor to spec.AdditionalPrereqs.
 func motionPrereqs(spec motionSpec) []prerequisites.Prereq {
 	out := []prerequisites.Prereq{caseInitAncestor}
@@ -148,6 +148,20 @@ func motionPrerequisiteRules() map[string][]prerequisites.Prereq {
 	out := make(map[string][]prerequisites.Prereq, len(specs))
 	for _, s := range specs {
 		out[s.EventType] = motionPrereqs(s)
+	}
+	return out
+}
+
+// motionEventNames returns the flat slice of every motion
+// event-type name across the §3A-§3I catalog. Used by §6
+// interlocutory_order's prereq declaration to encode "rules on a
+// prior motion (any kind)" without per-section enumeration
+// boilerplate.
+func motionEventNames() []string {
+	specs := allMotions()
+	out := make([]string, 0, len(specs))
+	for _, s := range specs {
+		out = append(out, s.EventType)
 	}
 	return out
 }

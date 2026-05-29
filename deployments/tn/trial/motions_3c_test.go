@@ -10,7 +10,7 @@ DESCRIPTION:
 	    invariant: only civil_attorneys move for class cert).
 	  - Catch-all carries CustomTitleRequired.
 	  - All §3C events reach both policies via the helpers.
-	  - Walker accepts each with case_initiated.
+	  - Walker accepts each with case_initiation.
 */
 package trial
 
@@ -93,10 +93,10 @@ func TestFunctional_AllMotions3C_AcceptedAfterCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	for _, m := range motions3C() {
 		v := w.Check(m.EventType, prerequisites.CaseContext{
-			ObservedEvents: []string{"case_initiated"},
+			ObservedEvents: []string{"case_initiation"},
 		})
 		if !v.OK {
-			t.Errorf("§3C %q must accept after case_initiated: %s",
+			t.Errorf("§3C %q must accept after case_initiation: %s",
 				m.EventType, v.Reason)
 		}
 	}

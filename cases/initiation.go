@@ -3,7 +3,7 @@ FILE PATH: cases/initiation.go
 DESCRIPTION: New case → root entity on cases log via SDK BuildRootEntity.
 KEY ARCHITECTURAL DECISIONS:
   - BuildRootEntity creates SMT leaf with OriginTip=self, AuthorityTip=self.
-  - Domain Payload carries event_type="case_initiated" (the closed-set
+  - Domain Payload carries event_type="case_initiation" (the closed-set
     Event Dictionary key the cosignature gate reads) plus docket_number,
     case_type, filed_date, status.
   - Cosigners are emitted into the payload's signed_by_capacities block so
@@ -55,7 +55,7 @@ type InitiationConfig struct {
 
 	// Cosigners declares the Signer cosigners (other than the primary
 	// filer at Signatures[0]) whose signatures the destination's
-	// cosignature policy requires on a case_initiated entry. For the
+	// cosignature policy requires on a case_initiation entry. For the
 	// TN trial framework the court_clerk who accepts the filing is
 	// declared here; the policy (deployments/tn/trial) requires their
 	// intra-exchange cosignature. Each entry is emitted into the
@@ -97,7 +97,7 @@ func InitiateCase(cfg InitiationConfig) (*InitiationResult, error) {
 	// event_type is the closed-set Event Dictionary key the cosignature
 	// gate reads (verification/cosignature_check.go). Set AFTER
 	// ExtraPayload so a caller cannot clobber the load-bearing value.
-	payload["event_type"] = "case_initiated"
+	payload["event_type"] = "case_initiation"
 	if len(cfg.Cosigners) > 0 {
 		payload["signed_by_capacities"] = cfg.Cosigners
 	}

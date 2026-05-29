@@ -25,28 +25,28 @@ import (
 
 // ─── §0 case genesis ───────────────────────────────────────────────
 
-// TestCosignatureRules_CaseInitiated pins the genesis rule the
+// TestCosignatureRules_CaseInitiation pins the genesis rule the
 // now-wired submit gate enforces: opening a case requires one
-// intra-exchange court_clerk cosignature. case_initiated is the
+// intra-exchange court_clerk cosignature. case_initiation is the
 // prereq ancestor every later case-lifecycle event depends on, so
 // its absence from the cosignature catalog would fail-close every
 // case opening (unknown_event_type) once the gate is live.
-func TestCosignatureRules_CaseInitiated(t *testing.T) {
-	rule, err := MustCosignaturePolicy().Lookup("case_initiated")
+func TestCosignatureRules_CaseInitiation(t *testing.T) {
+	rule, err := MustCosignaturePolicy().Lookup("case_initiation")
 	if err != nil {
-		t.Fatalf("Lookup(case_initiated): %v", err)
+		t.Fatalf("Lookup(case_initiation): %v", err)
 	}
 	if rule.MinSignerCosigners != 1 {
 		t.Errorf("MinSignerCosigners = %d, want 1", rule.MinSignerCosigners)
 	}
 	if !rule.IntraExchangeOnly {
-		t.Error("case_initiated must be IntraExchangeOnly")
+		t.Error("case_initiation must be IntraExchangeOnly")
 	}
 	if !rule.PermitsSignerRole("court_clerk") {
-		t.Error("case_initiated must permit a court_clerk cosigner")
+		t.Error("case_initiation must permit a court_clerk cosigner")
 	}
 	if rule.RequiresFiler() {
-		t.Error("case_initiated is signer-only; it must not require a filed_by_capacity")
+		t.Error("case_initiation is signer-only; it must not require a filed_by_capacity")
 	}
 }
 
@@ -254,13 +254,16 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 // to motions_3g_test.go when that section lands.
 
 // TestCosignatureRules_ExpectedCount pins the rule count so an
-// accidental addition / deletion shows up in CI. Total = 15 base
-// + every §3 motion declared. Base count dropped from 17 → 14
-// when motion_continuance / motion_summary_judgment /
-// motion_state_dismissal moved into the §3 helpers, then 14 → 15
-// when the §0 case_initiated genesis rule was added.
+// accidental addition / deletion shows up in CI. Total = 19 base
+// + every §3 motion declared. History:
+//   17 → 14: motion_continuance / motion_summary_judgment /
+//            motion_state_dismissal moved into §3 helpers.
+//   14 → 15: §0 case_initiation genesis rule added.
+//   15 → 19: Issue #67 Part A added §6 Court Orders 4 rules
+//            (scheduling_order, interlocutory_order,
+//             protective_restraining_order, warrant_issuance_return).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 15
+	const baseRules = 19
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)
