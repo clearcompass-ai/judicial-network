@@ -149,7 +149,16 @@ func VerifyFilingDelegation(
 	// here. If a future SDK pin changes the contract to return an
 	// error, this call site needs the wrap-and-return branch
 	// reinstated.
-	hops, _ := verifier.VerifyDelegationProvenance(ctx, delegationPointers, fetcher, leafReader)
+	//
+	// Migrated v1.35.0: VerifyDelegationProvenance →
+	// VerifyDelegationProvenanceWithTrust over SingleLog at asOf=latest.
+	// Behavior is by construction identical — the deprecated function's
+	// entire body is `return VerifyDelegationProvenanceWithTrust(ctx,
+	// ptrs, SingleLog{fetcher, leafReader}, AsOf{})` (authority_evaluator.go
+	// in attesta v1.34.0..v1.35.0). Pinned by
+	// verification/legacy_parity_test.go.
+	hops, _ := verifier.VerifyDelegationProvenanceWithTrust(ctx, delegationPointers,
+		verifier.SingleLog{Fetcher: fetcher, LeafReader: leafReader}, verifier.AsOf{})
 
 	result := &DelegationVerification{
 		Hops:    hops,

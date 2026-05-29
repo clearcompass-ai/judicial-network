@@ -93,9 +93,18 @@ func RunComplianceCheck(
 		now = time.Now().UTC()
 	}
 
-	leafKey := smt.DeriveKey(cfg.CaseRootPos)
-
-	authEval, err := verifier.EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
+	// Migrated v1.35.0: EvaluateAuthority → EvaluateAuthorityWithTrust
+	// over SingleLog at asOf=latest. Behavior is byte-identical to the
+	// deprecated single-reader walker (SDK's TestEvalAuthWithTrust_LegacyParity
+	// + this network's legacy_parity_test pins the equivalence over the
+	// authority modes the JN actually exercises: ScopeAuthority sealing
+	// orders, SameSigner delegation chains, snapshot shortcuts, Decision 52
+	// signer-membership reclassification, and pending activation). The
+	// successor takes a LogPosition entity instead of a precomputed leafKey;
+	// the WithTrust walker derives the SMT key internally via smt.DeriveKey.
+	authEval, err := verifier.EvaluateAuthorityWithTrust(ctx, cfg.CaseRootPos,
+		verifier.SingleLog{Fetcher: fetcher, LeafReader: leafReader},
+		extractor, verifier.AsOf{})
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/compliance: evaluate authority: %w", err)
 	}

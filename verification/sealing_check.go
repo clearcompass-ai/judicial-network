@@ -38,9 +38,15 @@ func CheckEnforcementStatus(
 	fetcher types.EntryFetcher,
 	extractor schema.SchemaParameterExtractor,
 ) (*EnforcementStatus, error) {
-	leafKey := smt.DeriveKey(caseRootPos)
-
-	authEval, err := verifier.EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
+	// Migrated v1.35.0: EvaluateAuthority → EvaluateAuthorityWithTrust
+	// over SingleLog at asOf=latest. Byte-identical behavior (see
+	// verification/legacy_parity_test.go and SDK's TestEvalAuthWithTrust_LegacyParity).
+	// The single-log/no-proofs/asOf=latest combination is exactly the
+	// pre-trust shape; only the call signature changes (LogPosition
+	// instead of a precomputed leafKey).
+	authEval, err := verifier.EvaluateAuthorityWithTrust(ctx, caseRootPos,
+		verifier.SingleLog{Fetcher: fetcher, LeafReader: leafReader},
+		extractor, verifier.AsOf{})
 	if err != nil {
 		return nil, fmt.Errorf("verification/sealing_check: %w", err)
 	}

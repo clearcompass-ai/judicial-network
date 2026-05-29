@@ -56,8 +56,12 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			item.Origin = origin
 		}
 
-		auth, err := verifier.EvaluateAuthority(ctx,
-			leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor)
+		// Migrated v1.35.0: EvaluateAuthority → EvaluateAuthorityWithTrust
+		// over SingleLog at asOf=latest. Byte-identical behavior.
+		auth, err := verifier.EvaluateAuthorityWithTrust(ctx,
+			types.LogPosition{LogDID: logID, Sequence: pos},
+			verifier.SingleLog{Fetcher: fetcher, LeafReader: h.deps.LeafReader},
+			h.deps.Extractor, verifier.AsOf{})
 
 		if err == nil {
 			item.Authority = auth

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 )
@@ -33,10 +32,12 @@ func (h *VerifyAuthorityHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	leafKey := smt.DeriveKey(types.LogPosition{LogDID: logID, Sequence: pos})
-
-	result, err := verifier.EvaluateAuthority(ctx,
-		leafKey, h.deps.LeafReader, fetcher, h.deps.Extractor)
+	// Migrated v1.35.0: EvaluateAuthority → EvaluateAuthorityWithTrust over
+	// SingleLog at asOf=latest. Byte-identical behavior.
+	result, err := verifier.EvaluateAuthorityWithTrust(ctx,
+		types.LogPosition{LogDID: logID, Sequence: pos},
+		verifier.SingleLog{Fetcher: fetcher, LeafReader: h.deps.LeafReader},
+		h.deps.Extractor, verifier.AsOf{})
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "authority evaluation failed")
