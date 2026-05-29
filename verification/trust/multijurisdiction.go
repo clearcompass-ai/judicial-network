@@ -98,6 +98,32 @@ import (
 // distinguish wiring faults from runtime trust failures.
 var ErrMultiTrustConfig = errors.New("verification/trust: MultiJurisdictionTrust misconfigured")
 
+// ForeignEntryResolver resolves entries on a FOREIGN log along
+// with their inclusion proofs to the foreign log's tree root.
+// Implementations might wrap a Static-CT tile mirror, the source
+// log's /raw endpoint paired with a tile fetcher, or a hand-curated
+// test fixture. MultiJurisdictionTrust does not interpret or
+// validate the returned proof — the SDK walker's
+// EvaluateAuthorityWithTrust verifies the proof against
+// TrustRoot.Head.RootHash, fail-closed via ErrInclusionInvalid on
+// any tampering.
+//
+// The asOf parameter is forwarded verbatim from the LogTrustProvider.
+// Entry call; implementations honor it the same way TrustRoot does
+// (asOf={} = "latest"; non-zero pins to a historical head).
+type ForeignEntryResolver interface {
+	EntryAt(ctx context.Context, pos types.LogPosition, asOf verifier.AsOf) (verifier.EntryProof, error)
+}
+
+// ForeignLeafResolver resolves SMT leaves on a FOREIGN log along
+// with their membership proofs. Same posture as
+// ForeignEntryResolver — the walker verifies the proof against
+// TrustRoot.Head.SMTRoot, fail-closed via ErrLeafProofInvalid on
+// any tampering.
+type ForeignLeafResolver interface {
+	LeafAt(ctx context.Context, logDID string, key [32]byte, asOf verifier.AsOf) (verifier.LeafProof, error)
+}
+
 // MultiJurisdictionTrust is the LogTrustProvider for cross-network
 // evaluation. It dispatches LogDID-keyed: the home log delegates to
 // an embedded LocalTrust; each foreign log resolves its trust root
@@ -108,6 +134,20 @@ type MultiJurisdictionTrust struct {
 	// delegate to local.
 	homeLogDID string
 	local      LocalTrust
+
+	// foreignEntries is logDID → ForeignEntryResolver for foreign
+	// logs that have an Entry-resolution backend wired (a Static-CT
+	// tile mirror, an HTTP /raw fetcher pair, or a test fixture).
+	// nil for a logDID ⇒ Entry calls return ErrUnknownLog (the C-3
+	// TrustRoot-first default; call sites then pass inclusion
+	// proofs in their request payload). Populated via
+	// WithForeignEntries.
+	foreignEntries map[string]ForeignEntryResolver
+
+	// foreignLeaves is logDID → ForeignLeafResolver. Same posture
+	// as foreignEntries, for SMT leaf reads. Populated via
+	// WithForeignLeaves.
+	foreignLeaves map[string]ForeignLeafResolver
 
 	// foreignSets is logDID → *cosign.WitnessKeySet for every
 	// foreign log declared in cfg.GossipIngest.PeerLogs. The
@@ -248,11 +288,13 @@ func (m MultiJurisdictionTrust) resolveHead(
 }
 
 // Entry dispatches by pos.LogDID. The home log delegates to
-// LocalTrust verbatim. A foreign log returns ErrUnknownLog (no
-// foreign-log entry fetcher today; call sites the C-4 migration
-// targets pass inclusion proofs in their request payloads, which
-// the walker checks against the TrustRoot.Head this provider
-// returns).
+// LocalTrust verbatim. A foreign log dispatches to the wired
+// ForeignEntryResolver (if any), which returns the entry + its
+// inclusion proof against the foreign log's tree root; the SDK
+// walker then verifies the proof against TrustRoot.Head.RootHash
+// (fail-closed via ErrInclusionInvalid on any tampering — the C-5
+// forged-proof scenario). A declared foreign log with NO resolver
+// wired (or an UNKNOWN log) returns ErrUnknownLog.
 func (m MultiJurisdictionTrust) Entry(
 	ctx context.Context,
 	pos types.LogPosition,
@@ -261,20 +303,18 @@ func (m MultiJurisdictionTrust) Entry(
 	if pos.LogDID == m.homeLogDID {
 		return m.local.Entry(ctx, pos, asOf)
 	}
-	if _, ok := m.foreignSets[pos.LogDID]; ok {
-		// Known foreign log but no fetcher wired. The walker treats
-		// ErrUnknownLog as a hard fail; a future expansion could
-		// fold tile-mirror inclusion verification in here. For now,
-		// the C-4 migration ensures call sites pass entries +
-		// proofs explicitly.
-		return verifier.EntryProof{}, verifier.ErrUnknownLog
+	if resolver, ok := m.foreignEntries[pos.LogDID]; ok && resolver != nil {
+		return resolver.EntryAt(ctx, pos, asOf)
 	}
 	return verifier.EntryProof{}, verifier.ErrUnknownLog
 }
 
 // Leaf dispatches by logDID. The home log delegates to LocalTrust
-// verbatim. A foreign log returns ErrUnknownLog (no foreign-log
-// SMT reader today; same posture as Entry).
+// verbatim. A foreign log dispatches to the wired
+// ForeignLeafResolver (if any); the walker verifies the membership
+// proof against TrustRoot.Head.SMTRoot (fail-closed via
+// ErrLeafProofInvalid on tampering). No wired resolver ⇒
+// ErrUnknownLog.
 func (m MultiJurisdictionTrust) Leaf(
 	ctx context.Context,
 	logDID string,
@@ -284,10 +324,42 @@ func (m MultiJurisdictionTrust) Leaf(
 	if logDID == m.homeLogDID {
 		return m.local.Leaf(ctx, logDID, key, asOf)
 	}
-	if _, ok := m.foreignSets[logDID]; ok {
-		return verifier.LeafProof{}, verifier.ErrUnknownLog
+	if resolver, ok := m.foreignLeaves[logDID]; ok && resolver != nil {
+		return resolver.LeafAt(ctx, logDID, key, asOf)
 	}
 	return verifier.LeafProof{}, verifier.ErrUnknownLog
+}
+
+// WithForeignEntries returns a new MultiJurisdictionTrust with the
+// supplied per-log Entry resolvers wired. The original is unchanged
+// (the provider is immutable; this is the additive-extension
+// pattern). A nil map clears any existing resolvers.
+//
+// Resolvers MUST be supplied only for LogDIDs declared in
+// foreignSets at construction time; resolvers for unknown LogDIDs
+// are accepted but never dispatched to (a logDID dispatch first
+// matches against foreignSets via TrustRoot; an unknown LogDID
+// short-circuits to ErrUnknownLog from TrustRoot before Entry is
+// ever called by the walker).
+func (m MultiJurisdictionTrust) WithForeignEntries(resolvers map[string]ForeignEntryResolver) MultiJurisdictionTrust {
+	cp := make(map[string]ForeignEntryResolver, len(resolvers))
+	for did, r := range resolvers {
+		cp[did] = r
+	}
+	m.foreignEntries = cp
+	return m
+}
+
+// WithForeignLeaves returns a new MultiJurisdictionTrust with the
+// supplied per-log Leaf resolvers wired. Same semantics as
+// WithForeignEntries.
+func (m MultiJurisdictionTrust) WithForeignLeaves(resolvers map[string]ForeignLeafResolver) MultiJurisdictionTrust {
+	cp := make(map[string]ForeignLeafResolver, len(resolvers))
+	for did, r := range resolvers {
+		cp[did] = r
+	}
+	m.foreignLeaves = cp
+	return m
 }
 
 // Compile-time check that MultiJurisdictionTrust satisfies the SDK
