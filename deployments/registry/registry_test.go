@@ -1,11 +1,13 @@
 // Smoke + invariant tests for the registry layer.
 //
 // These pin the framework's load behavior across every state's registry:
-//   - Every Spec validates.
-//   - Every DID is unique.
+//   - Every court Spec validates.
+//   - Every DID is unique (across courts AND clerks).
 //   - Every Bundle satisfies jurisdiction.Validate.
-//   - The expected court counts per state.
-//   - AppellatePath references resolve (every appeal target exists in the registry).
+//   - The expected court + clerk counts per state.
+//   - AppellatePath references resolve.
+//   - Structural facts (Davidson probate in Circuit 7, Knox Chancery
+//     handles probate, Davidson Juvenile is Juvenile & Family).
 package registry
 
 import (
@@ -26,19 +28,45 @@ func TestLoadAll_ProducesValidBundles(t *testing.T) {
 	}
 }
 
-func TestLoadAll_AllDIDsUnique(t *testing.T) {
-	specs := AllSpecs()
+func TestLoadAll_AllCourtDIDsUnique(t *testing.T) {
+	specs := AllCourtSpecs()
 	seen := make(map[string]string, len(specs))
 	for _, s := range specs {
 		if other, dup := seen[s.DID]; dup {
-			t.Errorf("duplicate DID %q (used by %q and %q)", s.DID, other, s.Name)
+			t.Errorf("duplicate court DID %q (used by %q and %q)", s.DID, other, s.Name)
 		}
 		seen[s.DID] = s.Name
 	}
 }
 
+func TestLoadAll_AllClerkDIDsUnique(t *testing.T) {
+	clerks := AllClerkSpecs()
+	seen := make(map[string]string, len(clerks))
+	for _, c := range clerks {
+		if other, dup := seen[c.DID]; dup {
+			t.Errorf("duplicate clerk DID %q (used by %q and %q)", c.DID, other, c.Name)
+		}
+		seen[c.DID] = c.Name
+	}
+}
+
+func TestLoadAll_NoOverlapBetweenCourtAndClerkDIDs(t *testing.T) {
+	// A DID is either a court OR a clerk office, never both.
+	courts := AllCourtSpecs()
+	clerks := AllClerkSpecs()
+	courtDIDs := make(map[string]string, len(courts))
+	for _, c := range courts {
+		courtDIDs[c.DID] = c.Name
+	}
+	for _, c := range clerks {
+		if other, dup := courtDIDs[c.DID]; dup {
+			t.Errorf("DID %q used by court %q AND clerk %q", c.DID, other, c.Name)
+		}
+	}
+}
+
 func TestLoadAll_AppellatePathsResolve(t *testing.T) {
-	specs := AllSpecs()
+	specs := AllCourtSpecs()
 	known := make(map[string]bool, len(specs))
 	for _, s := range specs {
 		known[s.DID] = true
@@ -55,35 +83,68 @@ func TestLoadAll_AppellatePathsResolve(t *testing.T) {
 }
 
 func TestLoadAll_CountsPerState(t *testing.T) {
-	// Pin the expected counts so an accidental removal/addition surfaces.
+	// Pin expected counts so accidental removal/addition surfaces.
 	if got, want := len(FederalSpecs()), 7; got != want {
 		t.Errorf("FederalSpecs() = %d, want %d (SCOTUS + 2 Circuits + 4 Districts)",
 			got, want)
 	}
-	// Tennessee count:
-	//   1 Supreme
-	//   3 COA grand divisions
-	//   3 COCA grand divisions
-	//   Davidson: 8 Circuit + 4 Chancery + 6 Criminal + 4 GS civil + 4 GS criminal + 1 Juvenile = 27
-	//   Knox:     4 Circuit + 3 Chancery + 3 Criminal + 4 GS + 1 Juvenile = 15
-	//   Total: 1 + 3 + 3 + 27 + 15 = 49
-	if got, want := len(TennesseeSpecs()), 49; got != want {
-		t.Errorf("TennesseeSpecs() = %d, want %d", got, want)
+	// Tennessee state-level: 1 Supreme + 3 COA + 3 COCA = 7.
+	if got, want := len(TennesseeStateLevelSpecs()), 7; got != want {
+		t.Errorf("TennesseeStateLevelSpecs() = %d, want %d", got, want)
 	}
-	// California count:
-	//   1 Supreme
-	//   4 Court of Appeal divisions (3 in 4th District + 1 in 6th District)
-	//   2 Superior Courts
-	//   Total: 7
-	if got, want := len(CaliforniaSpecs()), 7; got != want {
-		t.Errorf("CaliforniaSpecs() = %d, want %d", got, want)
+	// California state-level: 1 Supreme + 4 CoA (3 in 4th Dist + 1 in 6th Dist) = 5.
+	if got, want := len(CaliforniaStateLevelSpecs()), 5; got != want {
+		t.Errorf("CaliforniaStateLevelSpecs() = %d, want %d", got, want)
 	}
 }
 
-func TestLoadAll_DavidsonProbateIsInCircuitNotChancery(t *testing.T) {
-	// Pin the structural fact: Davidson's Probate jurisdiction is in
-	// the 7th Circuit Division, NOT in any Chancery part.
-	specs := AllSpecs()
+func TestLoadAll_TennesseeCountyCourts(t *testing.T) {
+	// Davidson courts: 8 Circuit + 4 Chancery + 6 Criminal + 4 GS civil
+	// + 4 GS criminal + 1 Juvenile = 27.
+	// Knox: 4 Circuit + 3 Chancery + 3 Criminal + 4 GS + 1 Juvenile = 15.
+	// Total county courts: 42. State-level: 7. Grand total TN: 49.
+	specs := AllCourtSpecs()
+	tnCount := 0
+	for _, s := range specs {
+		if s.Jurisdiction.State == "TN" {
+			tnCount++
+		}
+	}
+	if tnCount != 49 {
+		t.Errorf("TN court count = %d, want 49 (7 state-level + 27 Davidson + 15 Knox)", tnCount)
+	}
+}
+
+func TestLoadAll_TennesseeClerks(t *testing.T) {
+	// Davidson (Large): 4 clerks. Knox (Large): 4 clerks. Total: 8.
+	clerks := AllClerkSpecs()
+	tnClerkCount := 0
+	for _, c := range clerks {
+		if c.Jurisdiction.State == "TN" {
+			tnClerkCount++
+		}
+	}
+	if tnClerkCount != 8 {
+		t.Errorf("TN clerk count = %d, want 8 (Davidson 4 + Knox 4)", tnClerkCount)
+	}
+}
+
+func TestLoadAll_CaliforniaClerks(t *testing.T) {
+	// Riverside + Santa Clara, each with 1 Court Executive Officer = 2.
+	clerks := AllClerkSpecs()
+	caClerkCount := 0
+	for _, c := range clerks {
+		if c.Jurisdiction.State == "CA" {
+			caClerkCount++
+		}
+	}
+	if caClerkCount != 2 {
+		t.Errorf("CA clerk count = %d, want 2 (Riverside CEO + Santa Clara CEO)", caClerkCount)
+	}
+}
+
+func TestLoadAll_DavidsonProbateInCircuitNotChancery(t *testing.T) {
+	specs := AllCourtSpecs()
 	for _, s := range specs {
 		hasProbate := false
 		hasChancery := false
@@ -96,32 +157,59 @@ func TestLoadAll_DavidsonProbateIsInCircuitNotChancery(t *testing.T) {
 			}
 		}
 		// Davidson chancery MUST NOT carry probate.
-		if s.DID == "did:web:state:tn:davidson:chancery:1" || s.DID == "did:web:state:tn:davidson:chancery:2" ||
-			s.DID == "did:web:state:tn:davidson:chancery:3" || s.DID == "did:web:state:tn:davidson:chancery:4" {
-			if hasProbate {
-				t.Errorf("%s declares Probate; Davidson probate lives in Circuit Division 7", s.DID)
-			}
-			if !hasChancery {
-				t.Errorf("%s missing Chancery court type", s.DID)
+		for i := 1; i <= 4; i++ {
+			if s.DID == davidsonChanceryDID(i) {
+				if hasProbate {
+					t.Errorf("%s declares Probate; Davidson probate lives in Circuit Part 7", s.DID)
+				}
+				if !hasChancery {
+					t.Errorf("%s missing Chancery court type", s.DID)
+				}
 			}
 		}
-		// Davidson Circuit Division 7 MUST carry probate.
+		// Davidson Circuit Part 7 MUST carry probate.
 		if s.DID == "did:web:state:tn:davidson:circuit:7" {
 			if !hasProbate {
-				t.Errorf("Davidson Circuit Division 7 (Probate Division) missing CourtTypeProbate")
+				t.Errorf("Davidson Circuit Part 7 (Probate Division) missing CourtTypeProbate")
+			}
+		}
+	}
+}
+
+func TestLoadAll_DavidsonJuvenileIsJuvenileAndFamily(t *testing.T) {
+	// Davidson's "Juvenile" court is officially the Juvenile & Family
+	// Court — Davidson combines J&F into one institutional court.
+	specs := AllCourtSpecs()
+	for _, s := range specs {
+		if s.DID == "did:web:state:tn:davidson:juvenile:1" {
+			hasJuvenile := false
+			hasFamily := false
+			for _, ct := range s.CourtTypes {
+				if ct.String() == "juvenile" {
+					hasJuvenile = true
+				}
+				if ct.String() == "family" {
+					hasFamily = true
+				}
+			}
+			if !hasJuvenile || !hasFamily {
+				t.Errorf("Davidson Juvenile & Family Court missing types; juvenile=%v family=%v",
+					hasJuvenile, hasFamily)
 			}
 		}
 	}
 }
 
 func TestLoadAll_KnoxChanceryHandlesProbate(t *testing.T) {
-	// Pin the structural fact: Knox Chancery DOES carry probate (no
-	// separate Probate Court in Knox).
-	specs := AllSpecs()
-	for _, s := range specs {
-		if s.DID == "did:web:state:tn:knox:chancery:1" ||
-			s.DID == "did:web:state:tn:knox:chancery:2" ||
-			s.DID == "did:web:state:tn:knox:chancery:3" {
+	specs := AllCourtSpecs()
+	for i := 1; i <= 3; i++ {
+		did := knoxChanceryDID(i)
+		found := false
+		for _, s := range specs {
+			if s.DID != did {
+				continue
+			}
+			found = true
 			hasProbate := false
 			hasChancery := false
 			for _, ct := range s.CourtTypes {
@@ -133,11 +221,33 @@ func TestLoadAll_KnoxChanceryHandlesProbate(t *testing.T) {
 				}
 			}
 			if !hasProbate {
-				t.Errorf("%s missing Probate (Knox Chancery handles probate)", s.DID)
+				t.Errorf("%s missing Probate (Knox Chancery handles probate)", did)
 			}
 			if !hasChancery {
-				t.Errorf("%s missing Chancery", s.DID)
+				t.Errorf("%s missing Chancery", did)
 			}
 		}
+		if !found {
+			t.Errorf("expected DID %s not in registry", did)
+		}
 	}
+}
+
+// ─── helpers ───────────────────────────────────────────────────────
+
+func davidsonChanceryDID(i int) string { return tnCountyDID("davidson", "chancery", i) }
+func knoxChanceryDID(i int) string     { return tnCountyDID("knox", "chancery", i) }
+func tnCountyDID(county, kind string, i int) string {
+	return "did:web:state:tn:" + county + ":" + kind + ":" + itoa(i)
+}
+func itoa(i int) string {
+	if i == 0 {
+		return "0"
+	}
+	var out []byte
+	for i > 0 {
+		out = append([]byte{byte('0' + i%10)}, out...)
+		i /= 10
+	}
+	return string(out)
 }

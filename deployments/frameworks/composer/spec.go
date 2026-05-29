@@ -108,6 +108,13 @@ const (
 	// neglect matters.
 	CourtTypeJuvenile
 
+	// CourtTypeFamily — domestic-relations matters (divorce,
+	// custody, adoption, paternity). Sometimes combined with
+	// Juvenile in one institutional court (Davidson's "Juvenile
+	// & Family Court"); sometimes a separate court (some larger
+	// counties).
+	CourtTypeFamily
+
 	// CourtTypeUnifiedSuperior — CA-style unified trial court that
 	// hears every subject matter in one organizational court. Composer
 	// expands this to Circuit | Chancery | Probate | Criminal |
@@ -143,6 +150,8 @@ func (c CourtType) String() string {
 		return "general_sessions"
 	case CourtTypeJuvenile:
 		return "juvenile"
+	case CourtTypeFamily:
+		return "family"
 	case CourtTypeUnifiedSuperior:
 		return "unified_superior"
 	case CourtTypeDistrict:

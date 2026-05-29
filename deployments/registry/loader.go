@@ -4,30 +4,25 @@ FILE PATH: deployments/registry/loader.go
 DESCRIPTION:
 
 	The registry is the SINGLE source-of-truth list of every court
-	the JN supports. It's data, not code: each state contributes one
-	file (tn.go, ca.go, fed.go) returning a []composer.Spec, and the
-	loader stitches them together at boot.
+	+ clerk-office the JN supports. The data lives across state-
+	specific files (tn.go + tn_counties.go, ca.go + ca_counties.go,
+	fed.go); the loader composes them into bundles at boot.
 
-	Adding a new state = adding one file + one entry in the loader's
-	state list. Adding a new court within a covered state = adding one
-	Spec to that state's file. The framework code never changes.
+	# Compose pipeline
 
-	# Why a Go-data registry, not YAML/JSON
+	    [state-level Specs (Supreme, COA, federal Circuit/SCOTUS)]
+	         +
+	    [Expand(CountyProfile, state convention) →
+	       court Specs + clerk Specs per county]
+	         ↓
+	    composer.Build(spec) / composer.BuildClerk(spec)
+	         ↓
+	    []jurisdiction.Bundle
 
-	The Spec struct embeds Credential interface values — type-safe
-	references to credential implementations. YAML would need a
-	parallel name-to-Credential resolver layer; Go data is
-	directly-linked and type-checked at compile time. New states can
-	contribute new credentials in the same compilation unit, so a CA
-	bundle binding an unknown TN credential fails to compile, not at
-	runtime.
-
-	# How main_helpers.go consumes the registry
-
-	cmd/network-api/main_helpers.go calls registry.LoadAll(); the
-	returned []jurisdiction.Bundle is registered into the JN's
-	jurisdiction.Registry one-by-one. No per-state import + Register
-	loop in main; the registry IS the loop.
+	Adding a new TN county = one CountyProfile literal in tn_counties.go.
+	Adding a new state = one tn.go + one tn_counties.go style pair plus
+	a state_profile/<state>.go implementing Conventions.
+	The loader and framework code don't change.
 */
 package registry
 
@@ -35,45 +30,78 @@ import (
 	"fmt"
 
 	"github.com/clearcompass-ai/judicial-network/deployments/frameworks/composer"
+	"github.com/clearcompass-ai/judicial-network/deployments/frameworks/county_profile"
+	"github.com/clearcompass-ai/judicial-network/deployments/frameworks/state_profile"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
 
-// AllSpecs returns the union of every state's courts. The order is
-// stable (federal, then states alphabetically within each tier) so
-// audit-trail outputs are reproducible.
-func AllSpecs() []composer.Spec {
+// AllCourtSpecs returns every court Spec the registry exposes —
+// state-level specs (TN Supreme, TN COA grand divisions, federal
+// Circuit/SCOTUS, CA appellate hierarchy) PLUS every court Spec
+// expanded from per-county CountyProfiles.
+func AllCourtSpecs() []composer.Spec {
 	var specs []composer.Spec
 	specs = append(specs, FederalSpecs()...)
-	specs = append(specs, TennesseeSpecs()...)
-	specs = append(specs, CaliforniaSpecs()...)
+	specs = append(specs, TennesseeStateLevelSpecs()...)
+	specs = append(specs, CaliforniaStateLevelSpecs()...)
+	for _, county := range TennesseeCounties() {
+		courts, _ := county_profile.Expand(county, state_profile.TN())
+		specs = append(specs, courts...)
+	}
+	for _, county := range CaliforniaCounties() {
+		courts, _ := county_profile.Expand(county, state_profile.CA())
+		specs = append(specs, courts...)
+	}
 	return specs
 }
 
-// LoadAll reduces every Spec in AllSpecs to a jurisdiction.Bundle and
-// returns the result. Panics if any Spec is invalid — boot-time
-// configuration errors MUST surface at process start.
+// AllClerkSpecs returns every clerk Spec the registry exposes,
+// expanded from per-county CountyProfiles via the state conventions.
+// Federal clerks are listed alongside (in FederalClerkSpecs).
+func AllClerkSpecs() []county_profile.ClerkSpec {
+	var clerks []county_profile.ClerkSpec
+	for _, county := range TennesseeCounties() {
+		_, ct := county_profile.Expand(county, state_profile.TN())
+		clerks = append(clerks, ct...)
+	}
+	for _, county := range CaliforniaCounties() {
+		_, ca := county_profile.Expand(county, state_profile.CA())
+		clerks = append(clerks, ca...)
+	}
+	return clerks
+}
+
+// LoadAll reduces every Spec + ClerkSpec in the registry to a
+// jurisdiction.Bundle and returns the result. Panics on duplicate
+// DIDs or invalid specs.
 func LoadAll() []jurisdiction.Bundle {
-	specs := AllSpecs()
-	bundles := make([]jurisdiction.Bundle, 0, len(specs))
-	seen := make(map[string]string, len(specs))
-	for _, spec := range specs {
-		if other, dup := seen[spec.DID]; dup {
+	var bundles []jurisdiction.Bundle
+	seen := make(map[string]string, 256)
+	check := func(did, name string) {
+		if other, dup := seen[did]; dup {
 			panic(fmt.Sprintf(
-				"registry: duplicate DID %q (%s and %s) — registry entries must be unique",
-				spec.DID, other, spec.Name))
+				"registry: duplicate DID %q (%s and %s)",
+				did, other, name))
 		}
-		seen[spec.DID] = spec.Name
+		seen[did] = name
+	}
+	for _, spec := range AllCourtSpecs() {
+		check(spec.DID, spec.Name)
 		bundles = append(bundles, composer.Build(spec))
+	}
+	for _, clerk := range AllClerkSpecs() {
+		check(clerk.DID, clerk.Name)
+		bundles = append(bundles, composer.BuildClerk(composer.ClerkSpec{
+			DID:                 clerk.DID,
+			Name:                clerk.Name,
+			Jurisdiction:        clerk.Jurisdiction,
+			RequiredCredentials: clerk.RequiredCredentials,
+		}))
 	}
 	return bundles
 }
 
-// LoadInto registers every Bundle returned by LoadAll into the
-// supplied jurisdiction.Registry. Returns the first registration
-// error encountered (registry duplicate or validation failure).
-//
-// This is the canonical entry point cmd/network-api/main_helpers.go
-// calls in place of the per-package Register loop.
+// LoadInto registers every bundle into the supplied registry.
 func LoadInto(r *jurisdiction.Registry) error {
 	for _, b := range LoadAll() {
 		if err := r.Register(b); err != nil {

@@ -160,17 +160,25 @@ func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 		// Legacy umbrella DIDs (backward-compat).
 		"did:web:state:tn:davidson",
 		"did:web:state:tn:coa",
-		// Registry-loaded — sample one per state to confirm
-		// LoadInto ran end-to-end.
+		// Registry-loaded — sample one per state to confirm LoadInto
+		// ran end-to-end.
 		"did:web:state:tn:sc",
-		"did:web:state:tn:davidson:circuit:7",
+		"did:web:state:tn:davidson:circuit:7",        // Davidson Probate Division
+		"did:web:state:tn:davidson:juvenile",         // Davidson Juvenile & Family (single court → no ordinal)
 		"did:web:state:tn:knox:chancery:1",
 		"did:web:fed:scotus:us",
 		"did:web:fed:circuit:6th",
 		"did:web:fed:circuit:9th",
 		"did:web:fed:district:ca_northern",
 		"did:web:state:ca:sc",
-		"did:web:state:ca:superior:riverside",
+		"did:web:state:ca:riverside:unified_superior",      // single Superior → no ordinal
+		"did:web:state:ca:santa_clara:unified_superior",
+		// Clerk offices — confirm BuildClerk path ran.
+		"did:web:state:tn:davidson:clerk:county",
+		"did:web:state:tn:davidson:clerk:circuit",
+		"did:web:state:tn:davidson:clerk:criminal",
+		"did:web:state:tn:davidson:clerk:chancery_master",
+		"did:web:state:ca:riverside:clerk:executive_officer",
 	}
 	have := make(map[string]bool, len(dids))
 	for _, d := range dids {
@@ -181,8 +189,17 @@ func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 			t.Errorf("expected destination %s registered; not found in %d DIDs", d, len(dids))
 		}
 	}
-	// Expected total: 2 legacy umbrellas + 7 Federal + 49 TN + 7 CA = 65.
-	const want = 2 + 7 + 49 + 7
+	// Expected total:
+	//   2 legacy umbrellas (Davidson, COA)
+	//   7 Federal
+	//   7 TN state-level (1 Supreme + 3 COA + 3 COCA)
+	//   42 TN county courts (Davidson 27 + Knox 15)
+	//   8 TN clerks (Davidson 4 + Knox 4)
+	//   5 CA state-level (1 Supreme + 4 CoA divisions)
+	//   2 CA county courts (Riverside + Santa Clara Superior)
+	//   2 CA clerks (Riverside CEO + Santa Clara CEO)
+	// Total: 75
+	const want = 2 + 7 + 7 + 42 + 8 + 5 + 2 + 2
 	if len(dids) != want {
 		t.Errorf("registered DIDs = %d, want %d", len(dids), want)
 	}
