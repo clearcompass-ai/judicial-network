@@ -24,8 +24,12 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/clearcompass-ai/attesta/network"
 	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/attesta/types"
 
@@ -45,9 +49,9 @@ func freshRegistry(t *testing.T) *jurisdiction.Registry {
 	return reg
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Empty-config (dev) path
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestBuildJudicialDeps_NoLedger_StillBoots(t *testing.T) {
 	reg := freshRegistry(t)
@@ -94,9 +98,9 @@ func TestBuildJudicialDeps_WitnessMapsInitialized(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Ledger-endpoint configured path
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestBuildJudicialDeps_WithLedger_PerDestinationQueries(t *testing.T) {
 	reg := freshRegistry(t)
@@ -151,13 +155,136 @@ func TestBuildJudicialDeps_ContentStore_DefaultsInMemory(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 // Schema resolver shim — declines, doesn't panic
-// ─────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 func TestSchemaResolverShim_DeclinesCleanly(t *testing.T) {
 	r := newSchemaResolverShim()
 	if _, err := r.Resolve(context.Background(), types.LogPosition{}, nil); err == nil {
 		t.Error("shim resolver MUST return an error (nil hides misconfig at runtime)")
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────
+// D2 — Auditor scope inputs threaded into deps
+// ──────────────────────────────────────────────────────────────────
+
+// Without a bootstrap file the authoritative resolver is nil, the
+// AuditorScopeAsOf closure is nil, and the auditor record slices are
+// nil — the legal pre-v1.33 posture.
+func TestBuildJudicialDeps_NoBootstrap_ResolverNil(t *testing.T) {
+	deps, err := buildJudicialDeps(config.Operational{}, freshRegistry(t), nil)
+	if err != nil {
+		t.Fatalf("buildJudicialDeps: %v", err)
+	}
+	if deps.AuthoritativeResolver != nil {
+		t.Error("AuthoritativeResolver MUST be nil when NetworkBootstrapFile is empty")
+	}
+	if deps.AuditorScopeAsOf != nil {
+		t.Error("AuditorScopeAsOf MUST be nil when NetworkBootstrapFile is empty")
+	}
+	if deps.AuditorRegistry != nil {
+		t.Errorf("AuditorRegistry MUST be nil with empty RegistryFile; got %v", deps.AuditorRegistry)
+	}
+	if deps.AuditorAmendments != nil {
+		t.Errorf("AuditorAmendments MUST be nil with empty AmendmentFile; got %v", deps.AuditorAmendments)
+	}
+}
+
+// File-loaded auditor registry threads cleanly through to deps.
+func TestBuildJudicialDeps_LoadsAuditorRegistry(t *testing.T) {
+	records := []network.AuditorRegistrationRecord{
+		{EffectivePos: types.LogPosition{LogDID: "did:web:log", Sequence: 1}},
+		{EffectivePos: types.LogPosition{LogDID: "did:web:log", Sequence: 5}},
+	}
+	regPath := writeJSONFixture(t, records)
+	deps, err := buildJudicialDeps(config.Operational{
+		AuditorScope: config.AuditorScopeConfig{RegistryFile: regPath},
+	}, freshRegistry(t), nil)
+	if err != nil {
+		t.Fatalf("buildJudicialDeps: %v", err)
+	}
+	if len(deps.AuditorRegistry) != 2 {
+		t.Errorf("AuditorRegistry len = %d, want 2", len(deps.AuditorRegistry))
+	}
+}
+
+// Malformed registry file is a boot-fail, not a silent partial snapshot.
+func TestBuildJudicialDeps_MalformedRegistry_BootFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := buildJudicialDeps(config.Operational{
+		AuditorScope: config.AuditorScopeConfig{RegistryFile: path},
+	}, freshRegistry(t), nil)
+	if err == nil {
+		t.Fatal("expected boot-fail on malformed registry; got nil")
+	}
+	if !strings.Contains(err.Error(), "load auditor registry") {
+		t.Errorf("error should mention 'load auditor registry': %v", err)
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────
+// T6 — buildAuthoritativeResolver
+// ──────────────────────────────────────────────────────────────────
+
+// Without a bootstrap file the resolver is (nil, nil) — the legal
+// dev/pre-cert posture.
+func TestBuildAuthoritativeResolver_NoBootstrap_NilOK(t *testing.T) {
+	resolver, err := buildAuthoritativeResolver(config.Operational{}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("buildAuthoritativeResolver: %v", err)
+	}
+	if resolver != nil {
+		t.Error("resolver MUST be nil when NetworkBootstrapFile is empty")
+	}
+}
+
+// With a malformed bootstrap file the resolver constructor surfaces
+// the parse error verbatim (no partial-resolver).
+func TestBuildAuthoritativeResolver_BadBootstrap_Errors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad-bootstrap.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := buildAuthoritativeResolver(
+		config.Operational{NetworkBootstrapFile: path}, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected parse error; got nil")
+	}
+	if !strings.Contains(err.Error(), "load bootstrap") {
+		t.Errorf("error should mention 'load bootstrap': %v", err)
+	}
+}
+
+// buildAuditorScopeAsOf returns a non-nil closure when the bootstrap
+// has an ExchangeDID; the closure yields a LogPosition keyed on that
+// DID at sequence 0 (the conservative as-of for an audit run that
+// pre-dates the JN's on-log walker).
+func TestBuildAuditorScopeAsOf_BootstrapPresent_ReturnsClosure(t *testing.T) {
+	bsPath := writeJSONFixture(t, map[string]any{
+		"exchange_did":        "did:web:state:tn:network",
+		"genesis_witness_set": []string{"did:key:zQ3sample1234567890abcdefghijklmnopqr"},
+	})
+	cfg := config.Operational{NetworkBootstrapFile: bsPath}
+	closure := buildAuditorScopeAsOf(cfg)
+	if closure == nil {
+		t.Fatal("closure MUST be non-nil when bootstrap has ExchangeDID")
+	}
+	pos := closure(context.Background())
+	if pos.LogDID != "did:web:state:tn:network" {
+		t.Errorf("LogDID = %q, want did:web:state:tn:network", pos.LogDID)
+	}
+	if pos.Sequence != 0 {
+		t.Errorf("Sequence = %d, want 0 (genesis)", pos.Sequence)
+	}
+}
+
+func TestBuildAuditorScopeAsOf_NoBootstrap_ReturnsNil(t *testing.T) {
+	if closure := buildAuditorScopeAsOf(config.Operational{}); closure != nil {
+		t.Error("closure MUST be nil when NetworkBootstrapFile is empty")
 	}
 }
