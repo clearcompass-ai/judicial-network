@@ -154,6 +154,24 @@ type Dependencies struct {
 	// custody to disk).
 	HeadsJournal monitoring.HeadsJournal
 
+	// MultiTrust is the cross-network LogTrustProvider — the C-3
+	// successor to the LocalTrust the 5 production call sites use
+	// today. It dispatches by LogDID:
+	//
+	//   - HOME log → delegates to an embedded LocalTrust (byte-
+	//     for-byte parity with the existing single-log path).
+	//   - FOREIGN log → resolves the head from HeadsJournal at the
+	//     requested asOf + pairs it with the pre-declared witness
+	//     keyset (one per cfg.GossipIngest.PeerLogs entry).
+	//   - UNKNOWN log → verifier.ErrUnknownLog (fail-closed).
+	//
+	// Production wires this via buildMultiJurisdictionTrust at boot
+	// (cmd/network-api/judicial_deps.go). nil leaves the v1.33
+	// LocalTrust path in place — the C-4 call-site migration swaps
+	// trust.NewLocalTrust(...) → deps.MultiTrust once the foreign
+	// PeerLogs are operator-declared.
+	MultiTrust verifier.LogTrustProvider
+
 	// TrustedSources is the set of source log DIDs the verify-only ingest
 	// tracks (the gossip peers' log DIDs). Used to enumerate TrustedHeads for
 	// the peer-consistency endpoint. Empty ⇒ enumerate nothing unless a
