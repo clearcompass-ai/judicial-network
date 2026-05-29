@@ -118,14 +118,14 @@ func TestFunctional_DiscoverySanctions_RequiresOrder(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("motion_discovery_sanctions", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without interlocutory_order")
 	}
 
 	v = w.Check("motion_discovery_sanctions", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated", "interlocutory_order"},
+		ObservedEvents: []string{"case_initiation", "interlocutory_order"},
 	})
 	if !v.OK {
 		t.Errorf("must accept with interlocutory_order: %s", v.Reason)
@@ -140,7 +140,7 @@ func TestFunctional_CompelDiscovery_AdvisoryPassThroughs(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("motion_compel_discovery", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
 		t.Errorf("Advisory prereq must NOT block: %s", v.Reason)

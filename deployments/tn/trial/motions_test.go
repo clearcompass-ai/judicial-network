@@ -9,7 +9,7 @@ DESCRIPTION:
 	      court_clerk-signed, intra-exchange, MinSignerCosigners=1,
 	      RequiredCredentials defaulting to ["bpr_number"].
 	  - Override of RequiredCredentials propagates.
-	  - motionPrereqs prepends Hard case_initiated.
+	  - motionPrereqs prepends Hard case_initiation.
 	  - AdditionalPrereqs append after the default.
 	  - motionCosignatureRules / motionPrerequisiteRules build
 	    consistent vocabularies (every motion appears in both).
@@ -142,7 +142,7 @@ func TestMotionPrereqs_DefaultsToCaseInitOnly(t *testing.T) {
 	if got[0].Mode != prerequisites.PrereqModeHard {
 		t.Errorf("default prereq mode: want Hard, got %v", got[0].Mode)
 	}
-	if len(got[0].RequiredAncestor) != 1 || got[0].RequiredAncestor[0] != "case_initiated" {
+	if len(got[0].RequiredAncestor) != 1 || got[0].RequiredAncestor[0] != "case_initiation" {
 		t.Errorf("default ancestor drift: %v", got[0].RequiredAncestor)
 	}
 }
@@ -161,9 +161,9 @@ func TestMotionPrereqs_AppendsAdditional(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("with-additional prereq count: want 2, got %d", len(got))
 	}
-	// case_initiated must come first (default).
-	if got[0].RequiredAncestor[0] != "case_initiated" {
-		t.Errorf("first prereq must be case_initiated, got %v",
+	// case_initiation must come first (default).
+	if got[0].RequiredAncestor[0] != "case_initiation" {
+		t.Errorf("first prereq must be case_initiation, got %v",
 			got[0].RequiredAncestor)
 	}
 	// Additional prereq must follow.
@@ -175,12 +175,12 @@ func TestMotionPrereqs_AppendsAdditional(t *testing.T) {
 
 // ─── caseInitAncestor pin ────────────────────────────────────────
 
-func TestCaseInitAncestor_HardCaseInitiated(t *testing.T) {
+func TestCaseInitAncestor_HardCaseInitiation(t *testing.T) {
 	if caseInitAncestor.Mode != prerequisites.PrereqModeHard {
 		t.Errorf("caseInitAncestor mode drift: %v", caseInitAncestor.Mode)
 	}
 	if len(caseInitAncestor.RequiredAncestor) != 1 ||
-		caseInitAncestor.RequiredAncestor[0] != "case_initiated" {
+		caseInitAncestor.RequiredAncestor[0] != "case_initiation" {
 		t.Errorf("caseInitAncestor target drift: %v",
 			caseInitAncestor.RequiredAncestor)
 	}

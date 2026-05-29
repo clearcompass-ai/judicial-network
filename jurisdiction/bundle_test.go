@@ -225,7 +225,7 @@ func TestValidate_PrereqMaySupersetCosig(t *testing.T) {
 		exchange: "did:web:x",
 		roles:    minimalCatalog(t),
 		cosig:    minimalCosigPolicy(t, "evt_a"),
-		preqs:    minimalPrereqPolicy(t, "evt_a", "case_initiated"),
+		preqs:    minimalPrereqPolicy(t, "evt_a", "case_initiation"),
 	}
 	if err := Validate(b); err != nil {
 		t.Errorf("prereq superset must be allowed: %v", err)

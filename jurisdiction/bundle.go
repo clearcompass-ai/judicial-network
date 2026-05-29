@@ -139,7 +139,7 @@ var (
 //   - Every event_type in CosignaturePolicy must be known to
 //     PrerequisitePolicy. The reverse is NOT required: the
 //     prerequisite policy may include bootstrap events
-//     (case_initiated, hearing) that have no cosignature mix.
+//     (case_initiation, hearing) that have no cosignature mix.
 //
 // Validate is idempotent and safe to call at boot. The registry
 // invokes it before accepting a Bundle.

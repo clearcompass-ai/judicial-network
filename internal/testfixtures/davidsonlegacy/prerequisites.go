@@ -14,12 +14,12 @@ DESCRIPTION:
 	contract tests.
 
 	The 18 event_types match the cosignature policy's vocabulary
-	plus two structural anchors (case_initiated, hearing) that
+	plus two structural anchors (case_initiation, hearing) that
 	are not subject to Filer cosignature.
 
 	Categories:
 	  - case-lifecycle filings (motions, pleadings, accountings):
-	    require a case_initiated ancestor in the subtree.
+	    require a case_initiation ancestor in the subtree.
 	  - judicial outcomes (verdict, final_judgment): require a
 	    responsive_pleading or motion_state_dismissal in the
 	    subtree (i.e. some merits posture before judgment).
@@ -53,8 +53,8 @@ import (
 func PrerequisiteRules() map[string][]prerequisites.Prereq {
 	caseInitAncestor := prerequisites.Prereq{
 		Mode:             prerequisites.PrereqModeHard,
-		RequiredAncestor: []string{"case_initiated"},
-		Reason:           "every case-lifecycle event requires a case_initiated ancestor",
+		RequiredAncestor: []string{"case_initiation"},
+		Reason:           "every case-lifecycle event requires a case_initiation ancestor",
 	}
 	meritsPostureAncestor := prerequisites.Prereq{
 		Mode: prerequisites.PrereqModeHard,
@@ -67,7 +67,7 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 	}
 	hearingAdvisory := prerequisites.Prereq{
 		Mode:             prerequisites.PrereqModeAdvisory,
-		RequiredAncestor: []string{"hearing"},
+		RequiredAncestor: []string{"hearing_convened_concluded"},
 		Reason:           "transcript_publication advisory: hearing should precede transcript",
 	}
 
@@ -117,10 +117,10 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		"relay_attestation":      {},
 
 		// ── case bootstrap: anchor of the subtree, no prereq ────
-		"case_initiated": {},
+		"case_initiation": {},
 
-		// ── hearing: posture event, requires case_initiated ─────
-		"hearing": {caseInitAncestor},
+		// ── hearing: posture event, requires case_initiation ─────
+		"hearing_convened_concluded": {caseInitAncestor},
 	}
 }
 

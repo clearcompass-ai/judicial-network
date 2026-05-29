@@ -53,15 +53,15 @@ import (
 // shared across every county exchange.
 func CosignatureRules() []policy.CosignatureRule {
 	rules := []policy.CosignatureRule{
-		// ── §0 case genesis: case_initiated ─────────────────────
+		// ── §0 case genesis: case_initiation ─────────────────────
 		// Opening a trial-court case. The filer (attorney / pro se)
 		// is the primary signer at Signatures[0]; a court_clerk who
 		// accepts the filing cosigns intra-exchange. Mirrors the TN
-		// Sup Ct's appellate_case_initiation shape. case_initiated is
+		// Sup Ct's appellate_case_initiation shape. case_initiation is
 		// the prereq ANCESTOR every case-lifecycle event requires
 		// (motions.go) and has no prereq of its own (prerequisites.go).
 		{
-			EventType:           "case_initiated",
+			EventType:           "case_initiation",
 			RequiredSignerRoles: []string{"court_clerk"},
 			MinSignerCosigners:  1,
 			IntraExchangeOnly:   true,

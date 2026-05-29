@@ -1,0 +1,34 @@
+name: event-dictionary
+
+# Issue #67 Phase A — Event Dictionary v1.8 drift gate.
+#
+# Fails on:
+#   - NAMING-convention regression (case_initiated, "hearing" verb
+#     forms re-introduced after Phase A's rename).
+#   - EXTRA event identifiers in production registrations that are
+#     NOT declared in docs/event_dictionary_v1.8.md.
+#
+# Reports (informational, not gated):
+#   - MISSING dictionary events without registration. Issue #67
+#     Phase B/C tracks these in waves.
+#
+# Once Phase C lands and MISSING == 0, flip the workflow to
+# --strict to make MISSING a fatal too.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  event-dictionary-drift:
+    name: Event Dictionary v1.8 drift gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: assert no NAMING / EXTRA drift vs docs/event_dictionary_v1.8.md
+        run: ./scripts/event-dictionary-check.sh

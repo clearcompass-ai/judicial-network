@@ -8,7 +8,7 @@ DESCRIPTION:
 	protective orders, TRCP 45 subpoena practice, plus the
 	catch-all.
 
-	Prereq variations beyond the §3 default (Hard case_initiated):
+	Prereq variations beyond the §3 default (Hard case_initiation):
 	  motion_compel_discovery       Advisory discovery_filing
 	                                (the request that wasn't
 	                                answered)

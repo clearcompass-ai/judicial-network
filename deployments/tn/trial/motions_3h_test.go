@@ -118,21 +118,21 @@ func TestFunctional_NewTrial_RequiresVerdictOrFJ(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("motion_new_trial", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without verdict/final_judgment")
 	}
 
 	v = w.Check("motion_new_trial", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated", "verdict"},
+		ObservedEvents: []string{"case_initiation", "verdict"},
 	})
 	if !v.OK {
 		t.Errorf("must accept with verdict: %s", v.Reason)
 	}
 
 	v = w.Check("motion_new_trial", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated", "final_judgment"},
+		ObservedEvents: []string{"case_initiation", "final_judgment"},
 	})
 	if !v.OK {
 		t.Errorf("must accept with final_judgment: %s", v.Reason)
@@ -145,7 +145,7 @@ func TestFunctional_JNOV_RequiresVerdictExclusively(t *testing.T) {
 	// final_judgment alone is not enough — JNOV is post-VERDICT.
 	v := w.Check("motion_renewed_directed_verdict_jnov",
 		prerequisites.CaseContext{
-			ObservedEvents: []string{"case_initiated", "final_judgment"},
+			ObservedEvents: []string{"case_initiation", "final_judgment"},
 		})
 	if v.OK {
 		t.Error("JNOV must reject without verdict (final_judgment alone)")
@@ -153,7 +153,7 @@ func TestFunctional_JNOV_RequiresVerdictExclusively(t *testing.T) {
 
 	v = w.Check("motion_renewed_directed_verdict_jnov",
 		prerequisites.CaseContext{
-			ObservedEvents: []string{"case_initiated", "verdict"},
+			ObservedEvents: []string{"case_initiation", "verdict"},
 		})
 	if !v.OK {
 		t.Errorf("JNOV must accept with verdict: %s", v.Reason)

@@ -6,9 +6,9 @@ DESCRIPTION:
 	Targeted prereq-walker tests for the v1.8 §1
 	counsel_appearance event:
 
-	  - Hard: case_initiated ancestor (the case root must exist
+	  - Hard: case_initiation ancestor (the case root must exist
 	    before counsel can appear).
-	  - Walker accepts when case_initiated is observed.
+	  - Walker accepts when case_initiation is observed.
 	  - Walker rejects (WalkRejectMissingAncestor) when not.
 	  - The Advisory "party_binding for each binding_id in
 	    represents" check is enforced at the verifier (payload
@@ -27,45 +27,45 @@ import (
 	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
 )
 
-// ─── Hard: case_initiated ancestor ────────────────────────────────
+// ─── Hard: case_initiation ancestor ────────────────────────────────
 
 func TestWalk_CounselAppearance_RequiresCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	// Without case_initiated → reject.
+	// Without case_initiation → reject.
 	v := w.Check("counsel_appearance",
 		prerequisites.CaseContext{ObservedEvents: nil})
 	if v.OK {
-		t.Error("counsel_appearance without case_initiated must reject")
+		t.Error("counsel_appearance without case_initiation must reject")
 	}
 	if v.Rejection != prerequisites.WalkRejectMissingAncestor {
 		t.Errorf("rejection drift: want %s, got %s",
 			prerequisites.WalkRejectMissingAncestor, v.Rejection)
 	}
 
-	// With case_initiated → accept.
+	// With case_initiation → accept.
 	v = w.Check("counsel_appearance", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
-		t.Errorf("counsel_appearance with case_initiated must accept: %+v", v)
+		t.Errorf("counsel_appearance with case_initiation must accept: %+v", v)
 	}
 }
 
 // ─── functional emulation ────────────────────────────────────────
 
 // TestFunctional_CounselAppearance_AfterPartyBinding emulates the
-// canonical flow: case_initiated → party_binding for the
+// canonical flow: case_initiation → party_binding for the
 // defendant → defense counsel files counsel_appearance. The
 // Walker accepts; the binding-side Advisory check is enforced
 // elsewhere.
 func TestFunctional_CounselAppearance_AfterPartyBinding(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	v := w.Check("counsel_appearance", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated", "party_binding"},
+		ObservedEvents: []string{"case_initiation", "party_binding"},
 	})
 	if !v.OK {
-		t.Errorf("counsel_appearance after case_initiated + party_binding must accept: %+v",
+		t.Errorf("counsel_appearance after case_initiation + party_binding must accept: %+v",
 			v)
 	}
 }
@@ -78,10 +78,10 @@ func TestFunctional_CounselAppearance_AfterPartyBinding(t *testing.T) {
 func TestFunctional_CounselAppearance_BeforePartyBindingIsAccepted(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	v := w.Check("counsel_appearance", prerequisites.CaseContext{
-		ObservedEvents: []string{"case_initiated"},
+		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
-		t.Errorf("counsel_appearance with only case_initiated must accept (Advisory race tolerance): %+v",
+		t.Errorf("counsel_appearance with only case_initiation must accept (Advisory race tolerance): %+v",
 			v)
 	}
 }

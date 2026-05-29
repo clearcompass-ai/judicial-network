@@ -4,7 +4,7 @@ FILE PATH: deployments/TEMPLATE/rules/cosignature_mix.go
 DESCRIPTION:
 
 	TEMPLATE deployment — cosignature-mix policy skeleton. The
-	skeleton ships ONE rule for `case_initiated` (the only event
+	skeleton ships ONE rule for `case_initiation` (the only event
 	every Bundle must accept) — the minimum needed for
 	jurisdiction.Validate to pass.
 
@@ -28,12 +28,12 @@ import (
 )
 
 // CosignatureRules returns the TEMPLATE cosig fixture. ONE rule
-// for the universally required `case_initiated` event; replace
+// for the universally required `case_initiation` event; replace
 // with your jurisdiction's actual policy.
 func CosignatureRules() []policy.CosignatureRule {
 	return []policy.CosignatureRule{
 		{
-			EventType:           "case_initiated",
+			EventType:           "case_initiation",
 			RequiredSignerRoles: []string{"judge"},
 			MinSignerCosigners:  1,
 			IntraExchangeOnly:   true,

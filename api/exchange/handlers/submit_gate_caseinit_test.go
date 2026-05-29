@@ -4,11 +4,11 @@ FILE PATH: api/exchange/handlers/submit_gate_caseinit_test.go
 DESCRIPTION:
 
 	End-to-end coverage for the now-wired SubmitGate on the
-	case_initiated genesis event, against the REAL Davidson County
+	case_initiation genesis event, against the REAL Davidson County
 	Bundle (deployments/tn/counties/davidson → tn/trial policy).
 	Proves two fixes together:
 
-	  - the cosignature policy declares case_initiated (tn/trial),
+	  - the cosignature policy declares case_initiation (tn/trial),
 	  - the gate derives a per-entry PayloadRoleResolver from the
 	    entry's signed_by_capacities block (no off-log registry),
 
@@ -93,7 +93,7 @@ func gateBytes(t *testing.T, filerDID string, payload map[string]any, cosignerDI
 
 // ─── happy path: real builder output → wired gate → admit ──────────
 
-func TestBundleSubmitGate_CaseInitiated_BuilderEndToEnd(t *testing.T) {
+func TestBundleSubmitGate_CaseInitiation_BuilderEndToEnd(t *testing.T) {
 	reg := davidsonRegistry(t)
 	clerk := schemas.SignedByCapacity{DID: clerkDID, Role: "court_clerk", Exchange: davidson.ExchangeDID}
 	built, err := cases.InitiateCase(cases.InitiationConfig{
@@ -125,11 +125,11 @@ func TestBundleSubmitGate_CaseInitiated_BuilderEndToEnd(t *testing.T) {
 
 // ─── rejection shapes ──────────────────────────────────────────────
 
-func TestBundleSubmitGate_CaseInitiated_NoCosigner_Rejected(t *testing.T) {
+func TestBundleSubmitGate_CaseInitiation_NoCosigner_Rejected(t *testing.T) {
 	reg := davidsonRegistry(t)
 	// event_type present, but only the filer signs (no court_clerk).
 	b := gateBytes(t, atyDID, map[string]any{
-		"event_type":    "case_initiated",
+		"event_type":    "case_initiation",
 		"docket_number": "2027-CR-8",
 	})
 	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
@@ -138,7 +138,7 @@ func TestBundleSubmitGate_CaseInitiated_NoCosigner_Rejected(t *testing.T) {
 	}
 }
 
-func TestBundleSubmitGate_CaseInitiated_NoEventType_Rejected(t *testing.T) {
+func TestBundleSubmitGate_CaseInitiation_NoEventType_Rejected(t *testing.T) {
 	reg := davidsonRegistry(t)
 	b := gateBytes(t, atyDID, map[string]any{"docket_number": "2027-CR-9"}, clerkDID)
 	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
@@ -147,11 +147,11 @@ func TestBundleSubmitGate_CaseInitiated_NoEventType_Rejected(t *testing.T) {
 	}
 }
 
-func TestBundleSubmitGate_CaseInitiated_CrossExchangeClerk_Rejected(t *testing.T) {
+func TestBundleSubmitGate_CaseInitiation_CrossExchangeClerk_Rejected(t *testing.T) {
 	reg := davidsonRegistry(t)
 	// Clerk signs and is declared, but belongs to a different exchange.
 	b := gateBytes(t, atyDID, map[string]any{
-		"event_type": "case_initiated",
+		"event_type": "case_initiation",
 		"signed_by_capacities": []map[string]any{
 			{"did": clerkDID, "role": "court_clerk", "exchange": "did:web:state:tn:shelby"},
 		},
@@ -162,11 +162,11 @@ func TestBundleSubmitGate_CaseInitiated_CrossExchangeClerk_Rejected(t *testing.T
 	}
 }
 
-func TestBundleSubmitGate_CaseInitiated_MalformedCapacities_Rejected(t *testing.T) {
+func TestBundleSubmitGate_CaseInitiation_MalformedCapacities_Rejected(t *testing.T) {
 	reg := davidsonRegistry(t)
 	// signed_by_capacities present but not an array → resolver build fails.
 	b := gateBytes(t, atyDID, map[string]any{
-		"event_type":           "case_initiated",
+		"event_type":           "case_initiation",
 		"signed_by_capacities": "not-an-array",
 	}, clerkDID)
 	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
@@ -179,7 +179,7 @@ func TestBundleSubmitGate_UnknownExchange_Rejected(t *testing.T) {
 	// Empty registry → davidson destination is unknown.
 	reg := jurisdiction.NewRegistry()
 	reg.Freeze()
-	b := gateBytes(t, atyDID, map[string]any{"event_type": "case_initiated"}, clerkDID)
+	b := gateBytes(t, atyDID, map[string]any{"event_type": "case_initiation"}, clerkDID)
 	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
 	if rej == nil || rej.Code != "unknown_exchange" {
 		t.Fatalf("want unknown_exchange, got %+v", rej)

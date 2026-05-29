@@ -5,7 +5,7 @@ DESCRIPTION:
 
 	v1.8 §3E — Trial-Prep & Evidentiary Motions. Five event
 	types covering pre-trial evidentiary practice. All §3E
-	motions follow the §3 default (Hard case_initiated only).
+	motions follow the §3 default (Hard case_initiation only).
 
 	Filer set:
 	  motion_in_limine                       all advocates (civil + criminal)
