@@ -313,6 +313,25 @@ func CosignatureRules() []policy.CosignatureRule {
 			MinSignerCosigners:  2,
 			IntraExchangeOnly:   true,
 		},
+
+		// ── Issue #67 Part D — §14 Crypto & Key Maintenance ─────
+		// Continuity events. Routine rotation: 2-judge minimum
+		// (institutional change). M-of-N escrow recovery: judge-
+		// signed AND the M-of-N escrow shareholders cosign in the
+		// payload (ParticipatingDIDs); the cosignature mix tier
+		// 1 still requires a judge for log-level authorization.
+		{
+			EventType:           "institutional_key_rotation",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   true,
+		},
+		{
+			EventType:           "mofn_escrow_recovery_execution",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  3, // recovery is consensus-strict
+			IntraExchangeOnly:   true,
+		},
 	}
 	// Append every §3A–§3I motion rule. Each motions_3X.go file
 	// returns motionSpecs; motions.go converts them to the

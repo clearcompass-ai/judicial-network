@@ -46,6 +46,8 @@ func TestRegistry_ContainsAll18Schemas(t *testing.T) {
 		SchemaSchemaLifecycleV1,
 		// Issue #67 Part C — §16 Network Topology.
 		SchemaNetworkTopologyV1,
+		// Issue #67 Part D — §14 Crypto & Key Maintenance.
+		SchemaCryptoMaintenanceV1,
 	}
 
 	for _, uri := range expected {
