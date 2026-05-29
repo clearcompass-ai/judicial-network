@@ -1,9 +1,9 @@
-// Tests pinning the US Supreme Court placeholder Bundle:
+// Tests pinning the SCOTUS placeholder Bundle:
 //   - ExchangeDID matches the documented convention.
 //   - MustBundle does not panic and returns non-nil surfaces.
 //   - jurisdiction.Validate accepts the shipped Bundle.
 //   - Registry round-trip works.
-package us
+package scotus
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 )
 
 func TestExchangeDID_MatchesConvention(t *testing.T) {
-	const want = "did:web:fed:sup_ct:us"
+	const want = "did:web:fed:scotus:us"
 	if ExchangeDID != want {
 		t.Errorf("ExchangeDID drift: got %q, want %q", ExchangeDID, want)
 	}

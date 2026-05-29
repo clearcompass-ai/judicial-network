@@ -158,9 +158,15 @@ func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 		"did:web:state:tn:coa":      false,
 		"did:web:state:tn:sc":       false,
 		// Federal Court System network (e2e topology).
-		"did:web:fed:sup_ct:us":      false,
-		"did:web:fed:appellate:6th_cir": false,
-		"did:web:fed:trial:tn_middle": false,
+		"did:web:fed:scotus:us":          false,
+		"did:web:fed:circuit:6th":        false,
+		"did:web:fed:district:tn_middle": false,
+		// California Courts network (e2e topology).
+		"did:web:state:ca:sc":                  false,
+		"did:web:state:ca:coa:4":               false,
+		"did:web:state:ca:coa:6":               false,
+		"did:web:state:ca:superior:riverside":  false,
+		"did:web:state:ca:superior:santa_clara": false,
 	}
 	if len(dids) != len(want) {
 		t.Errorf("registered DIDs = %d, want %d; got %v", len(dids), len(want), dids)

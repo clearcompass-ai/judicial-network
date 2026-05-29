@@ -1,22 +1,21 @@
 /*
-FILE PATH: deployments/fed/trial/tn_middle/bundle.go
+FILE PATH: deployments/ca/coa/sixth/bundle.go
 
 DESCRIPTION:
 
-	United States District Court for the Middle District of
-	Tennessee — federal trial-tier placeholder for the cross-network
-	e2e topology (the federal trial court whose appeals route to
-	the 6th Circuit).
+	California Court of Appeal, Sixth Appellate District — the
+	intermediate appellate court covering Monterey, San Benito,
+	Santa Clara, and Santa Cruz counties. The natural appellate
+	stop for cases originating in the Superior Court of California,
+	County of Santa Clara.
 
-	ExchangeDID = did:web:fed:trial:tn_middle
+	ExchangeDID = did:web:state:ca:coa:6
 
 	# Policy framework — placeholder for e2e
 
-	See deployments/fed/sup_ct/us/bundle.go's package doc for the
-	full rationale. Federal trial courts have the closest semantic
-	match to deployments/tn/trial (the framework backing all 95 TN
-	counties), so this is the lowest-friction placeholder choice.
-	Swap the framework import when federal trial fixtures land.
+	See deployments/ca/sc/bundle.go's package doc for the
+	California-hierarchy diagram and the placeholder-policy
+	rationale.
 
 OVERVIEW:
 
@@ -29,7 +28,7 @@ KEY DEPENDENCIES:
   - deployments/tn/trial  (placeholder policy framework).
   - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
 */
-package tn_middle
+package sixth
 
 import (
 	"fmt"
@@ -41,9 +40,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// ExchangeDID is the institutional DID for the US District Court
-// for the Middle District of Tennessee.
-const ExchangeDID = "did:web:fed:trial:tn_middle"
+// ExchangeDID is the institutional DID for the California Court
+// of Appeal, Sixth Appellate District (Santa Clara-region).
+const ExchangeDID = "did:web:state:ca:coa:6"
 
 type bundle struct {
 	catalog schemas.RoleCatalog
@@ -76,7 +75,7 @@ func (b *bundle) AppellateVocabulary() jurisdiction.AppellateVocab {
 
 var _ jurisdiction.Bundle = (*bundle)(nil)
 
-// MustBundle returns the canonical US District (Middle TN) Bundle.
+// MustBundle returns the canonical CA Court of Appeal, 6th District Bundle.
 func MustBundle() jurisdiction.Bundle {
 	b := &bundle{
 		catalog: trial.MustRoleCatalog(),
@@ -84,7 +83,7 @@ func MustBundle() jurisdiction.Bundle {
 		preqs:   trial.MustPrerequisitePolicy(),
 	}
 	if err := jurisdiction.Validate(b); err != nil {
-		panic(fmt.Sprintf("fed/trial/tn_middle: bundle invalid: %v", err))
+		panic(fmt.Sprintf("ca/coa/sixth: bundle invalid: %v", err))
 	}
 	return b
 }

@@ -1,18 +1,18 @@
 /*
-FILE PATH: deployments/fed/sup_ct/us/bundle.go
+FILE PATH: deployments/fed/scotus/bundle.go
 
 DESCRIPTION:
 
-	United States Supreme Court Bundle — federal-tier institutional
-	placeholder for the cross-network e2e topology (e2e-tests'
-	"Federal Court System" network).
+	Supreme Court of the United States (SCOTUS) Bundle — federal-tier
+	institutional placeholder for the cross-network e2e topology
+	(e2e-tests' "Federal Court System" network).
 
-	ExchangeDID = did:web:fed:sup_ct:us
+	ExchangeDID = did:web:fed:scotus:us
 
 	The federal hierarchy is its OWN network with its OWN trust
 	root, ledger, witness set, and exchange registry — the e2e
 	provisioner brings up both the TN network (Davidson + TN COA +
-	TN Sup Ct) and the federal network (US Sup Ct + 6th Circuit +
+	TN Sup Ct) and the federal network (SCOTUS + 6th Circuit +
 	US District Court, Middle District of TN) so cross-network
 	scenarios (S6.6 cross-log, S8.2 cross-ledger determinism, S5.14
 	appellate jurisdiction transitions) are representable end-to-end.
@@ -43,7 +43,7 @@ KEY DEPENDENCIES:
   - deployments/tn/trial  (placeholder policy framework).
   - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
 */
-package us
+package scotus
 
 import (
 	"fmt"
@@ -55,10 +55,10 @@ import (
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// ExchangeDID is the institutional DID for the United States
-// Supreme Court. Used as the registry key and the
+// ExchangeDID is the institutional DID for the Supreme Court of
+// the United States. Used as the registry key and the
 // IntraExchangeOnly reference value.
-const ExchangeDID = "did:web:fed:sup_ct:us"
+const ExchangeDID = "did:web:fed:scotus:us"
 
 // bundle implements jurisdiction.Bundle by delegating every policy
 // method to the shared TN trial framework — see the package-level
@@ -103,7 +103,7 @@ func (b *bundle) AppellateVocabulary() jurisdiction.AppellateVocab {
 
 var _ jurisdiction.Bundle = (*bundle)(nil)
 
-// MustBundle returns the canonical US Sup Ct Bundle. Panics if the
+// MustBundle returns the canonical SCOTUS Bundle. Panics if the
 // underlying TN trial fixtures fail to validate (a bug in the
 // shared framework).
 func MustBundle() jurisdiction.Bundle {
@@ -113,7 +113,7 @@ func MustBundle() jurisdiction.Bundle {
 		preqs:   trial.MustPrerequisitePolicy(),
 	}
 	if err := jurisdiction.Validate(b); err != nil {
-		panic(fmt.Sprintf("fed/sup_ct/us: bundle invalid: %v", err))
+		panic(fmt.Sprintf("fed/scotus: bundle invalid: %v", err))
 	}
 	return b
 }

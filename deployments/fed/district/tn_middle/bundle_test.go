@@ -1,4 +1,4 @@
-// Tests pinning the US District (Middle TN) placeholder Bundle.
+// Tests pinning the US District Court (Middle TN) placeholder Bundle.
 package tn_middle
 
 import (
@@ -8,7 +8,7 @@ import (
 )
 
 func TestExchangeDID_MatchesConvention(t *testing.T) {
-	const want = "did:web:fed:trial:tn_middle"
+	const want = "did:web:fed:district:tn_middle"
 	if ExchangeDID != want {
 		t.Errorf("ExchangeDID drift: got %q, want %q", ExchangeDID, want)
 	}

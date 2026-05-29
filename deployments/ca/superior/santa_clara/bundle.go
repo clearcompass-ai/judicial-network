@@ -1,21 +1,20 @@
 /*
-FILE PATH: deployments/fed/appellate/sixth_circuit/bundle.go
+FILE PATH: deployments/ca/superior/santa_clara/bundle.go
 
 DESCRIPTION:
 
-	United States Court of Appeals for the Sixth Circuit Bundle —
-	federal appellate-tier placeholder for the cross-network e2e
-	topology (the 6th Circuit covers TN, KY, OH, MI, so it's the
-	natural appellate stop for TN-originated federal appeals).
+	Superior Court of California, County of Santa Clara — trial-level
+	general jurisdiction court for Santa Clara County (Silicon Valley
+	/ San Jose region). Appeals route to the California Court of
+	Appeal, Sixth Appellate District (based in San Jose).
 
-	ExchangeDID = did:web:fed:appellate:6th_cir
+	ExchangeDID = did:web:state:ca:superior:santa_clara
 
 	# Policy framework — placeholder for e2e
 
-	See deployments/fed/sup_ct/us/bundle.go's package doc for the
-	full rationale. This bundle delegates to the same shared TN
-	trial framework. When a federal appellate vocabulary fixture
-	lands, swap the framework import — no shape changes.
+	See deployments/ca/sc/bundle.go's package doc for the
+	California-hierarchy diagram. Delegates to deployments/tn/trial;
+	swap when CA fixtures arrive.
 
 OVERVIEW:
 
@@ -28,7 +27,7 @@ KEY DEPENDENCIES:
   - deployments/tn/trial  (placeholder policy framework).
   - jurisdiction.Bundle / Provider / NoAuthorityChainResolver.
 */
-package sixth_circuit
+package santa_clara
 
 import (
 	"fmt"
@@ -40,9 +39,9 @@ import (
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
-// ExchangeDID is the institutional DID for the US 6th Circuit
-// Court of Appeals.
-const ExchangeDID = "did:web:fed:appellate:6th_cir"
+// ExchangeDID is the institutional DID for the Superior Court of
+// California, County of Santa Clara.
+const ExchangeDID = "did:web:state:ca:superior:santa_clara"
 
 type bundle struct {
 	catalog schemas.RoleCatalog
@@ -75,7 +74,7 @@ func (b *bundle) AppellateVocabulary() jurisdiction.AppellateVocab {
 
 var _ jurisdiction.Bundle = (*bundle)(nil)
 
-// MustBundle returns the canonical 6th Circuit Bundle.
+// MustBundle returns the canonical Santa Clara Superior Court Bundle.
 func MustBundle() jurisdiction.Bundle {
 	b := &bundle{
 		catalog: trial.MustRoleCatalog(),
@@ -83,7 +82,7 @@ func MustBundle() jurisdiction.Bundle {
 		preqs:   trial.MustPrerequisitePolicy(),
 	}
 	if err := jurisdiction.Validate(b); err != nil {
-		panic(fmt.Sprintf("fed/appellate/sixth_circuit: bundle invalid: %v", err))
+		panic(fmt.Sprintf("ca/superior/santa_clara: bundle invalid: %v", err))
 	}
 	return b
 }

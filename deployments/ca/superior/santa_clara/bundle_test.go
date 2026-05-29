@@ -1,5 +1,5 @@
-// Tests pinning the US 6th Circuit placeholder Bundle.
-package sixth_circuit
+// Tests pinning the Santa Clara Superior Court placeholder Bundle.
+package santa_clara
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestExchangeDID_MatchesConvention(t *testing.T) {
-	const want = "did:web:fed:appellate:6th_cir"
+	const want = "did:web:state:ca:superior:santa_clara"
 	if ExchangeDID != want {
 		t.Errorf("ExchangeDID drift: got %q, want %q", ExchangeDID, want)
 	}

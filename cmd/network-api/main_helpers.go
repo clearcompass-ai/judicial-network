@@ -34,9 +34,14 @@ import (
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
-	feda6th "github.com/clearcompass-ai/judicial-network/deployments/fed/appellate/sixth_circuit"
-	fedussc "github.com/clearcompass-ai/judicial-network/deployments/fed/sup_ct/us"
-	fedtnmd "github.com/clearcompass-ai/judicial-network/deployments/fed/trial/tn_middle"
+	cacoa4 "github.com/clearcompass-ai/judicial-network/deployments/ca/coa/fourth"
+	cacoa6 "github.com/clearcompass-ai/judicial-network/deployments/ca/coa/sixth"
+	casc "github.com/clearcompass-ai/judicial-network/deployments/ca/sc"
+	casuperiorriv "github.com/clearcompass-ai/judicial-network/deployments/ca/superior/riverside"
+	casuperiorsc "github.com/clearcompass-ai/judicial-network/deployments/ca/superior/santa_clara"
+	fed6th "github.com/clearcompass-ai/judicial-network/deployments/fed/circuit/sixth"
+	feddist "github.com/clearcompass-ai/judicial-network/deployments/fed/district/tn_middle"
+	fedscotus "github.com/clearcompass-ai/judicial-network/deployments/fed/scotus"
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 	tnsupct "github.com/clearcompass-ai/judicial-network/deployments/tn/sup_ct"
@@ -64,10 +69,22 @@ func registerProductionBundles(r *jurisdiction.Registry) error {
 		tnsupct.MustBundle,
 		// Federal Court System network destinations (e2e topology
 		// — see deployments/fed/*/bundle.go for the placeholder
-		// policy framework note).
-		fedussc.MustBundle,
-		feda6th.MustBundle,
-		fedtnmd.MustBundle,
+		// policy framework note). Standard US federal court
+		// terminology: SCOTUS, Circuit Courts of Appeals, US
+		// District Courts.
+		fedscotus.MustBundle,
+		fed6th.MustBundle,
+		feddist.MustBundle,
+		// California Courts network destinations. CA's hierarchy:
+		// Supreme Court of California → California Court of Appeal
+		// (6 districts) → Superior Court of California (county-level).
+		// Riverside (4th District) and Santa Clara (6th District) are
+		// the two superior courts the e2e topology covers.
+		casc.MustBundle,
+		cacoa4.MustBundle,
+		cacoa6.MustBundle,
+		casuperiorriv.MustBundle,
+		casuperiorsc.MustBundle,
 	} {
 		b := factory()
 		if err := r.Register(b); err != nil {
