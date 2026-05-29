@@ -501,6 +501,13 @@ func run(argv []string, d deps) error {
 			n, len(cfg.GossipIngest.Peers), len(cfg.GossipIngest.PeerLogs))
 	}
 
+	// D13: hot-reload the v1.33.x auditor-scope gate inputs on
+	// SIGHUP. No-op unless cfg.AuditorScope.ReloadOnSIGHUP=true AND
+	// the home Reconciler is wired AND at least one of
+	// RegistryFile / AmendmentFile is configured. See cmd/network-
+	// api/sighup_reload.go for the per-file fault-tolerance contract.
+	runSIGHUPReload(ctx, cfg, gossipPipelines.HomeReconciler, slog.Default())
+
 	// Start the continuous-monitoring scheduler (if enabled) under the
 	// signal ctx so its tickers stop on shutdown.
 	if monScheduler != nil {
