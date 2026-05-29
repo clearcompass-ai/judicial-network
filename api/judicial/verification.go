@@ -22,6 +22,7 @@ import (
 
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
@@ -77,7 +78,11 @@ func (h *verifyEnforcementHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	status, err := verification.CheckEnforcementStatus(ctx, pos, h.deps.LeafReader, h.deps.Fetcher, h.deps.Extractor)
+	// C-4: live-status surface — verifier.AsOf{} = latest known head.
+	// Cross-network dispatch via h.deps.PickTrust().
+	status, err := verification.CheckEnforcementStatus(ctx, pos,
+		h.deps.PickTrust(), verifier.AsOf{},
+		h.deps.LeafReader, h.deps.Fetcher, h.deps.Extractor)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -113,8 +118,15 @@ func (h *verifyFilingDelegationHandler) ServeHTTP(w http.ResponseWriter, r *http
 	// are constructed at submit time. The handler runs the
 	// previous chain validity portion (cycle detection, signer
 	// match) without scope enforcement.
+	// C-4: dispatch via PickTrust. AsOf{} (latest) is the right
+	// default for the read-side surface — the handler has no
+	// target-entry admission position to pin against (the request
+	// body carries only the chain pointers, not the entry whose
+	// chain is being verified).
 	result, err := verification.VerifyFilingDelegation(
-		ctx, toLogPositions(req.DelegationPointers), h.deps.Fetcher, h.deps.LeafReader, nil, nil,
+		ctx, toLogPositions(req.DelegationPointers),
+		h.deps.PickTrust(), verifier.AsOf{},
+		h.deps.Fetcher, h.deps.LeafReader, nil, nil,
 	)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

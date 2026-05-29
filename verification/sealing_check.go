@@ -22,8 +22,6 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
-
-	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 type EnforcementStatus struct {
@@ -36,17 +34,28 @@ type EnforcementStatus struct {
 }
 
 // CheckEnforcementStatus evaluates the authority chain for a case entity.
+//
+// trustProvider is the C-3 dispatch seam (deps.PickTrust() at the
+// handler caller). asOf pins the head the walker evaluates against:
+// the live-status surface uses AsOf{} (latest known head) because
+// callers asking "is this case sealed RIGHT NOW?" want the freshest
+// trust root; a future historical-status surface threads a non-zero
+// asOf. fetcher + leafReader stay in the signature for
+// EvaluateContest's per-active-constraint check.
 func CheckEnforcementStatus(
 	ctx context.Context,
 	caseRootPos types.LogPosition,
+	trustProvider verifier.LogTrustProvider,
+	asOf verifier.AsOf,
 	leafReader smt.LeafReader,
 	fetcher types.EntryFetcher,
 	extractor schema.SchemaParameterExtractor,
 ) (*EnforcementStatus, error) {
+	if trustProvider == nil {
+		return nil, fmt.Errorf("verification/sealing_check: nil trustProvider (use deps.PickTrust())")
+	}
 	authEval, err := verifier.EvaluateAuthorityWithTrust(
-		ctx, caseRootPos,
-		trust.NewLocalTrust(fetcher, leafReader),
-		extractor, verifier.AsOf{})
+		ctx, caseRootPos, trustProvider, extractor, asOf)
 	if err != nil {
 		return nil, fmt.Errorf("verification/sealing_check: %w", err)
 	}

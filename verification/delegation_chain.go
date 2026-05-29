@@ -90,8 +90,6 @@ import (
 	sdkdelegation "github.com/clearcompass-ai/attesta/delegation"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
-
-	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // DelegationVerification carries the result of both verification
@@ -126,9 +124,30 @@ type DelegationVerification struct {
 //
 // A nil scopeEnforcer or nil target preserves -only behavior.
 // Production callers SHOULD pass both.
+//
+// trustProvider + asOf (C-4 of PR-C):
+//
+//   - trustProvider is the C-3 dispatch seam. Production callers
+//     thread deps.PickTrust(); cross-network delegation chains
+//     (a TN filing's delegation hop into a federal log) resolve
+//     under their own log's trust root.
+//   - asOf pins the head the per-hop liveness checks evaluate
+//     against. Production callers pass the TARGET ENTRY'S admission
+//     position — every hop is then verified under the trust root
+//     authoritative at the moment the target was admitted (Goal 6
+//     reproducibility; Goal 13 year-15 verification). AsOf{} (zero)
+//     preserves "latest" semantics for read-side surfaces with no
+//     pinned reference time.
+//
+// fetcher is retained in the signature for the no-chain Path-A
+// short-circuit and for future hop-side reads that may need it
+// directly (the current implementation reads only via the
+// trustProvider).
 func VerifyFilingDelegation(
 	ctx context.Context,
 	delegationPointers []types.LogPosition,
+	trustProvider verifier.LogTrustProvider,
+	asOf verifier.AsOf,
 	fetcher types.EntryFetcher,
 	leafReader smt.LeafReader,
 	scopeEnforcer *ScopeEnforcer,
@@ -142,19 +161,20 @@ func VerifyFilingDelegation(
 			ScopeOK:      scopeEnforcer != nil && target != nil,
 		}, nil
 	}
+	if trustProvider == nil {
+		return nil, fmt.Errorf("verification/delegation_chain: nil trustProvider (use deps.PickTrust())")
+	}
 
 	// : cryptographic provenance.
 	//
 	// The contract that fetcher/deserialize errors collapse to
 	// IsLive=false on the affected hop (rather than surfacing as a
-	// returned error) is preserved by SingleLog inside LocalTrust.
-	// If a future SDK pin changes the contract to surface those
-	// errors, this call site needs the wrap-and-return branch
-	// reinstated.
+	// returned error) is preserved by SingleLog inside LocalTrust
+	// AND by MultiJurisdictionTrust's home-log delegation. A foreign
+	// log's hop hits ErrUnknownLog from Entry/Leaf, which the SDK's
+	// walker converts to IsLive=false on that hop — same posture.
 	hops, _ := verifier.VerifyDelegationProvenanceWithTrust(
-		ctx, delegationPointers,
-		trust.NewLocalTrust(fetcher, leafReader),
-		verifier.AsOf{})
+		ctx, delegationPointers, trustProvider, asOf)
 
 	result := &DelegationVerification{
 		Hops:    hops,

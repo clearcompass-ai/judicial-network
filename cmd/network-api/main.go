@@ -462,6 +462,13 @@ func run(argv []string, d deps) error {
 			// this client cert when peer mTLS is in effect; nil falls
 			// back to a plain 15s client for dev / pre-cert deployments.
 			LedgerHTTPClient: ledgerSubmitClient,
+			// C-4: thread the cross-network LogTrustProvider so the
+			// VerifyAuthority + VerifyBatch handlers dispatch trust
+			// identically to the judicial surface (one provider, two
+			// HTTP-facing surfaces). nil when no foreign PeerLogs are
+			// declared — handlers then fall back to per-request
+			// LocalTrust (v1.33 byte-for-byte equivalent).
+			MultiTrust: judicialDeps.MultiTrust,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 	})

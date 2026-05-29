@@ -15,6 +15,8 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // Dependencies shared across all verification handlers.
@@ -31,6 +33,19 @@ type Dependencies struct {
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
+
+	// MultiTrust is the C-3 cross-network LogTrustProvider. When
+	// non-nil, the C-4 call sites in this package
+	// (VerifyAuthorityHandler, VerifyBatchHandler) dispatch trust
+	// through it — foreign-log positions resolve under their own
+	// log's witness set and journaled head, home-log positions
+	// resolve via the embedded LocalTrust. nil disables the
+	// cross-network seam: PickTrust falls back to a freshly-
+	// constructed LocalTrust over the per-request fetcher and the
+	// (shared) LeafReader — byte-for-byte equivalent to the
+	// pre-C-4 inline trust.NewLocalTrust(fetcher, deps.LeafReader)
+	// each handler embedded directly.
+	MultiTrust verifier.LogTrustProvider
 
 	// WitnessSets is the source of truth for per-log witness topology.
 	// One entry per log DID; the *cosign.WitnessKeySet inside carries
@@ -109,6 +124,26 @@ func (d *Dependencies) fetcherFor(logID string) (types.EntryFetcher, error) {
 		return nil, fmt.Errorf("unknown log %s", logID)
 	}
 	return &ledgerFetcher{query: query, logDID: logID}, nil
+}
+
+// PickTrust returns the LogTrustProvider the C-4 call sites in this
+// package dispatch through. When MultiTrust is wired (cfg.
+// GossipIngest.PeerLogs declared at boot), returns it — every
+// foreign-log position resolves under its own log's witness set +
+// journaled head. When MultiTrust is nil, falls back to a freshly-
+// constructed LocalTrust over the per-request fetcher and the
+// (shared) LeafReader — identical to the pre-C-4 inline
+// trust.NewLocalTrust(fetcher, deps.LeafReader) shape every handler
+// embedded directly.
+//
+// fetcher is the per-request, per-LogDID EntryFetcher built by
+// fetcherFor — passing it here keeps the LocalTrust fallback path
+// log-correct (the right LedgerQueryAPI threaded into Entry calls).
+func (d *Dependencies) PickTrust(fetcher types.EntryFetcher) verifier.LogTrustProvider {
+	if d.MultiTrust != nil {
+		return d.MultiTrust
+	}
+	return trust.NewLocalTrust(fetcher, d.LeafReader)
 }
 
 // ledgerFetcher adapts LedgerQueryAPI to types.EntryFetcher.

@@ -23,8 +23,10 @@ import (
 	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/attesta/core/smt"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // ─── In-memory stub LeafReader (returns OriginTip equal to position
@@ -95,7 +97,7 @@ func mkDelegation(t *testing.T, signerDID, delegateDID, scopeJSON string) *envel
 // ─── : empty chain ───────────────────────────────────────────
 
 func TestVerifyFilingDelegation_EmptyChain_AllPhasesOK(t *testing.T) {
-	res, err := VerifyFilingDelegation(context.Background(), nil, nil, nil, nil, nil)
+	res, err := VerifyFilingDelegation(context.Background(), nil, nil, verifier.AsOf{}, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -110,7 +112,7 @@ func TestVerifyFilingDelegation_EmptyChain_AllPhasesOK(t *testing.T) {
 func TestVerifyFilingDelegation_EmptyChain_WithEnforcer_ReportsScopeChecked(t *testing.T) {
 	enf := &ScopeEnforcer{}
 	target := &envelope.Entry{Header: envelope.ControlHeader{}}
-	res, err := VerifyFilingDelegation(context.Background(), nil, nil, nil, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), nil, nil, verifier.AsOf{}, nil, nil, enf, target)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -134,7 +136,7 @@ func TestVerifyFilingDelegation_NoEnforcer_OnlyPhase1Runs(t *testing.T) {
 	}
 	reader := liveSMTFor(delPos)
 
-	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, nil, nil)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, trust.NewLocalTrust(fetcher, reader), verifier.AsOf{}, fetcher, reader, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -166,7 +168,7 @@ func TestVerifyFilingDelegation_BothPhases_HappyPath(t *testing.T) {
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "tn-criminal-case-v1", nil },
 	}
-	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, trust.NewLocalTrust(fetcher, reader), verifier.AsOf{}, fetcher, reader, enf, target)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -201,7 +203,7 @@ func TestVerifyFilingDelegation_ScopeViolation_ReturnsViolationFlag(t *testing.T
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "tn-sealing-order-v1", nil },
 	}
-	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, trust.NewLocalTrust(fetcher, reader), verifier.AsOf{}, fetcher, reader, enf, target)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,7 +245,7 @@ func TestVerifyFilingDelegation_DeadHop_Phase2Skipped(t *testing.T) {
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "tn-criminal-case-v1", nil },
 	}
-	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
+	res, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, trust.NewLocalTrust(fetcher, reader), verifier.AsOf{}, fetcher, reader, enf, target)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -271,10 +273,12 @@ func (e errFetcher) Fetch(context.Context, types.LogPosition) (*types.EntryWithM
 
 func TestVerifyFilingDelegation_Phase1FetcherError_DegradesToDead(t *testing.T) {
 	reader := liveSMTFor()
+	ef := errFetcher{msg: "infra down"}
 	res, err := VerifyFilingDelegation(
 		context.Background(),
 		[]types.LogPosition{{LogDID: "did:web:l", Sequence: 1}},
-		errFetcher{msg: "infra down"}, reader, nil, nil,
+		trust.NewLocalTrust(ef, reader), verifier.AsOf{},
+		ef, reader, nil, nil,
 	)
 	if err != nil {
 		t.Fatalf("unexpected wrapper error: %v", err)
@@ -308,7 +312,7 @@ func TestVerifyFilingDelegation_Phase2InfraError_Returned(t *testing.T) {
 		Fetcher:        fetcher,
 		SchemaResolver: func(types.LogPosition) (string, error) { return "", errors.New("registry down") },
 	}
-	_, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, fetcher, reader, enf, target)
+	_, err := VerifyFilingDelegation(context.Background(), []types.LogPosition{delPos}, trust.NewLocalTrust(fetcher, reader), verifier.AsOf{}, fetcher, reader, enf, target)
 	if err == nil {
 		t.Fatal("expected error from infra failure")
 	}

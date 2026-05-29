@@ -30,6 +30,7 @@ import (
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/topology"
 	"github.com/clearcompass-ai/judicial-network/verification"
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // ──────────────────────────────────────────────────────────────────
@@ -214,6 +215,33 @@ type Dependencies struct {
 	// resolver still serves ResolveLedger from MirrorManifest and the
 	// auditor surfaces from AuditorRegistryRecords/AuditorScopeAmendmentRecords.
 	AuthoritativeResolver *discover.DefaultAuthoritativeResolver
+}
+
+// PickTrust returns the active LogTrustProvider for the 5 production
+// verification call sites:
+//
+//   - When MultiTrust is wired (cfg.GossipIngest.PeerLogs declared
+//     ⇒ boot built a cross-network provider), returns it. The home
+//     log dispatches to the embedded LocalTrust unchanged; foreign
+//     logs dispatch to journal-resolved heads + pre-bound foreign
+//     witness keysets.
+//
+//   - When MultiTrust is nil (single-network deployment), falls back
+//     to a freshly-constructed LocalTrust over the existing per-log
+//     Fetcher + LeafReader. Byte-for-byte equivalent to the
+//     pre-C-4 trust.NewLocalTrust(deps.Fetcher, deps.LeafReader)
+//     each call site embedded directly.
+//
+// This is the seam every C-4 site reads — one line of dispatch
+// instead of per-site nil-checks against MultiTrust. A
+// deployment that never declares PeerLogs sees identical behavior
+// to the v1.33 single-network baseline; one that DOES declare them
+// gets cross-network trust resolution at every site simultaneously.
+func (d *Dependencies) PickTrust() verifier.LogTrustProvider {
+	if d.MultiTrust != nil {
+		return d.MultiTrust
+	}
+	return trust.NewLocalTrust(d.Fetcher, d.LeafReader)
 }
 
 // ──────────────────────────────────────────────────────────────────
