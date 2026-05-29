@@ -235,6 +235,48 @@ func CosignatureRules() []policy.CosignatureRule {
 			MinSignerCosigners:  1,
 			IntraExchangeOnly:   true,
 		},
+
+		// ── Issue #67 Part B — §15 Schema Lifecycle ─────────────
+		// Governance events that publish, adopt, amend, and
+		// deprecate schemas. NETWORK-LEVEL (not case-bound), so:
+		//   - RequiredSignerRoles=[judge] (Adjudicator-only;
+		//     ministerial clerk-signing would weaken governance)
+		//   - MinSignerCosigners=2 (two-judge minimum for any
+		//     schema-level change — symmetric with judicial_
+		//     appointment / clerk_appointment, the other two
+		//     network-level events that require a 2-Adjudicator
+		//     panel)
+		//   - IntraExchangeOnly=true for publication / amendment /
+		//     deprecation (a court's own schemas are governed by
+		//     that court's judges)
+		//   - IntraExchangeOnly=false for adoption (a court adopts
+		//     another network's published schema; the cosignature
+		//     can come from any acknowledging judge, with the
+		//     adopting exchange identified in the payload).
+		{
+			EventType:           "schema_publication",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   true,
+		},
+		{
+			EventType:           "schema_adoption",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   false, // adoption may reference cross-network publications
+		},
+		{
+			EventType:           "schema_amendment",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   true,
+		},
+		{
+			EventType:           "schema_deprecation",
+			RequiredSignerRoles: []string{"judge"},
+			MinSignerCosigners:  2,
+			IntraExchangeOnly:   true,
+		},
 	}
 	// Append every §3A–§3I motion rule. Each motions_3X.go file
 	// returns motionSpecs; motions.go converts them to the

@@ -262,8 +262,11 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 //   15 → 19: Issue #67 Part A added §6 Court Orders 4 rules
 //            (scheduling_order, interlocutory_order,
 //             protective_restraining_order, warrant_issuance_return).
+//   19 → 23: Issue #67 Part B added §15 Schema Lifecycle 4 events
+//            (schema_publication, schema_adoption, schema_amendment,
+//             schema_deprecation).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 19
+	const baseRules = 23
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)

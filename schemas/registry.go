@@ -117,6 +117,10 @@ func (r *Registry) registerAll() {
 	r.Register(interlocutoryOrderRegistration())
 	r.Register(protectiveOrderRegistration())
 	r.Register(warrantRegistration())
+	// Issue #67 Part B — §15 Schema Lifecycle. One schema URI
+	// serves all four governance events (publication / adoption /
+	// amendment / deprecation) via the Action discriminator.
+	r.Register(schemaLifecycleRegistration())
 }
 
 func (r *Registry) Register(reg *SchemaRegistration) {
