@@ -56,9 +56,16 @@ func BuildCrossCourtProof(
 // encapsulated into a single *cosign.WitnessKeySet representing the
 // SOURCE network's witness topology, preventing the class of bug
 // where K and the key set drift out of sync for a given log.
+//
+// SDK-4 (attesta v1.43.0): trust is the SOURCE log's pinned, offline
+// burn/equivocation status. The zero value (Known=false) fails closed
+// with ErrTrustUnknown BEFORE any crypto; a burned source fails with
+// ErrEquivocatedLog. Callers obtain it from the heads journal via
+// trust.StatusFor — the SDK gate is the single burn chokepoint.
 func VerifyCrossCourtProof(
 	proof types.CrossLogProof,
 	sourceSet *cosign.WitnessKeySet,
+	trust verifier.TrustStatus,
 ) error {
-	return anchor.VerifyCrossLog(proof, sourceSet)
+	return anchor.VerifyCrossLog(proof, sourceSet, trust)
 }

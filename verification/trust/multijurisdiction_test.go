@@ -252,7 +252,7 @@ func TestMultiTrust_TrustRoot_Foreign_HistoricalAsOf(t *testing.T) {
 		map[string]*cosign.WitnessKeySet{foreignDID: foreignKS},
 		journal,
 	)
-	got, err := prov.TrustRoot(context.Background(), foreignDID, verifier.AsOf{Sequence: 15})
+	got, err := prov.TrustRoot(context.Background(), foreignDID, verifier.AsOf{LogPosition: types.LogPosition{Sequence: 15}})
 	if err != nil {
 		t.Fatalf("TrustRoot(foreign, asOf=15): %v", err)
 	}

@@ -36,12 +36,6 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logID := r.PathValue("logID")
 	positionsStr := r.PathValue("positions")
 
-	asOf, err := parseAsOf(r, logID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
 	fetcher, err := h.deps.fetcherFor(logID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
@@ -49,6 +43,14 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	trustProv := h.deps.PickTrust(fetcher)
+
+	// ZT-IMM-01: one pinned head for the whole batch (shared as-of) —
+	// resolved, never an implicit wall-clock latest.
+	asOf, err := resolveAsOf(ctx, r, logID, trustProv, h.deps.Journal)
+	if err != nil {
+		writeError(w, asOfErrorStatus(err), err.Error())
+		return
+	}
 
 	parts := strings.Split(positionsStr, ",")
 	results := make([]batchItem, 0, len(parts))

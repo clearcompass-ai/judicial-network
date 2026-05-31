@@ -143,6 +143,17 @@ func (h *VerifyCompleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// ZT-IMM-01 (attesta v1.43.0): the authority stage requires a pinned
+	// AsOf — it never reads time.Now(), so the composite verdict is a pure
+	// function of (head, entry). Snapshot the current head via ResolveLatest
+	// (the one deliberate, reproducible "now").
+	authAsOf, err := verifier.ResolveLatest(ctx, h.deps.PickTrust(fetcher), logID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError,
+			fmt.Sprintf("resolve as_of: %v", err))
+		return
+	}
+
 	params := verifier.VerifyCompleteParams{
 		Entry:             entry,
 		SignatureVerifier: h.deps.SignatureVerifier,
@@ -151,6 +162,7 @@ func (h *VerifyCompleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			LeafReader: h.deps.LeafReader,
 			Fetcher:    fetcher,
 			Extractor:  h.deps.Extractor,
+			AsOf:       authAsOf,
 		},
 		OriginParams: &verifier.OriginStageParams{
 			LeafKey:    leafKey,

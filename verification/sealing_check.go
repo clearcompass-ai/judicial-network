@@ -54,6 +54,17 @@ func CheckEnforcementStatus(
 	if trustProvider == nil {
 		return nil, fmt.Errorf("verification/sealing_check: nil trustProvider (use deps.PickTrust())")
 	}
+	// ZT-IMM-01 (attesta v1.43.0): the live-status surface passes AsOf{}
+	// ("is this sealed RIGHT NOW?"); the SDK no longer treats a null AsOf as
+	// an implicit wall-clock latest, so resolve it to a pinned head here —
+	// a deliberate, reproducible "now".
+	if asOf.IsNull() {
+		latest, rerr := verifier.ResolveLatest(ctx, trustProvider, caseRootPos.LogDID)
+		if rerr != nil {
+			return nil, fmt.Errorf("verification/sealing_check: resolve latest head: %w", rerr)
+		}
+		asOf = latest
+	}
 	authEval, err := verifier.EvaluateAuthorityWithTrust(
 		ctx, caseRootPos, trustProvider, extractor, asOf)
 	if err != nil {

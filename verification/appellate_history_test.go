@@ -200,7 +200,7 @@ func TestVerifyAppealChain_UnknownLogDIDFailsClosed(t *testing.T) {
 		},
 	}
 	result, err := VerifyAppealChain(steps,
-		map[string]*cosign.WitnessKeySet{})
+		map[string]*cosign.WitnessKeySet{}, nil)
 	if err == nil {
 		t.Error("unknown LogDID must break the chain")
 	}

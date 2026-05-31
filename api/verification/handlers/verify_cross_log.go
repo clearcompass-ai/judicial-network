@@ -6,6 +6,8 @@ import (
 
 	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/types"
+
+	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // VerifyCrossLogHandler handles POST /v1/verify/cross-log.
@@ -35,7 +37,9 @@ func (h *VerifyCrossLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err := anchor.VerifyCrossLog(req.Proof, set)
+	// SDK-4: gate on the source log's pinned burn status from the journal.
+	ts := trust.StatusFor(r.Context(), h.deps.Journal, req.SourceLogDID)
+	err := anchor.VerifyCrossLog(req.Proof, set, ts)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"valid": false,

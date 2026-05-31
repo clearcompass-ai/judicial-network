@@ -164,6 +164,16 @@ func VerifyFilingDelegation(
 	if trustProvider == nil {
 		return nil, fmt.Errorf("verification/delegation_chain: nil trustProvider (use deps.PickTrust())")
 	}
+	// ZT-IMM-01 (attesta v1.43.0): VerifyDelegationProvenanceWithTrust rejects a
+	// null AsOf with ErrAsOfRequired. A live-status caller passing AsOf{} means
+	// "as of now" — resolve it to a pinned head deliberately so the walk runs.
+	if asOf.IsNull() {
+		latest, rerr := verifier.ResolveLatest(ctx, trustProvider, delegationPointers[0].LogDID)
+		if rerr != nil {
+			return nil, fmt.Errorf("verification/delegation_chain: resolve latest head: %w", rerr)
+		}
+		asOf = latest
+	}
 
 	// : cryptographic provenance.
 	//
@@ -173,8 +183,16 @@ func VerifyFilingDelegation(
 	// AND by MultiJurisdictionTrust's home-log delegation. A foreign
 	// log's hop hits ErrUnknownLog from Entry/Leaf, which the SDK's
 	// walker converts to IsLive=false on that hop — same posture.
-	hops, _ := verifier.VerifyDelegationProvenanceWithTrust(
+	// Per-hop liveness degradation (dead hop, fetcher/leaf miss) is reported
+	// IN-BAND as IsLive=false; only HARD failures (provider error, invalid
+	// inclusion/membership proof) return an error. Swallowing it (the pre-v1.43
+	// behavior) silently turned ErrAsOfRequired into an empty-hops, AllLive=true
+	// false-positive — so propagate.
+	hops, err := verifier.VerifyDelegationProvenanceWithTrust(
 		ctx, delegationPointers, trustProvider, asOf)
+	if err != nil {
+		return nil, fmt.Errorf("verification/delegation_chain: provenance walk: %w", err)
+	}
 
 	result := &DelegationVerification{
 		Hops:    hops,

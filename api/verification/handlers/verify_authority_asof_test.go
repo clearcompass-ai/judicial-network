@@ -1,11 +1,15 @@
 // VerifyAuthorityHandler ?as_of= + PickTrust coverage.
 //
-// Pins the C-4 read-side surface:
-//   1. parseAsOf interprets ?as_of=<seq> per the contract: absent /
-//      empty / 0 ⇒ AsOf{} (latest); >0 ⇒ AsOf{LogDID, Sequence:n}.
-//   2. Malformed values surface as a 400-shaped error.
-//   3. Dependencies.PickTrust returns MultiTrust when wired, else
-//      falls back to a freshly-constructed LocalTrust.
+// Pins the read-side surface under the attesta v1.43.0 Temporal-Anchor
+// mandate (ZT-IMM-01):
+//  1. asOfRequest classifies ?as_of=<seq> into a (seq, explicit) intent:
+//     absent / empty / 0 ⇒ (0, false) "no pin → resolve latest"; >0 ⇒
+//     (n, true) historical pin. Malformed ⇒ a 400-shaped error.
+//  2. resolveAsOf turns "no explicit pin" into a SNAPSHOTTED current head
+//     (a real AsOf with a RootHash) — never the zero AsOf{} the SDK now
+//     rejects with ErrAsOfRequired.
+//  3. Dependencies.PickTrust returns MultiTrust when wired, else falls
+//     back to a freshly-constructed LocalTrust.
 package handlers
 
 import (
@@ -47,76 +51,106 @@ func (stubFetcher) Fetch(context.Context, types.LogPosition) (*types.EntryWithMe
 // parseAsOf
 // ────────────────────────────────────────────────────────────────
 
-func TestParseAsOf_Absent_ReturnsLatest(t *testing.T) {
+func TestAsOfRequest_Absent_NotExplicit(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest("GET", "/v1/verify/authority/did:web:l/42", nil)
-	asOf, err := parseAsOf(r, "did:web:l")
+	seq, explicit, err := asOfRequest(r)
 	if err != nil {
-		t.Fatalf("parseAsOf: %v", err)
+		t.Fatalf("asOfRequest: %v", err)
 	}
-	if asOf != (verifier.AsOf{}) {
-		t.Errorf("AsOf = %+v, want zero (latest)", asOf)
+	if explicit || seq != 0 {
+		t.Errorf("absent as_of: got (seq=%d, explicit=%v), want (0, false)", seq, explicit)
 	}
 }
 
-func TestParseAsOf_Empty_ReturnsLatest(t *testing.T) {
+func TestAsOfRequest_Empty_NotExplicit(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest("GET", "/v1/verify/authority/did:web:l/42?as_of=", nil)
-	asOf, err := parseAsOf(r, "did:web:l")
+	seq, explicit, err := asOfRequest(r)
 	if err != nil {
-		t.Fatalf("parseAsOf: %v", err)
+		t.Fatalf("asOfRequest: %v", err)
 	}
-	if asOf != (verifier.AsOf{}) {
-		t.Errorf("AsOf = %+v, want zero (latest)", asOf)
+	if explicit || seq != 0 {
+		t.Errorf("empty as_of: got (seq=%d, explicit=%v), want (0, false)", seq, explicit)
 	}
 }
 
-func TestParseAsOf_Zero_ReturnsLatest(t *testing.T) {
+func TestAsOfRequest_Zero_NotExplicit(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest("GET", "/v1/verify/authority/did:web:l/42?as_of=0", nil)
-	asOf, err := parseAsOf(r, "did:web:l")
+	seq, explicit, err := asOfRequest(r)
 	if err != nil {
-		t.Fatalf("parseAsOf: %v", err)
+		t.Fatalf("asOfRequest: %v", err)
 	}
-	if asOf != (verifier.AsOf{}) {
-		t.Errorf("AsOf = %+v, want zero (explicit 0 collapses to latest)", asOf)
+	if explicit || seq != 0 {
+		t.Errorf("as_of=0: got (seq=%d, explicit=%v), want (0, false) — 0 collapses to latest", seq, explicit)
 	}
 }
 
-func TestParseAsOf_Positive_PinsLogIDPlusSequence(t *testing.T) {
+func TestAsOfRequest_Positive_Explicit(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest("GET", "/v1/verify/authority/did:web:l/42?as_of=123", nil)
-	asOf, err := parseAsOf(r, "did:web:l")
+	seq, explicit, err := asOfRequest(r)
 	if err != nil {
-		t.Fatalf("parseAsOf: %v", err)
+		t.Fatalf("asOfRequest: %v", err)
 	}
-	want := verifier.AsOf{LogDID: "did:web:l", Sequence: 123}
-	if asOf != want {
-		t.Errorf("AsOf = %+v, want %+v", asOf, want)
+	if !explicit || seq != 123 {
+		t.Errorf("as_of=123: got (seq=%d, explicit=%v), want (123, true)", seq, explicit)
 	}
 }
 
-func TestParseAsOf_NonNumeric_400Error(t *testing.T) {
+func TestAsOfRequest_NonNumeric_BadAsOf(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest("GET", "/v1/verify/authority/did:web:l/42?as_of=notanint", nil)
-	_, err := parseAsOf(r, "did:web:l")
-	if err == nil {
-		t.Fatal("parseAsOf must reject non-numeric as_of")
-	}
-	if !errors.Is(err, errBadAsOf) {
+	if _, _, err := asOfRequest(r); !errors.Is(err, errBadAsOf) {
 		t.Errorf("err = %v, want errBadAsOf", err)
 	}
 }
 
-func TestParseAsOf_Negative_400Error(t *testing.T) {
+func TestAsOfRequest_Negative_BadAsOf(t *testing.T) {
 	t.Parallel()
 	r := httptest.NewRequest("GET", "/v1/verify/authority/did:web:l/42?as_of=-5", nil)
-	_, err := parseAsOf(r, "did:web:l")
-	if err == nil {
-		t.Fatal("parseAsOf must reject negative as_of")
-	}
-	if !errors.Is(err, errBadAsOf) {
+	if _, _, err := asOfRequest(r); !errors.Is(err, errBadAsOf) {
 		t.Errorf("err = %v, want errBadAsOf", err)
+	}
+}
+
+// headProvider is a LogTrustProvider whose current head ResolveLatest can pin.
+// (stubLogTrust above returns an empty head — TreeSize 0 — which ResolveLatest
+// correctly rejects, so it cannot exercise the success path.)
+type headProvider struct{ head types.CosignedTreeHead }
+
+func (h headProvider) TrustRoot(context.Context, string, verifier.AsOf) (verifier.TrustRoot, error) {
+	return verifier.TrustRoot{Head: h.head}, nil
+}
+func (headProvider) Entry(context.Context, types.LogPosition, verifier.AsOf) (verifier.EntryProof, error) {
+	return verifier.EntryProof{}, nil
+}
+func (headProvider) Leaf(context.Context, string, [32]byte, verifier.AsOf) (verifier.LeafProof, error) {
+	return verifier.LeafProof{}, nil
+}
+
+// TestResolveAsOf_Absent_PinsLatestHead is the load-bearing ZT-IMM-01 proof and
+// the direct correction of what this file used to assert (absent ?as_of= →
+// AsOf{} "latest"). Under attesta v1.43.0 a null AsOf is REJECTED by the verdict
+// primitives, so resolveAsOf MUST snapshot the current head into a PINNED
+// selector — a real (Sequence = TreeSize-1, RootHash), never the zero value.
+func TestResolveAsOf_Absent_PinsLatestHead(t *testing.T) {
+	t.Parallel()
+	prov := headProvider{head: types.CosignedTreeHead{
+		TreeHead: types.TreeHead{TreeSize: 20, RootHash: [32]byte{0xAB}},
+	}}
+	r := httptest.NewRequest("GET", "/v1/verify/authority/did:web:l/42", nil)
+
+	asOf, err := resolveAsOf(context.Background(), r, "did:web:l", prov, nil)
+	if err != nil {
+		t.Fatalf("resolveAsOf: %v", err)
+	}
+	if asOf.IsNull() {
+		t.Fatal("absent ?as_of must pin a head, not return the zero AsOf{} (ZT-IMM-01)")
+	}
+	if asOf.Sequence != 19 || asOf.RootHash != [32]byte{0xAB} {
+		t.Errorf("AsOf = (seq=%d, root=%x), want (19, ab) — TreeSize-1 + RootHash", asOf.Sequence, asOf.RootHash)
 	}
 }
 

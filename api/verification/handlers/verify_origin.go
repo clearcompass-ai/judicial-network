@@ -16,6 +16,8 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/verifier"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+
 	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
@@ -33,6 +35,18 @@ type Dependencies struct {
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
+
+	// Journal is the verified-heads archive (shared with the gossip
+	// reconciler). Two roles under attesta v1.43.0:
+	//   - SDK-4 cross-log trust: BurnStatus(sourceLogDID) → the pinned
+	//     verifier.TrustStatus VerifyCrossLogHandler gates on (via
+	//     trust.StatusFor).
+	//   - ZT-IMM-01 historical pins: HeadAt(logDID, seq) supplies the
+	//     RootHash for an explicit ?as_of=N selector (resolveAsOf).
+	// nil fails both closed: cross-log → ErrTrustUnknown, explicit
+	// ?as_of=N → error. The absent/latest path resolves via the trust
+	// provider and is unaffected.
+	Journal monitoring.HeadsJournal
 
 	// MultiTrust is the C-3 cross-network LogTrustProvider. When
 	// non-nil, the C-4 call sites in this package

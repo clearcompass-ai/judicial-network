@@ -119,8 +119,20 @@ func RunComplianceCheck(
 		now = time.Now().UTC()
 	}
 
+	// ZT-IMM-01 (attesta v1.43.0): cfg.AsOf{} ("latest") is no longer an
+	// implicit wall-clock default inside the SDK — resolve it to a pinned
+	// head deliberately so the verdict is reproducible.
+	asOf := cfg.AsOf
+	if asOf.IsNull() {
+		latest, rerr := verifier.ResolveLatest(ctx, trustProvider, cfg.CaseRootPos.LogDID)
+		if rerr != nil {
+			return nil, fmt.Errorf("enforcement/compliance: resolve latest head: %w", rerr)
+		}
+		asOf = latest
+	}
+
 	authEval, err := verifier.EvaluateAuthorityWithTrust(
-		ctx, cfg.CaseRootPos, trustProvider, extractor, cfg.AsOf)
+		ctx, cfg.CaseRootPos, trustProvider, extractor, asOf)
 	if err != nil {
 		return nil, fmt.Errorf("enforcement/compliance: evaluate authority: %w", err)
 	}
