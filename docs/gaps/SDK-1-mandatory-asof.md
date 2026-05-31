@@ -3,12 +3,13 @@
 > **Target repo:** clearcompass-ai/attesta
 > **Labels:** `bug` · `breaking-change` · `determinism` · `zero-trust-physics`
 > **Depends on:** — (pairs with SDK-2; consumed by judicial-network JN-4)
-> **Status:** Proposal / ready to implement. The `*WithTrust` API already threads
-> `AsOf` through every authority path (judicial-network#69 / PR-C migrated the 5 JN
-> call sites). What remains is to make `AsOf` **non-optional** so "latest" stops
-> being a silent, clock-derived default. This is the SDK root that
-> judicial-network#69's open consideration ("Should `verify_authority`'s default
-> `asOf` be latest or time-of-receipt?") depends on.
+> **Status:** ✅ **SHIPPED in attesta v1.43.0** (filed as clearcompass-ai/attesta#80;
+> adopted JN-side in the merged judicial-network#85). `AsOf` is now mandatory —
+> `ErrAsOfRequired` rejects the zero value on the authority + provenance walkers,
+> `ResolveLatest` is the only explicit route to "current", and `VerifyComplete`'s
+> authority stage takes a required pinned `AsOf` (`AuthorityStageParams.AsOf`), so no
+> verdict path reads the wall clock. Retained as the **design record**; the sections
+> below describe the fix as implemented.
 
 ## Why this exists
 

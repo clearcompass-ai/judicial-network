@@ -3,10 +3,12 @@
 > **Target repo:** clearcompass-ai/attesta
 > **Labels:** `bug` · `breaking-change` · `cross-log` · `zero-trust-physics`
 > **Depends on:** — (pairs with SDK-1; consumed by judicial-network JN-1)
-> **Status:** Proposal / ready to implement. The storage layer already keys forks
-> by RootHash; the SDK selector cannot express one. This realizes the capability
-> judicial-network#69 *assumes* ("asOf = head(seq, RootHash)") but which the
-> `AsOf` type does not yet provide.
+> **Status:** ✅ **SHIPPED in attesta v1.43.0** (filed as clearcompass-ai/attesta#79;
+> adopted JN-side in the merged judicial-network#85). `verifier.AsOf` is now its own
+> struct embedding `types.LogPosition` + a `RootHash` head discriminator; providers
+> resolve the exact head and fail closed with `ErrForkNotPresent` on a pinned root
+> they can't serve; `types.LogPosition` is unchanged (map-key / `Equal` / `Less`
+> invariants preserved). Retained as the **design record**.
 
 ## Why this exists
 

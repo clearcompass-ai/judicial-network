@@ -3,9 +3,12 @@
 > **Target repo:** clearcompass-ai/attesta
 > **Labels:** `bug` · `security` · `cross-log` · `zero-trust-physics`
 > **Depends on:** — (consumed by judicial-network JN-3)
-> **Status:** Proposal / ready to implement. The primitive verifies quorum +
-> inclusion but never consults burn state, so a burned source log's proof still
-> verifies. This is the SDK seam JN-3 needs to fail closed.
+> **Status:** ✅ **SHIPPED in attesta v1.43.0** (filed as clearcompass-ai/attesta#78;
+> adopted JN-side in the merged judicial-network#85). Cross-log verification now takes
+> a required `TrustStatus` on both entry points (`anchor.VerifyCrossLog(proof, set,
+> trust)` + the verifier-side path); the zero value fails closed with
+> `ErrTrustUnknown`, and a burned source returns `ErrEquivocatedLog` before any crypto.
+> Retained as the **design record**.
 
 ## Why this exists
 

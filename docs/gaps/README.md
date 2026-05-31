@@ -38,6 +38,15 @@ reconstruction, or burn-awareness the physics require.
 | **JN-4** | clearcompass-ai/judicial-network | Adopt explicit Time-of-Receipt asOf (resolve #69 open item) | Physics #1 / Scenario 3 | SDK-1 |
 | **E2E** | clearcompass-ai/e2e-tests | Cross-stack regression scenarios for the 4 mandates | all | all above |
 
+> **Status (2026-05-31):** the four SDK mandates have **SHIPPED in attesta v1.43.0**
+> — **SDK-1 → #80**, **SDK-2 → #79**, **SDK-3 → #82**, **SDK-4 → #78** — and were
+> adopted JN-side in the merged **judicial-network#85** (`ErrAsOfRequired` +
+> `AuthorityStageParams.AsOf`, `AsOf.RootHash` + `ErrForkNotPresent`, required
+> `TrustStatus` + `ErrEquivocatedLog`, journal-backed `WitnessSetAt`). This catalog
+> is retained as the **design record**; the JN-side adoption items (JN-1…JN-4) track
+> against #85. The e2e regression scenarios land in `e2e-tests` (`equivocation/`,
+> `rotation/`, the `S1.3c`/`S5.16` guards).
+
 **Ledger** — no new issue. All ledger-side scenarios (5 replay/domain-sep,
 6 S3 fallback, 7 billion-entry, 8 dual-mode admission, 9 entry-level PQ,
 12 wired equivocation monitor) verified satisfied. One **already-captured**
