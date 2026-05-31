@@ -43,6 +43,7 @@ import (
 	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // AppealStep is one hop in an appeal chain. The chain is
@@ -127,9 +128,17 @@ func WalkAppealChain(origin AppealStep, next NextProofFn) ([]AppealStep, error) 
 // (keys/quorum/networkID) shape. K and NetworkID are encapsulated
 // inside *cosign.WitnessKeySet at construction time so this
 // function cannot read the wrong K for a given source log.
+//
+// SDK-4 (attesta v1.43.0): trustByLog carries each SOURCE log's pinned
+// burn/equivocation status, keyed by the SAME source-log DID as
+// witnessSetByLog. A missing entry is the zero TrustStatus
+// (Known=false) and fails the hop closed (ErrTrustUnknown) — an
+// unconsulted burn source never trusts by default. Callers build it
+// from the heads journal via trust.StatusFor.
 func VerifyAppealChain(
 	steps []AppealStep,
 	witnessSetByLog map[string]*cosign.WitnessKeySet,
+	trustByLog map[string]verifier.TrustStatus,
 ) ([]AppealStep, error) {
 	for i := range steps {
 		if steps[i].Proof == nil {
@@ -149,7 +158,7 @@ func VerifyAppealChain(
 			steps[i].ProofVerified = false
 			continue
 		}
-		if err := anchor.VerifyCrossLog(*proof, set); err != nil {
+		if err := anchor.VerifyCrossLog(*proof, set, trustByLog[sourceLogDID]); err != nil {
 			steps[i].ProofVerified = false
 			continue
 		}

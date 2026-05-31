@@ -28,6 +28,8 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 	"github.com/clearcompass-ai/attesta/verifier"
 
+	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+
 	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
 )
 
@@ -76,6 +78,14 @@ type ServerConfig struct {
 	// the verification surface and the judicial surface read the
 	// same provider.
 	MultiTrust verifier.LogTrustProvider
+
+	// Journal is the shared verified-heads archive (the gossip
+	// reconciler's HeadsJournal). Threaded into
+	// handlers.Dependencies.Journal for two attesta v1.43.0 needs:
+	// SDK-4 cross-log burn gating (BurnStatus → TrustStatus) and
+	// ZT-IMM-01 historical ?as_of=N pins (HeadAt → RootHash). nil
+	// fails both closed; the absent/latest as-of path is unaffected.
+	Journal monitoring.HeadsJournal
 
 	// SignatureVerifier feeds /v1/verify/complete's SDK Path C
 	// composite. Optional at boot — leaving it nil keeps the rest
@@ -137,6 +147,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		PolicyStageEnabled: policyStageEnabledFromEnv(),
 		LedgerHTTPClient:   cfg.LedgerHTTPClient,
 		MultiTrust:         cfg.MultiTrust,
+		Journal:            cfg.Journal,
 	}
 
 	mux := http.NewServeMux()

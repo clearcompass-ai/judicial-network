@@ -27,6 +27,7 @@ import (
 	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/judicial-network/consortium"
+	jntrust "github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 func registerConsortiumRoutes(mux *http.ServeMux, deps *Dependencies) {
@@ -161,7 +162,10 @@ func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *
 			"no witness set for source_log_did (pre-configure via WitnessSets at boot)")
 		return
 	}
-	verifyErr := consortium.VerifyCrossCourtProof(proof, set)
+	// SDK-4: pin the SOURCE log's burn status from the heads journal and
+	// gate cross-log verification on it (fail-closed if unknown/burned).
+	trust := jntrust.StatusFor(r.Context(), h.deps.HeadsJournal, req.SourceLogDID)
+	verifyErr := consortium.VerifyCrossCourtProof(proof, set, trust)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"verified": false, "error": verifyErr.Error()})
 		return

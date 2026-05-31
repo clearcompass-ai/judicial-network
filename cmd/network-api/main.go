@@ -63,8 +63,8 @@ import (
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
-	authv2 "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
+	authv2 "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
@@ -469,6 +469,9 @@ func run(argv []string, d deps) error {
 			// declared — handlers then fall back to per-request
 			// LocalTrust (v1.33 byte-for-byte equivalent).
 			MultiTrust: judicialDeps.MultiTrust,
+			// SDK-4 + ZT-IMM-01: the shared heads journal backs cross-log
+			// burn gating (TrustStatus) and historical ?as_of=N head pins.
+			Journal: judicialDeps.HeadsJournal,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 	})

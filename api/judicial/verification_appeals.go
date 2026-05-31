@@ -28,8 +28,10 @@ import (
 
 	"github.com/clearcompass-ai/attesta/anchor"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
+	jntrust "github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -69,7 +71,20 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "steps required")
 		return
 	}
-	verified, err := verification.VerifyAppealChain(steps, h.deps.WitnessSets)
+	// SDK-4: pin each SOURCE log's burn status (keyed by the same source-log
+	// DID VerifyAppealChain resolves the witness set by). A log with no
+	// journal entry maps to the zero TrustStatus and fails that hop closed.
+	trustByLog := make(map[string]verifier.TrustStatus, len(steps))
+	for i := range steps {
+		if steps[i].Proof == nil {
+			continue
+		}
+		src := steps[i].Proof.SourceEntry.LogDID
+		if _, seen := trustByLog[src]; !seen {
+			trustByLog[src] = jntrust.StatusFor(r.Context(), h.deps.HeadsJournal, src)
+		}
+	}
+	verified, err := verification.VerifyAppealChain(steps, h.deps.WitnessSets, trustByLog)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -123,7 +138,8 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	// Self-contained model: the anchor entry embeds the source head + its
 	// K-of-N cosignatures, so the consumer recomputes the quorum offline and
 	// proves inclusion against the verified head — no extractor indirection.
-	verifyErr := anchor.VerifyCrossLog(proof, set)
+	trust := jntrust.StatusFor(r.Context(), h.deps.HeadsJournal, req.SourceLogDID)
+	verifyErr := anchor.VerifyCrossLog(proof, set, trust)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"verified": false,

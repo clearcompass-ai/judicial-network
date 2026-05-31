@@ -243,7 +243,26 @@ func (m MultiJurisdictionTrust) TrustRoot(
 	asOf verifier.AsOf,
 ) (verifier.TrustRoot, error) {
 	if logDID == m.homeLogDID {
-		return m.local.TrustRoot(ctx, logDID, asOf)
+		// ZT-IMM-01 (attesta v1.43.0): the home log resolves a journaled,
+		// VERIFIED cosigned head too — not LocalTrust's head-agnostic zero
+		// head — so ResolveLatest and the per-hop walks can pin an exact head
+		// (RootHash mandatory). The home reconciler journals home heads, so
+		// they are available here; Entry/Leaf still read the home backend via
+		// m.local below. With no journal wired we fall back to LocalTrust
+		// (head-agnostic; the v1.43.0 head-bearing paths then fail closed).
+		if m.journal == nil {
+			return m.local.TrustRoot(ctx, logDID, asOf)
+		}
+		head, err := m.resolveHead(ctx, logDID, asOf)
+		if err != nil {
+			return verifier.TrustRoot{}, err
+		}
+		return verifier.TrustRoot{
+			Head: types.CosignedTreeHead{
+				TreeHead:   head.TreeHead,
+				Signatures: head.Signatures,
+			},
+		}, nil
 	}
 	ws, ok := m.foreignSets[logDID]
 	if !ok {

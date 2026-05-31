@@ -74,17 +74,20 @@ func buildMultiJurisdictionTrust(
 	deps judicial.Dependencies,
 	journal monitoring.HeadsJournal,
 ) (verifier.LogTrustProvider, error) {
-	// Single-network deployment → nothing for the provider to
-	// dispatch on; LocalTrust is sufficient.
-	if len(cfg.GossipIngest.PeerLogs) == 0 {
+	// No home identity / journal → no verified-head source. Leave the
+	// provider nil; PickTrust falls back to the head-agnostic LocalTrust
+	// (the v1.43.0 head-bearing paths — ResolveLatest, the as-of walks —
+	// then fail closed: the inherent no-gossip limitation). A foreign-peer
+	// deployment in that state is a real misconfiguration, so fail boot.
+	if cfg.NetworkBootstrapFile == "" || journal == nil {
+		if len(cfg.GossipIngest.PeerLogs) > 0 {
+			return nil, fmt.Errorf("MultiJurisdictionTrust: PeerLogs declared but NetworkBootstrapFile/HeadsJournal missing")
+		}
 		return nil, nil
 	}
-	if cfg.NetworkBootstrapFile == "" {
-		return nil, fmt.Errorf("MultiJurisdictionTrust: NetworkBootstrapFile required (home log DID source)")
-	}
-	if journal == nil {
-		return nil, fmt.Errorf("MultiJurisdictionTrust: HeadsJournal required for foreign-log as-of resolution")
-	}
+	// Build whenever a home identity + journal exist — the provider now serves
+	// the HOME log's journaled head too (ZT-IMM-01), so it is the correct
+	// trust provider even single-court (foreignSets is then empty).
 	doc, err := loadBootstrapDoc(cfg.NetworkBootstrapFile)
 	if err != nil {
 		return nil, fmt.Errorf("MultiJurisdictionTrust: load bootstrap: %w", err)

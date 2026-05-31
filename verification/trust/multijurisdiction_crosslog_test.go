@@ -271,7 +271,7 @@ func TestMultiJurisdiction_AsOfHistorical(t *testing.T) {
 	}
 
 	// AsOf{Sequence:15} → greatest <= 15 = seq=10, root=0xAA
-	trH, err := prov.TrustRoot(context.Background(), s.foreignDID, verifier.AsOf{Sequence: 15})
+	trH, err := prov.TrustRoot(context.Background(), s.foreignDID, verifier.AsOf{LogPosition: types.LogPosition{Sequence: 15}})
 	if err != nil {
 		t.Fatalf("TrustRoot(asOf=15): %v", err)
 	}

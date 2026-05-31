@@ -171,14 +171,21 @@ func TestNewMultiJurisdictionTrust_HomeDIDCollision_Rejected(t *testing.T) {
 // TrustRoot — HOME log
 // ─────────────────────────────────────────────────────────────────
 
-// TestMultiTrust_TrustRoot_Home_DelegatesToLocal pins that calls
-// for the home LogDID route to LocalTrust verbatim — preserves the
-// byte-for-byte parity guarantee the C-1 → C-4 migration depends on.
-func TestMultiTrust_TrustRoot_Home_DelegatesToLocal(t *testing.T) {
+// TestMultiTrust_TrustRoot_Home_ResolvesJournaledHead pins the attesta
+// v1.43.0 change (ZT-IMM-01): the home log resolves its journaled VERIFIED
+// head — not LocalTrust's head-agnostic zero head — so ResolveLatest and the
+// per-hop as-of walks can pin an EXACT (RootHash-bearing) head. Entry/Leaf
+// still come from the home backend (LocalTrust); only head resolution moved to
+// the journal. (Before v1.43 the home dispatch was LocalTrust-verbatim, which
+// returned a zero head the mandate now rejects.)
+func TestMultiTrust_TrustRoot_Home_ResolvesJournaledHead(t *testing.T) {
 	t.Parallel()
 	const homeDID = "did:web:state:tn:davidson"
-	local := NewLocalTrust(fixtureFetcher{}, liveLeafStore())
-	prov, err := NewMultiJurisdictionTrust(local, homeDID, nil, monitoring.NewMemoryHeadsJournal())
+	journal := monitoring.NewMemoryHeadsJournal()
+	want := recordFixtureHead(t, journal, homeDID, 20, 2, 0xBB)
+
+	prov, err := NewMultiJurisdictionTrust(
+		NewLocalTrust(fixtureFetcher{}, liveLeafStore()), homeDID, nil, journal)
 	if err != nil {
 		t.Fatalf("NewMultiJurisdictionTrust: %v", err)
 	}
@@ -186,13 +193,8 @@ func TestMultiTrust_TrustRoot_Home_DelegatesToLocal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TrustRoot(home): %v", err)
 	}
-	// LocalTrust returns zero WitnessSet + zero Head — the surface
-	// is permissive (SingleLog never errors).
-	if got.WitnessSet != nil {
-		t.Errorf("home WitnessSet = %v, want nil (LocalTrust pass-through)", got.WitnessSet)
-	}
-	if got.Head.TreeSize != 0 {
-		t.Errorf("home Head.TreeSize = %d, want 0 (LocalTrust pass-through)", got.Head.TreeSize)
+	if got.Head.TreeSize != want.TreeSize || got.Head.RootHash != want.RootHash {
+		t.Errorf("home Head = %+v, want journaled %+v (not the LocalTrust zero head)", got.Head, want.TreeHead)
 	}
 }
 
@@ -252,7 +254,7 @@ func TestMultiTrust_TrustRoot_Foreign_HistoricalAsOf(t *testing.T) {
 		map[string]*cosign.WitnessKeySet{foreignDID: foreignKS},
 		journal,
 	)
-	got, err := prov.TrustRoot(context.Background(), foreignDID, verifier.AsOf{Sequence: 15})
+	got, err := prov.TrustRoot(context.Background(), foreignDID, verifier.AsOf{LogPosition: types.LogPosition{Sequence: 15}})
 	if err != nil {
 		t.Fatalf("TrustRoot(foreign, asOf=15): %v", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/crypto/signatures"
 	"github.com/clearcompass-ai/attesta/types"
+	"github.com/clearcompass-ai/attesta/verifier"
 )
 
 // ── fixtures (replicated from attesta/anchor's package-private test helpers,
@@ -153,7 +154,7 @@ func TestVerifyAppealChain_MultiHop_DistinctWitnessSets(t *testing.T) {
 		supct.logDID: supct.set,
 	}
 
-	out, err := VerifyAppealChain(steps, witnessSetByLog)
+	out, err := VerifyAppealChain(steps, witnessSetByLog, allTrusted(trial.logDID, coa.logDID, supct.logDID))
 	if err != nil {
 		t.Fatalf("VALID 3-hop chain rejected: %v\n"+
 			"  → each hop's proof source is the LOWER court; verifying it against the\n"+
@@ -164,6 +165,44 @@ func TestVerifyAppealChain_MultiHop_DistinctWitnessSets(t *testing.T) {
 		if !out[i].ProofVerified {
 			t.Errorf("hop %d not verified on a valid chain", i)
 		}
+	}
+}
+
+// allTrusted marks every listed source log as consulted-and-clean (Known, not
+// burned) so VerifyAppealChain's SDK-4 trust gate passes and the test exercises
+// the quorum / linkage logic rather than the burn gate.
+func allTrusted(logDIDs ...string) map[string]verifier.TrustStatus {
+	m := make(map[string]verifier.TrustStatus, len(logDIDs))
+	for _, d := range logDIDs {
+		m[d] = verifier.TrustStatus{Known: true}
+	}
+	return m
+}
+
+// TestVerifyAppealChain_BurnedSource_FailsClosed pins the SDK-4 burn gate: a
+// structurally-valid hop whose SOURCE log is burned (equivocated) is rejected
+// BEFORE the quorum check — trust.Gate returns ErrEquivocatedLog. This is the
+// behavior the position-blind pre-v1.43 path could not express.
+func TestVerifyAppealChain_BurnedSource_FailsClosed(t *testing.T) {
+	trial := newCourt(t, "did:web:courts.tn.gov:davidson", []byte("davidson: judgment"))
+	coa := newCourt(t, "did:web:courts.tn.gov:coa", []byte("coa: affirmed"))
+	steps := []AppealStep{
+		{Step: 1, LogDID: trial.logDID, CasePos: types.LogPosition{LogDID: trial.logDID, Sequence: trial.citedPos}},
+		{Step: 2, LogDID: coa.logDID, CasePos: types.LogPosition{LogDID: coa.logDID, Sequence: coa.citedPos},
+			Proof: ptr(appealProofFromSource(t, trial, coa.logDID))},
+	}
+	wsByLog := map[string]*cosign.WitnessKeySet{trial.logDID: trial.set, coa.logDID: coa.set}
+	// trial is the SOURCE of hop 2's proof; mark it burned.
+	trust := map[string]verifier.TrustStatus{
+		trial.logDID: {Known: true, Burned: true},
+		coa.logDID:   {Known: true},
+	}
+	out, err := VerifyAppealChain(steps, wsByLog, trust)
+	if err == nil {
+		t.Fatal("a chain whose source log is burned must fail closed (SDK-4)")
+	}
+	if out[1].ProofVerified {
+		t.Error("hop 2 must NOT verify against a burned source log")
 	}
 }
 
@@ -184,7 +223,7 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 		_, wrongSet, _ := wsWitnessSet(t, 5, 5) // not trial's keys
 		_, err := VerifyAppealChain(mkSteps(), map[string]*cosign.WitnessKeySet{
 			trial.logDID: wrongSet, coa.logDID: coa.set,
-		})
+		}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("a head presented under trial's DID but verified against a different set must fail")
 		}
@@ -193,7 +232,7 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 	t.Run("missing source witness set fails closed", func(t *testing.T) {
 		_, err := VerifyAppealChain(mkSteps(), map[string]*cosign.WitnessKeySet{
 			coa.logDID: coa.set, // trial's set absent
-		})
+		}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("absent source witness set must fail closed")
 		}
@@ -204,7 +243,7 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 		steps[0].CasePos = types.LogPosition{LogDID: trial.logDID, Sequence: trial.citedPos + 99} // wrong case
 		_, err := VerifyAppealChain(steps, map[string]*cosign.WitnessKeySet{
 			trial.logDID: trial.set, coa.logDID: coa.set,
-		})
+		}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("a proof not bound to the previous step's case must fail (no unrelated-proof chains)")
 		}
