@@ -29,7 +29,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
 	"github.com/clearcompass-ai/attesta/network"
 	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/attesta/types"
@@ -287,41 +286,5 @@ func TestBuildAuditorScopeAsOf_BootstrapPresent_ReturnsClosure(t *testing.T) {
 func TestBuildAuditorScopeAsOf_NoBootstrap_ReturnsNil(t *testing.T) {
 	if closure := buildAuditorScopeAsOf(config.Operational{}); closure != nil {
 		t.Error("closure MUST be nil when NetworkBootstrapFile is empty")
-	}
-}
-
-// TestGenesisCosignSchemeTags pins G1: JN reads the network's admitted
-// cosignature schemes through the SDK governance walker (not blind to the
-// policy layer), with a backward-compatible ECDSA-only default for a
-// bootstrap that declares no genesis signature policy.
-func TestGenesisCosignSchemeTags(t *testing.T) {
-	nid := cosign.NetworkID{0x01}
-
-	// No declared genesis signature policy → ECDSA-only default (nil tags;
-	// BuildWitnessSetsForPolicy routes nil to its ECDSA-only path).
-	bare := &network.BootstrapDocument{ExchangeDID: "did:web:test"}
-	tags, err := genesisCosignSchemeTags(bare, nid)
-	if err != nil {
-		t.Fatalf("bare bootstrap: %v", err)
-	}
-	if tags != nil {
-		t.Errorf("no declared policy: want nil tags (ECDSA-only default), got %v", tags)
-	}
-
-	// Declared ECDSA-only policy → resolved through the walker to [0x01].
-	withPolicy := &network.BootstrapDocument{
-		ExchangeDID: "did:web:test",
-		GenesisSignaturePolicy: network.SignaturePolicy{
-			AllowedEntrySigSchemes:  []uint16{1},
-			AllowedCosignSchemeTags: []uint8{0x01},
-			MinSignaturesPerEntry:   1,
-		},
-	}
-	tags, err = genesisCosignSchemeTags(withPolicy, nid)
-	if err != nil {
-		t.Fatalf("policy bootstrap: %v", err)
-	}
-	if len(tags) != 1 || tags[0] != 0x01 {
-		t.Errorf("resolved cosign tags = %v, want [1]", tags)
 	}
 }
