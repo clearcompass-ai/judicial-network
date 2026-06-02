@@ -266,6 +266,19 @@ type MonitoringConfig struct {
 	SealingInterval time.Duration `json:"sealing_interval,omitempty"`
 	PruneInterval   time.Duration `json:"prune_interval,omitempty"`
 
+	// SignaturePolicyInterval configures the periodic signature-policy
+	// compliance audit (libs/monitoring.CheckSignaturePolicyCompliance) — the
+	// auditor half of the ledger's admission floor. It re-derives the network
+	// SignaturePolicy (the genesis baseline + on-log AT-ENTRY-NETWORK-SIGNATURE-
+	// POLICY-V1 amendments) via the SDK walker and flags any admitted entry whose
+	// valid-signature count is below min_signatures_per_entry, or whose scheme is
+	// not admitted, at the policy in effect at its position. > 0 enables it
+	// (requires NetworkBootstrapFile for the genesis chain); 0 disables. The
+	// source is genesis-seeded and entry-/head-empty until a live on-log scan
+	// lands — the chain-integrity + policy-consistency checks run continuously
+	// and the per-entry floor re-check activates with no rewiring.
+	SignaturePolicyInterval time.Duration `json:"signature_policy_interval,omitempty"`
+
 	// Per-check audit targets (one network-wide job iterates each list).
 	Mirror  []MirrorAuditConfig  `json:"mirror,omitempty"`
 	Anchor  []AnchorAuditConfig  `json:"anchor,omitempty"`
