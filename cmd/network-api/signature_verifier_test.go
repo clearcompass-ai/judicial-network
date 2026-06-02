@@ -71,6 +71,28 @@ func TestBuildSignatureVerifier_NilResolver(t *testing.T) {
 	}
 }
 
+// TestBuildVerifierRegistry_FullMethodSpace pins G4: the shared registry —
+// used by BOTH the entry-signature path AND the v2 signed-request auth path
+// (cmd/network-api/main.go) — covers pkh+key+web, so a did:web or did:pkh
+// signer is never SILENTLY rejected as "method not registered".
+func TestBuildVerifierRegistry_FullMethodSpace(t *testing.T) {
+	reg, err := buildVerifierRegistry(config.Operational{}, stubResolver{})
+	if err != nil {
+		t.Fatalf("buildVerifierRegistry: %v", err)
+	}
+	for _, m := range []string{"pkh", "key", "web"} {
+		if !hasMethod(reg, m) {
+			t.Errorf("shared verifier registry missing method %q", m)
+		}
+	}
+}
+
+func TestBuildVerifierRegistry_NilResolver(t *testing.T) {
+	if _, err := buildVerifierRegistry(config.Operational{}, nil); err == nil {
+		t.Fatal("nil resolver MUST error")
+	}
+}
+
 func TestBuildSignatureVerifier_MultiChain(t *testing.T) {
 	cfg := config.Operational{SmartContractWallet: multiChainSCW()}
 	v, err := buildSignatureVerifier(cfg, stubResolver{})

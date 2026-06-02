@@ -423,6 +423,16 @@ type PeerLogConfig struct {
 	// must meet. Required, 1 <= QuorumK <= len(WitnessDIDs).
 	QuorumK int `json:"quorum_k"`
 
+	// AllowedCosignSchemeTags is the foreign network's admitted
+	// cosignature schemes (SchemeECDSA=0x01, SchemeBLS=0x02) — the
+	// peer-log analogue of the home network's on-log signature policy
+	// (JN has no bootstrap for a foreign log). OPTIONAL: empty/omitted ⇒
+	// ECDSA-only (the default, byte-identical to prior behavior). Set
+	// [1,2] when a peer log runs BLS witnesses so JN builds a verifier
+	// that counts them; a scheme JN cannot verify fails the build loudly
+	// rather than silently under-counting it toward quorum.
+	AllowedCosignSchemeTags []uint8 `json:"allowed_cosign_scheme_tags,omitempty"`
+
 	// PollInterval is the per-peer catch-up cadence. Zero applies
 	// the SDK default (5 seconds — see libs/auditing/peers).
 	PollInterval time.Duration `json:"poll_interval,omitempty"`

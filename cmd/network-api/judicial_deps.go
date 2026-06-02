@@ -360,9 +360,25 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	if cfg.NetworkBootstrapFile == "" {
 		return nil, fmt.Errorf("witness sets configured but NetworkBootstrapFile is empty (cross-log keysets need the network ID)")
 	}
-	networkID, err := loadNetworkID(cfg.NetworkBootstrapFile)
+	doc, err := loadBootstrapDoc(cfg.NetworkBootstrapFile)
 	if err != nil {
-		return nil, fmt.Errorf("load network id: %w", err)
+		return nil, fmt.Errorf("load bootstrap: %w", err)
+	}
+	ids, err := doc.IDs()
+	if err != nil {
+		return nil, fmt.Errorf("derive network identity from %s: %w", cfg.NetworkBootstrapFile, err)
+	}
+	// G1/G2: select the cosignature verifier from the network's on-log
+	// SIGNATURE POLICY rather than hardcoding ECDSA. crosslog.GenesisCosignSchemeTags
+	// resolves the GENESIS policy (synthesized from the bootstrap) through the SDK
+	// governance walker — the ONE canonical resolver, shared with the auditor.
+	// Every network today admits ECDSA only, so this is byte-identical to the prior
+	// ECDSA-only construction; it activates BLS the moment a network's genesis
+	// policy admits scheme 0x02, and a policy admitting a scheme JN cannot verify
+	// fails the build loudly.
+	allowedCosignTags, err := crosslog.GenesisCosignSchemeTags(*doc, [32]byte(ids.NetworkID))
+	if err != nil {
+		return nil, fmt.Errorf("resolve cosign signature policy: %w", err)
 	}
 	// libs/crosslog is domain-free: map the JN config rows into its neutral
 	// WitnessSetSpec (identical fields) before building the keysets.
@@ -370,7 +386,7 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	for i, s := range cfg.Witness.Sets {
 		specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
 	}
-	return crosslog.BuildWitnessSetsECDSAOnly(specs, networkID)
+	return crosslog.BuildWitnessSetsForPolicy(specs, ids.NetworkID, allowedCosignTags)
 }
 
 // loadBootstrapDoc reads + parses the network bootstrap document. It is the

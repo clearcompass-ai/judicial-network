@@ -1,11 +1,11 @@
 /*
-FILE PATH: cmd/network-api/davidson_scw_e2e_test.go
+FILE PATH: cmd/network-api/davidson_scw_binary_test.go
 
 DESCRIPTION:
 
 	Binary-level Davidson SCW end-to-end test.
 
-	Distinct from tests/contracts/davidson_scw_e2e_test.go (which
+	Distinct from tests/contracts/davidson_scw_test.go (which
 	drives api.NewServer directly via httptest), this test boots
 	cmd/network-api.run() as a real HTTP listener — every layer of
 	the binary boot path is exercised:

@@ -127,13 +127,14 @@ func buildForeignWitnessSets(peerLogs []config.PeerLogConfig) (map[string]*cosig
 		if err != nil {
 			return nil, fmt.Errorf("MultiJurisdictionTrust: PeerLogs[%d] (%s).NetworkID: %w", i, pl.LogDID, err)
 		}
-		keysets, err := crosslog.BuildWitnessSetsECDSAOnly(
+		keysets, err := crosslog.BuildWitnessSetsForPolicy(
 			[]crosslog.WitnessSetSpec{{
 				LogDID:      pl.LogDID,
 				WitnessDIDs: pl.WitnessDIDs,
 				QuorumK:     pl.QuorumK,
 			}},
 			nid,
+			pl.AllowedCosignSchemeTags,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("MultiJurisdictionTrust: PeerLogs[%d] (%s) build keyset: %w", i, pl.LogDID, err)

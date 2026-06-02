@@ -1,5 +1,5 @@
 /*
-FILE PATH: cmd/network-api/davidson_scw_e2e_setup_test.go
+FILE PATH: cmd/network-api/davidson_scw_binary_setup_test.go
 
 DESCRIPTION:
 
