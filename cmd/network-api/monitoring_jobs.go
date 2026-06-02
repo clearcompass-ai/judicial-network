@@ -30,6 +30,7 @@ import (
 	"time"
 
 	monitoring "github.com/clearcompass-ai/attesta/monitoring"
+	sdknetwork "github.com/clearcompass-ai/attesta/network"
 	"github.com/clearcompass-ai/attesta/types"
 	"github.com/clearcompass-ai/attesta/witness"
 
@@ -119,10 +120,74 @@ func buildMonitoringScheduler(
 		}
 	}
 
+	// Signature-policy compliance (libs CheckSignaturePolicyCompliance) — the
+	// auditor half of the ledger's admission floor. Registers when the interval
+	// is set AND a network bootstrap is configured (the genesis chain source).
+	// Genesis-seeded + entry/head-empty today (the "wired and ready" posture);
+	// the per-entry floor re-check activates with no rewiring once a live on-log
+	// scan populates the source's Entries/Heads.
+	if m.SignaturePolicyInterval > 0 && cfg.NetworkBootstrapFile != "" {
+		doc, err := loadBootstrapDoc(cfg.NetworkBootstrapFile)
+		if err != nil {
+			return nil, fmt.Errorf("monitoring: signature-policy audit: load bootstrap: %w", err)
+		}
+		ids, err := doc.IDs()
+		if err != nil {
+			return nil, fmt.Errorf("monitoring: signature-policy audit: derive network id: %w", err)
+		}
+		src := genesisGovernanceSource(*doc, [32]byte(ids.NetworkID), logger)
+		if err := sched.Register(jnmon.Job{
+			Name:     "signature_policy_compliance",
+			Interval: m.SignaturePolicyInterval,
+			Run:      signaturePolicyJob(src),
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	if sched.Len() == 0 {
 		logger.Warn("monitoring: scheduler enabled but no domain audit specs configured")
 	}
 	return sched, nil
+}
+
+// genesisGovernanceSource builds the genesis-seeded GovernanceSource from the
+// network bootstrap. The genesis records[0] of each governance chain are
+// synthesized from doc (mirroring the ledger's admission genesis rule); a future
+// on-log walker that scans amendments + admitted entries swaps in a populated
+// snapshot here without touching the job. AsOf is the genesis tree size — the
+// genesis-only chain resolves cleanly there.
+func genesisGovernanceSource(doc sdknetwork.BootstrapDocument, networkID [32]byte, logger *slog.Logger) jnmon.GovernanceSource {
+	gov := crosslog.GovernanceGenesisFromBootstrap(doc, doc.ExchangeDID, networkID)
+	snap := jnmon.GovernanceSnapshot{
+		Governance: crosslog.MaterializeGovernance(nil, gov, logger),
+		AsOf:       types.LogPosition{LogDID: doc.ExchangeDID, Sequence: doc.GenesisTreeHead.TreeSize},
+	}
+	return func(_ context.Context) (jnmon.GovernanceSnapshot, error) {
+		return snap, nil
+	}
+}
+
+// signaturePolicyJob runs one signature-policy compliance cycle per tick — the
+// auditor half of the ledger's admission floor. It re-derives the network
+// SignaturePolicy via the SDK walker (network.ResolveSignaturePolicyAt) and
+// flags any admitted entry whose valid-signature count is below
+// min_signatures_per_entry — or whose scheme/cosign-scheme is not admitted — at
+// the policy in effect at its position. A genesis-only, entry-empty snapshot
+// resolves cleanly and raises nothing (the steady "wired and ready" state).
+func signaturePolicyJob(src jnmon.GovernanceSource) jnmon.JobFunc {
+	return func(ctx context.Context) ([]monitoring.Alert, error) {
+		snap, err := src(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return jnmon.CheckSignaturePolicyCompliance(ctx, jnmon.SignaturePolicyComplianceConfig{
+			Records: snap.Governance.SignaturePolicies,
+			Entries: snap.Entries,
+			Heads:   snap.Heads,
+			AsOf:    snap.AsOf,
+		}, time.Now().UTC())
+	}
 }
 
 func orDefault(d, def time.Duration) time.Duration {

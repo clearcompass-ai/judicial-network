@@ -31,6 +31,7 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 
 	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
+	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 )
 
 // envPolicyStageEnable is the environment variable that gates the
@@ -120,6 +121,13 @@ type ServerConfig struct {
 	// cert when peer mTLS is configured. nil ⇒ a plain 15s client.
 	// SDK v1.26.0+: TesseraFetcherConfig.Client is required.
 	LedgerHTTPClient *http.Client
+
+	// Registry resolves an entry's destination bundle → cosignature policy +
+	// exchange DID for /v1/verify/cosignature (the read-side crypto-aware dual
+	// of the exchange submit gate). nil keeps that one route returning 503;
+	// every other route is unaffected. Production wires the same
+	// jurisdiction.Registry the exchange submit gate uses.
+	Registry *jurisdiction.Registry
 }
 
 // Server is the verification service HTTP server.
@@ -148,6 +156,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		LedgerHTTPClient:   cfg.LedgerHTTPClient,
 		MultiTrust:         cfg.MultiTrust,
 		Journal:            cfg.Journal,
+		Registry:           cfg.Registry,
 	}
 
 	mux := http.NewServeMux()
@@ -162,6 +171,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 	// gate — that lives in the ledger. Per-stage failures populate
 	// the report; envelope-level errors return 500.
 	mux.Handle("GET /v1/verify/complete/{logID}/{pos}", handlers.NewVerifyCompleteHandler(deps))
+	mux.Handle("GET /v1/verify/cosignature/{logID}/{pos}", handlers.NewVerifyCosignatureHandler(deps))
 	mux.Handle("POST /v1/verify/cross-log", handlers.NewVerifyCrossLogHandler(deps))
 	mux.Handle("POST /v1/verify/fraud-proof", handlers.NewVerifyFraudProofHandler(deps))
 	// Phase 8 — Static-CT consistency endpoint. Trust Alignment 6

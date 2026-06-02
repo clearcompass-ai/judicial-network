@@ -476,6 +476,13 @@ func run(argv []string, d deps) error {
 			// SDK-4 + ZT-IMM-01: the shared heads journal backs cross-log
 			// burn gating (TrustStatus) and historical ?as_of=N head pins.
 			Journal: judicialDeps.HeadsJournal,
+			// Read-side crypto-aware cosignature verification
+			// (/v1/verify/cosignature) resolves the destination bundle's
+			// cosignature policy via the SAME registry the submit gate uses,
+			// so the auditor re-derives the identical per-jurisdiction rule
+			// table — only crypto-verified (CheckCosignatureWithVerifier runs
+			// attestation.VerifyEntrySignatures first).
+			Registry: registry,
 		},
 		Judicial: judicial.ServerConfig{Deps: judicialDeps},
 	})
