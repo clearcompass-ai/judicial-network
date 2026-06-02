@@ -440,6 +440,18 @@ type PeerLogConfig struct {
 	// PageLimit caps events per /since page. Zero applies the SDK
 	// default (256 events — see libs/auditing/peers).
 	PageLimit int `json:"page_limit,omitempty"`
+
+	// WitnessDeclarationsFile is an OPTIONAL path to a JSON snapshot of this
+	// foreign log's on-log WitnessEndpointDeclaration entries — the BLS-witness
+	// key-material source (a BLS witness cannot be a did:key). Same shape +
+	// semantics as WitnessSetConfig.WitnessDeclarationsFile. Empty ⇒ ECDSA-only.
+	WitnessDeclarationsFile string `json:"witness_declarations_file,omitempty"`
+
+	// AuthorizedBLSWitnessIDs are the hex-encoded 32-byte PubKeyIDs of this
+	// foreign log's BLS witnesses admitted to its K-of-N quorum (the membership
+	// authority, NOT self-asserted from the declarations). Required to project
+	// any BLS witness; ignored when WitnessDeclarationsFile is empty.
+	AuthorizedBLSWitnessIDs []string `json:"authorized_bls_witness_ids,omitempty"`
 }
 
 // TileMirrorConfig names one source log's Static-CT tile mirror.
@@ -522,6 +534,26 @@ type WitnessSetConfig struct {
 	// QuorumK is the K-of-N threshold this log's cosignatures must meet.
 	// Required, 1 <= QuorumK <= len(WitnessDIDs).
 	QuorumK int `json:"quorum_k"`
+
+	// WitnessDeclarationsFile is an OPTIONAL path to a JSON snapshot of this
+	// log's on-log WitnessEndpointDeclaration entries (canonical envelope wire
+	// bytes per entry — the shape a log scan / the future on-log walker yields,
+	// mirroring AUDITOR_REGISTRY_FILE). When set, JN materializes the snapshot
+	// and projects the BLS witnesses among AuthorizedBLSWitnessIDs into the
+	// keyset (key + proof-of-possession verified at cosign.NewWitnessKeySet
+	// construction). A BLS witness cannot be a did:key, so this is the ONLY
+	// zero-trust source for its key material. Empty ⇒ ECDSA-only, byte-identical
+	// to prior behavior.
+	WitnessDeclarationsFile string `json:"witness_declarations_file,omitempty"`
+
+	// AuthorizedBLSWitnessIDs are the hex-encoded 32-byte witness PubKeyIDs
+	// admitted to this log's K-of-N quorum as BLS witnesses (the membership
+	// authority — the genesis set + the on-log witness-rotation chain). REQUIRED
+	// to project any BLS witness: per crosslog.BLSWitnessesFromDeclarations the
+	// authorized set is NOT self-asserted from the declarations, so a rogue
+	// declaration cannot inject itself into the quorum. Ignored when
+	// WitnessDeclarationsFile is empty.
+	AuthorizedBLSWitnessIDs []string `json:"authorized_bls_witness_ids,omitempty"`
 }
 
 // ──────────────────────────────────────────────────────────────────

@@ -381,10 +381,18 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 		return nil, fmt.Errorf("resolve cosign signature policy: %w", err)
 	}
 	// libs/crosslog is domain-free: map the JN config rows into its neutral
-	// WitnessSetSpec (identical fields) before building the keysets.
+	// WitnessSetSpec before building the keysets. witnessSpecWithBLS folds any
+	// BLS witnesses sourced from the log's on-log WitnessEndpointDeclaration
+	// snapshot into BLSWitnesses (a BLS witness cannot be a did:key, so its key
+	// material is unavailable from WitnessDIDs); with no snapshot configured the
+	// spec is the prior ECDSA-only shape.
 	specs := make([]crosslog.WitnessSetSpec, len(cfg.Witness.Sets))
 	for i, s := range cfg.Witness.Sets {
-		specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
+		spec, serr := witnessSpecWithBLS(s.LogDID, s.WitnessDIDs, s.QuorumK, s.WitnessDeclarationsFile, s.AuthorizedBLSWitnessIDs)
+		if serr != nil {
+			return nil, fmt.Errorf("witness set %q: %w", s.LogDID, serr)
+		}
+		specs[i] = spec
 	}
 	return crosslog.BuildWitnessSetsForPolicy(specs, ids.NetworkID, allowedCosignTags)
 }

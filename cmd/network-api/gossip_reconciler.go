@@ -331,12 +331,12 @@ func buildForeignPipeline(
 	// Foreign witness set — KEY: peerLog.LogDID, VALUE: keyset bound to
 	// the foreign NetworkID. The crosslog builder is domain-free; we
 	// map the JN config into its neutral spec type.
+	witnessSpec, err := witnessSpecWithBLS(peerLog.LogDID, peerLog.WitnessDIDs, peerLog.QuorumK, peerLog.WitnessDeclarationsFile, peerLog.AuthorizedBLSWitnessIDs)
+	if err != nil {
+		return nil, fmt.Errorf("source foreign BLS witnesses: %w", err)
+	}
 	keysets, err := crosslog.BuildWitnessSetsForPolicy(
-		[]crosslog.WitnessSetSpec{{
-			LogDID:      peerLog.LogDID,
-			WitnessDIDs: peerLog.WitnessDIDs,
-			QuorumK:     peerLog.QuorumK,
-		}},
+		[]crosslog.WitnessSetSpec{witnessSpec},
 		foreignNetworkID,
 		peerLog.AllowedCosignSchemeTags,
 	)
