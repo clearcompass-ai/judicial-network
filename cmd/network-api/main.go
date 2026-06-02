@@ -58,7 +58,6 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/attesta-tools/libs/sdkguard"
 	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/did"
 	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/judicial-network/api"
@@ -378,17 +377,22 @@ func run(argv []string, d deps) error {
 	// AND the judicial deps share the same outbound client.
 
 	// v2 signed-request auth middleware. Carries:
-	//   - did:key signature verifier (matches the JN's Ed25519
-	//     signer-DID convention; production adds did:web/did:pkh
-	//     as their consumers come on-log).
+	//   - the FULL-method DID verifier registry (did:pkh + did:key +
+	//     did:web) — the same registry the entry-signature path uses, so
+	//     a did:web or did:pkh signer is never SILENTLY rejected as
+	//     "method not registered" (an unsupported algorithm now fails
+	//     with a specific error). The signed-request signature algorithm
+	//     is still pinned by AlgoID below (Ed25519, the JN signer-DID
+	//     convention); per-request algorithm negotiation is a separate
+	//     SDK-coordinated change (see auth/v2/doc.go).
 	//   - Per-destination nonce stores from buildNonceStores.
 	//   - A process-local fallback nonce store for empty /
 	//     unknown destination requests.
 	//   - mTLS SAN-cert extractor so mTLS requests bypass the
 	//     envelope check (same posture as pre-v2).
-	authRegistry := did.NewVerifierRegistry()
-	if regErr := authRegistry.Register("key", did.NewKeyVerifier()); regErr != nil {
-		return fmt.Errorf("auth registry: did:key register: %w", regErr)
+	authRegistry, err := buildVerifierRegistry(cfg, sigResolver)
+	if err != nil {
+		return fmt.Errorf("auth registry: %w", err)
 	}
 	signerAuth, err := authv2.NewSignerAuth(authv2.SignerAuthConfig{
 		Registry:                  authRegistry,

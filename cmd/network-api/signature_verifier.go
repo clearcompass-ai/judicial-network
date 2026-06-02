@@ -76,8 +76,26 @@ import (
 // resolver MUST be non-nil (the did:web verifier requires it; the
 // binary's buildDIDResolver always supplies one).
 func buildSignatureVerifier(cfg config.Operational, resolver did.DIDResolver) (attestation.SignatureVerifier, error) {
+	return buildVerifierRegistry(cfg, resolver)
+}
+
+// buildVerifierRegistry constructs the canonical FULL-method DID
+// VerifierRegistry — did:pkh + did:key + did:web — covering the entire
+// SDK entry-signature algorithm space (ECDSA-secp256k1, Ed25519,
+// ML-DSA-65/87, SLH-DSA-128s via key/web; EIP-191/712 + EIP-1271 via
+// pkh). Used by BOTH the entry-signature verification path AND the v2
+// signed-request auth path: a registry that OMITS a method silently
+// rejects every signature using it (indistinguishable from an invalid
+// signature — the hazard documented at
+// attesta-tools/libs/auditing/didregistry/doc.go), so both seams
+// register the same full space and an unsupported algorithm fails with
+// a specific error, never a silent method-not-registered drop.
+//
+// resolver MUST be non-nil (the did:web verifier requires it; the
+// binary's buildDIDResolver always supplies one).
+func buildVerifierRegistry(cfg config.Operational, resolver did.DIDResolver) (*did.VerifierRegistry, error) {
 	if resolver == nil {
-		return nil, fmt.Errorf("buildSignatureVerifier: nil resolver")
+		return nil, fmt.Errorf("buildVerifierRegistry: nil resolver")
 	}
 
 	pkh, err := buildPKHVerifier(cfg.SmartContractWallet)
@@ -87,13 +105,13 @@ func buildSignatureVerifier(cfg config.Operational, resolver did.DIDResolver) (a
 
 	registry := did.NewVerifierRegistry()
 	if err := registry.Register("pkh", pkh); err != nil {
-		return nil, fmt.Errorf("buildSignatureVerifier: register pkh: %w", err)
+		return nil, fmt.Errorf("buildVerifierRegistry: register pkh: %w", err)
 	}
 	if err := registry.Register("key", did.NewKeyVerifier()); err != nil {
-		return nil, fmt.Errorf("buildSignatureVerifier: register key: %w", err)
+		return nil, fmt.Errorf("buildVerifierRegistry: register key: %w", err)
 	}
 	if err := registry.Register("web", did.NewWebVerifier(resolver)); err != nil {
-		return nil, fmt.Errorf("buildSignatureVerifier: register web: %w", err)
+		return nil, fmt.Errorf("buildVerifierRegistry: register web: %w", err)
 	}
 	return registry, nil
 }

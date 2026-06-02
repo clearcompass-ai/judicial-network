@@ -360,9 +360,24 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	if cfg.NetworkBootstrapFile == "" {
 		return nil, fmt.Errorf("witness sets configured but NetworkBootstrapFile is empty (cross-log keysets need the network ID)")
 	}
-	networkID, err := loadNetworkID(cfg.NetworkBootstrapFile)
+	doc, err := loadBootstrapDoc(cfg.NetworkBootstrapFile)
 	if err != nil {
-		return nil, fmt.Errorf("load network id: %w", err)
+		return nil, fmt.Errorf("load bootstrap: %w", err)
+	}
+	ids, err := doc.IDs()
+	if err != nil {
+		return nil, fmt.Errorf("derive network identity from %s: %w", cfg.NetworkBootstrapFile, err)
+	}
+	// G1/G2: select the cosignature verifier from the network's on-log
+	// SIGNATURE POLICY rather than hardcoding ECDSA. At boot we resolve the
+	// GENESIS policy (synthesized from the bootstrap) through the SDK
+	// governance walker; every network today admits ECDSA only, so this is
+	// byte-identical to the prior ECDSA-only construction, and it activates
+	// BLS the moment a network's genesis policy admits scheme 0x02. A policy
+	// admitting a scheme JN cannot verify fails the build loudly.
+	allowedCosignTags, err := genesisCosignSchemeTags(doc, ids.NetworkID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve cosign signature policy: %w", err)
 	}
 	// libs/crosslog is domain-free: map the JN config rows into its neutral
 	// WitnessSetSpec (identical fields) before building the keysets.
@@ -370,7 +385,41 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	for i, s := range cfg.Witness.Sets {
 		specs[i] = crosslog.WitnessSetSpec{LogDID: s.LogDID, WitnessDIDs: s.WitnessDIDs, QuorumK: s.QuorumK}
 	}
-	return crosslog.BuildWitnessSetsECDSAOnly(specs, networkID)
+	return crosslog.BuildWitnessSetsForPolicy(specs, ids.NetworkID, allowedCosignTags)
+}
+
+// genesisCosignSchemeTags resolves the network's AllowedCosignSchemeTags
+// from the GENESIS signature policy synthesized from the bootstrap, via the
+// SDK governance walker (network.ResolveSignaturePolicyAt over
+// crosslog.MaterializeGovernance's genesis-seeded chain). This is the G1
+// adoption: JN reads the cosign policy through the same walker the ledger
+// and auditor use, instead of being blind to the on-log governance layer.
+//
+// On-log signature-policy AMENDMENTS (resolving at the live head over
+// materialized AT-ENTRY-NETWORK-SIGNATURE-POLICY-V1 entries) are the
+// as-needed runtime follow-up; at boot the founding policy is the correct
+// asOf and every network's genesis admits ECDSA only.
+func genesisCosignSchemeTags(doc *sdknetwork.BootstrapDocument, networkID cosign.NetworkID) ([]uint8, error) {
+	// A bootstrap that declares no genesis signature policy (older/minimal
+	// documents) defaults to ECDSA-only — the universal v1.x baseline that
+	// init-network writes (AllowedCosignSchemeTags=[0x01]). nil tags route
+	// BuildWitnessSetsForPolicy to its ECDSA-only path, byte-identical to the
+	// prior behavior; we only invoke the walker when a policy is actually
+	// declared (its validation rejects an empty AllowedCosignSchemeTags).
+	if len(doc.GenesisSignaturePolicy.AllowedCosignSchemeTags) == 0 {
+		return nil, nil
+	}
+	originLogDID := doc.ExchangeDID
+	gov := crosslog.GovernanceGenesisFromBootstrap(*doc, originLogDID, [32]byte(networkID))
+	materialized := crosslog.MaterializeGovernance(nil, gov, slog.Default())
+	policy, err := sdknetwork.ResolveSignaturePolicyAt(
+		materialized.SignaturePolicies,
+		types.LogPosition{LogDID: originLogDID, Sequence: 0},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("resolve genesis signature policy: %w", err)
+	}
+	return policy.AllowedCosignSchemeTags, nil
 }
 
 // loadBootstrapDoc reads + parses the network bootstrap document. It is the
