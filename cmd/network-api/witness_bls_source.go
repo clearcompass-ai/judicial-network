@@ -1,60 +1,60 @@
 // FILE PATH: cmd/network-api/witness_bls_source.go
 //
-// BLS cross-log witness key-sourcing. A BLS-G2 witness cannot be a did:key
-// (the multicodec carries no proof-of-possession slot), so witness.KeysFromDIDs
-// — the resolver behind every WitnessDIDs row — can never yield its key
-// material. The ONLY zero-trust source is the witness's on-log
-// WitnessEndpointDeclaration (attesta v1.54: scheme/key/PoP), projected by
-// crosslog.BLSWitnessesFromDeclarations for the AUTHORIZED PubKeyIDs.
+// BLS cross-log witness key-sourcing — thin config glue over the shared,
+// domain-agnostic crosslog builders. A BLS-G2 witness cannot be a did:key (the
+// multicodec carries no proof-of-possession slot), so witness.KeysFromDIDs — the
+// resolver behind every WitnessDIDs row — can never yield its key material; the
+// only zero-trust source is the witness's on-log WitnessEndpointDeclaration
+// (scheme/key/PoP, attesta v1.54).
 //
-// This file composes the existing primitives — it adds no new SDK surface:
+// The materialize/validate/project walkers are domain-agnostic and used by every
+// network's auditor, so they live in attesta-tools/libs/crosslog (the witness
+// twin of AuditorSpec / BuildAuditorRegistryFromConfig). This file only decodes
+// JN's config rows and calls them:
 //
-//	snapshot file (envelope wire bytes)         loadWitnessDeclSnapshot
-//	  → crosslog.MaterializeFromEntries         → MaterializedNetwork{Endpoints,…}
-//	  → crosslog.RunAdvisoryCrossChecks         (advisory did:web drift, via the
-//	                                             DID resolver — the "find the host"
-//	                                             cross-check; non-fatal)
-//	  → crosslog.BLSWitnessesFromDeclarations   → []crosslog.BLSWitness
-//	  → WitnessSetSpec.BLSWitnesses             (folded in by the 3 build sites;
-//	                                             PoP verified at NewWitnessKeySet)
+//	declaration file (operator JSON, hex key material)
+//	  -> loadWitnessEndpointSpecs                    -> []crosslog.WitnessEndpointSpec
+//	  -> crosslog.BuildWitnessEndpointsFromConfig    -> WitnessEndpointDeclarationByPosition
+//	  -> crosslog.BLSWitnessesFromDeclarationsLatest -> []crosslog.BLSWitness
+//	  -> WitnessSetSpec.BLSWitnesses                 (PoP verified at NewWitnessKeySet)
 //
-// The declaration snapshot is the operator's view of the peer log's on-log
-// declarations (the auditor produces it the same way as AUDITOR_REGISTRY_FILE).
-// The live on-log walker is the drop-in replacement for the snapshot once it
-// lands — the composition above is identical either way (it already runs on a
-// MaterializedNetwork).
+// The declaration file is the operator's view of the log's on-log endpoint
+// declarations (produced like AUDITOR_REGISTRY_FILE). The live on-log walker
+// (crosslog.MaterializeFromEntries over a log scan) is the drop-in that yields
+// the same WitnessEndpointDeclarationByPosition once declarations are on-log —
+// both feed the same projection, so this path is unchanged when it lands. The
+// did:web drift cross-check (crosslog.RunAdvisoryCrossChecks) belongs to that
+// live-walker path: it cross-checks UNTRUSTED on-log declarations against the
+// witness's did:web document, which is moot for operator-supplied config rows.
 package main
 
 import (
-	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
-
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/network"
-	"github.com/clearcompass-ai/attesta/types"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 )
 
-// witnessDeclSnapshotEntry is one on-log WitnessEndpointDeclaration entry in
-// the operator-supplied snapshot: the canonical envelope wire bytes (base64)
-// plus the log position they were observed at. This is exactly what a log scan
-// / the future on-log walker yields per entry.
-type witnessDeclSnapshotEntry struct {
-	LogDID   string `json:"log_did"`
-	Sequence uint64 `json:"sequence"`
-	EntryB64 string `json:"entry_b64"`
+// witnessEndpointDeclJSON is the JSON/hex wire shape of one on-log witness
+// endpoint declaration in the operator's declaration file — the witness twin of
+// the auditor's AuditorSpec manifest row. Bytes are hex (JSON cannot carry raw
+// bytes); the loader decodes them into crosslog.WitnessEndpointSpec.
+type witnessEndpointDeclJSON struct {
+	EffectiveSeq      uint64            `json:"effective_seq"`
+	PubKeyID          string            `json:"pub_key_id"` // hex, 32 bytes
+	Endpoints         map[string]string `json:"endpoints"`
+	SchemeTag         uint8             `json:"scheme_tag"`                    // 1=ECDSA, 2=BLS
+	PublicKey         string            `json:"public_key,omitempty"`          // hex (96 for BLS; empty for ECDSA)
+	ProofOfPossession string            `json:"proof_of_possession,omitempty"` // hex (48 for BLS; empty for ECDSA)
+	RetiredAt         *uint64           `json:"retired_at,omitempty"`
 }
 
 // witnessSpecWithBLS builds the crosslog.WitnessSetSpec for one cross-log
-// witness set, folding any BLS witnesses sourced from the log's declaration
-// snapshot into BLSWitnesses alongside the ECDSA WitnessDIDs. With no snapshot
-// configured it returns the prior ECDSA-only spec verbatim.
+// witness set, folding any BLS witnesses sourced from the log's declaration file
+// into BLSWitnesses alongside the ECDSA WitnessDIDs. With no file configured it
+// returns the prior ECDSA-only spec verbatim.
 func witnessSpecWithBLS(
 	logDID string,
 	witnessDIDs []string,
@@ -75,82 +75,74 @@ func witnessSpecWithBLS(
 }
 
 // sourceBLSWitnesses projects the authorized BLS witnesses for one log from its
-// on-log WitnessEndpointDeclaration snapshot.
+// on-log WitnessEndpointDeclaration file.
 //
-// declFile == "" ⇒ (nil, nil): the ECDSA-only default, byte-identical to prior
-// behavior. Otherwise it loads + materializes the snapshot, runs the advisory
-// did:web cross-check via the DID resolver (best-effort; non-fatal), and
-// projects the key material for the AUTHORIZED PubKeyIDs at the latest snapshot
-// position. cosign.NewWitnessKeySet (in BuildWitnessSetsForPolicy) verifies
-// every returned PoP at set construction.
+// declFile == "" → (nil, nil): the ECDSA-only default, byte-identical to prior
+// behavior. Otherwise it decodes the declaration specs, builds the SDK record
+// slice via the shared crosslog.BuildWitnessEndpointsFromConfig (which validates
+// the v1.54 scheme/key/PoP contract, incl. SHA-256(PublicKey)==PubKeyID, per
+// row), and projects the key material for the AUTHORIZED PubKeyIDs at the latest
+// position via crosslog.BLSWitnessesFromDeclarationsLatest. The membership
+// authority (authorizedIDsHex) is NOT self-asserted from the declarations.
 func sourceBLSWitnesses(logDID, declFile string, authorizedIDsHex []string) ([]crosslog.BLSWitness, error) {
 	if declFile == "" {
 		return nil, nil
 	}
-	logger := slog.Default()
-
-	entries, err := loadWitnessDeclSnapshot(declFile)
+	specs, err := loadWitnessEndpointSpecs(declFile)
 	if err != nil {
 		return nil, fmt.Errorf("witness declarations %q: %w", declFile, err)
 	}
-	materialized := crosslog.MaterializeFromEntries(entries, logger)
-
-	// Advisory did:web cross-check: a domain-level compromise of a witness's
-	// did:web origin surfaces here as on-log vs did:web drift WITHOUT changing
-	// what the resolver returns (the on-log surface stays authoritative). The
-	// DID resolver is the "find the host name" seam. Best-effort + non-fatal:
-	// a resolver-build failure or a transient did:web fetch never blocks
-	// sourcing.
-	if resolver, derr := buildDIDResolver(); derr == nil && resolver != nil {
-		if mismatches := crosslog.RunAdvisoryCrossChecks(context.Background(), materialized, resolver, logger); len(mismatches) > 0 {
-			logger.Warn("witness_bls_source: did:web cross-check drift detected",
-				"log_did", logDID, "mismatches", len(mismatches))
-		}
-	} else if derr != nil {
-		logger.Debug("witness_bls_source: DID resolver unavailable; skipping advisory did:web cross-check",
-			"log_did", logDID, "err", derr)
+	records, err := crosslog.BuildWitnessEndpointsFromConfig(specs)
+	if err != nil {
+		return nil, fmt.Errorf("witness set %q: %w", logDID, err)
 	}
-
 	authorizedIDs, err := parseWitnessPubKeyIDs(authorizedIDsHex)
 	if err != nil {
 		return nil, fmt.Errorf("witness set %q: %w", logDID, err)
 	}
-
-	asOf := types.LogPosition{LogDID: logDID, Sequence: latestSequence(materialized.Endpoints, logDID)}
-	bls, err := crosslog.BLSWitnessesFromDeclarations(materialized.Endpoints, authorizedIDs, asOf)
+	bls, err := crosslog.BLSWitnessesFromDeclarationsLatest(records, authorizedIDs)
 	if err != nil {
 		return nil, fmt.Errorf("witness set %q: project BLS witnesses: %w", logDID, err)
 	}
 	return bls, nil
 }
 
-// loadWitnessDeclSnapshot reads the JSON snapshot and deserializes each entry's
-// canonical wire bytes into the positioned form MaterializeFromEntries consumes.
-func loadWitnessDeclSnapshot(path string) ([]crosslog.EntryAtPosition, error) {
+// loadWitnessEndpointSpecs reads + decodes the operator's declaration file into
+// the shared crosslog.WitnessEndpointSpec rows.
+func loadWitnessEndpointSpecs(path string) ([]crosslog.WitnessEndpointSpec, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var rows []witnessDeclSnapshotEntry
+	var rows []witnessEndpointDeclJSON
 	if err := json.Unmarshal(raw, &rows); err != nil {
-		return nil, fmt.Errorf("parse snapshot JSON: %w", err)
+		return nil, fmt.Errorf("parse declaration JSON: %w", err)
 	}
-	out := make([]crosslog.EntryAtPosition, 0, len(rows))
+	out := make([]crosslog.WitnessEndpointSpec, 0, len(rows))
 	for i, r := range rows {
-		if r.LogDID == "" {
-			return nil, fmt.Errorf("entry[%d]: log_did required", i)
-		}
-		wire, err := base64.StdEncoding.DecodeString(r.EntryB64)
+		id, err := decodeHex32(r.PubKeyID)
 		if err != nil {
-			return nil, fmt.Errorf("entry[%d] (seq %d): base64 decode: %w", i, r.Sequence, err)
+			return nil, fmt.Errorf("declarations[%d]: pub_key_id: %w", i, err)
 		}
-		e, err := envelope.Deserialize(wire)
-		if err != nil {
-			return nil, fmt.Errorf("entry[%d] (seq %d): deserialize: %w", i, r.Sequence, err)
+		var pub, pop []byte
+		if r.PublicKey != "" {
+			if pub, err = hex.DecodeString(r.PublicKey); err != nil {
+				return nil, fmt.Errorf("declarations[%d]: public_key: %w", i, err)
+			}
 		}
-		out = append(out, crosslog.EntryAtPosition{
-			Position: types.LogPosition{LogDID: r.LogDID, Sequence: r.Sequence},
-			Entry:    e,
+		if r.ProofOfPossession != "" {
+			if pop, err = hex.DecodeString(r.ProofOfPossession); err != nil {
+				return nil, fmt.Errorf("declarations[%d]: proof_of_possession: %w", i, err)
+			}
+		}
+		out = append(out, crosslog.WitnessEndpointSpec{
+			EffectiveSeq:      r.EffectiveSeq,
+			PubKeyID:          id,
+			Endpoints:         r.Endpoints,
+			SchemeTag:         r.SchemeTag,
+			PublicKey:         pub,
+			ProofOfPossession: pop,
+			RetiredAt:         r.RetiredAt,
 		})
 	}
 	return out, nil
@@ -161,30 +153,25 @@ func loadWitnessDeclSnapshot(path string) ([]crosslog.EntryAtPosition, error) {
 func parseWitnessPubKeyIDs(hexIDs []string) ([][32]byte, error) {
 	out := make([][32]byte, 0, len(hexIDs))
 	for i, h := range hexIDs {
-		b, err := hex.DecodeString(h)
+		id, err := decodeHex32(h)
 		if err != nil {
-			return nil, fmt.Errorf("authorized_bls_witness_ids[%d]: not hex: %w", i, err)
+			return nil, fmt.Errorf("authorized_bls_witness_ids[%d]: %w", i, err)
 		}
-		if len(b) != 32 {
-			return nil, fmt.Errorf("authorized_bls_witness_ids[%d]: want 32 bytes, got %d", i, len(b))
-		}
-		var id [32]byte
-		copy(id[:], b)
 		out = append(out, id)
 	}
 	return out, nil
 }
 
-// latestSequence returns the highest declaration position observed for logDID —
-// the "current" as-of at which key material is resolved (most recent
-// non-retired declaration wins; a witness retired at/before this position is
-// not projected).
-func latestSequence(records network.WitnessEndpointDeclarationByPosition, logDID string) uint64 {
-	var max uint64
-	for _, rec := range records {
-		if rec.EffectivePos.LogDID == logDID && rec.EffectivePos.Sequence > max {
-			max = rec.EffectivePos.Sequence
-		}
+// decodeHex32 decodes a hex string into a [32]byte, rejecting a wrong length.
+func decodeHex32(h string) ([32]byte, error) {
+	var id [32]byte
+	b, err := hex.DecodeString(h)
+	if err != nil {
+		return id, fmt.Errorf("not hex: %w", err)
 	}
-	return max
+	if len(b) != 32 {
+		return id, fmt.Errorf("want 32 bytes, got %d", len(b))
+	}
+	copy(id[:], b)
+	return id, nil
 }

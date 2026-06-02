@@ -441,10 +441,10 @@ type PeerLogConfig struct {
 	// default (256 events — see libs/auditing/peers).
 	PageLimit int `json:"page_limit,omitempty"`
 
-	// WitnessDeclarationsFile is an OPTIONAL path to a JSON snapshot of this
-	// foreign log's on-log WitnessEndpointDeclaration entries — the BLS-witness
-	// key-material source (a BLS witness cannot be a did:key). Same shape +
-	// semantics as WitnessSetConfig.WitnessDeclarationsFile. Empty ⇒ ECDSA-only.
+	// WitnessDeclarationsFile is an OPTIONAL path to a JSON file of this foreign
+	// log's on-log WitnessEndpointDeclaration rows — the BLS-witness key-material
+	// source (a BLS witness cannot be a did:key). Same shape + semantics as
+	// WitnessSetConfig.WitnessDeclarationsFile. Empty ⇒ ECDSA-only.
 	WitnessDeclarationsFile string `json:"witness_declarations_file,omitempty"`
 
 	// AuthorizedBLSWitnessIDs are the hex-encoded 32-byte PubKeyIDs of this
@@ -535,15 +535,16 @@ type WitnessSetConfig struct {
 	// Required, 1 <= QuorumK <= len(WitnessDIDs).
 	QuorumK int `json:"quorum_k"`
 
-	// WitnessDeclarationsFile is an OPTIONAL path to a JSON snapshot of this
-	// log's on-log WitnessEndpointDeclaration entries (canonical envelope wire
-	// bytes per entry — the shape a log scan / the future on-log walker yields,
-	// mirroring AUDITOR_REGISTRY_FILE). When set, JN materializes the snapshot
-	// and projects the BLS witnesses among AuthorizedBLSWitnessIDs into the
-	// keyset (key + proof-of-possession verified at cosign.NewWitnessKeySet
-	// construction). A BLS witness cannot be a did:key, so this is the ONLY
-	// zero-trust source for its key material. Empty ⇒ ECDSA-only, byte-identical
-	// to prior behavior.
+	// WitnessDeclarationsFile is an OPTIONAL path to a JSON file of this log's
+	// on-log WitnessEndpointDeclaration rows (hex-encoded key material — the
+	// witness twin of AUDITOR_REGISTRY_FILE). When set, JN builds the SDK record
+	// slice via crosslog.BuildWitnessEndpointsFromConfig and projects the BLS
+	// witnesses among AuthorizedBLSWitnessIDs into the keyset (key +
+	// proof-of-possession verified at cosign.NewWitnessKeySet construction). A
+	// BLS witness cannot be a did:key, so this is the ONLY zero-trust source for
+	// its key material; the live on-log walker yields the same records once
+	// declarations are on-log. Empty ⇒ ECDSA-only, byte-identical to prior
+	// behavior.
 	WitnessDeclarationsFile string `json:"witness_declarations_file,omitempty"`
 
 	// AuthorizedBLSWitnessIDs are the hex-encoded 32-byte witness PubKeyIDs
