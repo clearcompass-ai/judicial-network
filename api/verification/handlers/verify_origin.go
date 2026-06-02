@@ -18,6 +18,7 @@ import (
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 
+	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
@@ -109,6 +110,15 @@ type Dependencies struct {
 	// Wired in cmd/network-api/main.go (BuildLedgerSubmitClient over
 	// cfg.Ledger{Cert,Key,CA}).
 	LedgerHTTPClient *http.Client
+
+	// Registry resolves an entry's destination bundle → cosignature policy +
+	// exchange DID for the read-side crypto-aware cosignature check
+	// (VerifyCosignatureHandler). The SAME registry the exchange submit gate
+	// uses, so the read-side dual-verification applies the identical
+	// per-jurisdiction rule table — only crypto-aware (CheckCosignatureWithVerifier
+	// runs attestation.VerifyEntrySignatures first). nil ⇒ /v1/verify/cosignature
+	// returns 503; only VerifyCosignatureHandler reads this field.
+	Registry *jurisdiction.Registry
 }
 
 // PolicyStageDeps is the per-log injection point for read-time
