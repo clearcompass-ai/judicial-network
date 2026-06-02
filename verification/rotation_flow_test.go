@@ -1,5 +1,5 @@
 /*
-FILE PATH: verification/rotation_e2e_test.go
+FILE PATH: verification/rotation_flow_test.go
 
 End-to-end: the secp256k1 keystore PRODUCER → the RotationHistorySource
 CONSUMER. Drives the exact production rotation flow — StageNextKey →

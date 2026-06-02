@@ -1,5 +1,5 @@
 /*
-FILE PATH: tests/contracts/davidson_scw_e2e_setup_test.go
+FILE PATH: tests/contracts/davidson_scw_setup_test.go
 
 DESCRIPTION:
 

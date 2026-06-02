@@ -1,5 +1,5 @@
 /*
-FILE PATH: verification/attestation_policy_e2e_test.go
+FILE PATH: tests/attestation_policy_test.go
 
 DESCRIPTION:
 
@@ -23,7 +23,7 @@ DESCRIPTION:
 	per-schema behaviour; this file pins the cross-surface
 	composition.
 */
-package verification
+package tests
 
 import (
 	"errors"
@@ -33,6 +33,7 @@ import (
 	"github.com/clearcompass-ai/attesta/schema"
 
 	jnschemas "github.com/clearcompass-ai/judicial-network/schemas"
+	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
 // e2eCase pins one (schema, policy-name, expected-K) triple.
@@ -116,7 +117,7 @@ func TestE2E_AttestationPolicy_AllWalkthroughSchemas(t *testing.T) {
 
 			// Layer 3: resolver finds the policy from the schema
 			// by the name the entry header carries.
-			policy, err := ResolveEntryAttestationPolicy(entry, params)
+			policy, err := verification.ResolveEntryAttestationPolicy(entry, params)
 			if err != nil {
 				t.Fatalf("ResolveEntryAttestationPolicy: %v", err)
 			}
@@ -140,7 +141,7 @@ func TestE2E_AttestationPolicy_AllWalkthroughSchemas(t *testing.T) {
 
 // TestE2E_AttestationPolicy_NameNotFound exercises the negative
 // path: an entry references a policy name that the schema does
-// NOT declare. The resolver must surface the ErrPolicyNameNotFound
+// NOT declare. The resolver must surface the verification.ErrPolicyNameNotFound
 // sentinel so admission can reject deterministically.
 func TestE2E_AttestationPolicy_NameNotFound(t *testing.T) {
 	schemaEntry := &envelope.Entry{DomainPayload: jnschemas.DefaultCivilCaseParams()}
@@ -156,18 +157,18 @@ func TestE2E_AttestationPolicy_NameNotFound(t *testing.T) {
 	entry := &envelope.Entry{Header: envelope.ControlHeader{}}
 	jnschemas.SetAttestationPolicy(entry, &bogusName)
 
-	_, err = ResolveEntryAttestationPolicy(entry, params)
+	_, err = verification.ResolveEntryAttestationPolicy(entry, params)
 	if err == nil {
 		t.Fatal("expected error for bogus policy name; got nil")
 	}
-	if !errors.Is(err, ErrPolicyNameNotFound) {
-		t.Errorf("err = %v, want errors.Is(ErrPolicyNameNotFound)", err)
+	if !errors.Is(err, verification.ErrPolicyNameNotFound) {
+		t.Errorf("err = %v, want errors.Is(verification.ErrPolicyNameNotFound)", err)
 	}
 }
 
 // TestE2E_AttestationPolicy_NoNameAdoption exercises the "no
 // policy adopted" path: an entry without AttestationPolicyName
-// must return ErrPolicyNotAdopted from the resolver, signalling
+// must return verification.ErrPolicyNotAdopted from the resolver, signalling
 // the caller that the entry's primary signature alone is the
 // authority (no K-of-N gate).
 func TestE2E_AttestationPolicy_NoNameAdoption(t *testing.T) {
@@ -180,11 +181,11 @@ func TestE2E_AttestationPolicy_NoNameAdoption(t *testing.T) {
 	// Entry built without setting AttestationPolicyName.
 	entry := &envelope.Entry{Header: envelope.ControlHeader{}}
 
-	_, err = ResolveEntryAttestationPolicy(entry, params)
+	_, err = verification.ResolveEntryAttestationPolicy(entry, params)
 	if err == nil {
-		t.Fatal("expected ErrPolicyNotAdopted; got nil")
+		t.Fatal("expected verification.ErrPolicyNotAdopted; got nil")
 	}
-	if !errors.Is(err, ErrPolicyNotAdopted) {
-		t.Errorf("err = %v, want errors.Is(ErrPolicyNotAdopted)", err)
+	if !errors.Is(err, verification.ErrPolicyNotAdopted) {
+		t.Errorf("err = %v, want errors.Is(verification.ErrPolicyNotAdopted)", err)
 	}
 }
