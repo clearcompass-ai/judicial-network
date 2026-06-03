@@ -181,9 +181,9 @@ func Backfill(t Target, ledgerImage string, n, workers int, amendRatio float64, 
 }
 
 // RunAudit runs the stateless light-client auditor against the persisted stack's
-// bootstrap and (optionally) the backfill oracle manifest. Returns nil iff the
-// audit PASSes; the audit's own output is surfaced.
-func RunAudit(t Target, ledgerImage string, samples, random int, withManifest bool) error {
+// bootstrap and (optionally) the backfill oracle manifest. Returns the audit's
+// stdout and nil iff the audit PASSes; the output is also surfaced live.
+func RunAudit(t Target, ledgerImage string, samples, random int, withManifest bool) (string, error) {
 	args := []string{
 		"-url", t.innerURL(), "-bootstrap", mntFixtures + "/network-bootstrap.json",
 		"-quorum", strconv.Itoa(t.QuorumK), "-samples", strconv.Itoa(samples), "-random", strconv.Itoa(random),
@@ -199,7 +199,7 @@ func RunAudit(t Target, ledgerImage string, samples, random int, withManifest bo
 		fmt.Print(r.Stdout)
 	}
 	if !r.OK() {
-		return fmt.Errorf("light-client audit FAILED:\n%s", tail(r.Stdout+r.Stderr, 800))
+		return r.Stdout, fmt.Errorf("light-client audit FAILED:\n%s", tail(r.Stdout+r.Stderr, 800))
 	}
-	return nil
+	return r.Stdout, nil
 }
