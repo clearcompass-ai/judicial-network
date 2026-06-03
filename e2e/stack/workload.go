@@ -44,7 +44,8 @@ func tlsArgs() []string {
 	}
 }
 
-// certsMount mounts the run's mTLS material read-only into a tool container.
+// certsMount mounts the run's TLS material (the CA the tools pin) read-only into
+// a tool container.
 func certsMount(t Target) dockerx.Mount {
 	return dockerx.Mount{Host: t.CertsDir, Container: mntCerts + ":ro"}
 }
@@ -116,7 +117,7 @@ func SubmitStamp(t Target, ledgerImage, payload string) error {
 	return nil
 }
 
-// HeadStatus reads /v1/tree/head → (tree_size, signature count) over the mTLS host port.
+// HeadStatus reads /v1/tree/head → (tree_size, signature count) over the open-HTTPS host port.
 func HeadStatus(certsDir string, ledgerPort int) (int, int) {
 	body := ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/v1/tree/head", ledgerPort))
 	if body == "" {
@@ -132,7 +133,7 @@ func HeadStatus(certsDir string, ledgerPort int) (int, int) {
 	return h.TreeSize, len(h.Signatures)
 }
 
-// LedgerHealthyPort probes the mTLS /healthz over a host port.
+// LedgerHealthyPort probes the open-HTTPS /healthz over a host port (server-verify).
 func LedgerHealthyPort(certsDir string, ledgerPort int) bool {
 	return ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/healthz", ledgerPort)) == "ok"
 }

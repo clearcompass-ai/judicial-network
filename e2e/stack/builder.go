@@ -37,7 +37,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 	Teardown(runID)
 	dockerx.NetworkCreate(network)
 
-	stage("mTLS certs")
+	stage("TLS certs")
 	ledgerNames := make([]string, len(ncs))
 	for i := range ncs {
 		ledgerNames[i] = ncs[i].Name("ledger")
@@ -178,8 +178,8 @@ func Wipe(runID string) error {
 	return lay.Remove()
 }
 
-// LedgerHealthy probes a network's ledger mTLS /healthz over its published host
-// port (certsDir holds the client cert the edge requires).
+// LedgerHealthy probes a network's ledger /healthz over its published host port
+// using open HTTPS (certsDir holds the run CA the probe pins; no client cert).
 func LedgerHealthy(n runstore.NetworkManifest, certsDir string) bool {
 	return ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/healthz", n.LedgerPort)) == "ok"
 }

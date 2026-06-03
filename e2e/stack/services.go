@@ -88,7 +88,8 @@ func ledgerHTTP(certsDir string) *http.Client {
 	return c
 }
 
-// ledgerBody GETs an mTLS ledger URL and returns the trimmed body ("" on error).
+// ledgerBody GETs an open-HTTPS ledger URL (server-verify, no client cert) and
+// returns the trimmed body ("" on error).
 func ledgerBody(certsDir, url string) string {
 	resp, err := ledgerHTTP(certsDir).Get(url)
 	if err != nil {
@@ -301,7 +302,8 @@ func auditorEnv(nc NetConfig, in Infra, idx int) map[string]string {
 
 // UpAuditors brings up this network's auditors. Their gossip databases must already
 // exist (the builder EnsureDB's them first). Each auditor pulls from the ledger
-// over the mTLS edge; its own probe listener stays plain http.
+// over open HTTPS (server-verify, no client cert); its own probe listener stays
+// plain http.
 func UpAuditors(nc NetConfig, in Infra, fixturesDir, certsDir, auditorImage string) error {
 	for idx := 1; idx <= nc.Spec.Auditors; idx++ {
 		port := nc.AuditorPorts[idx-1]
@@ -398,10 +400,10 @@ func aggregatorEnv(nc NetConfig, in Infra) map[string]string {
 	}
 }
 
-// UpAggregator brings up this network's read-projection aggregator (mTLS outbound
-// to the ledger edge; plain-http probe surface, so /healthz + /readyz are probed
-// over plain http). Its projection DB must already exist (the builder EnsureDB's
-// it first). /readyz is db+ledger-gated.
+// UpAggregator brings up this network's read-projection aggregator (open-HTTPS
+// outbound to the ledger, server-verify + no client cert; plain-http probe
+// surface, so /healthz + /readyz are probed over plain http). Its projection DB
+// must already exist (the builder EnsureDB's it first). /readyz is db+ledger-gated.
 func UpAggregator(nc NetConfig, in Infra, certsDir, aggregatorImage string) error {
 	if r := dockerx.Run(dockerx.RunSpec{
 		Name: nc.Name("aggregator"), Network: nc.Network, Image: aggregatorImage, Detached: true,
