@@ -470,12 +470,18 @@ func applyBootstrapDerivations(ctx context.Context, cfg config.Operational) (con
 	// did:key (what STHs are originated under), discovered from the ledger's
 	// /v1/log-info — NOT exchange_did. gossipverify routes WitnessSets[ev.Originator],
 	// so keying by exchange_did leaves every STH unmatched.
-	// nil ledgerHTTPClient: bootstrap derivation runs in loadConfig BEFORE the
-	// mTLS client is materialised, so the discovery probe uses a plain
-	// client. A peer-mTLS-required ledger will refuse the probe — in that
-	// posture, operators must hand-list witness sets / peers (set
-	// API_GOSSIP_INGEST_DISCOVER_ORIGINATOR=false) so derivation is skipped.
-	logDID, err := gossipOriginatorLogDID(ctx, cfg, doc, nil)
+	//
+	// Bootstrap derivation runs in loadConfig BEFORE the long-lived ledger client
+	// is materialised, so build a short-lived discovery client here that honors the
+	// SAME ledger TLS posture — pin LedgerCAFile for an open/self-signed ledger,
+	// present the client cert for mTLS. A bare client fails x509 against a
+	// privately-signed ledger. To skip discovery entirely, set
+	// API_GOSSIP_INGEST_DISCOVER_ORIGINATOR=false and hand-list witness sets/peers.
+	discoverClient, err := ledgerProbeClient(cfg)
+	if err != nil {
+		return cfg, fmt.Errorf("bootstrap derivations: ledger discovery client: %w", err)
+	}
+	logDID, err := gossipOriginatorLogDID(ctx, cfg, doc, discoverClient)
 	if err != nil {
 		return cfg, fmt.Errorf("bootstrap derivations: %w", err)
 	}
