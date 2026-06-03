@@ -68,7 +68,7 @@ func ResolveImages() Images {
 	return Images{
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
-		Ledger:   env("E2E_LEDGER_IMAGE", ghcr+"/attesta-tools/ledger:1.64.0"+suffix),
+		Ledger:   env("E2E_LEDGER_IMAGE", ghcr+"/attesta-tools/ledger:1.65.0"+suffix),
 		Witness:  env("E2E_WITNESS_IMAGE", ghcr+"/attesta-tools/witness:1.52.0"),
 		Auditor:  env("E2E_AUDITOR_IMAGE", ghcr+"/attesta-tools/auditor:1.52.0"),
 		JN:       env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
