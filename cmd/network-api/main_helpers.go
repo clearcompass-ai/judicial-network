@@ -18,8 +18,11 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -30,8 +33,8 @@ import (
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	pkcs11ks "github.com/clearcompass-ai/attesta-tools/libs/keystore/pkcs11"
 	vaultks "github.com/clearcompass-ai/attesta-tools/libs/keystore/vault"
-	"github.com/clearcompass-ai/judicial-network/api/config"
 	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	"github.com/clearcompass-ai/judicial-network/api/config"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
@@ -159,6 +162,46 @@ func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 	}
 }
 
+// ledgerProbeClient builds the HTTP client probeLedgerReachable uses at boot.
+// It MUST honor the same TLS posture as the rest of the JN→ledger leg, or the
+// boot probe fails against an HTTPS ledger that presents a privately-signed cert
+// (a bare http.Client verifies against the SYSTEM roots and rejects the run CA):
+//
+//   - http endpoint                  → plain client (plaintext / dev).
+//   - https + client cert+key        → mTLS (present the cert; pin LedgerCAFile).
+//   - https + CA only (open HTTPS)    → server-verify (pin LedgerCAFile, no cert).
+//   - https + no CA                   → system roots (public-PKI ledger).
+//
+// Verification is never skipped (no InsecureSkipVerify).
+func ledgerProbeClient(cfg config.Operational) (*http.Client, error) {
+	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(cfg.LedgerEndpoint)), "https://") {
+		return &http.Client{Timeout: 3 * time.Second}, nil
+	}
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS13}
+	if cfg.LedgerCAFile != "" {
+		caPEM, err := os.ReadFile(cfg.LedgerCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("read ledger CA %q: %w", cfg.LedgerCAFile, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("ledger CA %q contains no parseable certificates", cfg.LedgerCAFile)
+		}
+		tlsCfg.RootCAs = pool
+	}
+	if cfg.LedgerCertFile != "" && cfg.LedgerKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.LedgerCertFile, cfg.LedgerKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load ledger client cert: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+	return &http.Client{
+		Timeout:   3 * time.Second,
+		Transport: &http.Transport{TLSClientConfig: tlsCfg},
+	}, nil
+}
+
 // probeLedgerReachable enforces the JN's hard dependency on the ledger:
 // the network is an AUDITOR of a ledger and has no purpose without one, so
 // network-api refuses to start unless the ledger answers GET /healthz at
@@ -167,7 +210,10 @@ func buildKeyStore(cfg config.KeyStoreConfig) (keystore.KeyStore, error) {
 // after boot; this keeps it honest AT boot.
 func probeLedgerReachable(ctx context.Context, cfg config.Operational) error {
 	url := cfg.LedgerEndpoint + "/healthz"
-	client := &http.Client{Timeout: 3 * time.Second}
+	client, err := ledgerProbeClient(cfg)
+	if err != nil {
+		return fmt.Errorf("ledger probe: build client: %w", err)
+	}
 	const attempts = 5
 	var lastErr error
 	for i := 1; i <= attempts; i++ {
