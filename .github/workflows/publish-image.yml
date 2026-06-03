@@ -15,7 +15,11 @@ name: publish-image
 
 on:
   push:
-    branches: [main]
+    # `claude/**` branches build a branch-tagged image (type=ref,event=branch →
+    # e.g. :claude-brave-lovelace-YIc2o) so the e2e harness can validate the
+    # open-HTTPS JN/aggregator legs against a real image BEFORE the change is
+    # tagged/merged. Only `main` gets :latest (is_default_branch, line below).
+    branches: [main, "claude/**"]
     tags: ["v*.*.*"]
   workflow_dispatch:
 
