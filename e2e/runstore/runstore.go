@@ -20,12 +20,18 @@ import (
 
 const idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-// Root is the .run root: $E2E_RUN_ROOT or ./.run.
+// Root is the .run root: $E2E_RUN_ROOT or ./.run, resolved to an ABSOLUTE path
+// (docker bind-mounts reject relative host paths — they read them as named-volume
+// names).
 func Root() string {
-	if r := os.Getenv("E2E_RUN_ROOT"); r != "" {
-		return r
+	r := os.Getenv("E2E_RUN_ROOT")
+	if r == "" {
+		r = ".run"
 	}
-	return ".run"
+	if abs, err := filepath.Abs(r); err == nil {
+		return abs
+	}
+	return r
 }
 
 // ValidID reports whether s is exactly 3 alphanumeric characters.
