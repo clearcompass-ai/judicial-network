@@ -55,7 +55,7 @@ func env(key, def string) string {
 
 // Images are the container images, each overridable via E2E_*_IMAGE.
 type Images struct {
-	Postgres, Seaweed, Ledger, Witness, Auditor, JN string
+	Postgres, Seaweed, Ledger, Witness, Auditor, Aggregator, JN string
 }
 
 // ResolveImages reads the image set from the environment. E2E_TESSERA=upstream
@@ -70,14 +70,15 @@ func ResolveImages() Images {
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		Ledger:   env("E2E_LEDGER_IMAGE", ghcr+"/attesta-tools/ledger:1.65.0"+suffix),
 		Witness:  env("E2E_WITNESS_IMAGE", ghcr+"/attesta-tools/witness:1.52.0"),
-		Auditor:  env("E2E_AUDITOR_IMAGE", ghcr+"/attesta-tools/auditor:1.52.0"),
-		JN:       env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", ghcr+"/attesta-tools/auditor:1.52.0"),
+		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
+		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
 }
 
 // All returns the images as a slice (for the pull step).
 func (im Images) All() []string {
-	return []string{im.Postgres, im.Seaweed, im.Ledger, im.Witness, im.Auditor, im.JN}
+	return []string{im.Postgres, im.Seaweed, im.Ledger, im.Witness, im.Auditor, im.Aggregator, im.JN}
 }
 
 // NetConfig is the resolved, addressable config for one network in the stack.
@@ -90,10 +91,12 @@ type NetConfig struct {
 	LogDIDSeed string // -log-did passed to gen-fixtures
 	LogDID     string // resolved exchange_did from the bootstrap (filled after fixtures)
 
-	LedgerPort   int
-	JNPort       int
-	AuditorPorts []int
-	Single       bool // the stack has exactly one network (names/DB collapse)
+	LedgerPort     int
+	JNPort         int
+	AggregatorPort int
+	AuditorPorts   []int
+	AggDB          string // per-network aggregator projection DB (when HasAggregator)
+	Single         bool   // the stack has exactly one network (names/DB collapse)
 }
 
 // Name returns the container name for a service in this network.
@@ -117,10 +120,11 @@ func dsn(pgContainer, db string) string {
 // Port plan. Each network's services bind the same container ports (8080/8443/8088)
 // to distinct HOST ports so multiple networks coexist. Strides keep them apart.
 const (
-	ledgerPortBase   = 8080
-	jnPortBase       = 8443
-	auditorPortBase  = 8088
-	perNetworkStride = 20 // host-port gap between networks
+	ledgerPortBase     = 8080
+	jnPortBase         = 8443
+	auditorPortBase    = 8088
+	aggregatorPortBase = 8092
+	perNetworkStride   = 20 // host-port gap between networks
 )
 
 // DeriveNetConfigs derives the per-network addressable config for a spec under a
@@ -145,17 +149,23 @@ func DeriveNetConfigs(spec topology.StackSpec, runID string) []NetConfig {
 		for a := 0; a < n.Auditors; a++ {
 			auditorPorts[a] = auditorPortBase + i*perNetworkStride + a
 		}
+		aggDB := "aggregator"
+		if !single {
+			aggDB = "aggregator_" + n.Name
+		}
 		out = append(out, NetConfig{
-			Spec:         n,
-			Tuning:       spec.Tuning,
-			Prefix:       prefix,
-			Network:      network,
-			DB:           db,
-			LogDIDSeed:   seed,
-			LedgerPort:   ledgerPortBase + i*perNetworkStride,
-			JNPort:       jnPortBase + i*perNetworkStride,
-			AuditorPorts: auditorPorts,
-			Single:       single,
+			Spec:           n,
+			Tuning:         spec.Tuning,
+			Prefix:         prefix,
+			Network:        network,
+			DB:             db,
+			LogDIDSeed:     seed,
+			LedgerPort:     ledgerPortBase + i*perNetworkStride,
+			JNPort:         jnPortBase + i*perNetworkStride,
+			AggregatorPort: aggregatorPortBase + i*perNetworkStride,
+			AuditorPorts:   auditorPorts,
+			AggDB:          aggDB,
+			Single:         single,
 		})
 	}
 	return out

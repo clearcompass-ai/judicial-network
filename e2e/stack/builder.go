@@ -120,9 +120,23 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 			okf("JN mTLS /readyz == 200")
 		}
 
+		aggPort := 0
+		if nc.Spec.HasAggregator {
+			if err := in.EnsureDB(nc.AggDB); err != nil {
+				return nil, err
+			}
+			stage("network %q — aggregator on :%d", nc.Spec.Name, nc.AggregatorPort)
+			if err := UpAggregator(*nc, in, lay.Certs, images.Aggregator); err != nil {
+				return nil, err
+			}
+			aggPort = nc.AggregatorPort
+			okf("aggregator /readyz == 200")
+		}
+
 		manifest.Networks = append(manifest.Networks, runstore.NetworkManifest{
 			Name: nc.Spec.Name, LogDID: did, QuorumK: nc.Spec.QuorumK,
 			LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort, JNPort: jnPort,
+			AggregatorPort: aggPort, AuditorPorts: nc.AuditorPorts,
 		})
 	}
 

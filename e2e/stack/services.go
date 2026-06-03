@@ -372,3 +372,46 @@ func UpJN(nc NetConfig, certsDir, fixturesDir, jnImage string) error {
 	}
 	return nil
 }
+
+// aggregatorEnv is the read-projection aggregator's deterministic env. It scans
+// the ledger over the mTLS edge (TOOLS_LEDGER_URL https + TOOLS_LEDGER_*_FILE
+// client cert — the ledger mandates mTLS) and indexes into its OWN projection DB;
+// the three log DIDs all point at the network's bootstrap log.
+func aggregatorEnv(nc NetConfig, in Infra) map[string]string {
+	return map[string]string{
+		"TOOLS_DATABASE_URL":            dsn(in.PG(), nc.AggDB),
+		"TOOLS_LEDGER_URL":              "https://" + nc.Name("ledger") + ":8080",
+		"TOOLS_LEDGER_CLIENT_CERT_FILE": mntCerts + "/client.crt",
+		"TOOLS_LEDGER_CLIENT_KEY_FILE":  mntCerts + "/client.key",
+		"TOOLS_LEDGER_CA_FILE":          mntCerts + "/ca.crt",
+		"TOOLS_OFFICERS_LOG":            nc.LogDID,
+		"TOOLS_CASES_LOG":               nc.LogDID,
+		"TOOLS_PARTIES_LOG":             nc.LogDID,
+	}
+}
+
+// UpAggregator brings up this network's read-projection aggregator (mTLS outbound
+// to the ledger edge; plain-http probe surface, so /healthz + /readyz are probed
+// over plain http). Its projection DB must already exist (the builder EnsureDB's
+// it first). /readyz is db+ledger-gated.
+func UpAggregator(nc NetConfig, in Infra, certsDir, aggregatorImage string) error {
+	if r := dockerx.Run(dockerx.RunSpec{
+		Name: nc.Name("aggregator"), Network: nc.Network, Image: aggregatorImage, Detached: true,
+		Env:    aggregatorEnv(nc, in),
+		Ports:  []dockerx.Port{{Host: nc.AggregatorPort, Container: 8092}},
+		Mounts: []dockerx.Mount{{Host: certsDir, Container: mntCerts + ":ro"}},
+	}); !r.OK() {
+		return fmt.Errorf("%s run: %s", nc.Name("aggregator"), tail(r.Stderr, 300))
+	}
+	if !poll(120*time.Second, func() bool {
+		return httpStatus(fmt.Sprintf("http://localhost:%d/healthz", nc.AggregatorPort)) == 200
+	}) {
+		return fmt.Errorf("%s /healthz never == 200", nc.Name("aggregator"))
+	}
+	if !poll(120*time.Second, func() bool {
+		return httpStatus(fmt.Sprintf("http://localhost:%d/readyz", nc.AggregatorPort)) == 200
+	}) {
+		return fmt.Errorf("%s /readyz never == 200 (db + ledger gated)", nc.Name("aggregator"))
+	}
+	return nil
+}
