@@ -141,3 +141,16 @@ secrets.yml
 # --- SOPS/Age Private Keys (Safety Net) ---
 keys.txt
 *age-key.txt
+# --- Stray root-level Go build artifacts ---
+# Canonical builds go to ./bin/ (ignored above). These guard against an
+# accidental `go build ./cmd/<x>` writing the binary to the repo root.
+# Anchored with a leading slash so they never match the source dirs
+# (cmd/network-api/, tools/aggregator/, …). NOTE: /e2e is intentionally
+# omitted — e2e/ is the harness SOURCE directory.
+/network-api
+/judicial-cli
+/court-tools
+/provider-tools
+/aggregator
+/add-destination-fields
+/verify-destination
