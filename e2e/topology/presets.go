@@ -38,14 +38,17 @@ func Get(name string) (StackSpec, error) {
 	return s, nil
 }
 
-// single — one network; the ledger throughput / audit baseline (no aggregator).
+// single — one network with the full JN read/write surface: ledger + witnesses +
+// auditors + JN enforcer + the aggregator read-projection. The aggregator belongs
+// to EVERY JN deployment, not just federation — the JN's judicial queries read
+// its own network's rebuildable projection of the log (Ledger Principle 12).
 func single() StackSpec {
 	return StackSpec{
 		Name: "single",
 		Networks: []NetworkSpec{
 			{
 				Name: "n1", QuorumK: 2, Witnesses: 3, Auditors: 2,
-				HasJN: true, HasAggregator: false,
+				HasJN: true, HasAggregator: true,
 				Destinations: []string{"did:web:state:tn:davidson"},
 			},
 		},
@@ -108,7 +111,7 @@ func FromFlags(networks, witnesses, auditors, quorumK int) (StackSpec, error) {
 	for i := 1; i <= networks; i++ {
 		nets = append(nets, NetworkSpec{
 			Name: fmt.Sprintf("n%d", i), QuorumK: quorumK, Witnesses: witnesses, Auditors: auditors,
-			HasJN: true, HasAggregator: networks > 1,
+			HasJN: true, HasAggregator: true, // the aggregator is part of every JN deployment
 		})
 	}
 	s := StackSpec{Name: "adhoc", Networks: nets, Tuning: DefaultTuning()}

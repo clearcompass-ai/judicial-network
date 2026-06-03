@@ -39,6 +39,37 @@ func TestAggregatorEnv_ScansLedgerOverMTLS(t *testing.T) {
 	}
 }
 
+// The aggregator image MUST be in the pull set, or `up` (ensureImages) never
+// pulls it and the bring-up fails at docker-run.
+func TestImages_All_IncludesAggregator(t *testing.T) {
+	im := ResolveImages()
+	if im.Aggregator == "" {
+		t.Fatal("aggregator image is empty")
+	}
+	found := false
+	for _, img := range im.All() {
+		if img == im.Aggregator {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("aggregator image %q not in the pull set All()", im.Aggregator)
+	}
+}
+
+// single (which has a JN) must declare the aggregator — it's part of every JN
+// deployment, not just federation.
+func TestSinglePreset_HasAggregator(t *testing.T) {
+	spec, err := topology.Get("single")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !spec.Networks[0].HasJN || !spec.Networks[0].HasAggregator {
+		t.Errorf("single must have both JN and aggregator; got HasJN=%v HasAggregator=%v",
+			spec.Networks[0].HasJN, spec.Networks[0].HasAggregator)
+	}
+}
+
 // Federation: every HasAggregator network gets a distinct aggregator port (no
 // collision with ledger/jn/auditor ports) and a distinct projection DB.
 func TestDeriveNetConfigs_AggregatorPortsAndDBsDistinct(t *testing.T) {

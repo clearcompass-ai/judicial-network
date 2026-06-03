@@ -415,3 +415,12 @@ func UpAggregator(nc NetConfig, in Infra, certsDir, aggregatorImage string) erro
 	}
 	return nil
 }
+
+// AggregatorReady probes the aggregator's plain-http /healthz then /readyz over
+// its published host port. /readyz is 200 only when BOTH the projection DB and
+// the (mTLS) ledger edge are reachable (the aggregator's probes.go), so a true
+// result proves the read-projection's scan-pipeline wiring end-to-end.
+func AggregatorReady(port int) bool {
+	return httpStatus(fmt.Sprintf("http://localhost:%d/healthz", port)) == 200 &&
+		httpStatus(fmt.Sprintf("http://localhost:%d/readyz", port)) == 200
+}
