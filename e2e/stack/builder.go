@@ -114,10 +114,14 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		if nc.Spec.HasJN {
 			stage("network %q — JN enforcer on :%d", nc.Spec.Name, nc.JNPort)
 			if err := UpJN(*nc, lay.Certs, fixturesDir, images.JN); err != nil {
-				return nil, err
+				if !jnBestEffort() {
+					return nil, err
+				}
+				fmt.Printf("  ⚠ JN did NOT come up (%v) — continuing (E2E_JN_BEST_EFFORT=1); the open ledger/auditor/tools path is unaffected. A stale JN image (no open-HTTPS JN→ledger leg) is the usual cause — build it from this branch.\n", err)
+			} else {
+				jnPort = nc.JNPort
+				okf("JN mTLS /readyz == 200")
 			}
-			jnPort = nc.JNPort
-			okf("JN mTLS /readyz == 200")
 		}
 
 		aggPort := 0
