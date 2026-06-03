@@ -31,35 +31,8 @@ func serverTrustClient(certsDir string) (*http.Client, error) {
 	}, nil
 }
 
-// AssertEdgeRejectsNoClientCert proves an mTLS edge fails CLOSED. It issues the
-// SAME GET two ways and passes only if the edge answers WITH the run client cert
-// and refuses WITHOUT it:
-//
-//   - positive leg (the run mTLS client) must reach the edge — proves the service
-//     is up + healthy, so a refusal below can't be a false "it's just down";
-//   - negative leg (a CA-trusting client with NO client cert) must be refused —
-//     the server cert still verifies (CA-trusting), so the refusal isn't a
-//     server-cert problem either; the client cert is the ONLY variable, hence the
-//     refusal IS the mTLS enforcement.
-//
-// A refusal is either a TLS-layer rejection (RequireAndVerifyClientCert → the GET
-// errors) or an app-layer rejection (4xx/5xx). Only a 2xx WITHOUT a client cert
-// means the edge is NOT fail-closed. Returns nil iff enforcement holds.
-func AssertEdgeRejectsNoClientCert(certsDir, url string) error {
-	if ledgerBody(certsDir, url) == "" {
-		return fmt.Errorf("%s unreachable WITH a client cert — cannot assert enforcement (service down?)", url)
-	}
-	c, err := serverTrustClient(certsDir)
-	if err != nil {
-		return err
-	}
-	resp, err := c.Get(url)
-	if err != nil {
-		return nil // TLS-layer rejection — fail-closed ✓
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode/100 != 2 {
-		return nil // app-layer rejection (4xx/5xx) — fail-closed ✓
-	}
-	return fmt.Errorf("%s ACCEPTED a no-client-cert request (HTTP %d) — NOT fail-closed", url, resp.StatusCode)
-}
+// NOTE: the former AssertEdgeRejectsNoClientCert (which proved the ledger edge
+// REFUSED a no-client-cert caller) was retired with the zero-trust pivot: the
+// ledger now serves OPEN HTTPS and ACCEPTS no-client-cert reads by design, with
+// writes gated by in-body crypto. serverTrustClient (above) is the live
+// realisation of that posture — it backs the host probes (ledgerHTTP).

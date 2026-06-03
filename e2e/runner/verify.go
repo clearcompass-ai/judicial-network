@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,10 +12,11 @@ func init() {
 	Register(Recipe{Name: "verify", Tags: []string{"verify"}, Run: verifyAll})
 	Register(Recipe{Name: "verify.checkpoint", Tags: []string{"verify"}, Run: mk(vCheckpoint)})
 	Register(Recipe{Name: "verify.head", Tags: []string{"verify"}, Run: mk(vHeadHorizon)})
+	Register(Recipe{Name: "verify.witness", Tags: []string{"verify"}, Run: mk(vWitness)})
 	Register(Recipe{Name: "verify.proofs", Tags: []string{"verify"}, Run: mk(vProofs)})
 	Register(Recipe{Name: "verify.oracle", Tags: []string{"verify"}, Run: mk(vOracle)})
 	Register(Recipe{Name: "verify.logs", Tags: []string{"verify"}, Run: mk(vLogs)})
-	Register(Recipe{Name: "verify.mtls", Tags: []string{"verify"}, Run: mk(vMTLSEnforced)})
+	Register(Recipe{Name: "verify.auditor", Tags: []string{"verify"}, Run: vAuditor})
 	Register(Recipe{Name: "verify.aggregator", Tags: []string{"verify"}, Run: vAggregator})
 }
 
@@ -38,7 +40,15 @@ func mk(c checkFn) func(*Session) error {
 // and a regression scan of the ledger log. It trusts only SHA-256 and the K witness
 // signatures; everything else is recomputed live.
 func verifyAll(s *Session) error {
-	return runChecks(s, vCheckpoint, vHeadHorizon, vProofs, vOracle, vLogs, vMTLSEnforced)
+	// Ledger + witness cryptographic integrity, every byte re-derived and read
+	// over OPEN HTTPS (server-verify, no client cert): the cosigned anchor, the
+	// full-coverage SMT proofs, the oracle's distinctness, head/horizon coherence,
+	// and the log regression scan.
+	cfErr := runChecks(s, vCheckpoint, vHeadHorizon, vProofs, vOracle, vLogs)
+	// The independent auditor's agreement, reached over the same open-HTTPS pull
+	// path. Aggregated (not short-circuited) so one failure doesn't mask the other.
+	audErr := vAuditor(s)
+	return errors.Join(cfErr, audErr)
 }
 
 func runChecks(s *Session, checks ...checkFn) error {
@@ -151,20 +161,72 @@ func vLogs(_ *Session, t stack.Target) check {
 	return check{"logs", true, "0 HARD regression signatures"}
 }
 
-// vMTLSEnforced: the mTLS edge fails CLOSED — a no-client-cert request to the
-// ledger (and the JN, if up) is provably refused, not merely "certs configured".
-func vMTLSEnforced(_ *Session, t stack.Target) check {
-	if err := stack.AssertEdgeRejectsNoClientCert(t.CertsDir, fmt.Sprintf("https://localhost:%d/healthz", t.LedgerPort)); err != nil {
-		return check{"mtls-enforced", false, "ledger: " + err.Error()}
+// vWitness: the witness fleet's K-of-N cosignatures on the ledger head verify
+// CRYPTOGRAPHICALLY against the genesis bootstrap — read over OPEN HTTPS, no
+// client cert. It first pins the cosignature shape (>= K distinct ECDSA signers
+// on a non-empty horizon), then runs the stateless light-client audit WITHOUT the
+// backfill oracle: the auditor pins the bootstrap witness keys, fetches the
+// cosigned checkpoint, verifies the cosignatures, and samples inclusion/exclusion
+// proofs over the cosigned root. Needs no workload — this is the witness-trust
+// check on a fresh stack, and a no-client-cert caller completing it IS the
+// open-read proof.
+func vWitness(s *Session, t stack.Target) check {
+	hz, err := stack.FetchHorizon(t.CertsDir, t.LedgerPort)
+	if err != nil {
+		return check{"witness", false, err.Error()}
 	}
-	edges := "ledger"
-	if t.JNPort != 0 {
-		if err := stack.AssertEdgeRejectsNoClientCert(t.CertsDir, fmt.Sprintf("https://localhost:%d/healthz", t.JNPort)); err != nil {
-			return check{"mtls-enforced", false, "jn: " + err.Error()}
+	if hz.TreeSize < 1 {
+		return check{"witness", false, "empty horizon (tree_size 0) — nothing cosigned"}
+	}
+	if len(hz.Signatures) < t.QuorumK {
+		return check{"witness", false, fmt.Sprintf("%d cosignatures, want >= K=%d", len(hz.Signatures), t.QuorumK)}
+	}
+	if hz.DistinctSigners() != len(hz.Signatures) {
+		return check{"witness", false, "a witness signed more than once (distinct < total)"}
+	}
+	if !hz.SchemesAllECDSA() {
+		return check{"witness", false, "non-ECDSA cosignature scheme present"}
+	}
+	// Cryptographic verification against the genesis witness set (bootstrap-only,
+	// no oracle): proves the cosignatures are real, not just present.
+	samples := hz.TreeSize
+	if samples > 16 {
+		samples = 16
+	}
+	out, err := stack.RunAudit(t, s.Images.Ledger, samples, 4, false)
+	if err != nil {
+		return check{"witness", false, "light-client cosignature audit did not pass (see output above)"}
+	}
+	return check{"witness", true, fmt.Sprintf("K-of-N %d/%d cosignatures verify vs genesis bootstrap over open HTTPS; %s",
+		len(hz.Signatures), t.QuorumK, auditSummary(out))}
+}
+
+// vAuditor: every network's independent auditor service agrees with the ledger
+// over the OPEN-HTTPS pull path. The auditor reaches /readyz only after its
+// boot-time originator discovery GET /v1/log-info to the ledger SUCCEEDS over open
+// HTTPS (server-verify, no client cert) — a failed handshake fails the pipeline
+// build before the listener serves — so a green auditor is the auditor↔ledger
+// open-HTTPS proof end-to-end. We re-confirm liveness and that its gossip custody
+// feed (the JN's ingest source) is serving what it pulled. Lenient on ABSENCE
+// (a topology with no auditors is skipped, not failed) so it can join verifyAll.
+func vAuditor(s *Session) error {
+	any := false
+	for _, n := range s.Manifest.Networks {
+		for idx, port := range n.AuditorPorts {
+			any = true
+			if !stack.AuditorReady(port) {
+				return fmt.Errorf("auditor %s-%d not ready on :%d (/healthz+/readyz != 200 — open-HTTPS pull to the ledger failed?)", n.Name, idx+1, port)
+			}
+			if !stack.AuditorFeedServing(port) {
+				return fmt.Errorf("auditor %s-%d gossip feed not serving on :%d (/v1/gossip 5xx — custody store not wired)", n.Name, idx+1, port)
+			}
+			fmt.Printf("  [PASS] auditor %-10s :%d  /readyz 200 (open-HTTPS ledger discovery succeeded) + gossip feed serving\n", fmt.Sprintf("%s-%d", n.Name, idx+1), port)
 		}
-		edges = "ledger + jn"
 	}
-	return check{"mtls-enforced", true, edges + " reject no-client-cert (with-cert 200, without-cert refused)"}
+	if !any {
+		fmt.Println("  [skip] no auditors in the persisted manifest")
+	}
+	return nil
 }
 
 // vAggregator: every JN-bearing network's read-projection aggregator is up and

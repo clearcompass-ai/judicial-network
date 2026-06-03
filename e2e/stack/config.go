@@ -68,9 +68,11 @@ func ResolveImages() Images {
 	return Images{
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
-		Ledger:   env("E2E_LEDGER_IMAGE", ghcr+"/attesta-tools/ledger:1.65.0"+suffix),
-		Witness:  env("E2E_WITNESS_IMAGE", ghcr+"/attesta-tools/witness:1.52.0"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", ghcr+"/attesta-tools/auditor:1.52.0"),
+		// ledger + auditor carry the open-HTTPS server / open-client postures from
+		// the v1.66.0 release; witness is unchanged (server-TLS only).
+		Ledger:     env("E2E_LEDGER_IMAGE", ghcr+"/attesta-tools/ledger:1.66.0"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", ghcr+"/attesta-tools/witness:1.52.0"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", ghcr+"/attesta-tools/auditor:1.66.0"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}

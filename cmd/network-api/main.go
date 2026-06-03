@@ -185,11 +185,12 @@ func run(argv []string, d deps) error {
 	// Built BEFORE the authenticator so the JWT-mode JWKS fetch shares
 	// the same operator-chosen mTLS posture (libs/v1.29.0 JWTConfig
 	// rejects a nil Client to prevent silent demotion).
-	if err := requireLedgerMTLS(cfg.LedgerEndpoint, cfg.LedgerCertFile, cfg.LedgerKeyFile, cfg.LedgerAllowPlaintext); err != nil {
+	if err := requireLedgerMTLS(cfg.LedgerEndpoint, cfg.LedgerCertFile, cfg.LedgerKeyFile, cfg.LedgerAllowPlaintext, cfg.LedgerAllowSelfSigned, cfg.LedgerCAFile); err != nil {
 		return err
 	}
 	var ledgerSubmitClient *http.Client
-	if cfg.LedgerCertFile != "" || cfg.LedgerKeyFile != "" {
+	switch {
+	case cfg.LedgerCertFile != "" || cfg.LedgerKeyFile != "":
 		ledgerSubmitClient, err = exchange.BuildLedgerSubmitClient(exchange.ServerConfig{
 			LedgerCert: cfg.LedgerCertFile,
 			LedgerKey:  cfg.LedgerKeyFile,
@@ -197,6 +198,14 @@ func run(argv []string, d deps) error {
 		})
 		if err != nil {
 			return fmt.Errorf("ledger submit client: %w", err)
+		}
+	case cfg.LedgerAllowSelfSigned:
+		// Open HTTPS: pin the ledger CA, present no client cert. Threaded into
+		// every SDK call so the privately-signed ledger verifies (server-verify),
+		// instead of the nil-client fallback to system roots.
+		ledgerSubmitClient, err = exchange.BuildLedgerServerVerifyClient(cfg.LedgerCAFile)
+		if err != nil {
+			return fmt.Errorf("ledger server-verify client: %w", err)
 		}
 	}
 

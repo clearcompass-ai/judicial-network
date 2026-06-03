@@ -21,6 +21,9 @@ func testNetInfra(t *testing.T) (NetConfig, Infra) {
 }
 
 // ── cert SAN ───────────────────────────────────────────────────────────────
+// The server cert SAN must still cover every ledger container name: open HTTPS
+// is server-authenticated (the caller verifies the ledger's cert), so a missing
+// SAN breaks server-name verification just as it did under mTLS.
 
 func TestServerSAN_CoversHostAndLedgerNames(t *testing.T) {
 	san := serverSAN([]string{"baseproof-a3f-ledger"})
@@ -39,8 +42,6 @@ func TestServerSAN_MultiNetworkCoversEvery(t *testing.T) {
 			t.Errorf("serverSAN missing DNS:%s\n  got: %s", n, san)
 		}
 	}
-	// Regression: only the passed names are covered. The localhost-only SAN bug
-	// let in-network handshakes fail server-name verification against the ledger.
 	if strings.Contains(san, "absent-ledger") {
 		t.Error("serverSAN covered a name that was never passed")
 	}
@@ -52,54 +53,57 @@ func TestServerSAN_EmptyKeepsHostNamesOnly(t *testing.T) {
 	}
 }
 
-// ── ledger listener: terminates mTLS in-binary ───────────────────────────────
+// ── ledger listener: OPEN HTTPS (server-TLS, no inbound client CA) ───────────
 
-func TestLedgerBaseEnv_TerminatesMTLS(t *testing.T) {
+func TestLedgerBaseEnv_OpenHTTPS(t *testing.T) {
 	nc, in := testNetInfra(t)
 	env := ledgerBaseEnv(nc, in)
 	for k, want := range map[string]string{
-		"LEDGER_TLS_CERT_FILE":          mntCerts + "/server.crt",
-		"LEDGER_TLS_KEY_FILE":           mntCerts + "/server.key",
-		"LEDGER_INBOUND_CLIENT_CA_FILE": mntCerts + "/ca.crt",
+		"LEDGER_TLS_CERT_FILE": mntCerts + "/server.crt",
+		"LEDGER_TLS_KEY_FILE":  mntCerts + "/server.key",
 	} {
 		if env[k] != want {
 			t.Errorf("ledgerBaseEnv[%s] = %q, want %q", k, env[k], want)
 		}
 	}
-	// LEDGER_INBOUND_CLIENT_CA_FILE is mandatory the moment LEDGER_TLS_CERT_FILE
-	// is set (all-or-nothing) — both present together or the edge half-opens.
-	if (env["LEDGER_TLS_CERT_FILE"] == "") != (env["LEDGER_INBOUND_CLIENT_CA_FILE"] == "") {
-		t.Error("ledger TLS cert + inbound client CA must be set together")
+	// Open HTTPS: the ledger serves server-TLS but sets NO inbound client CA, so
+	// the listener does not request a client cert (reads open; writes gated by
+	// in-body crypto). Re-introducing it would re-close the edge.
+	if _, ok := env["LEDGER_INBOUND_CLIENT_CA_FILE"]; ok {
+		t.Error("ledgerBaseEnv still sets LEDGER_INBOUND_CLIENT_CA_FILE — that re-closes the open-HTTPS edge")
 	}
 }
 
-// ── auditor → ledger: pulls over the mTLS edge ──────────────────────────────
+// ── auditor → ledger: pulls over OPEN HTTPS (server-verify, no client cert) ──
 
-func TestAuditorEnv_PullsLedgerOverMTLS(t *testing.T) {
+func TestAuditorEnv_PullsLedgerOverOpenHTTPS(t *testing.T) {
 	nc, in := testNetInfra(t)
 	env := auditorEnv(nc, in, 1)
 	wantPeer := nc.LogDID + "=https://" + nc.Name("ledger") + ":8080"
 	if env["AUDITOR_PEERS"] != wantPeer {
 		t.Errorf("AUDITOR_PEERS = %q, want %q", env["AUDITOR_PEERS"], wantPeer)
 	}
-	// Regression: the pre-mTLS peer URL was plain http — must never recur.
 	if strings.Contains(env["AUDITOR_PEERS"], "http://") {
 		t.Errorf("AUDITOR_PEERS speaks plaintext http to the ledger: %q", env["AUDITOR_PEERS"])
 	}
 	for k, want := range map[string]string{
-		"AUDITOR_PEER_CLIENT_CERT_FILE": mntCerts + "/client.crt",
-		"AUDITOR_PEER_CLIENT_KEY_FILE":  mntCerts + "/client.key",
-		"AUDITOR_PEER_CA_FILE":          mntCerts + "/ca.crt",
+		"AUDITOR_PEER_CA_FILE":           mntCerts + "/ca.crt",
+		"AUDITOR_PEER_ALLOW_SELF_SIGNED": "true",
 	} {
 		if env[k] != want {
 			t.Errorf("auditorEnv[%s] = %q, want %q", k, env[k], want)
 		}
 	}
+	for _, k := range []string{"AUDITOR_PEER_CLIENT_CERT_FILE", "AUDITOR_PEER_CLIENT_KEY_FILE"} {
+		if _, ok := env[k]; ok {
+			t.Errorf("auditorEnv still sets %s — open HTTPS presents no client cert", k)
+		}
+	}
 }
 
-// ── JN → ledger: reaches over the mTLS edge ─────────────────────────────────
+// ── JN → ledger: reaches over OPEN HTTPS; JN's OWN listener stays mTLS ───────
 
-func TestJNEnv_ReachesLedgerOverMTLS(t *testing.T) {
+func TestJNEnv_ReachesLedgerOverOpenHTTPS(t *testing.T) {
 	nc, _ := testNetInfra(t)
 	env := jnEnv(nc)
 	if want := "https://" + nc.Name("ledger") + ":8080"; env["API_LEDGER_ENDPOINT"] != want {
@@ -109,27 +113,48 @@ func TestJNEnv_ReachesLedgerOverMTLS(t *testing.T) {
 		t.Errorf("API_LEDGER_ENDPOINT speaks plaintext http to the ledger: %q", env["API_LEDGER_ENDPOINT"])
 	}
 	for k, want := range map[string]string{
-		"API_LEDGER_CERT_FILE": mntCerts + "/client.crt",
-		"API_LEDGER_KEY_FILE":  mntCerts + "/client.key",
-		"API_LEDGER_CA_FILE":   mntCerts + "/ca.crt",
+		"API_LEDGER_CA_FILE":           mntCerts + "/ca.crt",
+		"API_LEDGER_ALLOW_SELF_SIGNED": "true",
 	} {
 		if env[k] != want {
 			t.Errorf("jnEnv[%s] = %q, want %q", k, env[k], want)
 		}
 	}
-	// The gossip-ingest peer is the auditor's plain-http feed (not the ledger), so
-	// it correctly stays http — guards against over-converting the wrong hop.
+	// Open HTTPS to the ledger presents NO client cert.
+	for _, k := range []string{"API_LEDGER_CERT_FILE", "API_LEDGER_KEY_FILE"} {
+		if _, ok := env[k]; ok {
+			t.Errorf("jnEnv still sets %s — the JN→ledger leg is open HTTPS (no client cert)", k)
+		}
+	}
+	// The JN's OWN listener stays mTLS (it is the write gate, authenticating its
+	// callers) — server cert/key + the client CA it verifies callers against.
+	for k, want := range map[string]string{
+		"API_AUTH_TLS_CERT_FILE":  mntCerts + "/server.crt",
+		"API_AUTH_TLS_KEY_FILE":   mntCerts + "/server.key",
+		"API_AUTH_CLIENT_CA_FILE": mntCerts + "/ca.crt",
+	} {
+		if env[k] != want {
+			t.Errorf("jnEnv[%s] = %q, want %q (JN listener stays mTLS)", k, env[k], want)
+		}
+	}
+	// The gossip-ingest peer is the auditor's plain-http feed (not the ledger).
 	if !strings.HasPrefix(env["API_GOSSIP_INGEST_PEER_URL"], "http://") {
 		t.Errorf("gossip ingest peer should stay http (auditor feed): %q", env["API_GOSSIP_INGEST_PEER_URL"])
 	}
 }
 
-// ── client tools (submit-stamp / backfill / audit) ──────────────────────────
+// ── client tools (submit-stamp / backfill / audit): open HTTPS, no client cert ──
 
-func TestTLSArgs_ToolFlags(t *testing.T) {
-	want := "-ca-cert " + mntCerts + "/ca.crt -client-cert " + mntCerts + "/client.crt -client-key " + mntCerts + "/client.key"
+func TestTLSArgs_OpenHTTPSToolFlags(t *testing.T) {
+	want := "-ca-cert " + mntCerts + "/ca.crt -allow-self-signed"
 	if got := strings.Join(tlsArgs(), " "); got != want {
 		t.Fatalf("tlsArgs = %q, want %q", got, want)
+	}
+	// No client cert/key flags — open HTTPS.
+	for _, flag := range tlsArgs() {
+		if flag == "-client-cert" || flag == "-client-key" {
+			t.Fatalf("tlsArgs still passes %q — open HTTPS presents no client cert", flag)
+		}
 	}
 }
 

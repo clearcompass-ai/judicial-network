@@ -7,10 +7,10 @@ import (
 	"github.com/clearcompass-ai/judicial-network/e2e/topology"
 )
 
-// The aggregator scans the ledger over the mTLS edge (v1.65.0 secure-by-default):
-// https endpoint + the shared client cert. Plaintext here would fail-closed at the
-// ledger and is a regression.
-func TestAggregatorEnv_ScansLedgerOverMTLS(t *testing.T) {
+// The aggregator scans the ledger over OPEN HTTPS (v1.66.0 zero-trust): https
+// endpoint + a pinned CA + TOOLS_LEDGER_ALLOW_SELF_SIGNED, and NO client cert.
+// Plaintext http, or re-introducing a client cert, is a regression.
+func TestAggregatorEnv_ScansLedgerOverOpenHTTPS(t *testing.T) {
 	nc, in := testNetInfra(t) // single-network NetConfig (AggDB already derived)
 	env := aggregatorEnv(nc, in)
 
@@ -21,12 +21,17 @@ func TestAggregatorEnv_ScansLedgerOverMTLS(t *testing.T) {
 		t.Errorf("aggregator scans the ledger in plaintext: %q", env["TOOLS_LEDGER_URL"])
 	}
 	for k, want := range map[string]string{
-		"TOOLS_LEDGER_CLIENT_CERT_FILE": mntCerts + "/client.crt",
-		"TOOLS_LEDGER_CLIENT_KEY_FILE":  mntCerts + "/client.key",
-		"TOOLS_LEDGER_CA_FILE":          mntCerts + "/ca.crt",
+		"TOOLS_LEDGER_CA_FILE":           mntCerts + "/ca.crt",
+		"TOOLS_LEDGER_ALLOW_SELF_SIGNED": "true",
 	} {
 		if env[k] != want {
 			t.Errorf("aggregatorEnv[%s] = %q, want %q", k, env[k], want)
+		}
+	}
+	// Open HTTPS presents NO client cert — these must be absent.
+	for _, k := range []string{"TOOLS_LEDGER_CLIENT_CERT_FILE", "TOOLS_LEDGER_CLIENT_KEY_FILE"} {
+		if _, ok := env[k]; ok {
+			t.Errorf("aggregatorEnv still sets %s — open HTTPS presents no client cert", k)
 		}
 	}
 	for _, k := range []string{"TOOLS_OFFICERS_LOG", "TOOLS_CASES_LOG", "TOOLS_PARTIES_LOG"} {

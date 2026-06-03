@@ -271,14 +271,26 @@ func buildAuthenticator(cfg config.AuthConfig, jwksClient *http.Client) (middlew
 // endpoint MUST be reached with a client cert (the ledger edge mandates mTLS),
 // unless allowPlaintext opts out (TLS-terminating proxy / loopback-dev). A
 // plaintext (http) or empty endpoint imposes no requirement. Pure — unit-tested.
-func requireLedgerMTLS(endpoint, certFile, keyFile string, allowPlaintext bool) error {
+func requireLedgerMTLS(endpoint, certFile, keyFile string, allowPlaintext, allowSelfSigned bool, caFile string) error {
 	if allowPlaintext || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(endpoint)), "https://") {
 		return nil
 	}
+	// Open-HTTPS opt-in (zero-trust): the ledger serves reads openly and gates
+	// writes on the in-body G5 signature, so the JN may verify the ledger's
+	// privately-signed/self-signed cert against a pinned CA and present no client
+	// cert. The CA is REQUIRED — verification is never skipped.
+	if allowSelfSigned {
+		if caFile == "" {
+			return fmt.Errorf("API_LEDGER_ALLOW_SELF_SIGNED is set but API_LEDGER_CA_FILE is empty: " +
+				"a self-signed ledger cert must be pinned to a CA (verification is never skipped)")
+		}
+		return nil
+	}
 	if certFile == "" || keyFile == "" {
-		return fmt.Errorf("API_LEDGER_ENDPOINT is https (mTLS edge) but no client cert configured: " +
-			"set API_LEDGER_CERT_FILE + API_LEDGER_KEY_FILE, or API_LEDGER_ALLOW_PLAINTEXT=true " +
-			"for a TLS-terminating-proxy / loopback deployment")
+		return fmt.Errorf("API_LEDGER_ENDPOINT is https but no client cert configured: " +
+			"set API_LEDGER_CERT_FILE + API_LEDGER_KEY_FILE (mTLS), or " +
+			"API_LEDGER_ALLOW_SELF_SIGNED=true + API_LEDGER_CA_FILE (open HTTPS to a privately-signed ledger), or " +
+			"API_LEDGER_ALLOW_PLAINTEXT=true (TLS-terminating-proxy / loopback)")
 	}
 	return nil
 }

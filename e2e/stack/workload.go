@@ -26,20 +26,21 @@ type Target struct {
 	LogDID      string
 	QuorumK     int
 	FixturesDir string // host fixtures dir (the /out + audit mount)
-	CertsDir    string // host mTLS certs dir (the client cert the ledger edge requires)
+	CertsDir    string // host certs dir (the run CA the tools pin to verify the ledger)
 	Admission   string // credits|pow
 }
 
 func (t Target) innerURL() string { return "https://" + t.LedgerName + ":8080" }
 
-// tlsArgs are the ledger client tools' mTLS flags — submit-stamp/backfill/audit
-// all bind the same -ca-cert/-client-cert/-client-key, and infer https from the
-// -url scheme. The certs are mounted into each tool container at mntCerts.
+// tlsArgs are the ledger client tools' open-HTTPS flags — submit-stamp/backfill/
+// audit all bind -ca-cert + -allow-self-signed (verify the ledger's self-signed
+// server cert against the run CA, present NO client cert) and infer https from
+// the -url scheme. The ledger serves reads openly and gates writes on in-body
+// crypto, so the tools need no client cert. The CA is mounted at mntCerts.
 func tlsArgs() []string {
 	return []string{
 		"-ca-cert", mntCerts + "/ca.crt",
-		"-client-cert", mntCerts + "/client.crt",
-		"-client-key", mntCerts + "/client.key",
+		"-allow-self-signed",
 	}
 }
 

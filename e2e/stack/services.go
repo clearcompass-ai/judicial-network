@@ -62,25 +62,27 @@ func mtlsClient(certsDir string) (*http.Client, error) {
 	}, nil
 }
 
-// ── host-side mTLS probes (the ledger edge requires a client cert) ─────────
+// ── host-side open-HTTPS probes (verify the ledger's server cert, no client cert) ──
 
 var (
 	ledgerClientsMu sync.Mutex
 	ledgerClients   = map[string]*http.Client{}
 )
 
-// ledgerHTTP returns an mTLS client (cached per certsDir) for HOST→ledger probes
-// over the published host port. The ledger edge is mTLS-only, so a plain
-// http.Get is refused; the server cert's SAN carries localhost for host access.
+// ledgerHTTP returns a server-verify client (cached per certsDir) for HOST→ledger
+// probes over the published host port. The ledger serves OPEN HTTPS — reads are
+// open, writes gated by in-body crypto — so the probe presents NO client cert and
+// only pins the run CA to verify the ledger's server cert (SAN carries localhost
+// for host access). That a certless caller reads at all IS the open-HTTPS proof.
 func ledgerHTTP(certsDir string) *http.Client {
 	ledgerClientsMu.Lock()
 	defer ledgerClientsMu.Unlock()
 	if c, ok := ledgerClients[certsDir]; ok {
 		return c
 	}
-	c, err := mtlsClient(certsDir)
+	c, err := serverTrustClient(certsDir) // open HTTPS: verify the ledger's server cert, present NO client cert
 	if err != nil {
-		c = &http.Client{Timeout: 5 * time.Second} // fails closed against the https edge
+		c = &http.Client{Timeout: 5 * time.Second}
 	}
 	ledgerClients[certsDir] = c
 	return c
@@ -204,11 +206,13 @@ func UpWitnessFleet(nc NetConfig, fixturesDir, witnessImage string) error {
 }
 
 // ledgerBaseEnv is the deterministic ledger env; UpLedger layers the conditional
-// tuning/signer knobs on top. The ledger terminates mTLS in-binary
-// (LEDGER_INBOUND_CLIENT_CA_FILE is mandatory the moment LEDGER_TLS_CERT_FILE is
-// set), so the edge is mTLS-only: every caller — the auditors, the JN, the
-// aggregator, the seed/backfill/audit tool containers, and the host probes —
-// presents the shared client cert.
+// tuning/signer knobs on top. The ledger serves OPEN HTTPS: it terminates TLS
+// in-binary (server cert/key) but does NOT set LEDGER_INBOUND_CLIENT_CA_FILE, so
+// the listener is tls.NoClientCert — reads are open to any caller and writes are
+// gated by in-body crypto (admission + the G5 WriteAuthorization signature), not
+// transport identity. Every caller — auditors, JN, aggregator, the
+// seed/backfill/audit tool containers, the host probes — verifies the server cert
+// against the run CA and presents NO client cert.
 func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 	return map[string]string{
 		"LEDGER_DATABASE_URL":             dsn(in.PG(), nc.DB),
@@ -230,16 +234,16 @@ func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 		"LEDGER_SMT_TILE_EMIT_DIR":        tileDir,
 		"LEDGER_SMT_PROOF_SOURCE":         nc.Tuning.ProofSource,
 		"LEDGER_SEQUENCER_INTERVAL":       sequencerInterval(),
-		// mTLS edge — the ledger terminates TLS in-binary and REQUIRES a client
-		// cert from every caller (server cert SAN covers this container's name).
-		"LEDGER_TLS_CERT_FILE":          mntCerts + "/server.crt",
-		"LEDGER_TLS_KEY_FILE":           mntCerts + "/server.key",
-		"LEDGER_INBOUND_CLIENT_CA_FILE": mntCerts + "/ca.crt",
+		// Open HTTPS — the ledger terminates TLS in-binary (server cert SAN covers
+		// this container's name) but sets NO inbound client-CA, so the listener does
+		// not request a client cert. Reads open; writes gated by in-body crypto.
+		"LEDGER_TLS_CERT_FILE": mntCerts + "/server.crt",
+		"LEDGER_TLS_KEY_FILE":  mntCerts + "/server.key",
 	}
 }
 
-// UpLedger brings up this network's ledger (S3-backed, witness-cosigned, mTLS
-// edge) and gates on its mTLS /healthz.
+// UpLedger brings up this network's ledger (S3-backed, witness-cosigned, open
+// HTTPS) and gates on its /healthz over a server-verify (no client cert) probe.
 func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string) error {
 	envm := ledgerBaseEnv(nc, in)
 	if nc.Tuning.SequencerMaxInflight > 0 {
@@ -268,15 +272,17 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if !poll(120*time.Second, func() bool {
 		return ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/healthz", nc.LedgerPort)) == "ok"
 	}) {
-		return fmt.Errorf("%s mTLS /healthz never == ok", nc.Name("ledger"))
+		return fmt.Errorf("%s open-HTTPS /healthz never == ok", nc.Name("ledger"))
 	}
 	return nil
 }
 
 // auditorEnv is one auditor's deterministic env. Its OWN listener stays plain
-// http (probed over the host port), but it pulls from the ledger over the mTLS
-// edge — AUDITOR_PEERS is the https ledger URL and AUDITOR_PEER_* present the
-// shared client cert.
+// http (probed over the host port), but it pulls from the ledger over OPEN HTTPS
+// — AUDITOR_PEERS is the https ledger URL; AUDITOR_PEER_ALLOW_SELF_SIGNED opens
+// the peer client to server-verify-only (verify the ledger's self-signed cert
+// against AUDITOR_PEER_CA_FILE, present NO client cert). The cosignature crypto,
+// not the transport, is the trust.
 func auditorEnv(nc NetConfig, in Infra, idx int) map[string]string {
 	return map[string]string{
 		"AUDITOR_LISTEN_ADDR":            ":8088",
@@ -285,9 +291,8 @@ func auditorEnv(nc NetConfig, in Infra, idx int) map[string]string {
 		"AUDITOR_WITNESS_QUORUM_K":       strconv.Itoa(nc.Spec.QuorumK),
 		"AUDITOR_ORIGINATOR_DISCOVERY":   "true",
 		"AUDITOR_PEERS":                  nc.LogDID + "=https://" + nc.Name("ledger") + ":8080",
-		"AUDITOR_PEER_CLIENT_CERT_FILE":  mntCerts + "/client.crt",
-		"AUDITOR_PEER_CLIENT_KEY_FILE":   mntCerts + "/client.key",
 		"AUDITOR_PEER_CA_FILE":           mntCerts + "/ca.crt",
+		"AUDITOR_PEER_ALLOW_SELF_SIGNED": "true",
 		"AUDITOR_POLL_INTERVAL":          auditorPollInterval(),
 		"AUDITOR_HORIZON_INTERVAL":       auditorHorizonInterval(),
 		"AUDITOR_HORIZON_SAMPLES":        auditHorizonSamples(),
@@ -321,24 +326,27 @@ func UpAuditors(nc NetConfig, in Infra, fixturesDir, certsDir, auditorImage stri
 	return nil
 }
 
-// jnEnv is the JN enforcer's deterministic env. Its own listener is mTLS
-// (API_AUTH_*); it reaches the ledger over the mTLS edge (API_LEDGER_ENDPOINT
-// https + API_LEDGER_* client cert); the gossip-ingest peer is the auditor's
-// plain-http feed, not the ledger, so it stays http.
+// jnEnv is the JN enforcer's deterministic env. Its OWN listener stays mTLS
+// (API_AUTH_* — the JN authenticates ITS callers; it is the write gate). Its
+// outbound leg to the ledger is OPEN HTTPS: API_LEDGER_ENDPOINT is the https
+// ledger URL and API_LEDGER_ALLOW_SELF_SIGNED opens the client to server-verify
+// (verify the ledger's self-signed cert against API_LEDGER_CA_FILE, present NO
+// client cert) — the ledger accepts the JN's crypto-verified writes regardless of
+// transport. The gossip-ingest peer is the auditor's plain-http feed, so it stays
+// http.
 func jnEnv(nc NetConfig) map[string]string {
 	return map[string]string{
-		"API_LISTEN_ADDR":            ":8443",
-		"API_LEDGER_ENDPOINT":        "https://" + nc.Name("ledger") + ":8080",
-		"API_LEDGER_CERT_FILE":       mntCerts + "/client.crt",
-		"API_LEDGER_KEY_FILE":        mntCerts + "/client.key",
-		"API_LEDGER_CA_FILE":         mntCerts + "/ca.crt",
-		"API_NETWORK_BOOTSTRAP_FILE": mntFixtures + "/network-bootstrap.json",
-		"API_WITNESS_QUORUM_K":       strconv.Itoa(nc.Spec.QuorumK),
-		"API_GOSSIP_INGEST_ENABLED":  "true",
-		"API_GOSSIP_INGEST_PEER_URL": "http://" + nc.Name("auditor-1") + ":8088",
-		"API_AUTH_CLIENT_CA_FILE":    mntCerts + "/ca.crt",
-		"API_AUTH_TLS_CERT_FILE":     mntCerts + "/server.crt",
-		"API_AUTH_TLS_KEY_FILE":      mntCerts + "/server.key",
+		"API_LISTEN_ADDR":              ":8443",
+		"API_LEDGER_ENDPOINT":          "https://" + nc.Name("ledger") + ":8080",
+		"API_LEDGER_CA_FILE":           mntCerts + "/ca.crt",
+		"API_LEDGER_ALLOW_SELF_SIGNED": "true",
+		"API_NETWORK_BOOTSTRAP_FILE":   mntFixtures + "/network-bootstrap.json",
+		"API_WITNESS_QUORUM_K":         strconv.Itoa(nc.Spec.QuorumK),
+		"API_GOSSIP_INGEST_ENABLED":    "true",
+		"API_GOSSIP_INGEST_PEER_URL":   "http://" + nc.Name("auditor-1") + ":8088",
+		"API_AUTH_CLIENT_CA_FILE":      mntCerts + "/ca.crt",
+		"API_AUTH_TLS_CERT_FILE":       mntCerts + "/server.crt",
+		"API_AUTH_TLS_KEY_FILE":        mntCerts + "/server.key",
 	}
 }
 
@@ -374,19 +382,19 @@ func UpJN(nc NetConfig, certsDir, fixturesDir, jnImage string) error {
 }
 
 // aggregatorEnv is the read-projection aggregator's deterministic env. It scans
-// the ledger over the mTLS edge (TOOLS_LEDGER_URL https + TOOLS_LEDGER_*_FILE
-// client cert — the ledger mandates mTLS) and indexes into its OWN projection DB;
-// the three log DIDs all point at the network's bootstrap log.
+// the ledger over OPEN HTTPS (TOOLS_LEDGER_URL https + TOOLS_LEDGER_ALLOW_SELF_SIGNED
+// → server-verify against TOOLS_LEDGER_CA_FILE, no client cert) and indexes into
+// its OWN projection DB; the three log DIDs all point at the network's bootstrap
+// log. The aggregator is a read projection — open read + crypto is its trust.
 func aggregatorEnv(nc NetConfig, in Infra) map[string]string {
 	return map[string]string{
-		"TOOLS_DATABASE_URL":            dsn(in.PG(), nc.AggDB),
-		"TOOLS_LEDGER_URL":              "https://" + nc.Name("ledger") + ":8080",
-		"TOOLS_LEDGER_CLIENT_CERT_FILE": mntCerts + "/client.crt",
-		"TOOLS_LEDGER_CLIENT_KEY_FILE":  mntCerts + "/client.key",
-		"TOOLS_LEDGER_CA_FILE":          mntCerts + "/ca.crt",
-		"TOOLS_OFFICERS_LOG":            nc.LogDID,
-		"TOOLS_CASES_LOG":               nc.LogDID,
-		"TOOLS_PARTIES_LOG":             nc.LogDID,
+		"TOOLS_DATABASE_URL":             dsn(in.PG(), nc.AggDB),
+		"TOOLS_LEDGER_URL":               "https://" + nc.Name("ledger") + ":8080",
+		"TOOLS_LEDGER_CA_FILE":           mntCerts + "/ca.crt",
+		"TOOLS_LEDGER_ALLOW_SELF_SIGNED": "true",
+		"TOOLS_OFFICERS_LOG":             nc.LogDID,
+		"TOOLS_CASES_LOG":                nc.LogDID,
+		"TOOLS_PARTIES_LOG":              nc.LogDID,
 	}
 }
 
@@ -418,9 +426,30 @@ func UpAggregator(nc NetConfig, in Infra, certsDir, aggregatorImage string) erro
 
 // AggregatorReady probes the aggregator's plain-http /healthz then /readyz over
 // its published host port. /readyz is 200 only when BOTH the projection DB and
-// the (mTLS) ledger edge are reachable (the aggregator's probes.go), so a true
+// the open-HTTPS ledger are reachable (the aggregator's probes.go), so a true
 // result proves the read-projection's scan-pipeline wiring end-to-end.
 func AggregatorReady(port int) bool {
 	return httpStatus(fmt.Sprintf("http://localhost:%d/healthz", port)) == 200 &&
 		httpStatus(fmt.Sprintf("http://localhost:%d/readyz", port)) == 200
+}
+
+// AuditorReady probes an auditor's plain-http /healthz then /readyz over its host
+// port. This is more than a liveness ping: the auditor reaches /readyz only AFTER
+// its boot-time originator discovery (AUDITOR_ORIGINATOR_DISCOVERY) GETs the
+// ledger's /v1/log-info over OPEN HTTPS — server-verify against the run CA, NO
+// client cert (AUDITOR_PEER_ALLOW_SELF_SIGNED). A failed handshake fails the
+// pipeline build BEFORE the listener serves, so a green auditor is itself the
+// auditor↔ledger open-HTTPS proof, end-to-end.
+func AuditorReady(port int) bool {
+	return httpStatus(fmt.Sprintf("http://localhost:%d/healthz", port)) == 200 &&
+		httpStatus(fmt.Sprintf("http://localhost:%d/readyz", port)) == 200
+}
+
+// AuditorFeedServing reports whether the auditor's gossip custody feed (the JN's
+// ingest source, /v1/gossip) is mounted and serving. Any reachable non-5xx status
+// proves the SDK FeedHandler is wired over the auditor's open-HTTPS-fed custody
+// store — i.e. the auditor is not just up, it is serving what it pulled.
+func AuditorFeedServing(port int) bool {
+	st := httpStatus(fmt.Sprintf("http://localhost:%d/v1/gossip/", port))
+	return st != 0 && st < 500
 }
