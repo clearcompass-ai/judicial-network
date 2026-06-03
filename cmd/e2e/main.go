@@ -20,6 +20,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/dockerx"
+	"github.com/clearcompass-ai/judicial-network/e2e/runner"
 	"github.com/clearcompass-ai/judicial-network/e2e/runstore"
 	"github.com/clearcompass-ai/judicial-network/e2e/stack"
 	"github.com/clearcompass-ai/judicial-network/e2e/topology"
@@ -266,6 +267,31 @@ func cmdWipe(args []string) error {
 	return nil
 }
 
-func cmdRun([]string) error {
-	return fmt.Errorf("run: pending the runner layer (seed + workload + the ledger-vs-JN test split) — next")
+func cmdRun(args []string) error {
+	fs := flag.NewFlagSet("run", flag.ContinueOnError)
+	var (
+		id   = fs.String("id", "", "run id (default: latest)")
+		name = fs.String("name", "", "recipe name filter (substring)")
+		tag  = fs.String("tag", "", "recipe tag filter")
+		list = fs.Bool("list", false, "list recipes and exit")
+	)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *list {
+		for _, n := range runner.Names() {
+			fmt.Printf("  %s\n", n)
+		}
+		return nil
+	}
+	var names, tags []string
+	if *name != "" {
+		names = append(names, *name)
+	}
+	if *tag != "" {
+		tags = append(tags, *tag)
+	}
+	// positional recipe names (e.g. `e2e run audit.tiles`).
+	names = append(names, fs.Args()...)
+	return runner.Run(*id, names, tags)
 }

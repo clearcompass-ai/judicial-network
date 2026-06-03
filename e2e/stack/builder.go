@@ -50,7 +50,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 	}
 	okf("postgres + seaweedfs up (bucket %s)", bucket)
 
-	manifest := &runstore.Manifest{ID: runID, Preset: spec.Name, Network: network}
+	manifest := &runstore.Manifest{ID: runID, Preset: spec.Name, Network: network, Admission: spec.Tuning.Admission}
 	for i := range ncs {
 		nc := &ncs[i]
 		fixturesDir := lay.Fixtures
@@ -86,6 +86,12 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 			return nil, err
 		}
 		okf("ledger /healthz == ok")
+
+		stage("network %q — seed (genesis-seed → fleet cosigns the head)", nc.Spec.Name)
+		if err := SeedOnUp(in, *nc, fixturesDir, images.Ledger); err != nil {
+			return nil, fmt.Errorf("network %s: %w", nc.Spec.Name, err)
+		}
+		okf("cosigned tree head (size>=1, sigs>=%d)", nc.Spec.QuorumK)
 
 		for idx := 1; idx <= nc.Spec.Auditors; idx++ {
 			if err := in.EnsureDB(nc.GossipDB(idx)); err != nil {
