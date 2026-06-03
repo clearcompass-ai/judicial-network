@@ -13,8 +13,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 // makeAttestationEntry builds an entry with Header.CosignatureOf

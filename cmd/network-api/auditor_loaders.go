@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/clearcompass-ai/attesta/network"
+	"github.com/baseproof/baseproof/network"
 )
 
 // loadAuditorRegistry reads a JSON file containing

@@ -1,6 +1,6 @@
 # SDK-4 — `anchor.VerifyCrossLog` must accept a burn/equivocation oracle and fail closed
 
-> **Target repo:** clearcompass-ai/attesta
+> **Target repo:** baseproof/baseproof
 > **Labels:** `bug` · `security` · `cross-log` · `zero-trust-physics`
 > **Depends on:** — (consumed by judicial-network JN-3)
 > **Status:** Proposal / ready to implement. The primitive verifies quorum +

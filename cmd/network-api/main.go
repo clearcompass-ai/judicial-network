@@ -52,14 +52,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
+	sdklog "github.com/baseproof/baseproof/log"
 	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/attesta-tools/libs/sdkguard"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
-	sdklog "github.com/clearcompass-ai/attesta/log"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
@@ -234,7 +234,7 @@ func run(argv []string, d deps) error {
 	}
 
 	// T7: assert the v1.32+ authoritative resolver is properly populated
-	// when present. In strict mode (ATTESTA_FAIL_ON_PLAINTEXT_FALLBACK=true)
+	// when present. In strict mode (BASEPROOF_FAIL_ON_PLAINTEXT_FALLBACK=true)
 	// a misconfigured resolver panics at boot rather than at first lookup;
 	// no-op in dev. Skip when the resolver is nil (no bootstrap configured,
 	// dev / pre-cert deployments).
@@ -597,7 +597,7 @@ func loadConfig(argv []string) (config.Operational, error) {
 	if err != nil {
 		return config.Operational{}, fmt.Errorf("%w: %w", config.ErrInvalidConfig, err)
 	}
-	// Resolve any did:web gossip-peer base to its AttestaLedger endpoint (parity
+	// Resolve any did:web gossip-peer base to its BaseproofLedger endpoint (parity
 	// with the auditor's AUDITOR_PEERS did:web form). No-op when ingest is off or
 	// every peer base is already an http(s) URL.
 	if cfg.GossipIngest.Enabled && len(cfg.GossipIngest.Peers) > 0 {

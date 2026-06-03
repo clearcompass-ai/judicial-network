@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 )
 
 // validEnvelope returns a SignedRequestEnvelope that passes the

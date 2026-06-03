@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	sdkcosign "github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/did"
-	sdknetwork "github.com/clearcompass-ai/attesta/network"
-	attestatypes "github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/witness"
+	sdkcosign "github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/did"
+	sdknetwork "github.com/baseproof/baseproof/network"
+	baseprooftypes "github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/internal/types"
 )
@@ -38,7 +38,7 @@ func TestVerify_RealCosignedHead(t *testing.T) {
 	// NetworkID exactly as the SDK derives it from the canonical bootstrap —
 	// the same path internal/bootstrap.Load uses.
 	nb := sdknetwork.BootstrapDocument{
-		ProtocolVersion:   "attesta/v1",
+		ProtocolVersion:   "baseproof/v1",
 		ExchangeDID:       "did:web:cosign.test",
 		NetworkName:       "cosign-test",
 		GenesisWitnessSet: dids,
@@ -67,15 +67,15 @@ func TestVerify_RealCosignedHead(t *testing.T) {
 	}
 
 	// Cosign a head with K of the N witnesses, under the NetworkID.
-	head := attestatypes.TreeHead{RootHash: fill(0xA1), SMTRoot: fill(0xB2), TreeSize: 7}
+	head := baseprooftypes.TreeHead{RootHash: fill(0xA1), SMTRoot: fill(0xB2), TreeSize: 7}
 	payload := sdkcosign.NewTreeHeadPayload(head)
-	sigs := make([]attestatypes.WitnessSignature, 0, k)
+	sigs := make([]baseprooftypes.WitnessSignature, 0, k)
 	for i := 0; i < k; i++ {
 		sb, serr := sdkcosign.SignECDSA(payload, networkID, sdkcosign.HashAlgoSHA256, privs[i])
 		if serr != nil {
 			t.Fatalf("SignECDSA %d: %v", i, serr)
 		}
-		sigs = append(sigs, attestatypes.WitnessSignature{
+		sigs = append(sigs, baseprooftypes.WitnessSignature{
 			PubKeyID: keys[i].ID, SchemeTag: signatures.SchemeECDSA, SigBytes: sb,
 		})
 	}
@@ -112,7 +112,7 @@ func fill(b byte) [32]byte {
 	return r
 }
 
-func toWireHead(h attestatypes.TreeHead, sigs []attestatypes.WitnessSignature) types.CosignedTreeHead {
+func toWireHead(h baseprooftypes.TreeHead, sigs []baseprooftypes.WitnessSignature) types.CosignedTreeHead {
 	w := types.CosignedTreeHead{
 		RootHash:    hex.EncodeToString(h.RootHash[:]),
 		SMTRoot:     hex.EncodeToString(h.SMTRoot[:]),

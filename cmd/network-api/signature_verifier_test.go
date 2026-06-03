@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/did"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 )

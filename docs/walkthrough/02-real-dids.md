@@ -31,8 +31,8 @@ DID encoding and signing path; everything else is shared.
 ## 1. Pick a keys directory
 
 ```bash
-mkdir -p ~/attesta/keys
-cd ~/attesta/keys
+mkdir -p ~/baseproof/keys
+cd ~/baseproof/keys
 ```
 
 Permissions land at `0600` (owner read/write only) — the CLI sets
@@ -69,7 +69,7 @@ Each prints the assigned DID:
 $ judicial-cli keygen --out clerk-brown.key.json
 did=did:key:zQ3shgNJJbyVUSbFVpqXCGQ8LjWshxtMPufJHrekzougqsyur
 method=key
-file=/home/you/attesta/keys/clerk-brown.key.json
+file=/home/you/baseproof/keys/clerk-brown.key.json
 ```
 
 The `did:key:zQ3sh...` form encodes the **compressed secp256k1
@@ -91,7 +91,7 @@ Each prints a CAIP-10 form:
 $ judicial-cli keygen --out acme-ceo.key.json --method pkh-eip155
 did=did:pkh:eip155:1:0x7ad817edea4e9eb9c223983ec9604376ce2d668f
 method=pkh-eip155
-file=/home/you/attesta/keys/acme-ceo.key.json
+file=/home/you/baseproof/keys/acme-ceo.key.json
 ```
 
 The `eip155:1` part is the CAIP-2 chain identifier — `1` is
@@ -137,7 +137,7 @@ echo "$CLERK"      # did:key:zQ3sh...
 ## 7. Verify both methods round-trip cleanly
 
 ```bash
-cd ~/attesta/jn
+cd ~/baseproof/jn
 go test ./cmd/judicial-cli/ -run "TestKeygen_Roundtrip|TestKeygen_PKHEIP155_Roundtrip|TestSignByMethod_PKH_RoundTripsThroughPKHVerifier" -v
 ```
 
@@ -162,8 +162,8 @@ If those three pass, every web3 step in the walkthrough will work.
 
 | You have | Where |
 |---|---|
-| 5 `did:key` keypairs | `~/attesta/keys/{clerk,cooper,davis,judge-adams,justice-edwards}.key.json` |
-| 2 `did:pkh` keypairs (web3 wallets) | `~/attesta/keys/{acme-ceo,beta-cfo}.key.json` |
+| 5 `did:key` keypairs | `~/baseproof/keys/{clerk,cooper,davis,judge-adams,justice-edwards}.key.json` |
+| 2 `did:pkh` keypairs (web3 wallets) | `~/baseproof/keys/{acme-ceo,beta-cfo}.key.json` |
 | 7 DID strings in shell vars | `$CLERK $COOPER $DAVIS $ADAMS $EDWARDS $ACME_CEO $BETA_CFO` |
 | 0 entries on either log | `curl -fsS $DAVIDSON/v1/tree/head` |
 

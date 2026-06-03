@@ -1,24 +1,24 @@
 // Tests for judicial-scheduling-order-v1.
 //
 // Pins the daily-court contract:
-//   1. Round-trip serialize/deserialize preserves every field.
-//   2. The schema registers cleanly in the JN domain Registry.
-//   3. The schema flows through the SDK admission Registry with
-//      a non-nil Binding (D9 enrichment).
-//   4. Standard-milestone "every case has a trial date" scenario
-//      from dictionary §6 works end-to-end.
-//   5. The amended-order chain (PriorOrderPos) round-trips.
-//   6. Specialty-court milestone sets (drug court treatment-
-//      review hearings) round-trip — the schema does not
-//      reject deployment-specific milestone names.
+//  1. Round-trip serialize/deserialize preserves every field.
+//  2. The schema registers cleanly in the JN domain Registry.
+//  3. The schema flows through the SDK admission Registry with
+//     a non-nil Binding (D9 enrichment).
+//  4. Standard-milestone "every case has a trial date" scenario
+//     from dictionary §6 works end-to-end.
+//  5. The amended-order chain (PriorOrderPos) round-trips.
+//  6. Specialty-court milestone sets (drug court treatment-
+//     review hearings) round-trip — the schema does not
+//     reject deployment-specific milestone names.
 package schemas
 
 import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 // caseAt is a test fixture: a LogPosition for a case root entry.

@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	sdknetwork "github.com/clearcompass-ai/attesta/network"
+	sdknetwork "github.com/baseproof/baseproof/network"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/internal/types"
 )

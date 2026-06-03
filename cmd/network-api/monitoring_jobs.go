@@ -29,10 +29,10 @@ import (
 	"log/slog"
 	"time"
 
-	monitoring "github.com/clearcompass-ai/attesta/monitoring"
-	sdknetwork "github.com/clearcompass-ai/attesta/network"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/witness"
+	monitoring "github.com/baseproof/baseproof/monitoring"
+	sdknetwork "github.com/baseproof/baseproof/network"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	jnmon "github.com/clearcompass-ai/attesta-tools/libs/monitoring"

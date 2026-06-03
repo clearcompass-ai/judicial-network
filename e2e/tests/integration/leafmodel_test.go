@@ -4,7 +4,7 @@
 //
 // This is the e2e half of a two-part guard against a leaf-hash mismatch that
 // shipped in the SDK and was masked by an in-process stub "echo chamber". The
-// other half is a unit test in attesta (core/envelope/onlog_leaf_test.go) that
+// other half is a unit test in baseproof (core/envelope/onlog_leaf_test.go) that
 // PINS the formula:
 //
 //	envelope.OnLogEntryLeafHash(canonical) == H(0x00 || SHA256(canonical))
@@ -24,9 +24,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	attestatypes "github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	baseprooftypes "github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/tests/harness"
 )
@@ -132,7 +132,7 @@ func TestS1_3b_OnLogLeafModel_MatchesLedgerTree(t *testing.T) {
 	//    core/smt muEnableRootMatch = true, returns an error iff the computed
 	//    root != root — so a nil return IS the proof of equality.
 	correctLeaf := envelope.OnLogEntryLeafHash(canonical) // H(0x00 || SHA256(canonical))
-	correctProof := &attestatypes.MerkleProof{
+	correctProof := &baseprooftypes.MerkleProof{
 		LeafPosition: proof.LeafIndex,
 		LeafHash:     correctLeaf,
 		Siblings:     siblings,
@@ -155,7 +155,7 @@ func TestS1_3b_OnLogLeafModel_MatchesLedgerTree(t *testing.T) {
 	//    vacuous, so we also assert they differ.
 	wrongLeaf := envelope.EntryLeafHashBytes(canonical) // H(0x00 || canonical) — the bug
 	harness.Truthy(t, wrongLeaf != correctLeaf, "sanity: wrong leaf must differ from correct leaf (else the negative guard is vacuous)")
-	wrongProof := &attestatypes.MerkleProof{
+	wrongProof := &baseprooftypes.MerkleProof{
 		LeafPosition: proof.LeafIndex,
 		LeafHash:     wrongLeaf,
 		Siblings:     siblings,

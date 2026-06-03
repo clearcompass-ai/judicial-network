@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/consortium"
 	jntrust "github.com/clearcompass-ai/judicial-network/verification/trust"

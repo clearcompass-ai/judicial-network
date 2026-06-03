@@ -3,7 +3,7 @@ FILE PATH: verification/attestation_collection.go
 
 DESCRIPTION:
 
-	JN adapter for attesta v1.2.0's attestation.VerifyCollection —
+	JN adapter for baseproof v1.2.0's attestation.VerifyCollection —
 	the SDK's K-of-N attestation verifier over a candidate set
 	pre-materialised from log.QueryByCosignatureOf.
 
@@ -64,10 +64,10 @@ TRUST ALIGNMENT:
 	verification are decoupled. This wrapper holds the boundary.
 
 KEY DEPENDENCIES:
-  - attesta/attestation: VerifyCollection, CollectionReport,
+  - baseproof/attestation: VerifyCollection, CollectionReport,
     Rejection, SignatureVerifier, VerifyOption
-  - attesta/core/envelope: Entry
-  - attesta/types: LogPosition, EntryWithMetadata
+  - baseproof/core/envelope: Entry
+  - baseproof/types: LogPosition, EntryWithMetadata
 */
 package verification
 
@@ -77,8 +77,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/types"
 )
 
 // ErrAttestationCollection wraps every error path the

@@ -22,8 +22,8 @@ OVERVIEW:
 	Batch: semaphore concurrency, per-CID retry.
 
 KEY DEPENDENCIES:
-  - attesta/lifecycle/artifact: ReEncrypt, KeyStore
-  - attesta/storage: ContentStore, CID
+  - baseproof/lifecycle/artifact: ReEncrypt, KeyStore
+  - baseproof/storage: ContentStore, CID
 */
 package artifact
 
@@ -33,8 +33,8 @@ import (
 	"sync"
 	"time"
 
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/storage"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // -------------------------------------------------------------------------------------------------

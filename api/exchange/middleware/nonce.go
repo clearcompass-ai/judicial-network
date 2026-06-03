@@ -4,7 +4,7 @@ FILE PATH: api/exchange/middleware/nonce.go
 DESCRIPTION:
 
 	HTTP middleware that gates exchange endpoints on nonce uniqueness.
-	Per attesta/APPLY-destination-binding.md, NonceStore protects
+	Per baseproof/APPLY-destination-binding.md, NonceStore protects
 	non-log-entry traffic — the request paths log dedup does not cover:
 	    - Sealed-record reads
 	    - Certified-copy delivery / notifications
@@ -16,7 +16,7 @@ DESCRIPTION:
 KEY ARCHITECTURAL DECISIONS:
   - Strict-forever semantics: a reserved nonce stays reserved.
     Replay rejection is permanent. NonceStore does NOT garbage-
-    collect — that is by design (see attesta/exchange/auth
+    collect — that is by design (see baseproof/exchange/auth
     package godoc).
   - Endpoint-scoped namespacing: the middleware namespaces every
     reservation as `<scope>::<nonce>` so the same client-supplied
@@ -24,7 +24,7 @@ KEY ARCHITECTURAL DECISIONS:
     certified-copy) without colliding. The scope is fixed at
     construction time per route — distinct scope = distinct
     replay-defense surface.
-  - Configurable header name (default "X-Attesta-Nonce"). Empty
+  - Configurable header name (default "X-Baseproof-Nonce"). Empty
     header → 400 with code `nonce_missing`.
   - Stable JSON 4xx error codes: nonce_missing | nonce_replayed |
     nonce_store_unavailable | nonce_misconfig.
@@ -33,7 +33,7 @@ KEY ARCHITECTURAL DECISIONS:
     request must be fresh AND have a unique nonce).
 
 KEY DEPENDENCIES:
-  - attesta/exchange/auth: NonceStore interface + sentinels.
+  - baseproof/exchange/auth: NonceStore interface + sentinels.
 */
 package middleware
 
@@ -43,12 +43,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/exchange/auth"
+	"github.com/baseproof/baseproof/exchange/auth"
 )
 
 // DefaultNonceHeader is the request header name read by the
 // NonceMiddleware when no override is set.
-const DefaultNonceHeader = "X-Attesta-Nonce"
+const DefaultNonceHeader = "X-Baseproof-Nonce"
 
 // NonceConfig parameterizes a single endpoint's nonce gate. Scope
 // MUST be non-empty; HeaderName empty → DefaultNonceHeader.

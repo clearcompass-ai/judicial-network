@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/types"
 )
 
 // signedPrimaryBytes builds a signed primary entry that optionally

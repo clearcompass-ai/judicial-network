@@ -38,7 +38,7 @@ func TestIsDIDWeb(t *testing.T) {
 	}
 }
 
-// A bare did:web base resolves to its AttestaLedger endpoint; the LogDID
+// A bare did:web base resolves to its BaseproofLedger endpoint; the LogDID
 // (originator routing key) is untouched.
 func TestResolveGossipPeerEndpoints_DIDWebResolved(t *testing.T) {
 	res := fakePeerResolver{m: map[string]string{
@@ -112,7 +112,7 @@ func TestResolveGossipPeerEndpoints_UnresolvableFailsClosed(t *testing.T) {
 }
 
 func TestResolveGossipPeerEndpoints_EmptyEndpointFailsClosed(t *testing.T) {
-	// Resolver returns "" (DID doc has no AttestaLedger service endpoint).
+	// Resolver returns "" (DID doc has no BaseproofLedger service endpoint).
 	res := fakePeerResolver{m: map[string]string{"did:web:noledger": ""}}
 	in := []config.GossipPeerConfig{{LogDID: "did:key:z", BaseURL: "did:web:noledger"}}
 	if _, err := resolveGossipPeerEndpoints(context.Background(), in, res); err == nil {

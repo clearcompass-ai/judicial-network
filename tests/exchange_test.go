@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/crypto/signatures"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"

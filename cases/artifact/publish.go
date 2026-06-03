@@ -13,7 +13,7 @@ KEY ARCHITECTURAL DECISIONS:
   - FLAG 2 FIX: encodeCapsule has struct-layout-dependency comment.
 
 OVERVIEW: AES-GCM and PRE publish paths with key store separation.
-KEY DEPENDENCIES: attesta/builder, crypto/artifact, lifecycle, storage, did
+KEY DEPENDENCIES: baseproof/builder, crypto/artifact, lifecycle, storage, did
 */
 package artifact
 
@@ -22,14 +22,14 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/did"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkartifact "github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/lifecycle"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 )
 
 // -------------------------------------------------------------------------------------------------

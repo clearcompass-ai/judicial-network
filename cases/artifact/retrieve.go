@@ -28,7 +28,7 @@ OVERVIEW: RetrieveArtifact → entity state check → sealing check →
 
 	authorized recipients → GrantArtifactAccess → commitment verify.
 
-KEY DEPENDENCIES: attesta/builder, lifecycle, smt, verifier, judicial-network/schemas
+KEY DEPENDENCIES: baseproof/builder, lifecycle, smt, verifier, judicial-network/schemas
 */
 package artifact
 
@@ -39,15 +39,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/did"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	sdkartifact "github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/lifecycle"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

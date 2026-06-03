@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/network"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/network"
+	"github.com/baseproof/baseproof/types"
 )
 
 // ──────────────────────────────────────────────────────────────────

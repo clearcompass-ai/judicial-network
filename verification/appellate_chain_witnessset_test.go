@@ -5,16 +5,16 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/anchor"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/anchor"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
-// ── fixtures (replicated from attesta/anchor's package-private test helpers,
+// ── fixtures (replicated from baseproof/anchor's package-private test helpers,
 //    using only public SDK APIs) ─────────────────────────────────────────────
 
 func wsWitnessSet(t *testing.T, n, k int) ([]cosign.WitnessSigner, *cosign.WitnessKeySet, cosign.NetworkID) {

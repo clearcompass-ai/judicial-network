@@ -1,6 +1,6 @@
 // VerifyAuthorityHandler ?as_of= + PickTrust coverage.
 //
-// Pins the read-side surface under the attesta v1.43.0 Temporal-Anchor
+// Pins the read-side surface under the baseproof v1.43.0 Temporal-Anchor
 // mandate (ZT-IMM-01):
 //  1. asOfRequest classifies ?as_of=<seq> into a (seq, explicit) intent:
 //     absent / empty / 0 ⇒ (0, false) "no pin → resolve latest"; >0 ⇒
@@ -18,9 +18,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // stubLogTrust is a minimal LogTrustProvider used to verify
@@ -132,7 +132,7 @@ func (headProvider) Leaf(context.Context, string, [32]byte, verifier.AsOf) (veri
 
 // TestResolveAsOf_Absent_PinsLatestHead is the load-bearing ZT-IMM-01 proof and
 // the direct correction of what this file used to assert (absent ?as_of= →
-// AsOf{} "latest"). Under attesta v1.43.0 a null AsOf is REJECTED by the verdict
+// AsOf{} "latest"). Under baseproof v1.43.0 a null AsOf is REJECTED by the verdict
 // primitives, so resolveAsOf MUST snapshot the current head into a PINNED
 // selector — a real (Sequence = TreeSize-1, RootHash), never the zero value.
 func TestResolveAsOf_Absent_PinsLatestHead(t *testing.T) {

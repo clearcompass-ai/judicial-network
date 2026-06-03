@@ -29,7 +29,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 )
 
 // Request is the v2 signed-request envelope. The Envelope field is

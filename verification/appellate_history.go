@@ -40,10 +40,10 @@ package verification
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/anchor"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/anchor"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // AppealStep is one hop in an appeal chain. The chain is
@@ -129,7 +129,7 @@ func WalkAppealChain(origin AppealStep, next NextProofFn) ([]AppealStep, error) 
 // inside *cosign.WitnessKeySet at construction time so this
 // function cannot read the wrong K for a given source log.
 //
-// SDK-4 (attesta v1.43.0): trustByLog carries each SOURCE log's pinned
+// SDK-4 (baseproof v1.43.0): trustByLog carries each SOURCE log's pinned
 // burn/equivocation status, keyed by the SAME source-log DID as
 // witnessSetByLog. A missing entry is the zero TrustStatus
 // (Known=false) and fails the hop closed (ErrTrustUnknown) — an

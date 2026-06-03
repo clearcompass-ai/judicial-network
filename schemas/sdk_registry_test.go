@@ -29,17 +29,17 @@
 //  9. LookupBySchemaID surfaces the Domain string verbatim
 //     (cross-domain dispatch contract — plan §I.14).
 //  10. HandlesVersion accepts v=1 (the JN binding range) and
-//      rejects v=2 / v=0 (out-of-range), pinning the explicit
-//      version-gating that the empty pre-D9 binding got via
-//      back-compat "Min=0 Max=0 = any" semantics.
+//     rejects v=2 / v=0 (out-of-range), pinning the explicit
+//     version-gating that the empty pre-D9 binding got via
+//     back-compat "Min=0 Max=0 = any" semantics.
 package schemas
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkschema "github.com/clearcompass-ai/attesta/schema"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkschema "github.com/baseproof/baseproof/schema"
 )
 
 func TestSDKRegistry_NilReceiver(t *testing.T) {
@@ -163,7 +163,7 @@ func TestSDKRegistry_LookupBySchemaID_SurfacesJNDomain(t *testing.T) {
 	}
 	// Spot-check a domain-payload schema (criminal-case) and the
 	// shard-genesis schema (which wraps an SDK payload type).
-	for _, uri := range []string{"tn-criminal-case-v1", "AT-ENTRY-SCHEMA-SHARD-GENESIS-V1"} {
+	for _, uri := range []string{"tn-criminal-case-v1", "BP-ENTRY-SCHEMA-SHARD-GENESIS-V1"} {
 		if !sdk.Has(sdkschema.SchemaID(uri)) {
 			t.Skipf("schema %q not registered — skipping", uri)
 		}

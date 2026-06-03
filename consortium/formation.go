@@ -8,10 +8,10 @@ DESCRIPTION:
 	share infrastructure, schemas, or economic settlement.
 
 KEY DEPENDENCIES:
-  - attesta/lifecycle: ProvisionSingleLog, SingleLogConfig,
+  - baseproof/lifecycle: ProvisionSingleLog, SingleLogConfig,
     LogProvision (guide §20.1)
-  - attesta/builder: BuildScopeCreation (guide §11.3)
-  - attesta/types: used for result types
+  - baseproof/builder: BuildScopeCreation (guide §11.3)
+  - baseproof/types: used for result types
 
 OVERVIEW:
 
@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/lifecycle"
+	"github.com/baseproof/baseproof/lifecycle"
 )
 
 // ConsortiumConfig defines a new consortium.

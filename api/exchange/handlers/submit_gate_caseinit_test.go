@@ -28,7 +28,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/core/envelope"
 
 	"github.com/clearcompass-ai/judicial-network/cases"
 	davidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"

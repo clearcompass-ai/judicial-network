@@ -3,7 +3,7 @@ package aggregator
 import (
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/core/envelope"
 
 	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 )

@@ -23,7 +23,7 @@ package judicial
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/storage"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

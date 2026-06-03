@@ -19,7 +19,7 @@ package judicial
 import (
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/parties"
 	"github.com/clearcompass-ai/judicial-network/schemas"

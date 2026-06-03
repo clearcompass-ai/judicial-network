@@ -30,9 +30,9 @@ KEY ARCHITECTURAL DECISIONS:
     identity to the wrong vendor DID is catastrophic).
 
 KEY DEPENDENCIES:
-  - attesta/crypto/escrow: SplitV2, ReconstructV2, Share,
+  - baseproof/crypto/escrow: SplitV2, ReconstructV2, Share,
     EscrowSplitCommitment.
-  - attesta/exchange/identity: MappingEscrow, StoreMappingV2,
+  - baseproof/exchange/identity: MappingEscrow, StoreMappingV2,
     StoreMappingV2Config, StoreMappingV2Result, EscrowNode,
     EncryptedShare, MappingRecord, CredentialRef, StoredMappingV2.
 */
@@ -42,11 +42,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/vss"
-	"github.com/clearcompass-ai/attesta/crypto/escrow"
-	"github.com/clearcompass-ai/attesta/exchange/identity"
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/vss"
+	"github.com/baseproof/baseproof/crypto/escrow"
+	"github.com/baseproof/baseproof/exchange/identity"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // MappingEscrowManager handles vendor-DID ↔ real-DID mappings within

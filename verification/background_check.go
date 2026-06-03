@@ -7,7 +7,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Only returns public (non-sealed) cases.
 
 OVERVIEW: BackgroundCheck → list of public case associations with proofs.
-KEY DEPENDENCIES: attesta/core/smt, log.LedgerQueryAPI
+KEY DEPENDENCIES: baseproof/core/smt, log.LedgerQueryAPI
 */
 package verification
 
@@ -16,9 +16,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
 )
 
 type CaseAssociation struct {

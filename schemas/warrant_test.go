@@ -1,23 +1,23 @@
 // Tests for judicial-warrant-v1.
 //
 // Pins the daily criminal-court contract:
-//   1. Registration in the JN domain Registry.
-//   2. Arrest warrant on felony complaint (use case A) —
-//      issuance + ProbableCauseRef round-trip.
-//   3. Search warrant for digital evidence (use case B) —
-//      TargetSpecifications + WarrantTypeSearch round-trip.
-//   4. Bench warrant for failure to appear (use case C) —
-//      no ProbableCauseRef required; WarrantTypeBench round-trips.
-//   5. Two-phase issuance→return chain via PriorWarrantPos.
-//   6. Every WarrantType constant round-trips.
-//   7. WarrantReturn nested struct round-trips with Executed flag.
+//  1. Registration in the JN domain Registry.
+//  2. Arrest warrant on felony complaint (use case A) —
+//     issuance + ProbableCauseRef round-trip.
+//  3. Search warrant for digital evidence (use case B) —
+//     TargetSpecifications + WarrantTypeSearch round-trip.
+//  4. Bench warrant for failure to appear (use case C) —
+//     no ProbableCauseRef required; WarrantTypeBench round-trips.
+//  5. Two-phase issuance→return chain via PriorWarrantPos.
+//  6. Every WarrantType constant round-trips.
+//  7. WarrantReturn nested struct round-trips with Executed flag.
 package schemas
 
 import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/core/envelope"
 )
 
 func TestWarrant_RegisteredInJNRegistry(t *testing.T) {
@@ -75,8 +75,8 @@ func TestWarrant_ArrestOnFelonyComplaint(t *testing.T) {
 // arrest of a PERSON).
 func TestWarrant_SearchWithTargetSpecifications(t *testing.T) {
 	warrant := &WarrantPayload{
-		CaseRootPos:      caseAt(200),
-		WarrantType:      WarrantTypeSearch,
+		CaseRootPos: caseAt(200),
+		WarrantType: WarrantTypeSearch,
 		TargetSpecifications: []string{
 			"residence at 1234 Main St, Nashville TN 37203",
 			"any Apple iPhone associated with phone number 615-555-0100",
@@ -190,10 +190,10 @@ func TestWarrant_TwoPhaseReturnChain(t *testing.T) {
 // officer's explanation.
 func TestWarrant_UnexecutedReturn(t *testing.T) {
 	returned := &WarrantPayload{
-		CaseRootPos:     caseAt(100),
-		WarrantType:     WarrantTypeSearch,
+		CaseRootPos:          caseAt(100),
+		WarrantType:          WarrantTypeSearch,
 		TargetSpecifications: []string{"residence at 5678 Oak St"},
-		SourceAuthority: "TRCrP 41",
+		SourceAuthority:      "TRCrP 41",
 		Issuance: WarrantIssuance{
 			IssuedAt:        time.Date(2026, 5, 29, 10, 0, 0, 0, time.UTC),
 			IssuingJudgeDID: "did:web:judge.criminal.tn.example",
@@ -229,8 +229,8 @@ func TestWarrant_AllWarrantTypes(t *testing.T) {
 	} {
 		t.Run(wt, func(t *testing.T) {
 			warrant := &WarrantPayload{
-				CaseRootPos: caseAt(100),
-				WarrantType: wt,
+				CaseRootPos:     caseAt(100),
+				WarrantType:     wt,
 				SourceAuthority: "test",
 				Issuance: WarrantIssuance{
 					IssuedAt:        time.Now().UTC(),

@@ -1,11 +1,11 @@
 // Package cosign is the consumer-side cosignature verifier used by the H5
 // scenarios (S6.1, S7.1, S7.2): it recomputes a cosigned head's K-of-N witness
-// signatures against the bootstrap's genesis set using the REAL attesta SDK
+// signatures against the bootstrap's genesis set using the REAL baseproof SDK
 // (crypto/cosign + witness.KeysFromDIDs), so those scenarios verify the math
 // instead of trusting the publisher's JSON.
 //
 // The NetworkID the witnesses signed under is SHA-256(canonical bootstrap)
-// (attesta/network.BootstrapDocument.CanonicalBytes); internal/bootstrap.Load
+// (baseproof/network.BootstrapDocument.CanonicalBytes); internal/bootstrap.Load
 // computes it via the SDK's own canonicalization and stores it on the document,
 // so it matches by construction — see internal/bootstrap.
 package cosign
@@ -15,9 +15,9 @@ import (
 	"errors"
 	"fmt"
 
-	sdkcosign "github.com/clearcompass-ai/attesta/crypto/cosign"
-	attestatypes "github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/witness"
+	sdkcosign "github.com/baseproof/baseproof/crypto/cosign"
+	baseprooftypes "github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/internal/types"
 )
@@ -33,7 +33,7 @@ type Result struct {
 }
 
 // Verify checks head's K-of-N cosignatures against the bootstrap's genesis
-// witness set, via the attesta SDK. A var so a test can swap it.
+// witness set, via the baseproof SDK. A var so a test can swap it.
 var Verify = func(boot types.BootstrapDocument, quorumK int, head types.CosignedTreeHead) (Result, error) {
 	total := len(head.Signatures)
 	keys, err := witness.KeysFromDIDs(boot.GenesisWitnessSet)
@@ -44,7 +44,7 @@ var Verify = func(boot types.BootstrapDocument, quorumK int, head types.Cosigned
 	if err != nil {
 		return Result{Total: total}, fmt.Errorf("cosign: build witness key set (k=%d of %d): %w", quorumK, len(keys), err)
 	}
-	ah, err := toAttestaHead(head)
+	ah, err := toBaseproofHead(head)
 	if err != nil {
 		return Result{Total: total}, err
 	}
@@ -60,10 +60,10 @@ func Wired() bool {
 	return !errors.Is(err, ErrNotWired)
 }
 
-// toAttestaHead maps the e2e wire head (hex-string fields) to the SDK type the
+// toBaseproofHead maps the e2e wire head (hex-string fields) to the SDK type the
 // verifier consumes.
-func toAttestaHead(h types.CosignedTreeHead) (attestatypes.CosignedTreeHead, error) {
-	var th attestatypes.TreeHead
+func toBaseproofHead(h types.CosignedTreeHead) (baseprooftypes.CosignedTreeHead, error) {
+	var th baseprooftypes.TreeHead
 	th.TreeSize = h.TreeSize
 	for _, f := range []struct {
 		name string
@@ -79,23 +79,23 @@ func toAttestaHead(h types.CosignedTreeHead) (attestatypes.CosignedTreeHead, err
 		}
 		b, err := hex.DecodeString(f.src)
 		if err != nil || len(b) != 32 {
-			return attestatypes.CosignedTreeHead{}, fmt.Errorf("cosign: %s not a 32-byte hex hash", f.name)
+			return baseprooftypes.CosignedTreeHead{}, fmt.Errorf("cosign: %s not a 32-byte hex hash", f.name)
 		}
 		copy(f.dst[:], b)
 	}
-	sigs := make([]attestatypes.WitnessSignature, 0, len(h.Signatures))
+	sigs := make([]baseprooftypes.WitnessSignature, 0, len(h.Signatures))
 	for i, s := range h.Signatures {
 		id, err := hex.DecodeString(s.PubKeyID)
 		if err != nil || len(id) != 32 {
-			return attestatypes.CosignedTreeHead{}, fmt.Errorf("cosign: signature[%d] pub_key_id not a 32-byte hex id", i)
+			return baseprooftypes.CosignedTreeHead{}, fmt.Errorf("cosign: signature[%d] pub_key_id not a 32-byte hex id", i)
 		}
 		sb, err := hex.DecodeString(s.SigBytes)
 		if err != nil {
-			return attestatypes.CosignedTreeHead{}, fmt.Errorf("cosign: signature[%d] sig_bytes not hex", i)
+			return baseprooftypes.CosignedTreeHead{}, fmt.Errorf("cosign: signature[%d] sig_bytes not hex", i)
 		}
 		var pid [32]byte
 		copy(pid[:], id)
-		sigs = append(sigs, attestatypes.WitnessSignature{PubKeyID: pid, SchemeTag: byte(s.SchemeTag), SigBytes: sb})
+		sigs = append(sigs, baseprooftypes.WitnessSignature{PubKeyID: pid, SchemeTag: byte(s.SchemeTag), SigBytes: sb})
 	}
-	return attestatypes.CosignedTreeHead{TreeHead: th, Signatures: sigs}, nil
+	return baseprooftypes.CosignedTreeHead{TreeHead: th, Signatures: sigs}, nil
 }

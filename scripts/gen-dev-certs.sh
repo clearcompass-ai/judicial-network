@@ -39,7 +39,7 @@ cd "${CERT_DIR}"
 echo "== dev CA =="
 openssl ecparam -name prime256v1 -genkey -noout -out ca.key
 openssl req -x509 -new -key ca.key -sha256 -days "${DAYS}" \
-    -subj "/CN=attesta-dev-ca" -out ca.crt
+    -subj "/CN=baseproof-dev-ca" -out ca.crt
 
 echo "== server cert (CN=localhost, SAN DNS:localhost,IP:127.0.0.1) =="
 openssl ecparam -name prime256v1 -genkey -noout -out server.key

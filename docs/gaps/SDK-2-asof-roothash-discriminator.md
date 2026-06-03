@@ -1,6 +1,6 @@
 # SDK-2 — Add a `RootHash` fork discriminator to `AsOf`/`LogPosition`
 
-> **Target repo:** clearcompass-ai/attesta
+> **Target repo:** baseproof/baseproof
 > **Labels:** `bug` · `breaking-change` · `cross-log` · `zero-trust-physics`
 > **Depends on:** — (pairs with SDK-1; consumed by judicial-network JN-1)
 > **Status:** Proposal / ready to implement. The storage layer already keys forks

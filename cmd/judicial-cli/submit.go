@@ -54,9 +54,9 @@ import (
 	"os"
 	"time"
 
-	sdkenv "github.com/clearcompass-ai/attesta/core/envelope"
-	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
-	sdktypes "github.com/clearcompass-ai/attesta/types"
+	sdkenv "github.com/baseproof/baseproof/core/envelope"
+	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
+	sdktypes "github.com/baseproof/baseproof/types"
 )
 
 // SubmitSpec is the on-disk JSON shape that drives `submit`.

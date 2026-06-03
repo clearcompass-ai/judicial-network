@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 )
 
 // stubMTLSExtractor returns a fixed DID, simulating a successful

@@ -25,9 +25,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/delegation"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/delegation"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

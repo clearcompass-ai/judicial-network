@@ -38,8 +38,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/clearcompass-ai/attesta-tools/libs/identity"
-	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )

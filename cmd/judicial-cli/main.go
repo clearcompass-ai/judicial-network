@@ -43,10 +43,10 @@ KEY ARCHITECTURAL DECISIONS:
     ledger/api/middleware/evidence_cap.go:20).
 
 KEY DEPENDENCIES:
-  - github.com/clearcompass-ai/attesta/core/envelope
-  - github.com/clearcompass-ai/attesta/crypto/signatures
-  - github.com/clearcompass-ai/attesta/did
-  - github.com/clearcompass-ai/attesta/types
+  - github.com/baseproof/baseproof/core/envelope
+  - github.com/baseproof/baseproof/crypto/signatures
+  - github.com/baseproof/baseproof/did
+  - github.com/baseproof/baseproof/types
 */
 package main
 
@@ -102,7 +102,7 @@ For walkthrough usage see:
 // pin documented in the top-level README:
 //
 //	judicial-network v0.0.1
-//	    requires attesta v0.1.0 + ledger v0.1.0
+//	    requires baseproof v0.1.0 + ledger v0.1.0
 //
 // Builds may override via -ldflags "-X main.Version=...".
 var Version = "0.0.1"

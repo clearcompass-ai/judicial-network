@@ -18,10 +18,10 @@ DESCRIPTION:
 	The domain_payload is opaque bytes flowing through.
 
 KEY DEPENDENCIES:
-  - attesta/builder (guide §11.3)
-  - attesta/crypto/artifact (guide §14)
-  - attesta/lifecycle (guide §20)
-  - attesta/storage (guide §8)
+  - baseproof/builder (guide §11.3)
+  - baseproof/crypto/artifact (guide §14)
+  - baseproof/lifecycle (guide §20)
+  - baseproof/storage (guide §8)
 */
 package exchange
 
@@ -35,11 +35,11 @@ import (
 	"os"
 	"time"
 
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/storage"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/storage"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"

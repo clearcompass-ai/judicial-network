@@ -3,7 +3,7 @@
 // DESCRIPTION:
 //
 //	Smart-contract-wallet (EIP-1271) verification configuration.
-//	attesta v1.8.0 verifies EIP-1271 signatures with K-of-N executor
+//	baseproof v1.8.0 verifies EIP-1271 signatures with K-of-N executor
 //	consensus pinned to a specific (BlockNumber, BlockHash), and binds
 //	the DID's eip155 chain to the verifier's chain — closing the
 //	cross-chain replay vector (a Polygon Safe signature can no longer
@@ -20,7 +20,7 @@
 //	chain-agnostically; SigAlgoEIP1271 is rejected.
 //
 // KEY DEPENDENCIES:
-//   - attesta/types: MaxExecutorQuorumClients (16),
+//   - baseproof/types: MaxExecutorQuorumClients (16),
 //     MaxExecutorClientIDLen (64) — the SDK's executor-set bounds.
 package config
 
@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	sdktypes "github.com/clearcompass-ai/attesta/types"
+	sdktypes "github.com/baseproof/baseproof/types"
 )
 
 // DefaultSCWRPCTimeout is the per-request timeout applied to each

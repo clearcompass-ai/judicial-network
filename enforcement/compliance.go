@@ -23,7 +23,7 @@ OVERVIEW: RunComplianceCheck → ComplianceReport{Active, Pending, Overridden,
 
 	PendingContests, Summary}.
 
-KEY DEPENDENCIES: attesta/verifier, attesta/core/smt, attesta/schema
+KEY DEPENDENCIES: baseproof/verifier, baseproof/core/smt, baseproof/schema
 */
 package enforcement
 
@@ -33,10 +33,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // ComplianceConfig configures a compliance check.
@@ -119,7 +119,7 @@ func RunComplianceCheck(
 		now = time.Now().UTC()
 	}
 
-	// ZT-IMM-01 (attesta v1.43.0): cfg.AsOf{} ("latest") is no longer an
+	// ZT-IMM-01 (baseproof v1.43.0): cfg.AsOf{} ("latest") is no longer an
 	// implicit wall-clock default inside the SDK — resolve it to a pinned
 	// head deliberately so the verdict is reproducible.
 	asOf := cfg.AsOf

@@ -11,10 +11,10 @@ DESCRIPTION:
 	POST /v1/artifacts/{cid}/grant → build + sign + submit grant entry
 
 KEY DEPENDENCIES:
-  - attesta/crypto/artifact: Encrypt (guide §14)
-  - attesta/storage: ComputeCID (guide §8.1)
-  - attesta/crypto: SHA256 (guide §12)
-  - attesta/lifecycle: GrantArtifactAccess, CheckGrantAuthorization
+  - baseproof/crypto/artifact: Encrypt (guide §14)
+  - baseproof/storage: ComputeCID (guide §8.1)
+  - baseproof/crypto: SHA256 (guide §12)
+  - baseproof/lifecycle: GrantArtifactAccess, CheckGrantAuthorization
     (guide §20.4)
 */
 package handlers
@@ -29,9 +29,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/storage"
 
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 )

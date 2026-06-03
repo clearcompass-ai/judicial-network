@@ -47,8 +47,8 @@ import (
 
 	secp256k1ec "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
-	sdkdid "github.com/clearcompass-ai/attesta/did"
+	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
+	sdkdid "github.com/baseproof/baseproof/did"
 )
 
 // DID method names recognized by the CLI.

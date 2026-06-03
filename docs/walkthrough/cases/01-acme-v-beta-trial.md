@@ -5,7 +5,7 @@ and record both attorneys' appearances. By the end of this file
 `curl -fsS $DAVIDSON/v1/tree/head | jq '.size'` returns `5`.
 
 Pre-flight: §01 + §02 done. `$CLERK`, `$COOPER`, `$DAVIS` are
-exported. You're in `~/attesta/keys`.
+exported. You're in `~/baseproof/keys`.
 
 ## Step 1 — File the case (`CivilCasePayload`)
 
@@ -23,7 +23,7 @@ attorney of record on every initial filing.
 **Build the spec:**
 
 ```bash
-cd ~/attesta/keys
+cd ~/baseproof/keys
 cat > civil-filing.spec.json <<EOF
 {
   "schema":      "civil_case",

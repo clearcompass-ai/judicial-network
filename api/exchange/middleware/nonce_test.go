@@ -20,7 +20,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/exchange/auth"
+	"github.com/baseproof/baseproof/exchange/auth"
 )
 
 // ─── Helpers ────────────────────────────────────────────────────────

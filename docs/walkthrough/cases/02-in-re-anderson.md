@@ -56,7 +56,7 @@ with 4 actors for clarity; adding more is one extra spec each.
 (Assumes you have `clerk-brown.key.json` from §02.)
 
 ```bash
-cd ~/attesta/keys
+cd ~/baseproof/keys
 judicial-cli keygen --out judge-lewis.key.json
 judicial-cli keygen --out magistrate-owens.key.json
 judicial-cli keygen --out atty-murphy.key.json

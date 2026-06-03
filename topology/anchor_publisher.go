@@ -3,7 +3,7 @@ FILE PATH: topology/anchor_publisher.go
 DESCRIPTION: Publishes periodic county→state anchors as self-contained
 
 	cosigned_tree_head_v1 entries via the SDK's single anchor owner
-	(attesta/anchor). The embedded head carries the source log's full
+	(baseproof/anchor). The embedded head carries the source log's full
 	K-of-N cosignatures, so a consumer verifies the quorum OFFLINE — no
 	callback to the source log, which may by then be offline or equivocating.
 
@@ -18,7 +18,7 @@ KEY ARCHITECTURAL DECISIONS:
 
 OVERVIEW: PublishAnchor fetches latest tree head and builds a self-contained
 anchor entry.
-KEY DEPENDENCIES: attesta/anchor, attesta/witness, attesta/crypto/cosign
+KEY DEPENDENCIES: baseproof/anchor, baseproof/witness, baseproof/crypto/cosign
 */
 package topology
 
@@ -27,10 +27,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/anchor"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/baseproof/baseproof/anchor"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	sdklog "github.com/baseproof/baseproof/log"
 )
 
 // AnchorConfig configures an anchor publishing operation.

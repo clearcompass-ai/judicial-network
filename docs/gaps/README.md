@@ -26,10 +26,10 @@ reconstruction, or burn-awareness the physics require.
 
 | # | Target repo | Title | Mandate | Depends on |
 |---|---|---|---|---|
-| **SDK-1** | clearcompass-ai/attesta | Make `verifier.AsOf` mandatory — remove implicit latest/local-clock default | Physics #1 | — |
-| **SDK-2** | clearcompass-ai/attesta | Add `RootHash` fork discriminator to `AsOf`/`LogPosition` | Scenario 4 / Physics #2 | — |
-| **SDK-3** | clearcompass-ai/attesta | Add `WitnessSetAt(asOf)` historical witness-set reconstruction | Scenario 2 (Goal 13) | — |
-| **SDK-4** | clearcompass-ai/attesta | `anchor.VerifyCrossLog` must take a burn oracle and fail closed | Physics #4 | — |
+| **SDK-1** | baseproof/baseproof | Make `verifier.AsOf` mandatory — remove implicit latest/local-clock default | Physics #1 | — |
+| **SDK-2** | baseproof/baseproof | Add `RootHash` fork discriminator to `AsOf`/`LogPosition` | Scenario 4 / Physics #2 | — |
+| **SDK-3** | baseproof/baseproof | Add `WitnessSetAt(asOf)` historical witness-set reconstruction | Scenario 2 (Goal 13) | — |
+| **SDK-4** | baseproof/baseproof | `anchor.VerifyCrossLog` must take a burn oracle and fail closed | Physics #4 | — |
 | **AT-1** | clearcompass-ai/attesta-tools | Journal-backed `WitnessSetAt` materialization | Scenario 2 | SDK-3 |
 | **AT-2** | clearcompass-ai/attesta-tools | Wire the dormant standalone equivocation `Scanner` | Scenario 12 | — |
 | **JN-1** | clearcompass-ai/judicial-network | Pin cross-network resolution to RootHash (`HeadByRootHash`) | Scenario 4 | SDK-2 |
@@ -43,7 +43,7 @@ reconstruction, or burn-awareness the physics require.
 12 wired equivocation monitor) verified satisfied. One **already-captured**
 watch item: PQ at the witness cosign-quorum is blocked by the c2sp.org/tlog-tiles
 64 KiB entry ceiling (`tessera/append_lifecycle.go:62-63`,
-`attesta/core/envelope/tessera_compat.go:98`, `attesta/docs/crypto-size.md:15-16`,
+`baseproof/core/envelope/tessera_compat.go:98`, `baseproof/docs/crypto-size.md:15-16`,
 `ledger/docs/v1.37.0-adoption-runbook.md:118`) — a spec-bound constraint, not an
 actionable gap.
 
@@ -67,6 +67,6 @@ actionable gap.
 ## Dedup note
 
 `judicial-network#69` reviewed directly. The GitHub API was rate-limited during
-the audit, so open issues in attesta / attesta-tools / ledger / e2e-tests were
-**not** queried — run a dedup pass there (especially attesta, for any existing
+the audit, so open issues in baseproof / attesta-tools / ledger / e2e-tests were
+**not** queried — run a dedup pass there (especially baseproof, for any existing
 `AsOf`/PQ tickets) before filing SDK-1…SDK-4.

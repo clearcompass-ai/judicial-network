@@ -12,8 +12,8 @@ DESCRIPTION:
 	governed by scope amendment (unanimous consent to change).
 
 KEY DEPENDENCIES:
-  - attesta/builder: BuildSchemaEntry (guide §11.3)
-  - attesta/builder: BuildRootEntity (guide §11.3)
+  - baseproof/builder: BuildSchemaEntry (guide §11.3)
+  - baseproof/builder: BuildRootEntity (guide §11.3)
 */
 package load_accounting
 
@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
 )
 
 // LoadAccountingParams defines the settlement policy for a consortium.

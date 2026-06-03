@@ -1,22 +1,22 @@
 // Tests for judicial-network-topology-v1.
 //
 // Pins the 5-event federation contract:
-//   1. Registration in the JN domain Registry.
-//   2. Goodlettsville onboarding scenario (anchor_registration).
-//   3. COA mirrors Davidson trial (mirror_creation).
-//   4. Williamson withdrawal (mirror_revocation).
-//   5. Federal-courts network fork (network_fork).
-//   6. Davidson drug-court division (scope_division_creation).
-//   7. All 5 Action constants round-trip.
-//   8. SDK admission.
+//  1. Registration in the JN domain Registry.
+//  2. Goodlettsville onboarding scenario (anchor_registration).
+//  3. COA mirrors Davidson trial (mirror_creation).
+//  4. Williamson withdrawal (mirror_revocation).
+//  5. Federal-courts network fork (network_fork).
+//  6. Davidson drug-court division (scope_division_creation).
+//  7. All 5 Action constants round-trip.
+//  8. SDK admission.
 package schemas
 
 import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 func topologyPos(seq uint64) types.LogPosition {

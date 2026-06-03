@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/did"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/log/discover"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/did"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/log/discover"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"

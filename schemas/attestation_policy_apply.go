@@ -26,11 +26,11 @@ DESCRIPTION:
 	package — callers only import schemas to use either.
 
 KEY DEPENDENCIES:
-  - attesta/core/envelope: Entry.Header.AttestationPolicyName *string
+  - baseproof/core/envelope: Entry.Header.AttestationPolicyName *string
 */
 package schemas
 
-import "github.com/clearcompass-ai/attesta/core/envelope"
+import "github.com/baseproof/baseproof/core/envelope"
 
 // SetAttestationPolicy applies policyName to entry.Header.AttestationPolicyName
 // when policyName is non-nil and non-empty. Returns silently otherwise so

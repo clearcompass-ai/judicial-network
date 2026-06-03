@@ -14,9 +14,9 @@ DESCRIPTION:
 	aggregation.
 
 KEY DEPENDENCIES:
-  - attesta/log: LedgerQueryAPI.ScanFromPosition (guide §27.3)
-  - attesta/builder: ClassifyEntry (guide §11.1)
-  - attesta/types: EntryWithMetadata, CosignedTreeHead
+  - baseproof/log: LedgerQueryAPI.ScanFromPosition (guide §27.3)
+  - baseproof/builder: ClassifyEntry (guide §11.1)
+  - baseproof/types: EntryWithMetadata, CosignedTreeHead
 */
 package load_accounting
 
@@ -27,9 +27,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 )

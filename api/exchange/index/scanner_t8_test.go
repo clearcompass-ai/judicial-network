@@ -57,8 +57,8 @@ func TestDecodeNetworkEntry_JNCasePayload_NotNetworkKind(t *testing.T) {
 // regular indexer.
 func TestDecodeNetworkEntry_UnknownKind_NotNetwork(t *testing.T) {
 	payload, _ := json.Marshal(map[string]any{
-		"kind":           "AT-ENTRY-CASE-CRIMINAL-V1", // not a network kind
-		"docket_number":  "TN-DAV-2026-CR-001",
+		"kind":          "BP-ENTRY-CASE-CRIMINAL-V1", // not a network kind
+		"docket_number": "TN-DAV-2026-CR-001",
 	})
 	decoded, err := crosslog.DecodeNetworkEntry(payload)
 	if err != nil {

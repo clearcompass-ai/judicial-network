@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // VerifyBatchHandler handles GET /v1/verify/batch/{logID}/{positions}.
@@ -66,7 +66,7 @@ func (h *VerifyBatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		entity := types.LogPosition{LogDID: logID, Sequence: pos}
 		leafKey := smt.DeriveKey(entity)
 
-		// EvaluateOrigin has no WithTrust variant in attesta v1.34;
+		// EvaluateOrigin has no WithTrust variant in baseproof v1.34;
 		// stays on the legacy single-reader API until the SDK ships
 		// EvaluateOriginWithTrust (tracked separately).
 		origin, err := verifier.EvaluateOrigin(ctx, leafKey, h.deps.LeafReader, fetcher)

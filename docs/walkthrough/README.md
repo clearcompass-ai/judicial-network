@@ -15,7 +15,7 @@ with the exact commands that produce each step on your laptop.
 | Component | Version | Source |
 |---|---|---|
 | `judicial-network` (this repo) | `0.0.1` | `make version` |
-| `attesta` (SDK Go module) | `v1.14.0` | `go.mod` require line |
+| `baseproof` (SDK Go module) | `v1.14.0` | `go.mod` require line |
 | `ledger` (HTTP service binary) | `0.1.0` | `clearcompass-ai/ledger` repo |
 
 The walkthrough's commands assume those three components match. If
@@ -90,7 +90,7 @@ no-cloud topology there's a separate
 `docker-compose.integration.yml` with `fake-gcs-server`; the
 walkthrough doesn't use that path.
 
-Both ledgers are stock Attesta ledgers — domain-agnostic
+Both ledgers are stock Baseproof ledgers — domain-agnostic
 "dumb writes" that admit signed canonical bytes, sequence them, and
 serve them over HTTP. All judicial vocabulary lives in
 `judicial-cli` and the JN schemas. **The ledgers don't know
@@ -183,7 +183,7 @@ when those paths are ready to be exercised.
 
 ## Status
 
-- SDK: `attesta v1.14.0` (EIP-1271 supported but not exercised here)
+- SDK: `baseproof v1.14.0` (EIP-1271 supported but not exercised here)
 - Ledger topology: `deployment/local/docker-compose.dev.yml` in
   the ledger repo
 - CLI: `judicial-network/cmd/judicial-cli/`

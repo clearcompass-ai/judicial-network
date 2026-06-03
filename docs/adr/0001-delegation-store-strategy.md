@@ -6,7 +6,7 @@
 
 ## Context
 
-The attesta SDK (v1.2+) ships a `DelegationResolver` interface. Concrete implementations need a backing store of delegation entries to walk chains during constraint evaluation (`DelegationOriginDID`, `RequiredScopes`, recusal `DenyDIDs`). The question is **where the store lives** and **how reads flow** for each consumer of the resolver.
+The baseproof SDK (v1.2+) ships a `DelegationResolver` interface. Concrete implementations need a backing store of delegation entries to walk chains during constraint evaluation (`DelegationOriginDID`, `RequiredScopes`, recusal `DenyDIDs`). The question is **where the store lives** and **how reads flow** for each consumer of the resolver.
 
 Three plausible global answers were considered:
 
@@ -52,14 +52,14 @@ This ADR does NOT decide:
 
 ### What the SDK provides (already shipped)
 
-The matrix is implemented entirely on the consumer side. The attesta SDK provides:
+The matrix is implemented entirely on the consumer side. The baseproof SDK provides:
 
 - `attestation.DelegationResolver` interface (v1.2)
 - `delegation.Resolver` concrete walker with cycle + max-depth guards (v1.2)
 - `delegation.EntrySource` interface — the consumer-side data plug-in (v1.2)
 - `delegation.InMemorySource` reference impl (v1.2)
 - `attestation.VerifyEntryAttestationPolicy` composite (v1.2)
-- `verifier.VerifyComplete` Stage 6 with `PolicyParams` (v1.4 — pending merge of attesta PR #23)
+- `verifier.VerifyComplete` Stage 6 with `PolicyParams` (v1.4 — pending merge of baseproof PR #23)
 
 Each row of the matrix wires its own `EntrySource` impl over its specific store. No cross-consumer abstraction is introduced; the SDK provides primitives, each consumer wires them per use case.
 
@@ -79,7 +79,7 @@ The matrix above is the recorded decision. Future rows are added by extending th
 
 ## Related
 
-- attesta v1.2.0 — introduced `DelegationResolver` interface + `delegation/` package
-- attesta v1.3.0 — added `SchemaParameters.AttestationPolicies` + `ControlHeader.AttestationPolicyName`
-- attesta v1.4.0 (PR #23, pending) — `verifier.VerifyComplete` Stage 6
+- baseproof v1.2.0 — introduced `DelegationResolver` interface + `delegation/` package
+- baseproof v1.3.0 — added `SchemaParameters.AttestationPolicies` + `ControlHeader.AttestationPolicyName`
+- baseproof v1.4.0 (PR #23, pending) — `verifier.VerifyComplete` Stage 6
 - `clearcompass-ai/ledger` issue #75 — admission-refactor decisions, including ledger-side resolver implementation

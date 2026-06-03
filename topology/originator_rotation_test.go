@@ -19,7 +19,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 )
 
 func TestBuildRotation_RejectsNilSet(t *testing.T) {

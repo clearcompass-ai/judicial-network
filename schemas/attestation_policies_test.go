@@ -26,8 +26,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/schema"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/schema"
 )
 
 // Manually pin each schema's expected policy. If we change

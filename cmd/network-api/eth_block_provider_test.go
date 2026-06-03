@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/did"
 )
 
 // rpcStub is a minimal Ethereum JSON-RPC server for BlockProvider

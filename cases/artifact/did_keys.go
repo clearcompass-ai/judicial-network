@@ -11,7 +11,7 @@ KEY ARCHITECTURAL DECISIONS:
     and Type field for purpose matching.
 
 OVERVIEW: ResolveEncryptionKey / ResolveSigningKey → 65-byte public key.
-KEY DEPENDENCIES: attesta/did
+KEY DEPENDENCIES: baseproof/did
 */
 package artifact
 
@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/did"
 )
 
 var keyAgreementTypes = []string{

@@ -20,9 +20,9 @@ OVERVIEW:
 	rate limiting. Progress callbacks report per-record status.
 
 KEY DEPENDENCIES:
-  - attesta/builder: EntryFetcher
-  - attesta/lifecycle/artifact: KeyStore
-  - attesta/storage: ContentStore
+  - baseproof/builder: EntryFetcher
+  - baseproof/lifecycle/artifact: KeyStore
+  - baseproof/storage: ContentStore
   - DelegationKeyStore (defined in publish.go)
 */
 package artifact
@@ -32,11 +32,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/did"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/did"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 )
 
 // -------------------------------------------------------------------------------------------------

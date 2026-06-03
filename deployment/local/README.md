@@ -35,11 +35,11 @@ make walkthrough-up
 | Component | Version |
 |---|---|
 | `judicial-network` | `v0.0.1` |
-| `attesta` (Go SDK pin) | `v0.1.0` |
+| `baseproof` (Go SDK pin) | `v0.1.0` |
 | `ledger` (HTTP service) | `v0.1.0` |
 
 Run `make version` from the repo root to see the live values
-(`attesta` is read from `go.mod`; the others are defaults).
+(`baseproof` is read from `go.mod`; the others are defaults).
 
 ## Tear-down
 

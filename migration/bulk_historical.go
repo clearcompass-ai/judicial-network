@@ -18,7 +18,7 @@ DESCRIPTION:
 	retries from the last successful position.
 
 KEY DEPENDENCIES:
-  - attesta/builder: BuildRootEntity, BuildAmendment,
+  - baseproof/builder: BuildRootEntity, BuildAmendment,
     ProcessWithRetry (guide §§11.3, 10.2)
 */
 package migration
@@ -28,8 +28,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
 )
 
 // BulkImportConfig configures a historical case import.

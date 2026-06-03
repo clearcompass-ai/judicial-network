@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 

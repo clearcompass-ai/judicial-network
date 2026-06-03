@@ -114,7 +114,7 @@ independent things — none of them touch an external RPC:
 
 1. **Crypto identity** — the signature recovers to the address inside
    the `did:pkh` (that exact wallet/SSO account signed). Pure-CPU
-   `ecrecover` (`attesta/did/verifier_batch.go`).
+   `ecrecover` (`baseproof/did/verifier_batch.go`).
 2. **Authority** — that DID holds the **on-log-delegated** judicial role
    at submit time (`verification/delegation_resolver_ledger.go`,
    `verification/authority_resolver.go`). A local projection of the log,

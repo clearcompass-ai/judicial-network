@@ -38,11 +38,11 @@ DESCRIPTION:
 	that want the verdict directly without driving VerifyComplete.
 
 KEY DEPENDENCIES:
-  - attesta v1.5.1 verifier.PolicyStageParams (target shape)
-  - attesta v1.5.1 attestation.Policy, DelegationResolver
-  - attesta v1.5.1 sdklog.LedgerQueryAPI (cosignature_of)
-  - attesta v1.5.1 core/envelope.Deserialize (read policy name)
-  - attesta v1.5.1 types.SchemaParameters.FindAttestationPolicy
+  - baseproof v1.5.1 verifier.PolicyStageParams (target shape)
+  - baseproof v1.5.1 attestation.Policy, DelegationResolver
+  - baseproof v1.5.1 sdklog.LedgerQueryAPI (cosignature_of)
+  - baseproof v1.5.1 core/envelope.Deserialize (read policy name)
+  - baseproof v1.5.1 types.SchemaParameters.FindAttestationPolicy
 */
 package verification
 
@@ -51,12 +51,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // ErrPolicyStage is the umbrella sentinel for every error this

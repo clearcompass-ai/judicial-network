@@ -10,7 +10,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Max chain depth 10 (state → county is typically depth 2).
 
 OVERVIEW: DiscoverAnchorChain walks from court to state root.
-KEY DEPENDENCIES: attesta/did, attesta/witness
+KEY DEPENDENCIES: baseproof/did, baseproof/witness
 */
 package topology
 
@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/did"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/witness"
 )
 
 const maxAnchorChainDepth = 10

@@ -86,7 +86,7 @@ KEY ARCHITECTURAL DECISIONS
 
 KEY DEPENDENCIES
   - schemas/registry.go: SchemaRegistration, ErrDeserialize
-  - attesta/types: LogPosition
+  - baseproof/types: LogPosition
 */
 package schemas
 
@@ -94,7 +94,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 )
 
 // SchemaNetworkTopologyV1 is the canonical schema URI.

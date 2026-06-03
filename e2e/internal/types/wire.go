@@ -6,7 +6,7 @@ package types
 import "encoding/json"
 
 // BootstrapDocument is network-bootstrap.json — the shared trust root every
-// component loads (attesta/network/bootstrap.go).
+// component loads (baseproof/network/bootstrap.go).
 type BootstrapDocument struct {
 	ProtocolVersion   string   `json:"protocol_version"`
 	ExchangeDID       string   `json:"exchange_did"`
@@ -18,7 +18,7 @@ type BootstrapDocument struct {
 	} `json:"genesis_tree_head"`
 
 	// NetworkID is the cosign NetworkID = SHA-256(canonical bootstrap), computed
-	// at load via the attesta SDK (NOT a JSON field). It is the value the
+	// at load via the baseproof SDK (NOT a JSON field). It is the value the
 	// witnesses bound their cosignatures to, so cosign verification needs it.
 	NetworkID [32]byte `json:"-"`
 }

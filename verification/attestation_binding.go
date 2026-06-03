@@ -3,7 +3,7 @@ FILE PATH: verification/attestation_binding.go
 
 DESCRIPTION:
 
-	JN adapter for attesta v1.2.0's attestation.IsAttestation —
+	JN adapter for baseproof v1.2.0's attestation.IsAttestation —
 	the canonical predicate that confirms an entry is bound to a
 	specific primary position via Header.CosignatureOf.
 
@@ -55,9 +55,9 @@ TRUST ALIGNMENT:
 	confirmation step.
 
 KEY DEPENDENCIES:
-  - attesta/attestation: IsAttestation, Ref
-  - attesta/core/envelope: Entry
-  - attesta/types: LogPosition
+  - baseproof/attestation: IsAttestation, Ref
+  - baseproof/core/envelope: Entry
+  - baseproof/types: LogPosition
 */
 package verification
 
@@ -65,9 +65,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 // ErrAttestationBinding wraps every binding-check failure mode

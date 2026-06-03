@@ -5,7 +5,7 @@ DESCRIPTION:
 
 	Thin HTTP shim over the ledger's GET /v1/query/delegate_did/{did}
 	read endpoint (shipped on the ledger in PR-K). The SDK's
-	sdklog.LedgerQueryAPI interface in attesta v1.5.1 does NOT yet
+	sdklog.LedgerQueryAPI interface in baseproof v1.5.1 does NOT yet
 	expose this query — the v1.5.x batch added the field to
 	ControlHeader but the typed query method is a follow-up. Until
 	the SDK ships it, JN's read-time policy enforcement (Stage 6's
@@ -14,7 +14,7 @@ DESCRIPTION:
 	# CONTRACT
 
 	Mirrors the SDK's HTTPLedgerQueryAPI response shape verbatim
-	(see attesta/log/http_query_api.go::queryListResponse): on 200
+	(see baseproof/log/http_query_api.go::queryListResponse): on 200
 	the body is
 
 	  { "entries": [ {sequence_number, log_time, signer_did, ...} ],
@@ -34,7 +34,7 @@ DESCRIPTION:
 	Until then, JN's wiring constructs one of each.
 
 KEY DEPENDENCIES:
-  - attesta v1.5.1 types.EntryWithMetadata, types.LogPosition (target shape)
+  - baseproof v1.5.1 types.EntryWithMetadata, types.LogPosition (target shape)
   - Ledger PR-K route: GET /v1/query/delegate_did/{did}
 */
 package verification
@@ -49,7 +49,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 )
 
 // defaultDelegateQueryTimeout caps each delegate_did round-trip. JN's

@@ -3,7 +3,7 @@
 // Phase 1 — On-log inclusion across an IMPERFECT tree (S1.3c), SCENARIOS.md.
 //
 // Companion to S1.3b, which proves the leaf model at ONE position (seq 0). That
-// is not enough to pin the v1.41.0 core/smt fix (attesta 92eeb2c), a
+// is not enough to pin the v1.41.0 core/smt fix (baseproof 92eeb2c), a
 // POSITION-DEPENDENT bug: VerifyMerkleInclusion paired the RFC-6962 co-path by
 // leaf-index parity — correct ONLY for perfect (power-of-two) trees — and
 // REJECTED valid canonical proofs for ~27% of leaves on an imperfect tree. A
@@ -21,9 +21,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	attestatypes "github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	baseprooftypes "github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/tests/harness"
 )
@@ -107,7 +107,7 @@ func TestS1_3c_InclusionBoundarySweep_ImperfectTree(t *testing.T) {
 		copy(root[:], rootBytes)
 
 		attempted++
-		correctProof := &attestatypes.MerkleProof{
+		correctProof := &baseprooftypes.MerkleProof{
 			LeafPosition: proof.LeafIndex,
 			LeafHash:     envelope.OnLogEntryLeafHash(canonical), // H(0x00 || SHA256(canonical))
 			Siblings:     siblings,

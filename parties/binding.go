@@ -26,7 +26,7 @@ OVERVIEW:
 
 KEY DEPENDENCIES:
   - schemas.PartyBindingPayload (typed v1.6 shape).
-  - attesta/builder (BuildRootEntity, BuildAmendment).
+  - baseproof/builder (BuildRootEntity, BuildAmendment).
 */
 package parties
 
@@ -34,9 +34,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

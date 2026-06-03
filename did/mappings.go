@@ -4,7 +4,7 @@ FILE PATH: did/mappings.go
 DESCRIPTION:
 
 	Vendor DID mappings for the judicial network. These were removed
-	from the attesta in v0.1.0 because they are domain-specific
+	from the baseproof in v0.1.0 because they are domain-specific
 	and have no business in the protocol-level SDK.
 
 	Each mapping translates a judicial vendor DID method to did:web
@@ -22,7 +22,7 @@ DESCRIPTION:
 
 KEY DEPENDENCIES:
 
-  - attesta/did: VendorMapping struct, NewVendorDIDResolver
+  - baseproof/did: VendorMapping struct, NewVendorDIDResolver
 
     VendorMapping fields (verified from did/vendor_did.go):
     Method        string
@@ -32,7 +32,7 @@ KEY DEPENDENCIES:
 */
 package judicialdid
 
-import "github.com/clearcompass-ai/attesta/did"
+import "github.com/baseproof/baseproof/did"
 
 // CourtMapping maps did:court:<jurisdiction>[:<division>] to
 // did:web:<reversed-parts>.court.gov.

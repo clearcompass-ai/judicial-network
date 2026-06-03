@@ -58,7 +58,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 )
 
 // NonceStoreBackend is the deployment-time selection of which
@@ -100,7 +100,7 @@ type NonceStoreConfig struct {
 	// RedisDB selects the redis logical DB. Default 0.
 	RedisDB int
 
-	// RedisKeyPrefix overrides the SDK default ("attesta:nonce:").
+	// RedisKeyPrefix overrides the SDK default ("baseproof:nonce:").
 	// Empty uses the SDK default.
 	RedisKeyPrefix string
 }

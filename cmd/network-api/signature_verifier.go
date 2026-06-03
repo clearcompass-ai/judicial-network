@@ -7,7 +7,7 @@ DESCRIPTION:
 	verification service's Path C admission gate (/v1/verify/complete,
 	api/verification ServerConfig.SignatureVerifier).
 
-	This is where attesta v1.11.1's native receipt-aware, multi-chain
+	This is where baseproof v1.11.1's native receipt-aware, multi-chain
 	verifier is assembled. The result is a *did.VerifierRegistry,
 	which implements both attestation.SignatureVerifier and
 	attestation.SignatureVerifierWithReceipt — so the SDK's
@@ -49,20 +49,20 @@ DESCRIPTION:
 	enforced by JN's own Origin/Destination stage.
 
 KEY DEPENDENCIES:
-  - attesta/did: NewVerifierRegistry, NewKeyVerifier, NewWebVerifier,
+  - baseproof/did: NewVerifierRegistry, NewKeyVerifier, NewWebVerifier,
     NewPKHVerifier, PKHVerifierOptions, ExecutorClient,
     NewMultiChainPKHVerifier.
-  - attesta/crypto/signatures: NewHTTPEthereumRPC.
-  - attesta/attestation: SignatureVerifier (return type).
+  - baseproof/crypto/signatures: NewHTTPEthereumRPC.
+  - baseproof/attestation: SignatureVerifier (return type).
 */
 package main
 
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/did"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 )

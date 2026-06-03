@@ -1,7 +1,7 @@
 // Package rotation is the SDK-tier witness-set / key-rotation fixture: a chain of
 // witness sets (era 0 → era N, i.e. "year 1 → year 15") where each rotation is
 // authorized by its predecessor's k-of-n signatures over the universal cosign
-// rotation payload. It exercises the real attesta rotation primitives
+// rotation payload. It exercises the real baseproof rotation primitives
 // (witness.VerifyRotation / VerifyRotationChain / ComputeSetHash) with no live
 // infrastructure: `go test ./rotation/` runs the whole chain on a desktop.
 //
@@ -14,10 +14,10 @@ package rotation
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/tests/sdk/equivocation"
 )

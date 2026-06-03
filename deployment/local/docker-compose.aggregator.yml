@@ -23,13 +23,13 @@ services:
   aggregator-db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: "${AGG_PG_USER:-attesta}"
-      POSTGRES_PASSWORD: "${AGG_PG_PASS:-attestapassword}"
+      POSTGRES_USER: "${AGG_PG_USER:-baseproof}"
+      POSTGRES_PASSWORD: "${AGG_PG_PASS:-baseproofpassword}"
       POSTGRES_DB: "${AGG_PG_DB:-aggregator}"
     volumes:
       - agg_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AGG_PG_USER:-attesta} -d ${AGG_PG_DB:-aggregator}"]
+      test: ["CMD-SHELL", "pg_isready -U ${AGG_PG_USER:-baseproof} -d ${AGG_PG_DB:-aggregator}"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -47,7 +47,7 @@ services:
       - "${AGG_PROBE_PORT:-8092}:8092"
     environment:
       # The aggregator's OWN projection DB (tools-local, never the domain's).
-      TOOLS_DATABASE_URL: "postgres://${AGG_PG_USER:-attesta}:${AGG_PG_PASS:-attestapassword}@aggregator-db:5432/${AGG_PG_DB:-aggregator}?sslmode=disable"
+      TOOLS_DATABASE_URL: "postgres://${AGG_PG_USER:-baseproof}:${AGG_PG_PASS:-baseproofpassword}@aggregator-db:5432/${AGG_PG_DB:-aggregator}?sslmode=disable"
       # The ledger it scans (host-run, like the JN's own dev flow).
       TOOLS_LEDGER_URL: "${TOOLS_LEDGER_URL:-http://host.docker.internal:8080}"
       # Log DIDs to scan. Empty ⇒ the clitools defaults (courts.localhost:*); the

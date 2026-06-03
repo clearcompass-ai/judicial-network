@@ -48,8 +48,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/baseproof/baseproof/storage"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
-	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/judicial-network/tools/provider-tools"
 )
 

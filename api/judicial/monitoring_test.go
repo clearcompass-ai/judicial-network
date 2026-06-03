@@ -15,7 +15,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/storage"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )

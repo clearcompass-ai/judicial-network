@@ -33,7 +33,7 @@ DESCRIPTION:
 
 	# CANONICAL JSON SHAPE (v1.5.1)
 
-	Per types/attestation_policy_json.go (attesta v1.5.0), each
+	Per types/attestation_policy_json.go (baseproof v1.5.0), each
 	policy serializes as:
 
 	  {
@@ -69,9 +69,9 @@ DESCRIPTION:
 	wire shape.
 
 KEY DEPENDENCIES:
-  - attesta v1.5.1 types.SchemaParameters.AttestationPolicies (wire)
-  - attesta v1.5.1 types.AttestationPolicy.AdmissionEnforced (wire)
-  - attesta v1.5.1 types.AttestationPolicy.MarshalJSON (round-trip
+  - baseproof v1.5.1 types.SchemaParameters.AttestationPolicies (wire)
+  - baseproof v1.5.1 types.AttestationPolicy.AdmissionEnforced (wire)
+  - baseproof v1.5.1 types.AttestationPolicy.MarshalJSON (round-trip
     pin in test)
 */
 package schemas

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	monitoring "github.com/clearcompass-ai/attesta/monitoring"
-	"github.com/clearcompass-ai/attesta/network"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	monitoring "github.com/baseproof/baseproof/monitoring"
+	"github.com/baseproof/baseproof/network"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	jnmon "github.com/clearcompass-ai/attesta-tools/libs/monitoring"

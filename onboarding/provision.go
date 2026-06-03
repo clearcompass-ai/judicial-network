@@ -30,7 +30,7 @@ OVERVIEW:
 	Returns CourtProvision with three LogProvision pointers.
 
 KEY DEPENDENCIES:
-  - attesta/lifecycle: ProvisionSingleLog, SingleLogConfig,
+  - baseproof/lifecycle: ProvisionSingleLog, SingleLogConfig,
     DelegationSpec, SchemaSpec, LogProvision
   - judicial-network/schemas: schema registry for resolving URIs
   - judicial-network/topology: SpokeConfig (court + three log DIDs)
@@ -42,9 +42,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	sdkschema "github.com/clearcompass-ai/attesta/schema"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/lifecycle"
+	sdkschema "github.com/baseproof/baseproof/schema"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/clearcompass-ai/judicial-network/topology"

@@ -53,9 +53,9 @@ DESCRIPTION:
 	InvalidateDID.
 
 KEY DEPENDENCIES:
-  - attesta v1.5.1 attestation.DelegationResolver, DelegationChain,
+  - baseproof v1.5.1 attestation.DelegationResolver, DelegationChain,
     DelegationHop (target interface)
-  - attesta v1.5.1 core/envelope.Deserialize (to read SignerDID
+  - baseproof v1.5.1 core/envelope.Deserialize (to read SignerDID
     from canonical bytes)
   - verification/policycache (TTL cache)
   - DelegateDIDQuerier (this package's HTTP shim)
@@ -70,9 +70,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 
 	policycache "github.com/clearcompass-ai/attesta-tools/libs/cache"
 )

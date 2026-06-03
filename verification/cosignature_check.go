@@ -7,7 +7,7 @@ DESCRIPTION:
 	enforcement of the v1.4 Event Dictionary's Tier 2 cosignature
 	requirement.
 
-	# SCOPE — NOT to be confused with attesta v1.2.0 attestation/
+	# SCOPE — NOT to be confused with baseproof v1.2.0 attestation/
 
 	This file verifies signatures INSIDE A SINGLE entry's
 	`entry.Signatures` slice against a JN-domain role / exchange /
@@ -41,7 +41,7 @@ DESCRIPTION:
 	compatibility (Event Dictionary v1.4 uses that vocabulary). The
 	v1.2.0 SDK reserves "cosignature" for the wire field
 	`CosignatureOf`; this file is the JN-domain Tier 2 rule
-	enforcer and intentionally does not import attesta/attestation.
+	enforcer and intentionally does not import baseproof/attestation.
 
 	# INPUTS
 
@@ -92,7 +92,7 @@ KEY DEPENDENCIES:
   - policy (CosignatureMixPolicy, CosignatureRule).
   - verification.RoleResolver (DID → role + exchange; replaces
     the deleted directory.OfficerRegistry).
-  - attesta envelope (Entry).
+  - baseproof envelope (Entry).
 */
 package verification
 
@@ -102,8 +102,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

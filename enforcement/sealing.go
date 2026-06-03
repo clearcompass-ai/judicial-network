@@ -23,7 +23,7 @@ BUGFIX NOTES (§5.1, §5.10):
     we need).
 
 OVERVIEW: SealCase → enforcement entry. CheckSealingActivation → activation gate.
-KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/schema
+KEY DEPENDENCIES: baseproof/builder, baseproof/verifier, baseproof/schema
 */
 package enforcement
 
@@ -33,12 +33,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

@@ -25,7 +25,7 @@
 # The court_tools database the JN tools read is on the same Postgres
 # instance the ledger booted; this compose does NOT spin up its own
 # Postgres. The connection string is the standard local-dev one
-# (attesta:attestapassword@host.docker.internal:5432/court_tools).
+# (baseproof:baseproofpassword@host.docker.internal:5432/court_tools).
 
 services:
   court-tools:
@@ -37,7 +37,7 @@ services:
       - "8090:8090"
     environment:
       TOOLS_LEDGER_URL: "http://host.docker.internal:8080"
-      TOOLS_DATABASE_URL: "postgres://attesta:attestapassword@host.docker.internal:5432/court_tools?sslmode=disable"
+      TOOLS_DATABASE_URL: "postgres://baseproof:baseproofpassword@host.docker.internal:5432/court_tools?sslmode=disable"
       TOOLS_COURT_DID: "did:web:state:tn:davidson"
       TOOLS_COURT_TOOLS_ADDR: ":8090"
     extra_hosts:
@@ -57,7 +57,7 @@ services:
       - "8091:8091"
     environment:
       TOOLS_LEDGER_URL: "http://host.docker.internal:8080"
-      TOOLS_DATABASE_URL: "postgres://attesta:attestapassword@host.docker.internal:5432/court_tools?sslmode=disable"
+      TOOLS_DATABASE_URL: "postgres://baseproof:baseproofpassword@host.docker.internal:5432/court_tools?sslmode=disable"
       TOOLS_PROVIDER_TOOLS_ADDR: ":8091"
     extra_hosts:
       - "host.docker.internal:host-gateway"

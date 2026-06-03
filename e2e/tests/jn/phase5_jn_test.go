@@ -187,7 +187,7 @@ func TestS5_Stubs_Return501(t *testing.T) {
 	}
 }
 
-// S5.16 — ZT-IMM-01 (attesta v1.43.0) authority-verify temporal anchor.
+// S5.16 — ZT-IMM-01 (baseproof v1.43.0) authority-verify temporal anchor.
 // The /v1/verify/authority surface must pin a cosigned head deterministically:
 // an as_of-LESS request resolves the LATEST head (verifier.ResolveLatest,
 // sourced from the JN's gossip-ingested journal) and returns a verdict — it must

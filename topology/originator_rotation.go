@@ -21,9 +21,9 @@
 //	cryptographic semantics.
 //
 // KEY DEPENDENCIES:
-//   - attesta/witness: VerifyRotation, VerifyRotationChain
-//   - attesta/types: WitnessRotation, WitnessPublicKey
-//   - attesta/gossip/findings: NewOriginatorRotationFinding (for
+//   - baseproof/witness: VerifyRotation, VerifyRotationChain
+//   - baseproof/types: WitnessRotation, WitnessPublicKey
+//   - baseproof/gossip/findings: NewOriginatorRotationFinding (for
 //     gossip-side transport of the new key after a successful
 //     rotation)
 package topology
@@ -32,10 +32,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/gossip/findings"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/gossip/findings"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness"
 )
 
 // ErrRotation indicates a structural fault in a rotation request

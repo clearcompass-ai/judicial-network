@@ -4,11 +4,11 @@ openapi: 3.1.0
 # Info
 # ─────────────────────────────────────────────────────────────────────
 info:
-  title: Attesta Judicial Network API
+  title: Baseproof Judicial Network API
   version: 0.1.0
   summary: Multi-court federation API for judicial log entries, artifacts, and cross-court verification.
   description: |
-    The Judicial Network (JN) API is the HTTP surface for an Attesta
+    The Judicial Network (JN) API is the HTTP surface for an Baseproof
     deployment serving one or more courts on a single listener. The
     composer mounts three sub-surfaces:
 
@@ -16,7 +16,7 @@ info:
         enforcement, parties, onboarding, artifacts, verification,
         monitoring, consortium federation, delegation, topology).
       - `/v1/entries/*`, `/v1/artifacts/*`, `/v1/delegations/*`,
-        `/v1/keys/*`, `/v1/dids`, `/v1/scope/*` — generic Attesta
+        `/v1/keys/*`, `/v1/dids`, `/v1/scope/*` — generic Baseproof
         protocol surface (build/sign/submit, key custody, scope
         amendment).
       - `/v1/verify/*` — read-side verification (origin, authority,

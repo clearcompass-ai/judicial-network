@@ -20,13 +20,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 
@@ -82,7 +82,7 @@ type ServerConfig struct {
 
 	// Journal is the shared verified-heads archive (the gossip
 	// reconciler's HeadsJournal). Threaded into
-	// handlers.Dependencies.Journal for two attesta v1.43.0 needs:
+	// handlers.Dependencies.Journal for two baseproof v1.43.0 needs:
 	// SDK-4 cross-log burn gating (BurnStatus → TrustStatus) and
 	// ZT-IMM-01 historical ?as_of=N pins (HeadAt → RootHash). nil
 	// fails both closed; the absent/latest as-of path is unaffected.
@@ -95,7 +95,7 @@ type ServerConfig struct {
 	// verifier at envelope level.
 	SignatureVerifier attestation.SignatureVerifier
 
-	// PR-2 — read-time Stage 6 (attesta v1.5.1 / issue #75).
+	// PR-2 — read-time Stage 6 (baseproof v1.5.1 / issue #75).
 	//
 	// PolicyStage carries per-log dependencies (cosignature_of query
 	// API, raw-bytes fetcher, delegation chain resolver) used by the

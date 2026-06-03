@@ -30,7 +30,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

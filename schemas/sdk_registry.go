@@ -2,7 +2,7 @@
 //
 // DESCRIPTION:
 //
-//	attesta v0.4.0+ adoption — bridges JN's domain-payload
+//	baseproof v0.4.0+ adoption — bridges JN's domain-payload
 //	schemas.Registry to the SDK admission-router *schema.Registry.
 //	The SDK registry is structural: it owns per-SchemaID
 //	EntryValidator + SchemaParameterExtractor bindings the
@@ -62,17 +62,17 @@
 //	                    via a second bind.
 //
 // KEY DEPENDENCIES:
-//   - attesta/schema: Registry, Binding, EntryValidator,
+//   - baseproof/schema: Registry, Binding, EntryValidator,
 //     SchemaID, sentinel errors, NewJSONParameterExtractor.
-//   - attesta/core/envelope: Entry (admission-time validation).
+//   - baseproof/core/envelope: Entry (admission-time validation).
 package schemas
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkschema "github.com/clearcompass-ai/attesta/schema"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkschema "github.com/baseproof/baseproof/schema"
 )
 
 // JNDomain is the canonical Domain string every JN schema binding

@@ -43,9 +43,9 @@ import (
 
 	_ "github.com/lib/pq" // postgres driver for the projection store (clitools.NewDB)
 
+	"github.com/baseproof/baseproof/storage"
 	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
-	"github.com/clearcompass-ai/attesta/storage"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 	"github.com/clearcompass-ai/judicial-network/tools/court-tools"
 )

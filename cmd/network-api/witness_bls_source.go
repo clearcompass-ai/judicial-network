@@ -5,7 +5,7 @@
 // multicodec carries no proof-of-possession slot), so witness.KeysFromDIDs — the
 // resolver behind every WitnessDIDs row — can never yield its key material; the
 // only zero-trust source is the witness's on-log WitnessEndpointDeclaration
-// (scheme/key/PoP, attesta v1.54).
+// (scheme/key/PoP, baseproof v1.54).
 //
 // The materialize/validate/project walkers are domain-agnostic and used by every
 // network's auditor, so they live in attesta-tools/libs/crosslog (the witness

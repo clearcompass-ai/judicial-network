@@ -3,15 +3,15 @@ FILE PATH: schemas/shard_genesis.go
 DESCRIPTION: shard-genesis-v1 wrapping SDK's ShardGenesisPayload.
 KEY ARCHITECTURAL DECISIONS: Delegates to SDK schema.ParseShardGenesisPayload.
 OVERVIEW: Registers shard-genesis-v1 for topology/anchor_publisher.go.
-KEY DEPENDENCIES: attesta/schema
+KEY DEPENDENCIES: baseproof/schema
 */
 package schemas
 
 import (
 	"encoding/json"
 
-	"github.com/clearcompass-ai/attesta/kinds"
-	sdkschema "github.com/clearcompass-ai/attesta/schema"
+	"github.com/baseproof/baseproof/kinds"
+	sdkschema "github.com/baseproof/baseproof/schema"
 )
 
 const SchemaShardGenesisV1 = kinds.EntrySchemaShardGenesisV1

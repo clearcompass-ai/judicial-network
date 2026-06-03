@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // CreateFiling handles POST /v1/cases/{docket}/filings.
@@ -170,7 +170,7 @@ func (s *Server) GetFiling(w http.ResponseWriter, r *http.Request) {
 
 // pushToArtifactStore + fetchFromArtifactStore both delegate to the
 // SDK's storage.HTTPContentStore. Per the architecture spec, the
-// judicial-network never imports attesta-artifact-store/ directly —
+// judicial-network never imports baseproof-artifact-store/ directly —
 // every wire call goes through the SDK's ContentStore interface so
 // the URL shape, X-Artifact-CID header, accepted status set, and
 // 404 → ErrContentNotFound mapping are all SDK-owned.

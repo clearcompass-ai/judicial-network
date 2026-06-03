@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 
@@ -38,7 +38,7 @@ type Dependencies struct {
 	SchemaResolver builder.SchemaResolver
 
 	// Journal is the verified-heads archive (shared with the gossip
-	// reconciler). Two roles under attesta v1.43.0:
+	// reconciler). Two roles under baseproof v1.43.0:
 	//   - SDK-4 cross-log trust: BurnStatus(sourceLogDID) → the pinned
 	//     verifier.TrustStatus VerifyCrossLogHandler gates on (via
 	//     trust.StatusFor).
@@ -79,7 +79,7 @@ type Dependencies struct {
 	// expose /v1/verify/complete.
 	SignatureVerifier attestation.SignatureVerifier
 
-	// PR-2 (attesta v1.5.1 / issue #75 read-time Stage 6).
+	// PR-2 (baseproof v1.5.1 / issue #75 read-time Stage 6).
 	// PolicyStage holds per-log dependencies for the SDK Path C
 	// composite's Policy stage. When the feature flag
 	// JN_VERIFY_POLICY_STAGE_ENABLE is true AND PolicyStage has an
@@ -122,7 +122,7 @@ type Dependencies struct {
 }
 
 // PolicyStageDeps is the per-log injection point for read-time
-// Stage 6 (attesta v1.5.1). One per logID. Production wiring builds:
+// Stage 6 (baseproof v1.5.1). One per logID. Production wiring builds:
 //
 //   - Query:              *sdklog.HTTPLedgerQueryAPI (cosignature_of)
 //   - Fetcher:            *sdklog.HTTPEntryFetcher (/raw bytes)

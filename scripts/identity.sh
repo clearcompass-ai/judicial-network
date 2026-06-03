@@ -44,7 +44,7 @@ if [ ! -s "${CERTS}/ca.crt" ]; then
     echo "== shared dev CA + server cert =="
     openssl ecparam -name prime256v1 -genkey -noout -out "${CERTS}/ca.key"
     openssl req -x509 -new -key "${CERTS}/ca.key" -sha256 -days "${DAYS}" \
-        -subj "/CN=attesta-dev-ca" -out "${CERTS}/ca.crt"
+        -subj "/CN=baseproof-dev-ca" -out "${CERTS}/ca.crt"
     openssl ecparam -name prime256v1 -genkey -noout -out "${CERTS}/server.key"
     openssl req -new -key "${CERTS}/server.key" -subj "/CN=localhost" -out "${CERTS}/server.csr"
     openssl x509 -req -in "${CERTS}/server.csr" -CA "${CERTS}/ca.crt" -CAkey "${CERTS}/ca.key" \

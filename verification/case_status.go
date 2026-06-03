@@ -7,7 +7,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Returns typed CaseState with human-readable status.
 
 OVERVIEW: GetCaseStatus → CaseState{Active, Amended, Sealed, Transferred, Closed}.
-KEY DEPENDENCIES: attesta/verifier, attesta/core/smt
+KEY DEPENDENCIES: baseproof/verifier, baseproof/core/smt
 */
 package verification
 
@@ -15,9 +15,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 type CaseState struct {

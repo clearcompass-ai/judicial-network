@@ -4,7 +4,7 @@ FILE PATH: internal/testutil/multicall3.go
 DESCRIPTION:
 
 	Test-only helpers for EIP-1271 / smart-contract-wallet
-	verification against the attesta v1.7.1 PKHVerifier, which fans
+	verification against the baseproof v1.7.1 PKHVerifier, which fans
 	every isValidSignature call through Multicall3.aggregate3 to a
 	K-of-N executor quorum at the canonical Multicall3 deployer
 	address.
@@ -23,8 +23,8 @@ DESCRIPTION:
 	binary.
 
 KEY DEPENDENCIES:
-  - attesta/crypto/multicall3: Multicall3CanonicalAddressHex.
-  - attesta/crypto/signatures: EthereumAddressLen.
+  - baseproof/crypto/multicall3: Multicall3CanonicalAddressHex.
+  - baseproof/crypto/signatures: EthereumAddressLen.
 */
 package testutil
 
@@ -32,8 +32,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 
-	"github.com/clearcompass-ai/attesta/crypto/multicall3"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/crypto/multicall3"
+	"github.com/baseproof/baseproof/crypto/signatures"
 )
 
 // Multicall3Addr returns the canonical Multicall3 deployer address
@@ -69,7 +69,7 @@ func Multicall3Addr() [signatures.EthereumAddressLen]byte {
 //	[0xA0 .. 0xC0)  inner bytes length
 //	[0xC0 ..    )   inner bytes padded to a 32-byte boundary
 //
-// Pinned against the SDK's own test encoder (attesta/tests
+// Pinned against the SDK's own test encoder (baseproof/tests
 // /verify_entry_signatures_matrix_test.go::encodeAggregate3Response);
 // a drift here is a Multicall3 wire-format change.
 func EncodeAggregate3Response(success bool, returnData []byte) []byte {

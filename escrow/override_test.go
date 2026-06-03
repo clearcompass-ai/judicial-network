@@ -2,7 +2,7 @@
 //
 // Tests for Phase 6 escrow-override structural validation. The
 // SDK's cosign.Verify is the cryptographic source of truth
-// (covered by attesta/crypto/cosign/escrow_override_test.go);
+// (covered by baseproof/crypto/cosign/escrow_override_test.go);
 // these tests cover JN's pre-flight checks and the
 // PurposeTag() constant:
 //
@@ -20,8 +20,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/types"
 )
 
 func TestVerifyAndWrap_RejectsNilSet(t *testing.T) {

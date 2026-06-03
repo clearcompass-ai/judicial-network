@@ -4,7 +4,7 @@ FILE PATH: schemas/key_attestation.go
 DESCRIPTION:
 
 	tn-key-attestation-v1 — judicial domain attestation entry per
-	attesta/docs/attestation-entries.md. Records the institution
+	baseproof/docs/attestation-entries.md. Records the institution
 	that witnessed key generation for a named entity at a named
 	position. Replaces the removed pre-v7.5 KeyGenerationMode
 	ControlHeader field; the institutional witness IS the trust

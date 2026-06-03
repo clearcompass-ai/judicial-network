@@ -26,8 +26,8 @@ import (
 	"testing"
 	"time"
 
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/witness"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/judicial-network/topology"
 )

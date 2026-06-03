@@ -9,7 +9,7 @@ DESCRIPTION:
 
 KEY ARCHITECTURAL DECISIONS:
   - Implements the registrar obligation declared in
-    attesta/docs/implementation-obligations.md ("REGISTRAR
+    baseproof/docs/implementation-obligations.md ("REGISTRAR
     OBLIGATIONS"). The SDK provides VerifyBLSPoP; the domain
     enforces the invariant that no key enters a witness set without
     a PoP that verifies under the protocol's PoP DST.
@@ -29,9 +29,9 @@ KEY ARCHITECTURAL DECISIONS:
     vulnerability the gate exists to prevent.
 
 KEY DEPENDENCIES:
-  - attesta/crypto/signatures: VerifyBLSPoP, ParseBLSPubKey,
+  - baseproof/crypto/signatures: VerifyBLSPoP, ParseBLSPubKey,
     BLSG1CompressedLen, BLSG2CompressedLen.
-  - attesta/types: WitnessPublicKey shape.
+  - baseproof/types: WitnessPublicKey shape.
 */
 package topology
 
@@ -40,8 +40,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/types"
 )
 
 // Errors surfaced by the witness registrar. Stable names so callers

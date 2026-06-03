@@ -12,7 +12,7 @@ DESCRIPTION:
 
 	An entry-signer rotation is a sequenced on-log entry whose DomainPayload
 	is the canonical verifier.RotationPayload wire (entry_signer_rotation_v1,
-	attesta v1.13.0). The ledger sequences it and STRUCTURALLY validates the
+	baseproof v1.13.0). The ledger sequences it and STRUCTURALLY validates the
 	payload at admission, but explicitly delegates AUTHORITY to the consumer
 	(see ledger admission/rotation_entry_verifier.go). This type is that
 	consumer: it proves the chain of custody.
@@ -40,9 +40,9 @@ DESCRIPTION:
 	could disagree with where the ledger actually sequenced it.
 
 KEY DEPENDENCIES:
-  - attesta/verifier: RotationPayload codec, RotationRecord, VerifyKeyAtPosition.
-  - attesta/core/envelope: Deserialize, SigningPayload, EntryIdentity, SigAlgoECDSA.
-  - attesta/crypto/signatures: ParsePubKey, VerifyEntry (secp256k1 forward-verify).
+  - baseproof/verifier: RotationPayload codec, RotationRecord, VerifyKeyAtPosition.
+  - baseproof/core/envelope: Deserialize, SigningPayload, EntryIdentity, SigAlgoECDSA.
+  - baseproof/crypto/signatures: ParsePubKey, VerifyEntry (secp256k1 forward-verify).
 */
 package verification
 
@@ -54,10 +54,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // SignerEntryQuerier enumerates a DID's on-log entries. Order is

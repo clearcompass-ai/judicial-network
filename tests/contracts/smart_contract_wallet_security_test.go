@@ -36,12 +36,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/multicall3"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/did"
-	sdktypes "github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/multicall3"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/did"
+	sdktypes "github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
