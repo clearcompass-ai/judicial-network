@@ -132,6 +132,13 @@ type Operational struct {
 	LedgerKeyFile  string `json:"ledger_key_file,omitempty"`
 	LedgerCAFile   string `json:"ledger_ca_file,omitempty"`
 
+	// LedgerAllowPlaintext opts out of the secure-by-default requirement that an
+	// HTTPS ledger endpoint be reached with a client cert (mTLS). By default an
+	// https LedgerEndpoint without a client cert is startup-fatal — the ledger
+	// edge mandates mTLS. Set API_LEDGER_ALLOW_PLAINTEXT=true for a
+	// TLS-terminating-proxy / loopback-dev deployment.
+	LedgerAllowPlaintext bool `json:"ledger_allow_plaintext,omitempty"`
+
 	// SmartContractWallet configures multi-chain EIP-1271 K-of-N
 	// executor consensus (one quorum per onboarded EVM chain). Zero
 	// value (Enabled=false) → EOA-only verification (did:key +
@@ -755,6 +762,9 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_LEDGER_CA_FILE"); v != "" {
 		cfg.LedgerCAFile = v
+	}
+	if b, ok := envBool("API_LEDGER_ALLOW_PLAINTEXT"); ok {
+		cfg.LedgerAllowPlaintext = b
 	}
 	if v := os.Getenv("API_ARTIFACT_STORE_ENDPOINT"); v != "" {
 		cfg.ArtifactStoreEndpoint = v

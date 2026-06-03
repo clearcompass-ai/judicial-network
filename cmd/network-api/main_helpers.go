@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq" // postgres driver for the durable gossip store
@@ -265,3 +266,19 @@ func buildAuthenticator(cfg config.AuthConfig, jwksClient *http.Client) (middlew
 // Custody (the durable gossip.Store + the serve feed) belongs to the external
 // auditor, not the JN enforcer (Separation of Duties). buildGossipStore +
 // buildGossipFeed were removed in Phase B — the JN hosts neither.
+
+// requireLedgerMTLS enforces the secure-by-default JN→ledger edge: an HTTPS ledger
+// endpoint MUST be reached with a client cert (the ledger edge mandates mTLS),
+// unless allowPlaintext opts out (TLS-terminating proxy / loopback-dev). A
+// plaintext (http) or empty endpoint imposes no requirement. Pure — unit-tested.
+func requireLedgerMTLS(endpoint, certFile, keyFile string, allowPlaintext bool) error {
+	if allowPlaintext || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(endpoint)), "https://") {
+		return nil
+	}
+	if certFile == "" || keyFile == "" {
+		return fmt.Errorf("API_LEDGER_ENDPOINT is https (mTLS edge) but no client cert configured: " +
+			"set API_LEDGER_CERT_FILE + API_LEDGER_KEY_FILE, or API_LEDGER_ALLOW_PLAINTEXT=true " +
+			"for a TLS-terminating-proxy / loopback deployment")
+	}
+	return nil
+}

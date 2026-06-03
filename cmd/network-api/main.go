@@ -185,6 +185,9 @@ func run(argv []string, d deps) error {
 	// Built BEFORE the authenticator so the JWT-mode JWKS fetch shares
 	// the same operator-chosen mTLS posture (libs/v1.29.0 JWTConfig
 	// rejects a nil Client to prevent silent demotion).
+	if err := requireLedgerMTLS(cfg.LedgerEndpoint, cfg.LedgerCertFile, cfg.LedgerKeyFile, cfg.LedgerAllowPlaintext); err != nil {
+		return err
+	}
 	var ledgerSubmitClient *http.Client
 	if cfg.LedgerCertFile != "" || cfg.LedgerKeyFile != "" {
 		ledgerSubmitClient, err = exchange.BuildLedgerSubmitClient(exchange.ServerConfig{
