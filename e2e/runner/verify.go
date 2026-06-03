@@ -231,9 +231,10 @@ func vAuditor(s *Session) error {
 
 // vAggregator: every JN-bearing network's read-projection aggregator is up and
 // READY. /readyz is 200 only when the aggregator reached BOTH its projection DB
-// and the mTLS ledger edge (the aggregator's probes.go), so green proves the
-// scan-pipeline wiring end-to-end. (The full scan→classify→index→query path is
-// exercised by the phase4_aggregator suite over a judicial workload.)
+// and the open-HTTPS ledger (the aggregator's probes.go — CA-pinned, no client
+// cert), so green proves the scan-pipeline wiring end-to-end. (The full
+// scan→classify→index→query path is exercised by the phase4_aggregator suite
+// over a judicial workload.)
 func vAggregator(s *Session) error {
 	any := false
 	for _, n := range s.Manifest.Networks {
@@ -242,9 +243,9 @@ func vAggregator(s *Session) error {
 		}
 		any = true
 		if !stack.AggregatorReady(n.AggregatorPort) {
-			return fmt.Errorf("aggregator %q not ready on :%d (/readyz != 200 — projection DB or mTLS ledger unreachable)", n.Name, n.AggregatorPort)
+			return fmt.Errorf("aggregator %q not ready on :%d (/readyz != 200 — projection DB or open-HTTPS ledger unreachable)", n.Name, n.AggregatorPort)
 		}
-		fmt.Printf("  [PASS] aggregator %-10s :%d  /healthz + /readyz 200 (mTLS ledger + projection DB reachable)\n", n.Name, n.AggregatorPort)
+		fmt.Printf("  [PASS] aggregator %-10s :%d  /healthz + /readyz 200 (open-HTTPS ledger + projection DB reachable)\n", n.Name, n.AggregatorPort)
 	}
 	if !any {
 		return fmt.Errorf("no aggregator in the persisted stack (every JN network should carry one — was it brought up?)")

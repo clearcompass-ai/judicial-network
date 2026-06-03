@@ -22,13 +22,14 @@ type Checkpoint struct {
 	} `json:"signatures"`
 }
 
-// FetchHorizon reads + parses the published, witness-cosigned horizon over the
-// mTLS edge (certsDir holds the client cert the ledger requires).
+// FetchHorizon reads + parses the published, witness-cosigned horizon over open
+// HTTPS (certsDir holds the run CA the probe pins to verify the ledger's server
+// cert; no client cert is presented).
 func FetchHorizon(certsDir string, port int) (Checkpoint, error) {
 	return fetchCheckpoint(certsDir, fmt.Sprintf("https://localhost:%d/v1/tree/horizon", port))
 }
 
-// FetchHead reads + parses the latest committed head over the mTLS edge.
+// FetchHead reads + parses the latest committed head over open HTTPS (server-verify).
 func FetchHead(certsDir string, port int) (Checkpoint, error) {
 	return fetchCheckpoint(certsDir, fmt.Sprintf("https://localhost:%d/v1/tree/head", port))
 }

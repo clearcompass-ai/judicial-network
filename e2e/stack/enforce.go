@@ -10,8 +10,9 @@ import (
 	"time"
 )
 
-// serverTrustClient trusts the run CA (so the SERVER cert still verifies) but
-// presents NO client cert — the negative leg of the mTLS-enforcement assert.
+// serverTrustClient is the open-HTTPS host-probe client: it pins the run CA (so
+// the ledger's SERVER cert verifies) and presents NO client cert. It backs
+// ledgerHTTP — a certless caller reading the ledger IS the open-HTTPS proof.
 func serverTrustClient(certsDir string) (*http.Client, error) {
 	caPEM, err := os.ReadFile(filepath.Join(certsDir, "ca.crt"))
 	if err != nil {
