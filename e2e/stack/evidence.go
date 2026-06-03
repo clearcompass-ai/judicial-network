@@ -33,6 +33,29 @@ var ledgerRegressions = []regressionSig{
 	{"checkpoint hold (horizon frozen)", "checkpoint hold (horizon frozen", false},
 }
 
+// ScanRegressions counts each known regression signature in a ledger log and
+// returns (number of HARD hits, a human-readable per-signature report).
+func ScanRegressions(log string) (int, string) {
+	var report strings.Builder
+	hard := 0
+	for _, r := range ledgerRegressions {
+		n := strings.Count(log, r.sig)
+		kind := "warn"
+		if r.hard {
+			kind = "HARD"
+		}
+		status := "PASS"
+		if n > 0 {
+			status = fmt.Sprintf("FOUND ×%d", n)
+			if r.hard {
+				hard++
+			}
+		}
+		fmt.Fprintf(&report, "  [%s] %-48s %s\n", kind, r.name, status)
+	}
+	return hard, report.String()
+}
+
 // CaptureEvidence writes an evidence bundle under .run/{id}/evidence and asserts the
 // ledger log contains none of the HARD integrity-regression signatures. It returns
 // an error iff a hard signature is present (so a regression fails the recipe with
@@ -61,26 +84,10 @@ func CaptureEvidence(layout *runstore.Layout, t Target, auditOutput string) erro
 		write("backfill-manifest.json", string(b))
 	}
 
-	var report strings.Builder
-	fmt.Fprintf(&report, "regression scan of the ledger log (run %s):\n\n", layout.ID)
-	hardHits := 0
-	for _, r := range ledgerRegressions {
-		n := strings.Count(log, r.sig)
-		kind := "warn"
-		if r.hard {
-			kind = "HARD"
-		}
-		status := "PASS"
-		if n > 0 {
-			status = fmt.Sprintf("FOUND ×%d", n)
-			if r.hard {
-				hardHits++
-			}
-		}
-		fmt.Fprintf(&report, "  [%s] %-48s %s\n", kind, r.name, status)
-	}
-	write("regressions.txt", report.String())
-	fmt.Print("\n" + report.String())
+	hardHits, scan := ScanRegressions(log)
+	report := fmt.Sprintf("regression scan of the ledger log (run %s):\n\n%s", layout.ID, scan)
+	write("regressions.txt", report)
+	fmt.Print("\n" + report)
 	fmt.Printf("\n  evidence bundle → %s\n", dir)
 	if hardHits > 0 {
 		return fmt.Errorf("%d HARD integrity-regression signature(s) in the ledger log — see %s/regressions.txt", hardHits, dir)

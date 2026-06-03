@@ -1,0 +1,164 @@
+package runner
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/clearcompass-ai/judicial-network/e2e/stack"
+)
+
+func init() {
+	Register(Recipe{Name: "verify", Tags: []string{"verify"}, Run: verifyAll})
+	Register(Recipe{Name: "verify.checkpoint", Tags: []string{"verify"}, Run: mk(vCheckpoint)})
+	Register(Recipe{Name: "verify.head", Tags: []string{"verify"}, Run: mk(vHeadHorizon)})
+	Register(Recipe{Name: "verify.proofs", Tags: []string{"verify"}, Run: mk(vProofs)})
+	Register(Recipe{Name: "verify.oracle", Tags: []string{"verify"}, Run: mk(vOracle)})
+	Register(Recipe{Name: "verify.logs", Tags: []string{"verify"}, Run: mk(vLogs)})
+}
+
+// check is one verification result.
+type check struct {
+	name   string
+	ok     bool
+	detail string
+}
+
+type checkFn func(*Session, stack.Target) check
+
+// mk adapts a single check into a Recipe.Run.
+func mk(c checkFn) func(*Session) error {
+	return func(s *Session) error { return runChecks(s, c) }
+}
+
+// verifyAll is the exhaustive verifier: it re-derives every integrity property of
+// the persisted stack from scratch — the witness-cosigned anchor, full-coverage SMT
+// proofs over that anchor, the oracle's distinctness, the head/horizon coherence,
+// and a regression scan of the ledger log. It trusts only SHA-256 and the K witness
+// signatures; everything else is recomputed live.
+func verifyAll(s *Session) error {
+	return runChecks(s, vCheckpoint, vHeadHorizon, vProofs, vOracle, vLogs)
+}
+
+func runChecks(s *Session, checks ...checkFn) error {
+	t, ok := s.Target("")
+	if !ok {
+		return fmt.Errorf("no network in the persisted manifest")
+	}
+	fmt.Printf("verifying stack %q (network %s, ledger :%d)\n", s.Manifest.ID, t.LedgerName, t.LedgerPort)
+	allOK := true
+	for _, c := range checks {
+		r := c(s, t)
+		status := "PASS"
+		if !r.ok {
+			status, allOK = "FAIL", false
+		}
+		fmt.Printf("  [%s] %-12s %s\n", status, r.name, r.detail)
+	}
+	if !allOK {
+		return fmt.Errorf("verification FAILED")
+	}
+	return nil
+}
+
+func short(hex string) string {
+	if len(hex) > 12 {
+		return hex[:12] + "…"
+	}
+	return hex
+}
+
+// vCheckpoint: the horizon is witness-cosigned by >= K DISTINCT genesis witnesses.
+func vCheckpoint(_ *Session, t stack.Target) check {
+	c, err := stack.FetchHorizon(t.LedgerPort)
+	if err != nil {
+		return check{"checkpoint", false, err.Error()}
+	}
+	if c.TreeSize < 1 {
+		return check{"checkpoint", false, "empty horizon (tree_size 0)"}
+	}
+	if len(c.Signatures) < t.QuorumK {
+		return check{"checkpoint", false, fmt.Sprintf("%d signatures, want >= K=%d", len(c.Signatures), t.QuorumK)}
+	}
+	if c.DistinctSigners() != len(c.Signatures) {
+		return check{"checkpoint", false, "a witness signed more than once (distinct < total)"}
+	}
+	if !c.SchemesAllECDSA() {
+		return check{"checkpoint", false, "non-ECDSA cosignature scheme present"}
+	}
+	return check{"checkpoint", true, fmt.Sprintf("K-of-N %d/%d, %d distinct signers, tree_size %d, smt_root %s",
+		len(c.Signatures), t.QuorumK, c.DistinctSigners(), c.TreeSize, short(c.SMTRoot))}
+}
+
+// vHeadHorizon: the cosigned horizon tracks the committed head (it lags by design,
+// never leads, and on a static stack it has caught up).
+func vHeadHorizon(_ *Session, t stack.Target) check {
+	hz, err := stack.FetchHorizon(t.LedgerPort)
+	if err != nil {
+		return check{"head⇄horizon", false, err.Error()}
+	}
+	head, err := stack.FetchHead(t.LedgerPort)
+	if err != nil {
+		return check{"head⇄horizon", false, err.Error()}
+	}
+	if hz.TreeSize > head.TreeSize {
+		return check{"head⇄horizon", false, fmt.Sprintf("horizon %d LEADS head %d (impossible)", hz.TreeSize, head.TreeSize)}
+	}
+	state := fmt.Sprintf("caught up at %d", head.TreeSize)
+	if hz.TreeSize < head.TreeSize {
+		state = fmt.Sprintf("horizon %d lags head %d by %d (committed-but-not-yet-cosigned)", hz.TreeSize, head.TreeSize, head.TreeSize-hz.TreeSize)
+	}
+	return check{"head⇄horizon", true, state}
+}
+
+// vProofs: re-run the light-client auditor at FULL coverage — every committed
+// member key + random non-members — verifying each proof over the tile substrate
+// against the witness-cosigned smt_root.
+func vProofs(s *Session, t stack.Target) check {
+	leaves, _, err := stack.InspectOracle(t.ManifestPath())
+	if err != nil {
+		return check{"proofs", false, "no oracle manifest — run audit.tiles (a workload) first: " + err.Error()}
+	}
+	out, err := stack.RunAudit(t, s.Images.Ledger, leaves, 16, true)
+	if err != nil {
+		return check{"proofs", false, "audit did not pass (see output above)"}
+	}
+	return check{"proofs", true, auditSummary(out)}
+}
+
+// vOracle: the backfill oracle has one DISTINCT key per leaf (no seq-0 collapse).
+func vOracle(_ *Session, t stack.Target) check {
+	leaves, distinct, err := stack.InspectOracle(t.ManifestPath())
+	if err != nil {
+		return check{"oracle", false, "no manifest: " + err.Error()}
+	}
+	if leaves == 0 {
+		return check{"oracle", false, "manifest has 0 leaves"}
+	}
+	if distinct != leaves {
+		return check{"oracle", false, fmt.Sprintf("%d/%d keys distinct — manifest collapsed (the DeriveKey(seq 0) bug)", distinct, leaves)}
+	}
+	return check{"oracle", true, fmt.Sprintf("%d leaves, all %d keys distinct (no seq-0 collapse)", leaves, distinct)}
+}
+
+// vLogs: the ledger log carries none of the HARD integrity-regression signatures.
+func vLogs(_ *Session, t stack.Target) check {
+	hard, report := stack.ScanRegressions(stack.LedgerLog(t.LedgerName))
+	if hard > 0 {
+		return check{"logs", false, fmt.Sprintf("%d HARD signature(s):\n%s", hard, report)}
+	}
+	return check{"logs", true, "0 HARD regression signatures"}
+}
+
+// auditSummary pulls the membership / non-membership tallies out of the audit log.
+func auditSummary(out string) string {
+	var parts []string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "membership —") {
+			parts = append(parts, strings.TrimSpace(strings.TrimPrefix(line, "audit:")))
+		}
+	}
+	if len(parts) == 0 {
+		return "audit PASS"
+	}
+	return strings.Join(parts, "; ")
+}
