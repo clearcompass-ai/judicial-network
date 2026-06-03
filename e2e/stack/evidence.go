@@ -77,8 +77,8 @@ func CaptureEvidence(layout *runstore.Layout, t Target, auditOutput string) erro
 
 	log := dockerx.Logs(t.LedgerName)
 	write("ledger.log", log)
-	write("checkpoint.json", httpBody(fmt.Sprintf("http://localhost:%d/v1/tree/horizon", t.LedgerPort)))
-	write("head.json", httpBody(fmt.Sprintf("http://localhost:%d/v1/tree/head", t.LedgerPort)))
+	write("checkpoint.json", ledgerBody(t.CertsDir, fmt.Sprintf("https://localhost:%d/v1/tree/horizon", t.LedgerPort)))
+	write("head.json", ledgerBody(t.CertsDir, fmt.Sprintf("https://localhost:%d/v1/tree/head", t.LedgerPort)))
 	write("audit.txt", auditOutput)
 	if b, err := os.ReadFile(filepath.Join(t.FixturesDir, "backfill-manifest.json")); err == nil {
 		write("backfill-manifest.json", string(b))

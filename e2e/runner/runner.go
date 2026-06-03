@@ -35,7 +35,7 @@ func (s *Session) Target(networkName string) (stack.Target, bool) {
 		}
 		return stack.Target{
 			Network: s.Manifest.Network, LedgerName: n.LedgerName, LedgerPort: n.LedgerPort,
-			LogDID: n.LogDID, QuorumK: n.QuorumK, FixturesDir: fx, Admission: s.Manifest.Admission,
+			LogDID: n.LogDID, QuorumK: n.QuorumK, FixturesDir: fx, CertsDir: s.Layout.Certs, Admission: s.Manifest.Admission,
 		}, true
 	}
 	return stack.Target{}, false

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/dockerx"
@@ -40,16 +41,6 @@ func httpStatus(url string) int {
 	return resp.StatusCode
 }
 
-func httpBody(url string) string {
-	resp, err := http.Get(url)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-	b, _ := io.ReadAll(resp.Body)
-	return strings.TrimSpace(string(b))
-}
-
 func mtlsClient(certsDir string) (*http.Client, error) {
 	cert, err := tls.LoadX509KeyPair(filepath.Join(certsDir, "client.crt"), filepath.Join(certsDir, "client.key"))
 	if err != nil {
@@ -69,6 +60,41 @@ func mtlsClient(certsDir string) (*http.Client, error) {
 			ServerName:   "localhost",
 		}},
 	}, nil
+}
+
+// ── host-side mTLS probes (the ledger edge requires a client cert) ─────────
+
+var (
+	ledgerClientsMu sync.Mutex
+	ledgerClients   = map[string]*http.Client{}
+)
+
+// ledgerHTTP returns an mTLS client (cached per certsDir) for HOST→ledger probes
+// over the published host port. The ledger edge is mTLS-only, so a plain
+// http.Get is refused; the server cert's SAN carries localhost for host access.
+func ledgerHTTP(certsDir string) *http.Client {
+	ledgerClientsMu.Lock()
+	defer ledgerClientsMu.Unlock()
+	if c, ok := ledgerClients[certsDir]; ok {
+		return c
+	}
+	c, err := mtlsClient(certsDir)
+	if err != nil {
+		c = &http.Client{Timeout: 5 * time.Second} // fails closed against the https edge
+	}
+	ledgerClients[certsDir] = c
+	return c
+}
+
+// ledgerBody GETs an mTLS ledger URL and returns the trimmed body ("" on error).
+func ledgerBody(certsDir, url string) string {
+	resp, err := ledgerHTTP(certsDir).Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	return strings.TrimSpace(string(b))
 }
 
 // ── Infra: shared postgres + object store ─────────────────────────────────
@@ -177,10 +203,14 @@ func UpWitnessFleet(nc NetConfig, fixturesDir, witnessImage string) error {
 	return nil
 }
 
-// UpLedger brings up this network's ledger (S3-backed, witness-cosigned) and gates
-// on /healthz.
-func UpLedger(nc NetConfig, in Infra, fixturesDir, ledgerImage string) error {
-	envm := map[string]string{
+// ledgerBaseEnv is the deterministic ledger env; UpLedger layers the conditional
+// tuning/signer knobs on top. The ledger terminates mTLS in-binary
+// (LEDGER_INBOUND_CLIENT_CA_FILE is mandatory the moment LEDGER_TLS_CERT_FILE is
+// set), so the edge is mTLS-only: every caller — the auditors, the JN, the
+// aggregator, the seed/backfill/audit tool containers, and the host probes —
+// presents the shared client cert.
+func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
+	return map[string]string{
 		"LEDGER_DATABASE_URL":             dsn(in.PG(), nc.DB),
 		"LEDGER_LOG_DID":                  nc.LogDID,
 		"LEDGER_ADDR":                     ":8080",
@@ -200,7 +230,18 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, ledgerImage string) error {
 		"LEDGER_SMT_TILE_EMIT_DIR":        tileDir,
 		"LEDGER_SMT_PROOF_SOURCE":         nc.Tuning.ProofSource,
 		"LEDGER_SEQUENCER_INTERVAL":       sequencerInterval(),
+		// mTLS edge — the ledger terminates TLS in-binary and REQUIRES a client
+		// cert from every caller (server cert SAN covers this container's name).
+		"LEDGER_TLS_CERT_FILE":          mntCerts + "/server.crt",
+		"LEDGER_TLS_KEY_FILE":           mntCerts + "/server.key",
+		"LEDGER_INBOUND_CLIENT_CA_FILE": mntCerts + "/ca.crt",
 	}
+}
+
+// UpLedger brings up this network's ledger (S3-backed, witness-cosigned, mTLS
+// edge) and gates on its mTLS /healthz.
+func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string) error {
+	envm := ledgerBaseEnv(nc, in)
 	if nc.Tuning.SequencerMaxInflight > 0 {
 		envm["LEDGER_SEQUENCER_MAX_INFLIGHT"] = strconv.Itoa(nc.Tuning.SequencerMaxInflight)
 	}
@@ -215,42 +256,59 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, ledgerImage string) error {
 	}
 	if r := dockerx.Run(dockerx.RunSpec{
 		Name: nc.Name("ledger"), Network: nc.Network, Image: ledgerImage, Detached: true,
-		Env:    envm,
-		Ports:  []dockerx.Port{{Host: nc.LedgerPort, Container: 8080}},
-		Mounts: []dockerx.Mount{{Host: fixturesDir, Container: mntFixtures + ":ro"}},
+		Env:   envm,
+		Ports: []dockerx.Port{{Host: nc.LedgerPort, Container: 8080}},
+		Mounts: []dockerx.Mount{
+			{Host: fixturesDir, Container: mntFixtures + ":ro"},
+			{Host: certsDir, Container: mntCerts + ":ro"},
+		},
 	}); !r.OK() {
 		return fmt.Errorf("%s run: %s", nc.Name("ledger"), tail(r.Stderr, 300))
 	}
 	if !poll(120*time.Second, func() bool {
-		return httpBody(fmt.Sprintf("http://localhost:%d/healthz", nc.LedgerPort)) == "ok"
+		return ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/healthz", nc.LedgerPort)) == "ok"
 	}) {
-		return fmt.Errorf("%s /healthz never == ok", nc.Name("ledger"))
+		return fmt.Errorf("%s mTLS /healthz never == ok", nc.Name("ledger"))
 	}
 	return nil
 }
 
+// auditorEnv is one auditor's deterministic env. Its OWN listener stays plain
+// http (probed over the host port), but it pulls from the ledger over the mTLS
+// edge — AUDITOR_PEERS is the https ledger URL and AUDITOR_PEER_* present the
+// shared client cert.
+func auditorEnv(nc NetConfig, in Infra, idx int) map[string]string {
+	return map[string]string{
+		"AUDITOR_LISTEN_ADDR":            ":8088",
+		"AUDITOR_GOSSIP_DSN":             dsn(in.PG(), nc.GossipDB(idx)),
+		"AUDITOR_NETWORK_BOOTSTRAP_FILE": mntFixtures + "/network-bootstrap.json",
+		"AUDITOR_WITNESS_QUORUM_K":       strconv.Itoa(nc.Spec.QuorumK),
+		"AUDITOR_ORIGINATOR_DISCOVERY":   "true",
+		"AUDITOR_PEERS":                  nc.LogDID + "=https://" + nc.Name("ledger") + ":8080",
+		"AUDITOR_PEER_CLIENT_CERT_FILE":  mntCerts + "/client.crt",
+		"AUDITOR_PEER_CLIENT_KEY_FILE":   mntCerts + "/client.key",
+		"AUDITOR_PEER_CA_FILE":           mntCerts + "/ca.crt",
+		"AUDITOR_POLL_INTERVAL":          auditorPollInterval(),
+		"AUDITOR_HORIZON_INTERVAL":       auditorHorizonInterval(),
+		"AUDITOR_HORIZON_SAMPLES":        auditHorizonSamples(),
+	}
+}
+
 // UpAuditors brings up this network's auditors. Their gossip databases must already
-// exist (the builder EnsureDB's them first).
-func UpAuditors(nc NetConfig, in Infra, fixturesDir, auditorImage string) error {
+// exist (the builder EnsureDB's them first). Each auditor pulls from the ledger
+// over the mTLS edge; its own probe listener stays plain http.
+func UpAuditors(nc NetConfig, in Infra, fixturesDir, certsDir, auditorImage string) error {
 	for idx := 1; idx <= nc.Spec.Auditors; idx++ {
 		port := nc.AuditorPorts[idx-1]
 		name := nc.Name(fmt.Sprintf("auditor-%d", idx))
-		envm := map[string]string{
-			"AUDITOR_LISTEN_ADDR":            ":8088",
-			"AUDITOR_GOSSIP_DSN":             dsn(in.PG(), nc.GossipDB(idx)),
-			"AUDITOR_NETWORK_BOOTSTRAP_FILE": mntFixtures + "/network-bootstrap.json",
-			"AUDITOR_WITNESS_QUORUM_K":       strconv.Itoa(nc.Spec.QuorumK),
-			"AUDITOR_ORIGINATOR_DISCOVERY":   "true",
-			"AUDITOR_PEERS":                  nc.LogDID + "=http://" + nc.Name("ledger") + ":8080",
-			"AUDITOR_POLL_INTERVAL":          auditorPollInterval(),
-			"AUDITOR_HORIZON_INTERVAL":       auditorHorizonInterval(),
-			"AUDITOR_HORIZON_SAMPLES":        auditHorizonSamples(),
-		}
 		if r := dockerx.Run(dockerx.RunSpec{
 			Name: name, Network: nc.Network, Image: auditorImage, Detached: true,
-			Env:    envm,
-			Ports:  []dockerx.Port{{Host: port, Container: 8088}},
-			Mounts: []dockerx.Mount{{Host: fixturesDir, Container: mntFixtures + ":ro"}},
+			Env:   auditorEnv(nc, in, idx),
+			Ports: []dockerx.Port{{Host: port, Container: 8088}},
+			Mounts: []dockerx.Mount{
+				{Host: fixturesDir, Container: mntFixtures + ":ro"},
+				{Host: certsDir, Container: mntCerts + ":ro"},
+			},
 		}); !r.OK() {
 			return fmt.Errorf("%s run: %s", name, tail(r.Stderr, 300))
 		}
@@ -263,12 +321,17 @@ func UpAuditors(nc NetConfig, in Infra, fixturesDir, auditorImage string) error 
 	return nil
 }
 
-// UpJN brings up this network's JN enforcer (mTLS, verify-only ingest from
-// auditor-1) and gates on its mTLS /readyz.
-func UpJN(nc NetConfig, certsDir, fixturesDir, jnImage string) error {
-	envm := map[string]string{
+// jnEnv is the JN enforcer's deterministic env. Its own listener is mTLS
+// (API_AUTH_*); it reaches the ledger over the mTLS edge (API_LEDGER_ENDPOINT
+// https + API_LEDGER_* client cert); the gossip-ingest peer is the auditor's
+// plain-http feed, not the ledger, so it stays http.
+func jnEnv(nc NetConfig) map[string]string {
+	return map[string]string{
 		"API_LISTEN_ADDR":            ":8443",
-		"API_LEDGER_ENDPOINT":        "http://" + nc.Name("ledger") + ":8080",
+		"API_LEDGER_ENDPOINT":        "https://" + nc.Name("ledger") + ":8080",
+		"API_LEDGER_CERT_FILE":       mntCerts + "/client.crt",
+		"API_LEDGER_KEY_FILE":        mntCerts + "/client.key",
+		"API_LEDGER_CA_FILE":         mntCerts + "/ca.crt",
 		"API_NETWORK_BOOTSTRAP_FILE": mntFixtures + "/network-bootstrap.json",
 		"API_WITNESS_QUORUM_K":       strconv.Itoa(nc.Spec.QuorumK),
 		"API_GOSSIP_INGEST_ENABLED":  "true",
@@ -277,9 +340,14 @@ func UpJN(nc NetConfig, certsDir, fixturesDir, jnImage string) error {
 		"API_AUTH_TLS_CERT_FILE":     mntCerts + "/server.crt",
 		"API_AUTH_TLS_KEY_FILE":      mntCerts + "/server.key",
 	}
+}
+
+// UpJN brings up this network's JN enforcer (mTLS, verify-only ingest from
+// auditor-1) and gates on its mTLS /readyz.
+func UpJN(nc NetConfig, certsDir, fixturesDir, jnImage string) error {
 	if r := dockerx.Run(dockerx.RunSpec{
 		Name: nc.Name("jn"), Network: nc.Network, Image: jnImage, Detached: true,
-		Env:   envm,
+		Env:   jnEnv(nc),
 		Ports: []dockerx.Port{{Host: nc.JNPort, Container: 8443}},
 		Mounts: []dockerx.Mount{
 			{Host: fixturesDir, Container: mntFixtures + ":ro"},

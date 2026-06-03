@@ -38,10 +38,14 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 	dockerx.NetworkCreate(network)
 
 	stage("mTLS certs")
-	if err := MintCerts(lay.Certs); err != nil {
+	ledgerNames := make([]string, len(ncs))
+	for i := range ncs {
+		ledgerNames[i] = ncs[i].Name("ledger")
+	}
+	if err := MintCerts(lay.Certs, ledgerNames); err != nil {
 		return nil, fmt.Errorf("mint certs: %w", err)
 	}
-	okf("CA + server + client minted")
+	okf("CA + server + client minted (server SAN covers %d ledger name(s))", len(ledgerNames))
 
 	in := Infra{prefix: prefix, network: network, images: images, pgMaxConns: spec.Tuning.PGMaxConns}
 	stage("infra — postgres + seaweedfs")
@@ -82,13 +86,13 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		okf("%d witnesses ready (K=%d)", nc.Spec.Witnesses, nc.Spec.QuorumK)
 
 		stage("network %q — ledger on :%d", nc.Spec.Name, nc.LedgerPort)
-		if err := UpLedger(*nc, in, fixturesDir, images.Ledger); err != nil {
+		if err := UpLedger(*nc, in, fixturesDir, lay.Certs, images.Ledger); err != nil {
 			return nil, err
 		}
 		okf("ledger /healthz == ok")
 
 		stage("network %q — seed (genesis-seed → fleet cosigns the head)", nc.Spec.Name)
-		if err := SeedOnUp(in, *nc, fixturesDir, images.Ledger); err != nil {
+		if err := SeedOnUp(in, *nc, fixturesDir, lay.Certs, images.Ledger); err != nil {
 			return nil, fmt.Errorf("network %s: %w", nc.Spec.Name, err)
 		}
 		okf("cosigned tree head (size>=1, sigs>=%d)", nc.Spec.QuorumK)
@@ -100,7 +104,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		}
 		if nc.Spec.Auditors > 0 {
 			stage("network %q — %d auditors", nc.Spec.Name, nc.Spec.Auditors)
-			if err := UpAuditors(*nc, in, fixturesDir, images.Auditor); err != nil {
+			if err := UpAuditors(*nc, in, fixturesDir, lay.Certs, images.Auditor); err != nil {
 				return nil, err
 			}
 			okf("auditors /readyz == 200")
@@ -148,7 +152,8 @@ func Wipe(runID string) error {
 	return lay.Remove()
 }
 
-// LedgerHealthy probes a network's ledger /healthz over its published host port.
-func LedgerHealthy(n runstore.NetworkManifest) bool {
-	return httpBody(fmt.Sprintf("http://localhost:%d/healthz", n.LedgerPort)) == "ok"
+// LedgerHealthy probes a network's ledger mTLS /healthz over its published host
+// port (certsDir holds the client cert the edge requires).
+func LedgerHealthy(n runstore.NetworkManifest, certsDir string) bool {
+	return ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/healthz", n.LedgerPort)) == "ok"
 }

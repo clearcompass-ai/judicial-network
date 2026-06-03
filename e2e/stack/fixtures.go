@@ -11,14 +11,32 @@ import (
 	"github.com/clearcompass-ai/judicial-network/e2e/dockerx"
 )
 
+// serverSAN builds the subjectAltName value for the SHARED server cert (the
+// ledger AND the JN listener present it). It carries the host-side names
+// (localhost / 127.0.0.1) for host probes hitting localhost:{port}, PLUS every
+// ledger container DNS name — because in-network clients (the auditors, the JN,
+// the aggregator, and the seed/backfill/audit tool containers) reach the ledger
+// edge by its CONTAINER NAME over mTLS and verify it against this SAN. A
+// localhost-only SAN — the pre-mTLS default — passes host probes but fails the
+// in-network handshake on server-name verification.
+func serverSAN(ledgerDNSNames []string) string {
+	entries := []string{"DNS:localhost", "IP:127.0.0.1"}
+	for _, n := range ledgerDNSNames {
+		entries = append(entries, "DNS:"+n)
+	}
+	return strings.Join(entries, ",")
+}
+
 // MintCerts mints the stack mTLS material (CA + server + client) into certsDir via
-// openssl. The client cert carries the harness caller DID as a URI SAN.
-func MintCerts(certsDir string) error {
+// openssl. The server cert's SAN covers localhost + every ledger container name
+// in ledgerDNSNames (the mTLS edge — see serverSAN); the client cert carries the
+// harness caller DID as a URI SAN.
+func MintCerts(certsDir string, ledgerDNSNames []string) error {
 	if err := os.MkdirAll(certsDir, 0o755); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(certsDir, "srv.ext"),
-		[]byte("subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n"), 0o644); err != nil {
+		[]byte("subjectAltName="+serverSAN(ledgerDNSNames)+"\nextendedKeyUsage=serverAuth\n"), 0o644); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(certsDir, "cli.ext"),

@@ -69,7 +69,7 @@ func short(hex string) string {
 
 // vCheckpoint: the horizon is witness-cosigned by >= K DISTINCT genesis witnesses.
 func vCheckpoint(_ *Session, t stack.Target) check {
-	c, err := stack.FetchHorizon(t.LedgerPort)
+	c, err := stack.FetchHorizon(t.CertsDir, t.LedgerPort)
 	if err != nil {
 		return check{"checkpoint", false, err.Error()}
 	}
@@ -92,11 +92,11 @@ func vCheckpoint(_ *Session, t stack.Target) check {
 // vHeadHorizon: the cosigned horizon tracks the committed head (it lags by design,
 // never leads, and on a static stack it has caught up).
 func vHeadHorizon(_ *Session, t stack.Target) check {
-	hz, err := stack.FetchHorizon(t.LedgerPort)
+	hz, err := stack.FetchHorizon(t.CertsDir, t.LedgerPort)
 	if err != nil {
 		return check{"head⇄horizon", false, err.Error()}
 	}
-	head, err := stack.FetchHead(t.LedgerPort)
+	head, err := stack.FetchHead(t.CertsDir, t.LedgerPort)
 	if err != nil {
 		return check{"head⇄horizon", false, err.Error()}
 	}
