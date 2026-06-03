@@ -34,8 +34,8 @@ func (s *Session) Target(networkName string) (stack.Target, bool) {
 			fx = filepath.Join(s.Layout.Fixtures, n.Name)
 		}
 		return stack.Target{
-			Network: s.Manifest.Network, LedgerName: n.LedgerName, LedgerPort: n.LedgerPort,
-			LogDID: n.LogDID, QuorumK: n.QuorumK, FixturesDir: fx, Admission: s.Manifest.Admission,
+			Network: s.Manifest.Network, LedgerName: n.LedgerName, LedgerPort: n.LedgerPort, JNPort: n.JNPort,
+			LogDID: n.LogDID, QuorumK: n.QuorumK, FixturesDir: fx, CertsDir: s.Layout.Certs, Admission: s.Manifest.Admission,
 		}, true
 	}
 	return stack.Target{}, false

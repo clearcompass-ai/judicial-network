@@ -109,14 +109,18 @@ type Manifest struct {
 	Networks  []NetworkManifest `json:"networks"`
 }
 
-// NetworkManifest is one network's externally-addressable surface.
+// NetworkManifest is one network's externally-addressable surface — the complete
+// set of host ports/names a runner recipe (or the env-bridge to the moved suites)
+// needs to reach the network without re-deriving the spec.
 type NetworkManifest struct {
-	Name       string `json:"name"`
-	LogDID     string `json:"log_did"`
-	QuorumK    int    `json:"quorum_k"`
-	LedgerName string `json:"ledger_name"`
-	LedgerPort int    `json:"ledger_port"`
-	JNPort     int    `json:"jn_port,omitempty"`
+	Name           string `json:"name"`
+	LogDID         string `json:"log_did"`
+	QuorumK        int    `json:"quorum_k"`
+	LedgerName     string `json:"ledger_name"`
+	LedgerPort     int    `json:"ledger_port"`
+	JNPort         int    `json:"jn_port,omitempty"`
+	AggregatorPort int    `json:"aggregator_port,omitempty"`
+	AuditorPorts   []int  `json:"auditor_ports,omitempty"`
 }
 
 // SaveManifest persists the stack manifest.

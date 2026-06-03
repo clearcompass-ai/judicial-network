@@ -69,10 +69,18 @@ func realDeps() deps {
 		openDB:     common.NewDB,
 		migrate:    aggregator.Migrate,
 		newLedger: func(cfg common.Config) (*common.LedgerClient, error) {
-			if cfg.LedgerMTLSConfigured() {
+			switch {
+			case cfg.LedgerMTLSConfigured():
 				return common.NewMTLSLedgerClient(cfg.LedgerURL, cfg.LedgerTLS(), cfg.CasesLogDID)
+			case cfg.LedgerServerVerifyConfigured():
+				// Open HTTPS (zero-trust): pin the ledger's privately-signed/self-signed
+				// server cert via CA and present NO client cert. The ledger serves reads
+				// openly and gates writes on in-body crypto, so the aggregator's scan path
+				// authenticates WHO the ledger is without mTLS.
+				return common.NewServerVerifyLedgerClient(cfg.LedgerURL, cfg.LedgerCAFile, cfg.LedgerServerName, cfg.CasesLogDID)
+			default:
+				return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
 			}
-			return common.NewLedgerClient(cfg.LedgerURL, cfg.CasesLogDID)
 		},
 		startScanner:  func(ctx context.Context, s *libagg.Scanner) error { return s.Run(ctx) },
 		listenAndServ: func(srv *http.Server) error { return srv.ListenAndServe() },

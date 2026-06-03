@@ -22,18 +22,19 @@ type Checkpoint struct {
 	} `json:"signatures"`
 }
 
-// FetchHorizon reads + parses the published, witness-cosigned horizon.
-func FetchHorizon(port int) (Checkpoint, error) {
-	return fetchCheckpoint(fmt.Sprintf("http://localhost:%d/v1/tree/horizon", port))
+// FetchHorizon reads + parses the published, witness-cosigned horizon over the
+// mTLS edge (certsDir holds the client cert the ledger requires).
+func FetchHorizon(certsDir string, port int) (Checkpoint, error) {
+	return fetchCheckpoint(certsDir, fmt.Sprintf("https://localhost:%d/v1/tree/horizon", port))
 }
 
-// FetchHead reads + parses the latest committed head.
-func FetchHead(port int) (Checkpoint, error) {
-	return fetchCheckpoint(fmt.Sprintf("http://localhost:%d/v1/tree/head", port))
+// FetchHead reads + parses the latest committed head over the mTLS edge.
+func FetchHead(certsDir string, port int) (Checkpoint, error) {
+	return fetchCheckpoint(certsDir, fmt.Sprintf("https://localhost:%d/v1/tree/head", port))
 }
 
-func fetchCheckpoint(url string) (Checkpoint, error) {
-	body := httpBody(url)
+func fetchCheckpoint(certsDir, url string) (Checkpoint, error) {
+	body := ledgerBody(certsDir, url)
 	var c Checkpoint
 	if body == "" {
 		return c, fmt.Errorf("empty response from %s", url)

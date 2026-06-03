@@ -199,7 +199,7 @@ func printManifest(m *runstore.Manifest) {
 		if n.JNPort != 0 {
 			jn = fmt.Sprintf("https://localhost:%d", n.JNPort)
 		}
-		fmt.Fprintf(w, "  %s\thttp://localhost:%d\t%s\n", n.Name, n.LedgerPort, jn)
+		fmt.Fprintf(w, "  %s\thttps://localhost:%d\t%s\n", n.Name, n.LedgerPort, jn)
 	}
 	_ = w.Flush()
 	fmt.Printf("  run tests : e2e run [selectors]   (reuses this stack)\n")
@@ -241,10 +241,10 @@ func cmdStatus(args []string) error {
 	fmt.Fprintln(w, "  network\tledger\thealth\tquorum")
 	for _, n := range m.Networks {
 		health := "down"
-		if stack.LedgerHealthy(n) {
+		if stack.LedgerHealthy(n, lay.Certs) {
 			health = "ok"
 		}
-		fmt.Fprintf(w, "  %s\thttp://localhost:%d\t%s\tK=%d\n", n.Name, n.LedgerPort, health, n.QuorumK)
+		fmt.Fprintf(w, "  %s\thttps://localhost:%d\t%s\tK=%d\n", n.Name, n.LedgerPort, health, n.QuorumK)
 	}
 	_ = w.Flush()
 	return nil

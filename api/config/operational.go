@@ -132,6 +132,22 @@ type Operational struct {
 	LedgerKeyFile  string `json:"ledger_key_file,omitempty"`
 	LedgerCAFile   string `json:"ledger_ca_file,omitempty"`
 
+	// LedgerAllowPlaintext opts out of the secure-by-default requirement that an
+	// HTTPS ledger endpoint be reached with a client cert (mTLS). By default an
+	// https LedgerEndpoint without a client cert is startup-fatal — the ledger
+	// edge mandates mTLS. Set API_LEDGER_ALLOW_PLAINTEXT=true for a
+	// TLS-terminating-proxy / loopback-dev deployment.
+	LedgerAllowPlaintext bool `json:"ledger_allow_plaintext,omitempty"`
+
+	// LedgerAllowSelfSigned opens the JN→ledger leg to server-verify-only HTTPS:
+	// with no client cert, verify the ledger's privately-signed/self-signed cert
+	// against LedgerCAFile (REQUIRED) and present no client cert. This is the
+	// zero-trust posture — the ledger serves reads openly and gates writes on the
+	// in-body G5 signature, so the JN authenticates WHO the ledger is without
+	// mTLS. Verification stays on (never InsecureSkipVerify); a missing
+	// LedgerCAFile is startup-fatal. Set API_LEDGER_ALLOW_SELF_SIGNED=true.
+	LedgerAllowSelfSigned bool `json:"ledger_allow_self_signed,omitempty"`
+
 	// SmartContractWallet configures multi-chain EIP-1271 K-of-N
 	// executor consensus (one quorum per onboarded EVM chain). Zero
 	// value (Enabled=false) → EOA-only verification (did:key +
@@ -755,6 +771,12 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 	if v := os.Getenv("API_LEDGER_CA_FILE"); v != "" {
 		cfg.LedgerCAFile = v
+	}
+	if b, ok := envBool("API_LEDGER_ALLOW_PLAINTEXT"); ok {
+		cfg.LedgerAllowPlaintext = b
+	}
+	if b, ok := envBool("API_LEDGER_ALLOW_SELF_SIGNED"); ok {
+		cfg.LedgerAllowSelfSigned = b
 	}
 	if v := os.Getenv("API_ARTIFACT_STORE_ENDPOINT"); v != "" {
 		cfg.ArtifactStoreEndpoint = v

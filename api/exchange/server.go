@@ -29,6 +29,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -290,6 +291,31 @@ func BuildLedgerSubmitClient(cfg ServerConfig) (*http.Client, error) {
 		return nil, err
 	}
 	return c, nil
+}
+
+// BuildLedgerServerVerifyClient constructs the open-HTTPS client the exchange
+// uses to reach a ledger that serves reads openly: it pins caFile to verify the
+// ledger's privately-signed / self-signed server cert and presents NO client
+// cert. The ledger gates writes on the in-body G5 signature, so transport
+// identity is not the trust boundary — the JN authenticates WHO the ledger is
+// (CA-pinned) without mTLS.
+//
+// caFile is REQUIRED (an empty CA cannot verify a self-signed cert). Returns
+// (nil, err) on CA load failure; the caller MUST fail startup rather than fall
+// back to the system roots. Verification is always on — never InsecureSkipVerify.
+func BuildLedgerServerVerifyClient(caFile string) (*http.Client, error) {
+	if caFile == "" {
+		return nil, fmt.Errorf("exchange: server-verify ledger client requires a CA file (cannot verify a self-signed cert against nothing)")
+	}
+	caPEM, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("exchange: read ledger CA %q: %w", caFile, err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("exchange: ledger CA %q contains no parseable certificates", caFile)
+	}
+	return sdklog.DefaultClient(30*time.Second, &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS13}), nil
 }
 
 func buildTLSConfig(caFile string) (*tls.Config, error) {

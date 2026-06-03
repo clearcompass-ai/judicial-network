@@ -29,10 +29,10 @@ func smoke(s *Session) error {
 	if !ok {
 		return fmt.Errorf("no network in the persisted manifest")
 	}
-	if !stack.LedgerHealthyPort(t.LedgerPort) {
+	if !stack.LedgerHealthyPort(t.CertsDir, t.LedgerPort) {
 		return fmt.Errorf("ledger /healthz not ok on :%d", t.LedgerPort)
 	}
-	sz, sigs := stack.HeadStatus(t.LedgerPort)
+	sz, sigs := stack.HeadStatus(t.CertsDir, t.LedgerPort)
 	if sz < 1 || sigs < t.QuorumK {
 		return fmt.Errorf("head not cosigned (size=%d, sigs=%d, want size>=1 sigs>=%d)", sz, sigs, t.QuorumK)
 	}
@@ -58,9 +58,10 @@ func auditTiles(s *Session) error {
 	}
 	fmt.Printf("  backfill: %d roots + %d amendments → %d SMT leaves\n", st.Roots, st.Amendments, len(st.Leaves))
 
-	if !stack.WaitDrained(t.LedgerPort, n+1, 30*time.Minute) { // +1 for the genesis seed
-		sz, _ := stack.HeadStatus(t.LedgerPort)
-		return fmt.Errorf("builder did not drain to tree_size>=%d (stuck at %d)", n+1, sz)
+	drainTimeout := time.Duration(intEnv("E2E_DRAIN_TIMEOUT_MIN", 30)) * time.Minute // raise for large -n (e.g. 300K)
+	if !stack.WaitDrained(t.CertsDir, t.LedgerPort, n+1, drainTimeout) {              // +1 for the genesis seed
+		sz, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
+		return fmt.Errorf("builder did not drain to tree_size>=%d in %s (stuck at %d) — raise E2E_DRAIN_TIMEOUT_MIN", n+1, drainTimeout, sz)
 	}
 	// E2E_AUDIT_FULL=1 audits EVERY committed member key (samples >= leaf count) —
 	// indisputable coverage; otherwise sample E2E_AUDIT_SAMPLES (default 32).

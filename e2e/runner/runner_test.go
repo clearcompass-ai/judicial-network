@@ -18,9 +18,10 @@ func TestCoreRecipesRegistered(t *testing.T) {
 }
 
 func TestSelect(t *testing.T) {
-	// by name substring
-	if got := Select([]string{"audit"}, nil); len(got) != 1 || got[0].Name != "audit.tiles" {
-		t.Fatalf("Select(name=audit) = %v, want [audit.tiles]", names(got))
+	// by name substring (fragment unique to audit.tiles — "audit" alone now also
+	// matches verify.auditor, which is correct substring behavior)
+	if got := Select([]string{"tiles"}, nil); len(got) != 1 || got[0].Name != "audit.tiles" {
+		t.Fatalf("Select(name=tiles) = %v, want [audit.tiles]", names(got))
 	}
 	// by tag
 	if got := Select(nil, []string{"smoke"}); len(got) != 1 || got[0].Name != "smoke" {
