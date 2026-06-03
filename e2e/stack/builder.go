@@ -122,12 +122,12 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 
 		aggPort := 0
 		if nc.Spec.HasAggregator {
-			// The aggregator is a NON-CORE read-projection microservice (Ledger
-			// Principle 12). Its bring-up is BEST-EFFORT: a failure is logged loudly
-			// but does NOT abort the stack — the JN's core (admission, enforcement,
-			// proofs) has no dependency on it, so the network stays fully usable with
-			// an absent/stale projection. `run verify.aggregator` asserts it when you
-			// need the read side green.
+			// Best-effort bring-up: a failure is logged loudly but does NOT abort the
+			// stack. Verified in the JN sources: the network-api makes no call to the
+			// aggregator (no API_AGGREGATOR_* config) and its /readyz gates only on the
+			// ledger (buildReadyzChecks), so admission/enforcement/proof-serving stay
+			// fully usable with an absent/stale projection. `run verify.aggregator`
+			// asserts the read side when you need it green.
 			var aggErr error
 			if aggErr = in.EnsureDB(nc.AggDB); aggErr == nil {
 				stage("network %q — aggregator on :%d (non-core read-projection)", nc.Spec.Name, nc.AggregatorPort)
