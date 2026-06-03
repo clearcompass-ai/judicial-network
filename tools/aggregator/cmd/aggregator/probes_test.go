@@ -15,11 +15,16 @@ package main
 
 import (
 	"context"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
 )
 
 // stubDB satisfies dbProber. errOnPing controls whether the
@@ -41,7 +46,7 @@ func newProbes(t *testing.T, dbErr error, ledgerOK bool) (*probeHandlers, func()
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
-	p := newProbeHandlers(stubDB{errOnPing: dbErr}, op.URL)
+	p := newProbeHandlers(stubDB{errOnPing: dbErr}, op.URL, nil) // plain-http test server → bare client
 	return p, op.Close
 }
 
@@ -149,4 +154,50 @@ func minLen(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// FUNCTIONAL: the /readyz ledger client must verify a privately-signed ledger
+// against the configured CA and present no client cert (the open-HTTPS posture).
+// Regression guard: the probe used a bare http.Client (system roots), so the
+// aggregator scanned fine yet /readyz 503'd on x509 against the run CA.
+func TestLedgerProbeHTTPClient_ServerVerifyReachesPrivateLedger(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
+	if err := os.WriteFile(caFile, pemBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := ledgerProbeHTTPClient(common.Config{LedgerURL: srv.URL, LedgerCAFile: caFile})
+	if err != nil {
+		t.Fatalf("ledgerProbeHTTPClient: %v", err)
+	}
+	resp, err := c.Get(srv.URL + "/healthz")
+	if err != nil {
+		t.Fatalf("CA-pinned probe GET failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	// The OLD bare-client behaviour (system roots) MUST be rejected.
+	if _, err := (&http.Client{}).Get(srv.URL + "/healthz"); err == nil {
+		t.Fatal("bare client accepted a privately-signed ledger — the probe bug")
+	}
+}
+
+// http endpoint → a plain client (no TLS material needed).
+func TestLedgerProbeHTTPClient_PlaintextEndpoint(t *testing.T) {
+	c, err := ledgerProbeHTTPClient(common.Config{LedgerURL: "http://ledger:8092"})
+	if err != nil {
+		t.Fatalf("ledgerProbeHTTPClient: %v", err)
+	}
+	if c == nil {
+		t.Fatal("nil client for plaintext endpoint")
+	}
 }

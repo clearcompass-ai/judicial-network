@@ -163,7 +163,11 @@ func run(argv []string, d deps) error {
 		BatchSize:    cfg.AggregatorBatchSize,
 		PollInterval: cfg.AggregatorPollInterval,
 	}, ledger, db, projector, nil)
-	probes := newProbeHandlers(db, cfg.LedgerURL)
+	probeClient, err := ledgerProbeHTTPClient(cfg)
+	if err != nil {
+		return fmt.Errorf("aggregator: probe ledger client: %w", err)
+	}
+	probes := newProbeHandlers(db, cfg.LedgerURL, probeClient)
 
 	srv := &http.Server{
 		Addr:              args.listenAddr,

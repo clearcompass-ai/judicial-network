@@ -29,8 +29,13 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -66,16 +71,53 @@ type probeHandlers struct {
 	ready atomic.Bool
 }
 
-// newProbeHandlers constructs the probe surface. The supplied db
-// and ledgerURL are used for the readyz check; pass them from
-// run() once both have been validated.
-func newProbeHandlers(db dbProber, ledgerURL string) *probeHandlers {
+// newProbeHandlers constructs the probe surface. The supplied db and ledgerURL
+// are used for the readyz check; ledgerClient is the CA-aware client the /readyz
+// ledger probe uses (build it via ledgerProbeHTTPClient so it verifies the
+// ledger's cert like the scanner does). A nil ledgerClient falls back to a bare
+// client (plaintext/dev only).
+func newProbeHandlers(db dbProber, ledgerURL string, ledgerClient *http.Client) *probeHandlers {
+	if ledgerClient == nil {
+		ledgerClient = &http.Client{Timeout: 3 * time.Second}
+	}
 	return &probeHandlers{
 		metrics:    observability.NewMetricsRegistry(),
 		db:         db,
 		ledgerURL:  ledgerURL,
-		httpClient: &http.Client{Timeout: 3 * time.Second},
+		httpClient: ledgerClient,
 	}
+}
+
+// ledgerProbeHTTPClient builds the /readyz ledger-health client to the SAME TLS
+// posture the scanner's ledger client uses, so the probe verifies the ledger's
+// privately-signed cert against the configured CA instead of the system roots.
+// A bare client fails x509 against a private CA — so the aggregator would scan
+// fine yet never report ready. https + CA → server-verify; + client cert → mTLS;
+// http → plain. Verification is never skipped.
+func ledgerProbeHTTPClient(cfg common.Config) (*http.Client, error) {
+	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(cfg.LedgerURL)), "https://") {
+		return &http.Client{Timeout: 3 * time.Second}, nil
+	}
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS13, ServerName: cfg.LedgerServerName}
+	if cfg.LedgerCAFile != "" {
+		caPEM, err := os.ReadFile(cfg.LedgerCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("read ledger CA %q: %w", cfg.LedgerCAFile, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("ledger CA %q contains no parseable certificates", cfg.LedgerCAFile)
+		}
+		tlsCfg.RootCAs = pool
+	}
+	if cfg.LedgerClientCertFile != "" && cfg.LedgerClientKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.LedgerClientCertFile, cfg.LedgerClientKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load ledger client cert: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+	return &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: tlsCfg}}, nil
 }
 
 // Handler returns the mux that serves /healthz, /readyz, /metrics.
