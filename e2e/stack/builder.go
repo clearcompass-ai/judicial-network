@@ -122,15 +122,23 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 
 		aggPort := 0
 		if nc.Spec.HasAggregator {
-			if err := in.EnsureDB(nc.AggDB); err != nil {
-				return nil, err
+			// The aggregator is a NON-CORE read-projection microservice (Ledger
+			// Principle 12). Its bring-up is BEST-EFFORT: a failure is logged loudly
+			// but does NOT abort the stack — the JN's core (admission, enforcement,
+			// proofs) has no dependency on it, so the network stays fully usable with
+			// an absent/stale projection. `run verify.aggregator` asserts it when you
+			// need the read side green.
+			var aggErr error
+			if aggErr = in.EnsureDB(nc.AggDB); aggErr == nil {
+				stage("network %q — aggregator on :%d (non-core read-projection)", nc.Spec.Name, nc.AggregatorPort)
+				aggErr = UpAggregator(*nc, in, lay.Certs, images.Aggregator)
 			}
-			stage("network %q — aggregator on :%d", nc.Spec.Name, nc.AggregatorPort)
-			if err := UpAggregator(*nc, in, lay.Certs, images.Aggregator); err != nil {
-				return nil, err
+			if aggErr != nil {
+				fmt.Printf("  ⚠ aggregator did NOT come up (%v) — continuing; JN core is unaffected, queries degraded\n", aggErr)
+			} else {
+				aggPort = nc.AggregatorPort
+				okf("aggregator /readyz == 200")
 			}
-			aggPort = nc.AggregatorPort
-			okf("aggregator /readyz == 200")
 		}
 
 		manifest.Networks = append(manifest.Networks, runstore.NetworkManifest{
