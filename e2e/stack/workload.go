@@ -22,6 +22,7 @@ type Target struct {
 	Network     string // docker network
 	LedgerName  string // ledger container name (in-network URL)
 	LedgerPort  int    // host port (health/head polls)
+	JNPort      int    // host port for the JN enforcer edge (0 when no JN)
 	LogDID      string
 	QuorumK     int
 	FixturesDir string // host fixtures dir (the /out + audit mount)
@@ -71,7 +72,7 @@ func SeedOnUp(in Infra, nc NetConfig, fixturesDir, certsDir, ledgerImage string)
 
 func (nc NetConfig) target(fixturesDir, certsDir string) Target {
 	return Target{
-		Network: nc.Network, LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort,
+		Network: nc.Network, LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort, JNPort: nc.JNPort,
 		LogDID: nc.LogDID, QuorumK: nc.Spec.QuorumK, FixturesDir: fixturesDir, CertsDir: certsDir, Admission: nc.Tuning.Admission,
 	}
 }

@@ -14,6 +14,7 @@ func init() {
 	Register(Recipe{Name: "verify.proofs", Tags: []string{"verify"}, Run: mk(vProofs)})
 	Register(Recipe{Name: "verify.oracle", Tags: []string{"verify"}, Run: mk(vOracle)})
 	Register(Recipe{Name: "verify.logs", Tags: []string{"verify"}, Run: mk(vLogs)})
+	Register(Recipe{Name: "verify.mtls", Tags: []string{"verify"}, Run: mk(vMTLSEnforced)})
 }
 
 // check is one verification result.
@@ -36,7 +37,7 @@ func mk(c checkFn) func(*Session) error {
 // and a regression scan of the ledger log. It trusts only SHA-256 and the K witness
 // signatures; everything else is recomputed live.
 func verifyAll(s *Session) error {
-	return runChecks(s, vCheckpoint, vHeadHorizon, vProofs, vOracle, vLogs)
+	return runChecks(s, vCheckpoint, vHeadHorizon, vProofs, vOracle, vLogs, vMTLSEnforced)
 }
 
 func runChecks(s *Session, checks ...checkFn) error {
@@ -147,6 +148,22 @@ func vLogs(_ *Session, t stack.Target) check {
 		return check{"logs", false, fmt.Sprintf("%d HARD signature(s):\n%s", hard, report)}
 	}
 	return check{"logs", true, "0 HARD regression signatures"}
+}
+
+// vMTLSEnforced: the mTLS edge fails CLOSED — a no-client-cert request to the
+// ledger (and the JN, if up) is provably refused, not merely "certs configured".
+func vMTLSEnforced(_ *Session, t stack.Target) check {
+	if err := stack.AssertEdgeRejectsNoClientCert(t.CertsDir, fmt.Sprintf("https://localhost:%d/healthz", t.LedgerPort)); err != nil {
+		return check{"mtls-enforced", false, "ledger: " + err.Error()}
+	}
+	edges := "ledger"
+	if t.JNPort != 0 {
+		if err := stack.AssertEdgeRejectsNoClientCert(t.CertsDir, fmt.Sprintf("https://localhost:%d/healthz", t.JNPort)); err != nil {
+			return check{"mtls-enforced", false, "jn: " + err.Error()}
+		}
+		edges = "ledger + jn"
+	}
+	return check{"mtls-enforced", true, edges + " reject no-client-cert (with-cert 200, without-cert refused)"}
 }
 
 // auditSummary pulls the membership / non-membership tallies out of the audit log.
