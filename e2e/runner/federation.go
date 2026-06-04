@@ -69,12 +69,14 @@ func federationSoak(s *Session) error {
 			return fmt.Errorf("network %s: builder did not drain to >=%d in %s (stuck at %d) — raise E2E_DRAIN_TIMEOUT_MIN",
 				nm.Name, before+n, drain, sz)
 		}
-		// Wait for the fleet to re-cosign the post-load head to K-of-N (drain =
-		// sequenced ≠ finalized) before the quorum re-verification reads it.
-		if !waitCosigned(t, 120*time.Second) {
-			sz, sigs := stack.HeadStatus(t.CertsDir, t.LedgerPort)
-			return fmt.Errorf("network %s head not re-cosigned to K=%d after load (size=%d, sigs=%d)",
-				nm.Name, t.QuorumK, sz, sigs)
+		// Wait for the ledger to PUBLISH the cosigned HORIZON (the async second
+		// write — the tile-durable, witness-cosigned checkpoint that verification
+		// anchors on) at the post-load size. The head advances first and carries no
+		// quorum guarantee; the horizon is the durable trust anchor.
+		if !waitHorizon(t, uint64(before+n), 5*time.Minute) {
+			c, _ := stack.FetchHorizon(t.CertsDir, t.LedgerPort)
+			return fmt.Errorf("network %s horizon not finalized after load (got size=%d sigs=%d, want size>=%d sigs>=K=%d) — raise the wait or check witness liveness",
+				nm.Name, c.TreeSize, len(c.Signatures), before+n, t.QuorumK)
 		}
 		// MULTI-WITNESS validation: recompute the K-of-N quorum from the genesis
 		// witness set — the publisher's claimed signature count is NOT trusted.
@@ -154,13 +156,23 @@ func validateQuorum(t stack.Target) (int, error) {
 	return res.ValidCount, nil
 }
 
-// waitCosigned polls /v1/tree/head until the network's current head carries >= K
-// witness cosignatures (the fleet finishing finalization after a freshly-sequenced
-// entry), or the timeout elapses. Drain advances tree_size; cosign finalizes it.
-func waitCosigned(t stack.Target, timeout time.Duration) bool {
+// waitHorizon polls the PUBLISHED cosigned horizon (GET /v1/tree/horizon) until it
+// reaches minSize with a full K-of-N DISTINCT-witness quorum, or times out.
+//
+// This is the system's two-step / async "second write": an entry is first
+// SEQUENCED — /v1/tree/head advances (step 1) but "carries no guarantee its
+// cosignatures form a quorum yet" — and only AFTER the root's SMT tiles are durable
+// AND K-of-N witnesses have cosigned it does the builder REPUBLISH the head as the
+// durable cosigned horizon (step 2, tessera.PublishCosignedCheckpoint). The horizon
+// "advances ONLY once" finalized, so it lags the head by design. ALL verification
+// (vCheckpoint, SMT proofs) anchors on the horizon — so the soak must wait for the
+// HORIZON, not the head.
+func waitHorizon(t stack.Target, minSize uint64, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for {
-		if _, sigs := stack.HeadStatus(t.CertsDir, t.LedgerPort); sigs >= t.QuorumK {
+		c, err := stack.FetchHorizon(t.CertsDir, t.LedgerPort)
+		if err == nil && uint64(c.TreeSize) >= minSize &&
+			len(c.Signatures) >= t.QuorumK && c.DistinctSigners() >= t.QuorumK {
 			return true
 		}
 		if time.Now().After(deadline) {
@@ -258,13 +270,13 @@ func federationCrossLog(s *Session) error {
 			return fmt.Errorf("network %s did not commit the anchor of %s (size stuck at %d, want >=%d)",
 				nm.Name, srcName, sz, before+1)
 		}
-		// Drain = sequenced; the witness fleet must then RE-COSIGN the new head to
-		// K-of-N before it's finalized. Wait for that, so downstream verification
-		// sees a fully-cosigned head rather than a transient under-quorum checkpoint.
-		if !waitCosigned(dst, 90*time.Second) {
-			sz, sigs := stack.HeadStatus(dst.CertsDir, dst.LedgerPort)
-			return fmt.Errorf("network %s head not re-cosigned to K=%d after anchoring %s (size=%d, sigs=%d)",
-				nm.Name, dst.QuorumK, srcName, sz, sigs)
+		// Drain = SEQUENCED, not finalized. Wait for the cosigned HORIZON (the async
+		// second write) to republish the post-anchor head at K-of-N before declaring
+		// the anchor committed — verification anchors on the horizon, not the head.
+		if !waitHorizon(dst, uint64(before+1), 5*time.Minute) {
+			c, _ := stack.FetchHorizon(dst.CertsDir, dst.LedgerPort)
+			return fmt.Errorf("network %s horizon not finalized after anchoring %s (got size=%d sigs=%d, want size>=%d sigs>=K=%d)",
+				nm.Name, srcName, c.TreeSize, len(c.Signatures), before+1, dst.QuorumK)
 		}
 		fmt.Printf("  [PASS] %-8s published a VERIFIED CosignedAnchorV1 of %-8s head (size=%d) into its OWN log\n",
 			nm.Name, srcName, srcSize)
