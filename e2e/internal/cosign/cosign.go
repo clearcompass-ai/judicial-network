@@ -60,6 +60,14 @@ func Wired() bool {
 	return !errors.Is(err, ErrNotWired)
 }
 
+// ToSDKHead maps an e2e wire head (hex-string fields) to the baseproof SDK
+// CosignedTreeHead — used by the cross-network scenarios that build/verify
+// cross-log proofs over a LIVE ledger head (e.g. an anchor of network B's head
+// written into network A's log).
+func ToSDKHead(h types.CosignedTreeHead) (baseprooftypes.CosignedTreeHead, error) {
+	return toBaseproofHead(h)
+}
+
 // toBaseproofHead maps the e2e wire head (hex-string fields) to the SDK type the
 // verifier consumes.
 func toBaseproofHead(h types.CosignedTreeHead) (baseprooftypes.CosignedTreeHead, error) {
