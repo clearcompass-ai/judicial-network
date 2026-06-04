@@ -147,12 +147,23 @@ func (in Infra) Up() error {
 	}) {
 		return fmt.Errorf("seaweedfs never became ready")
 	}
+	// Buckets are created PER NETWORK (Build → CreateBucket before each ledger), so
+	// the ledger's fixed-name objects (the cosigned-checkpoint horizon) live in an
+	// isolated namespace per log and can never be clobbered by another network's
+	// writer. No shared bucket is created here.
+	return nil
+}
+
+// CreateBucket creates an object-store bucket on the shared seaweedfs (idempotent;
+// best-effort, mirroring the original inline creation). Each network gets its OWN
+// bucket so the fixed-name cosigned-checkpoint object — and any other
+// non-content-addressed key — can never overlap across logs.
+func (in Infra) CreateBucket(name string) {
 	dockerx.Run(dockerx.RunSpec{
 		Network: in.network, Image: in.images.Seaweed, Remove: true, Entrypoint: "/bin/sh",
 		ImageArgs: []string{"-c", fmt.Sprintf(
-			"sleep 2; echo 's3.bucket.create -name %s' | weed shell -master %s:9333", bucket, in.S3())},
+			"sleep 2; echo 's3.bucket.create -name %s' | weed shell -master %s:9333", name, in.S3())},
 	})
-	return nil
 }
 
 // EnsureDB creates a database if missing and CONFIRMS it exists — race-safe against
@@ -221,7 +232,7 @@ func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 		"LEDGER_ADDR":                     ":8080",
 		"LEDGER_BYTE_STORE_BACKEND":       "s3",
 		"LEDGER_BYTE_STORE_S3_ENDPOINT":   "http://" + in.S3() + ":8333",
-		"LEDGER_BYTE_STORE_S3_BUCKET":     bucket,
+		"LEDGER_BYTE_STORE_S3_BUCKET":     nc.Bucket,
 		"LEDGER_BYTE_STORE_S3_REGION":     "us-east-1",
 		"LEDGER_BYTE_STORE_S3_ACCESS_KEY": "any",
 		"LEDGER_BYTE_STORE_S3_SECRET_KEY": "any",

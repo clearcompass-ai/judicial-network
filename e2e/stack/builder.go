@@ -52,7 +52,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 	if err := in.Up(); err != nil {
 		return nil, fmt.Errorf("infra: %w", err)
 	}
-	okf("postgres + seaweedfs up (bucket %s)", bucket)
+	okf("postgres + seaweedfs up (per-network buckets created at ledger bring-up)")
 
 	manifest := &runstore.Manifest{ID: runID, Preset: spec.Name, Network: network, Admission: spec.Tuning.Admission}
 	for i := range ncs {
@@ -85,7 +85,11 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		}
 		okf("%d witnesses ready (K=%d)", nc.Spec.Witnesses, nc.Spec.QuorumK)
 
-		stage("network %q — ledger on :%d", nc.Spec.Name, nc.LedgerPort)
+		// Each network's ledger writes its fixed-name objects (the cosigned-checkpoint
+		// horizon) to its OWN bucket, so no network can clobber another's horizon.
+		in.CreateBucket(nc.Bucket)
+
+		stage("network %q — ledger on :%d (bucket %s)", nc.Spec.Name, nc.LedgerPort, nc.Bucket)
 		if err := UpLedger(*nc, in, fixturesDir, lay.Certs, images.Ledger); err != nil {
 			return nil, err
 		}

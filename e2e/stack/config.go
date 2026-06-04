@@ -115,7 +115,11 @@ type NetConfig struct {
 	AggregatorPort int
 	AuditorPorts   []int
 	AggDB          string // per-network aggregator projection DB (when HasAggregator)
-	Single         bool   // the stack has exactly one network (names/DB collapse)
+	Bucket         string // per-network object-store bucket — isolates each log's S3
+	// namespace so the ledger's fixed-name objects (the cosigned-checkpoint horizon,
+	// and any other non-content-addressed key) can never overlap across networks that
+	// would otherwise share one bucket (the "last writer clobbers the horizon" class).
+	Single bool // the stack has exactly one network (names/DB collapse)
 }
 
 // Name returns the container name for a service in this network.
@@ -159,10 +163,14 @@ func DeriveNetConfigs(spec topology.StackSpec, runID string) []NetConfig {
 		prefix := network
 		db := "baseproof_test"
 		seed := "did:web:state:tn:davidson"
+		// Single-network keeps the familiar shared bucket; multi-network gives each
+		// network its OWN bucket so per-log object-store namespaces never overlap.
+		bkt := bucket
 		if !single {
 			prefix = network + "-" + n.Name
 			db = "baseproof_" + n.Name
 			seed = "did:web:baseproof:" + n.Name
+			bkt = bucket + "-" + n.Name
 		}
 		auditorPorts := make([]int, n.Auditors)
 		for a := 0; a < n.Auditors; a++ {
@@ -184,6 +192,7 @@ func DeriveNetConfigs(spec topology.StackSpec, runID string) []NetConfig {
 			AggregatorPort: aggregatorPortBase + i*perNetworkStride,
 			AuditorPorts:   auditorPorts,
 			AggDB:          aggDB,
+			Bucket:         bkt,
 			Single:         single,
 		})
 	}
