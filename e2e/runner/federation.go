@@ -69,6 +69,13 @@ func federationSoak(s *Session) error {
 			return fmt.Errorf("network %s: builder did not drain to >=%d in %s (stuck at %d) — raise E2E_DRAIN_TIMEOUT_MIN",
 				nm.Name, before+n, drain, sz)
 		}
+		// Wait for the fleet to re-cosign the post-load head to K-of-N (drain =
+		// sequenced ≠ finalized) before the quorum re-verification reads it.
+		if !waitCosigned(t, 120*time.Second) {
+			sz, sigs := stack.HeadStatus(t.CertsDir, t.LedgerPort)
+			return fmt.Errorf("network %s head not re-cosigned to K=%d after load (size=%d, sigs=%d)",
+				nm.Name, t.QuorumK, sz, sigs)
+		}
 		// MULTI-WITNESS validation: recompute the K-of-N quorum from the genesis
 		// witness set — the publisher's claimed signature count is NOT trusted.
 		valid, err := validateQuorum(t)
