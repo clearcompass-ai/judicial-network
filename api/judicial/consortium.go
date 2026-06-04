@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/baseproof/baseproof/anchor"
 	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/consortium"
@@ -165,7 +166,10 @@ func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *
 	// SDK-4: pin the SOURCE log's burn status from the heads journal and
 	// gate cross-log verification on it (fail-closed if unknown/burned).
 	trust := jntrust.StatusFor(r.Context(), h.deps.HeadsJournal, req.SourceLogDID)
-	verifyErr := consortium.VerifyCrossCourtProof(proof, set, trust)
+	// Cross-court verification IS the SDK's agnostic cross-log verify — called
+	// directly (no judicial wrapper): burn-aware, bound to the SOURCE network's
+	// witness set + pinned trust.
+	verifyErr := anchor.VerifyCrossLog(proof, set, trust)
 	if verifyErr != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"verified": false, "error": verifyErr.Error()})
 		return

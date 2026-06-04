@@ -23,15 +23,38 @@ const idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 // Root is the .run root: $E2E_RUN_ROOT or ./.run, resolved to an ABSOLUTE path
 // (docker bind-mounts reject relative host paths — they read them as named-volume
 // names).
+//
+// When E2E_RUN_ROOT is unset, Root walks UP from the working directory to find an
+// existing .run directory. This is load-bearing for `go test`: a test binary runs
+// with its CWD set to the test PACKAGE dir (e.g. e2e/tests/jn), so a bare ./.run
+// would miss the run `e2e up` created at the repo root and every scenario would
+// skip on an empty config. Walking up resolves the SAME run from anywhere in the
+// tree. When no .run exists yet (first `e2e up`), it falls back to ./.run so the
+// run is created under the current dir as before.
 func Root() string {
-	r := os.Getenv("E2E_RUN_ROOT")
-	if r == "" {
-		r = ".run"
+	if r := os.Getenv("E2E_RUN_ROOT"); r != "" {
+		if abs, err := filepath.Abs(r); err == nil {
+			return abs
+		}
+		return r
 	}
-	if abs, err := filepath.Abs(r); err == nil {
+	if wd, err := os.Getwd(); err == nil {
+		for dir := wd; ; {
+			cand := filepath.Join(dir, ".run")
+			if fi, statErr := os.Stat(cand); statErr == nil && fi.IsDir() {
+				return cand
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break // reached the filesystem root
+			}
+			dir = parent
+		}
+	}
+	if abs, err := filepath.Abs(".run"); err == nil {
 		return abs
 	}
-	return r
+	return ".run"
 }
 
 // ValidID reports whether s is exactly 3 alphanumeric characters.
