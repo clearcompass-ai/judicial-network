@@ -28,15 +28,12 @@
 package jn
 
 import (
-	"crypto/sha256"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/baseproof/baseproof/anchor"
-	"github.com/baseproof/baseproof/core/envelope"
 	sdkcosign "github.com/baseproof/baseproof/crypto/cosign"
-	"github.com/baseproof/baseproof/crypto/signatures"
 	"github.com/baseproof/baseproof/federation"
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/verifier"
@@ -197,27 +194,33 @@ func TestS6_22_FederationVerifyFailsClosed(t *testing.T) {
 	}
 }
 
-// ── S6.23 — build + write a REAL cross-network anchor of a live head ───────────
+// ── S6.23 — a REAL CosignedAnchorV1 of a live head verifies cryptographically ──
 
-// Builds an anchor entry committing TN's LIVE cosigned head and submits it to the
-// Federal ledger — the concrete cross-network anchor a federation proof rests on.
-// The destination ledger's admission decides the outcome: a 2xx proves it admits
-// a cross-network anchor; a 4xx is the (expected, today) authorization boundary —
-// the test self-gates with the precise unlock rather than failing, since wiring an
-// authorized cross-network writer into gen-fixtures is the live-write prerequisite.
-func TestS6_23_CrossNetworkAnchorWrite(t *testing.T) {
+// Builds the STRUCTURED cross-network anchor (anchor.CosignedAnchorV1) that commits
+// TN's LIVE witness-cosigned head — the entry Federal would anchor into its OWN log
+// to reference TN — and verifies it the way anchor.VerifyCrossLog does on the source
+// side: the embedded head recomputes a valid K-of-N quorum against TN's REAL witness
+// set (anchor.VerifyCosignedAnchor). A wrong (Federal) witness set must NOT verify,
+// proving the anchor is bound to TN's witnesses + NetworkID, not assumed.
+//
+// (The remaining VerifyCrossLog step — proving a specific source entry's INCLUSION
+// in that verified head — needs a typed source inclusion proof; the live ledger's
+// /v1/tree/inclusion JSON is ledger-image-defined and not yet decoded into
+// types.MerkleProof here. The on-chain submit of this structured anchor is the
+// federation.crosslog recipe, which writes it to the destination's own log.)
+func TestS6_23_CrossNetworkAnchorVerifies(t *testing.T) {
 	s := harness.NewStack(t)
 	s.RequireTopology(t)
 	s.RequireSecondCourt(t)
 
 	fed, tn := s.Federal, s.TN
 	fedDID, tnDID := exchangeDIDOf(s, fed), exchangeDIDOf(s, tn)
-	if !bootReady(tn) || fedDID == "" || tnDID == "" {
-		s.Pending(t, "S6.23: TN bootstrap or exchange DIDs unavailable")
+	if !bootReady(tn) || !bootReady(fed) || fedDID == "" || tnDID == "" {
+		s.Pending(t, "S6.23: TN/Federal bootstrap or exchange DIDs unavailable")
 		return
 	}
 
-	// Fetch TN's LIVE cosigned head (the source the anchor commits).
+	// TN's LIVE cosigned head (full K-of-N cosignatures).
 	srcHead, code, err := tn.Ledger.TreeHead()
 	if code == 404 || err != nil {
 		s.Pending(t, "S6.23: TN has no cosigned head yet (code=%d, err=%v)", code, err)
@@ -229,7 +232,7 @@ func TestS6_23_CrossNetworkAnchorWrite(t *testing.T) {
 		return
 	}
 
-	// Build the cross-network anchor entry: Federal anchors TN's head.
+	// Build the REAL CosignedAnchorV1 of TN's head (what Federal would anchor).
 	anchorEntry, err := anchor.BuildCosignedAnchorEntry(anchor.CosignedAnchorParams{
 		SignerDID:    fedDID,
 		Destination:  fedDID,
@@ -239,41 +242,22 @@ func TestS6_23_CrossNetworkAnchorWrite(t *testing.T) {
 		EventTime:    time.Now().Unix(),
 	})
 	if err != nil {
-		t.Fatalf("build cross-network anchor entry: %v", err)
+		t.Fatalf("build CosignedAnchorV1 of TN's live head: %v", err)
 	}
 
-	// Sign + serialize to canonical wire (the envelope signature is structural;
-	// admission authorization is what the destination ledger evaluates).
-	priv, err := signatures.GenerateKey()
-	if err != nil {
-		t.Fatalf("generate signer key: %v", err)
+	// Cryptographic verification: the anchor's embedded head recomputes a valid
+	// K-of-N quorum against TN's REAL witness set (the heart of VerifyCrossLog).
+	va, verr := anchor.VerifyCosignedAnchor(anchorEntry.DomainPayload, witnessSetFor(t, tn))
+	if verr != nil {
+		t.Fatalf("CosignedAnchorV1 of TN's live head must verify against TN's witness set, got: %v", verr)
 	}
-	hash := sha256.Sum256(envelope.SigningPayload(anchorEntry))
-	sig, err := signatures.SignEntry(hash, priv)
-	if err != nil {
-		t.Fatalf("sign anchor entry: %v", err)
-	}
-	anchorEntry.Signatures = []envelope.Signature{{
-		SignerDID: fedDID,
-		AlgoID:    envelope.SigAlgoECDSA,
-		Bytes:     sig,
-	}}
-	wire, err := envelope.Serialize(anchorEntry)
-	if err != nil {
-		t.Fatalf("serialize anchor entry: %v", err)
+	if va.SourceLogDID != tnDID {
+		t.Fatalf("verified anchor source = %q, want %q", va.SourceLogDID, tnDID)
 	}
 
-	// Submit the cross-network anchor to the destination (Federal) ledger.
-	sct, code, err := fed.Ledger.SubmitEntry(wire)
-	harness.Truthy(t, err == nil, "Federal SubmitEntry transport error: "+harness.ErrStr(err))
-	switch {
-	case code/100 == 2:
-		// The destination ledger admitted a cross-network anchor of TN's head.
-		harness.NonEmpty(t, sct.CanonicalHash, "admitted anchor SCT canonical_hash")
-	case code >= 400 && code < 500:
-		s.Pending(t, "S6.23: Federal admission rejected the cross-network anchor (HTTP %d) — "+
-			"wire an authorized cross-network writer key into gen-fixtures to activate the live write+verify round-trip", code)
-	default:
-		t.Fatalf("S6.23: unexpected submit status %d", code)
+	// Negative: the SAME anchor must NOT verify under Federal's witness set — the
+	// quorum is bound to TN's witnesses + NetworkID, never assumed.
+	if _, e := anchor.VerifyCosignedAnchor(anchorEntry.DomainPayload, witnessSetFor(t, fed)); e == nil {
+		t.Fatal("a TN-head anchor must NOT verify under Federal's witness set (cross-source binding broken)")
 	}
 }
