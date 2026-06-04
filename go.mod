@@ -33,7 +33,7 @@ require (
 )
 
 require (
-	github.com/baseproof/baseproof v0.0.1-rc2
+	github.com/baseproof/baseproof v0.0.1-rc3.0.20260604200328-810a524657fc
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
