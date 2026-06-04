@@ -85,11 +85,13 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures; the
-		// fleet is pinned to the tooling v0.0.4 release (libs/{federation,accounting}
-		// hoist + retention invariant). Override per-image via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.4"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.4"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.4"),
+		// fleet is pinned to the tooling v0.0.5 release, which adds the per-log S3
+		// namespace on the raw object surface — the ledger's fixed-name
+		// cosigned-checkpoint can no longer be clobbered by another log sharing a
+		// bucket. Override per-image via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.5"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.5"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.5"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
