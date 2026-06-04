@@ -43,6 +43,12 @@ env/
 *env/
 *env.bak/
 *env.old/
+# The e2e harness's Go package e2e/internal/env is NOT a Python virtualenv / env
+# file. Three patterns above silently swallow it from `git add`: env/ + *env/
+# (the dir) and env.* (line ~14, the env.go file). Un-ignore the dir, then the
+# file, so the harness's run-bridge package is tracked.
+!e2e/internal/env/
+!e2e/internal/env/env.go
 
 # --- Application Outputs & Logs ---
 .outputs/

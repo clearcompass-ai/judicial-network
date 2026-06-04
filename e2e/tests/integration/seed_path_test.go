@@ -30,8 +30,10 @@ func TestI1_SeedPath_HeadCustodiedAndProvable(t *testing.T) {
 		t.Skip("no sequenced entries yet — seed the ledger (E2E_SEED_ENTRIES)")
 	}
 
-	// DB — Federal's auditor #1 gossip DB persisted the head it ingested.
-	pg, gossipDB := s.Cfg.Federal.PGContainer, "auditor_gossip_1"
+	// DB — Federal's auditor #1 gossip DB persisted the head it ingested. The
+	// stack runs one shared Postgres (stack.Infra.PG()), so the container is
+	// run-level, not per-network.
+	pg, gossipDB := s.Cfg.PGContainer, "auditor_gossip_1"
 	if !db.Reachable(pg, gossipDB) {
 		if s.Cfg.Strict {
 			t.Fatalf("auditor Postgres %s/%s unreachable", pg, gossipDB)
