@@ -84,11 +84,14 @@ func ResolveImages() Images {
 	return Images{
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
-		// ledger + auditor carry the open-HTTPS server / open-client postures from
-		// the v1.66.0 release; witness is unchanged (server-TLS only).
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.2"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.2"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.2"),
+		// ledger + auditor carry the open-HTTPS server / open-client postures; the
+		// fleet is pinned to the tooling v0.0.5 release, which adds the per-log S3
+		// namespace on the raw object surface — the ledger's fixed-name
+		// cosigned-checkpoint can no longer be clobbered by another log sharing a
+		// bucket. Override per-image via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.5"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.5"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.5"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
@@ -114,7 +117,11 @@ type NetConfig struct {
 	AggregatorPort int
 	AuditorPorts   []int
 	AggDB          string // per-network aggregator projection DB (when HasAggregator)
-	Single         bool   // the stack has exactly one network (names/DB collapse)
+	Bucket         string // per-network object-store bucket — isolates each log's S3
+	// namespace so the ledger's fixed-name objects (the cosigned-checkpoint horizon,
+	// and any other non-content-addressed key) can never overlap across networks that
+	// would otherwise share one bucket (the "last writer clobbers the horizon" class).
+	Single bool // the stack has exactly one network (names/DB collapse)
 }
 
 // Name returns the container name for a service in this network.
@@ -158,10 +165,14 @@ func DeriveNetConfigs(spec topology.StackSpec, runID string) []NetConfig {
 		prefix := network
 		db := "baseproof_test"
 		seed := "did:web:state:tn:davidson"
+		// Single-network keeps the familiar shared bucket; multi-network gives each
+		// network its OWN bucket so per-log object-store namespaces never overlap.
+		bkt := bucket
 		if !single {
 			prefix = network + "-" + n.Name
 			db = "baseproof_" + n.Name
 			seed = "did:web:baseproof:" + n.Name
+			bkt = bucket + "-" + n.Name
 		}
 		auditorPorts := make([]int, n.Auditors)
 		for a := 0; a < n.Auditors; a++ {
@@ -183,6 +194,7 @@ func DeriveNetConfigs(spec topology.StackSpec, runID string) []NetConfig {
 			AggregatorPort: aggregatorPortBase + i*perNetworkStride,
 			AuditorPorts:   auditorPorts,
 			AggDB:          aggDB,
+			Bucket:         bkt,
 			Single:         single,
 		})
 	}

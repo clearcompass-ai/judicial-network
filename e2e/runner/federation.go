@@ -19,6 +19,167 @@ import (
 func init() {
 	Register(Recipe{Name: "federation.load", Tags: []string{"federation", "load"}, Run: federationLoad})
 	Register(Recipe{Name: "federation.crosslog", Tags: []string{"federation", "crosslog"}, Run: federationCrossLog})
+	Register(Recipe{Name: "federation.soak", Tags: []string{"federation", "soak"}, Run: federationSoak})
+}
+
+// federation.soak — the FULL federated-network validation in one ordered run.
+// Every touchpoint is re-derived from first principles (the publisher's claimed
+// values are never trusted), producing indisputable evidence:
+//
+//	1/4  load N entries as a CLIENT to EACH network's OWN endpoint, drain, then
+//	     re-verify the head's K-of-N MULTI-WITNESS quorum cryptographically from
+//	     the genesis set, and run a light-client SMT audit + dump the evidence
+//	     bundle (witnessed checkpoint + manifest + audit + full log) under the run;
+//	2/4  cross-network anchoring — build a REAL CosignedAnchorV1 of each network's
+//	     loaded head, verify it offline, and publish it into another network's log;
+//	3/4  full INDEPENDENT re-verification of every network (checkpoint, head↔horizon,
+//	     witness K-of-N vs genesis, SMT proofs, oracle, logs, auditor, aggregator);
+//	4/4  post-anchor multi-witness re-verification — the anchors disturbed nothing.
+//
+// Scale knobs (defaults are a quick soak): E2E_FED_ENTRIES (e.g. 300000),
+// E2E_FED_WORKERS, E2E_FED_BATCH_SIZE (>1 needs credits admission),
+// E2E_DRAIN_TIMEOUT_MIN (raise for 300K), E2E_AUDIT_FULL=1 (audit every key),
+// E2E_AUDIT_SAMPLES, E2E_AUDIT_RANDOM.
+func federationSoak(s *Session) error {
+	nets := s.Manifest.Networks
+	if len(nets) < 2 {
+		return fmt.Errorf("federation.soak requires >= 2 networks (one network = one log), have %d", len(nets))
+	}
+	n := intEnv("E2E_FED_ENTRIES", 2000)
+	workers := intEnv("E2E_FED_WORKERS", 16)
+	batch := intEnv("E2E_FED_BATCH_SIZE", 1)
+	drain := time.Duration(intEnv("E2E_DRAIN_TIMEOUT_MIN", 60)) * time.Minute
+	samples := intEnv("E2E_AUDIT_SAMPLES", 64)
+	random := intEnv("E2E_AUDIT_RANDOM", 16)
+	auditFull := intEnv("E2E_AUDIT_FULL", 0) == 1
+
+	fmt.Printf("== federation.soak 1/4: load %d entries/network + multi-witness verify + SMT audit ==\n", n)
+	for _, nm := range nets {
+		t, ok := s.Target(nm.Name)
+		if !ok {
+			return fmt.Errorf("no target for network %q", nm.Name)
+		}
+		before, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
+		st, err := stack.Backfill(t, s.Images.Ledger, n, workers, 0.5, batch)
+		if err != nil {
+			return fmt.Errorf("network %s backfill: %w", nm.Name, err)
+		}
+		if !stack.WaitDrained(t.CertsDir, t.LedgerPort, before+n, drain) {
+			sz, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
+			return fmt.Errorf("network %s: builder did not drain to >=%d in %s (stuck at %d) — raise E2E_DRAIN_TIMEOUT_MIN",
+				nm.Name, before+n, drain, sz)
+		}
+		// Wait for the ledger to PUBLISH the cosigned HORIZON (the async second
+		// write — the tile-durable, witness-cosigned checkpoint that verification
+		// anchors on) at the post-load size. The head advances first and carries no
+		// quorum guarantee; the horizon is the durable trust anchor.
+		if !waitHorizon(t, uint64(before+n), 5*time.Minute) {
+			c, _ := stack.FetchHorizon(t.CertsDir, t.LedgerPort)
+			return fmt.Errorf("network %s horizon not finalized after load (got size=%d sigs=%d, want size>=%d sigs>=K=%d) — raise the wait or check witness liveness",
+				nm.Name, c.TreeSize, len(c.Signatures), before+n, t.QuorumK)
+		}
+		// MULTI-WITNESS validation: recompute the K-of-N quorum from the genesis
+		// witness set — the publisher's claimed signature count is NOT trusted.
+		valid, err := validateQuorum(t)
+		if err != nil {
+			return fmt.Errorf("network %s quorum verify: %w", nm.Name, err)
+		}
+		// Light-client SMT audit of committed keys against the cosigned root + evidence.
+		smp := samples
+		if auditFull && len(st.Leaves) > smp {
+			smp = len(st.Leaves)
+		}
+		out, err := stack.RunAudit(t, s.Images.Ledger, smp, random, true)
+		if err != nil {
+			return fmt.Errorf("network %s SMT audit: %w", nm.Name, err)
+		}
+		if err := stack.CaptureEvidence(s.Layout, t, out); err != nil {
+			return fmt.Errorf("network %s evidence capture: %w", nm.Name, err)
+		}
+		sz, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
+		fmt.Printf("  [PASS] %-8s load=%d (roots=%d amends=%d) size=%d | %d/%d witnesses re-verified | %d SMT proofs audited\n",
+			nm.Name, n, st.Roots, st.Amendments, sz, valid, t.QuorumK, smp)
+	}
+
+	fmt.Println("== federation.soak 2/4: cross-network anchoring (real CosignedAnchorV1) ==")
+	if err := federationCrossLog(s); err != nil {
+		return fmt.Errorf("cross-network anchoring: %w", err)
+	}
+
+	fmt.Println("== federation.soak 3/4: full independent re-verification (all networks) ==")
+	if err := verifyAll(s); err != nil {
+		return fmt.Errorf("re-verification: %w", err)
+	}
+
+	fmt.Println("== federation.soak 4/4: post-anchor multi-witness re-verification ==")
+	for _, nm := range nets {
+		t, ok := s.Target(nm.Name)
+		if !ok {
+			return fmt.Errorf("no target for network %q", nm.Name)
+		}
+		valid, err := validateQuorum(t)
+		if err != nil {
+			return fmt.Errorf("network %s post-anchor quorum: %w", nm.Name, err)
+		}
+		fmt.Printf("  [PASS] %-8s post-anchor: %d/%d witnesses re-verified (anchors disturbed nothing)\n",
+			nm.Name, valid, t.QuorumK)
+	}
+
+	fmt.Println("== federation.soak COMPLETE — every touchpoint re-derived; evidence captured under the run dir ==")
+	return nil
+}
+
+// validateQuorum re-verifies a network's current head's K-of-N witness quorum
+// against the genesis witness set (recomputing each cosignature — the publisher's
+// claimed count is not trusted), returning the number of cryptographically-valid
+// cosignatures. Fail-closed below quorum.
+func validateQuorum(t stack.Target) (int, error) {
+	ledger, err := caLedger(t)
+	if err != nil {
+		return 0, err
+	}
+	head, code, err := ledger.TreeHead()
+	if err != nil || code != 200 {
+		return 0, fmt.Errorf("head: code=%d err=%v", code, err)
+	}
+	boot, err := bootstrap.Load(filepath.Join(t.FixturesDir, "network-bootstrap.json"))
+	if err != nil {
+		return 0, fmt.Errorf("bootstrap: %w", err)
+	}
+	res, err := e2ecosign.Verify(boot, t.QuorumK, head)
+	if err != nil {
+		return 0, fmt.Errorf("cosign verify: %w", err)
+	}
+	if res.ValidCount < t.QuorumK {
+		return res.ValidCount, fmt.Errorf("head carries %d/%d VALID witness cosignatures — below quorum", res.ValidCount, t.QuorumK)
+	}
+	return res.ValidCount, nil
+}
+
+// waitHorizon polls the PUBLISHED cosigned horizon (GET /v1/tree/horizon) until it
+// reaches minSize with a full K-of-N DISTINCT-witness quorum, or times out.
+//
+// This is the system's two-step / async "second write": an entry is first
+// SEQUENCED — /v1/tree/head advances (step 1) but "carries no guarantee its
+// cosignatures form a quorum yet" — and only AFTER the root's SMT tiles are durable
+// AND K-of-N witnesses have cosigned it does the builder REPUBLISH the head as the
+// durable cosigned horizon (step 2, tessera.PublishCosignedCheckpoint). The horizon
+// "advances ONLY once" finalized, so it lags the head by design. ALL verification
+// (vCheckpoint, SMT proofs) anchors on the horizon — so the soak must wait for the
+// HORIZON, not the head.
+func waitHorizon(t stack.Target, minSize uint64, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		c, err := stack.FetchHorizon(t.CertsDir, t.LedgerPort)
+		if err == nil && uint64(c.TreeSize) >= minSize &&
+			len(c.Signatures) >= t.QuorumK && c.DistinctSigners() >= t.QuorumK {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(2 * time.Second)
+	}
 }
 
 // federation.load — submit a CLIENT workload to EACH network's OWN endpoint and
@@ -108,6 +269,14 @@ func federationCrossLog(s *Session) error {
 			sz, _ := stack.HeadStatus(dst.CertsDir, dst.LedgerPort)
 			return fmt.Errorf("network %s did not commit the anchor of %s (size stuck at %d, want >=%d)",
 				nm.Name, srcName, sz, before+1)
+		}
+		// Drain = SEQUENCED, not finalized. Wait for the cosigned HORIZON (the async
+		// second write) to republish the post-anchor head at K-of-N before declaring
+		// the anchor committed — verification anchors on the horizon, not the head.
+		if !waitHorizon(dst, uint64(before+1), 5*time.Minute) {
+			c, _ := stack.FetchHorizon(dst.CertsDir, dst.LedgerPort)
+			return fmt.Errorf("network %s horizon not finalized after anchoring %s (got size=%d sigs=%d, want size>=%d sigs>=K=%d)",
+				nm.Name, srcName, c.TreeSize, len(c.Signatures), before+1, dst.QuorumK)
 		}
 		fmt.Printf("  [PASS] %-8s published a VERIFIED CosignedAnchorV1 of %-8s head (size=%d) into its OWN log\n",
 			nm.Name, srcName, srcSize)

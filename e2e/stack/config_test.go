@@ -32,6 +32,9 @@ func TestDeriveNetConfigs_SingleCollapses(t *testing.T) {
 	if c.LedgerPort != 8080 {
 		t.Fatalf("ledger port = %d, want 8080", c.LedgerPort)
 	}
+	if c.Bucket != bucket {
+		t.Fatalf("single bucket = %q, want %q (the familiar shared bucket)", c.Bucket, bucket)
+	}
 }
 
 func TestDeriveNetConfigs_FederationUniquePortsAndDBs(t *testing.T) {
@@ -43,6 +46,7 @@ func TestDeriveNetConfigs_FederationUniquePortsAndDBs(t *testing.T) {
 	seenPort := map[int]bool{}
 	seenDB := map[string]bool{}
 	seenGossip := map[string]bool{}
+	seenBucket := map[string]bool{}
 	for _, c := range ncs {
 		if c.Single {
 			t.Fatalf("multi-network config %q should not be Single", c.Spec.Name)
@@ -50,6 +54,13 @@ func TestDeriveNetConfigs_FederationUniquePortsAndDBs(t *testing.T) {
 		if !strings.HasPrefix(c.Prefix, "baseproof-m7c-") {
 			t.Fatalf("prefix %q missing network segment", c.Prefix)
 		}
+		// Each network MUST own a distinct bucket: the ledger's fixed-name
+		// cosigned-checkpoint object would otherwise be clobbered last-writer-wins,
+		// making one network serve another's horizon (sub-quorum to the verifier).
+		if c.Bucket == "" || seenBucket[c.Bucket] {
+			t.Fatalf("network %q bucket %q is empty or collides — per-log S3 isolation is required", c.Spec.Name, c.Bucket)
+		}
+		seenBucket[c.Bucket] = true
 		if seenPort[c.LedgerPort] {
 			t.Fatalf("duplicate ledger port %d", c.LedgerPort)
 		}
