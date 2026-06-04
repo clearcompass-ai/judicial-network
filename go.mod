@@ -3,7 +3,7 @@ module github.com/clearcompass-ai/judicial-network
 go 1.25.7
 
 require (
-	github.com/baseproof/tooling/libs v0.0.2
+	github.com/baseproof/tooling/libs v0.0.2-0.20260604213915-2315b32fd37d
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/getkin/kin-openapi v0.137.0

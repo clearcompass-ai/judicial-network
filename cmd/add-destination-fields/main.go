@@ -145,13 +145,7 @@ func main() {
 	replaceInFile("api/exchange/handlers/management.go",
 		"Destination: cfg.Destination,", "Destination: h.exchangeDID,")
 
-	// consortium/load_accounting — uses receiver structs, not cfg.
-	replaceInFile("consortium/load_accounting/fire_drills.go",
-		"Destination: cfg.Destination,", "Destination: r.destination,")
-	replaceInFile("consortium/load_accounting/schema.go",
-		"Destination: cfg.Destination,", "Destination: destination,")
-	replaceInFile("consortium/load_accounting/settlement.go",
-		"Destination: cfg.Destination,", "Destination: sm.destination,")
+	// (consortium/load_accounting was hoisted to tooling/libs/accounting — JN#110.)
 
 	// deployments/davidson_county/court_ops.go — two standalone functions
 	// (RevokeOfficer and PublishRecusal) don't have cfg. They need a
