@@ -16,6 +16,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -158,17 +160,136 @@ func cmdUp(args []string) error {
 	return nil
 }
 
+// jnImageBuild describes one JN-owned image built from the local working tree.
+type jnImageBuild struct {
+	label       string // human label
+	dockerfile  string // repo-relative Dockerfile path
+	image       string // the tag to build (the resolved Images.* ref)
+	envOverride string // the E2E_*_IMAGE that, when set, pins a prebuilt image instead
+}
+
+// ensureImages provisions every container image the stack needs. The JN-owned
+// images (the network-api enforcer + the aggregator) are BUILT from the local
+// working tree so the e2e exercises the code under test — the published ghcr image
+// routinely lags the branch (e.g. the open-HTTPS JN→ledger leg), which is exactly
+// why the e2e must not depend on it. The tooling fleet (ledger/witness/auditor)
+// and infra (postgres/seaweed) are PULLED (published, versioned dependencies). An
+// operator can pin a prebuilt JN image via E2E_JN_IMAGE / E2E_AGGREGATOR_IMAGE
+// (then it is pulled/used as-is rather than built); E2E_SKIP_BUILD / E2E_SKIP_PULL
+// skip either phase.
 func ensureImages() error {
+	im := stack.ResolveImages()
+
+	// 1. Build the JN-owned images from source (unless pinned via env).
+	if os.Getenv("E2E_SKIP_BUILD") != "1" {
+		root, err := repoRoot()
+		if err != nil {
+			return err
+		}
+		version := jnVersion(root)
+		secrets := caBundleSecret()
+		builds := []jnImageBuild{
+			{"network-api (JN enforcer)", "deployment/local/Dockerfile.network-api", im.JN, "E2E_JN_IMAGE"},
+			{"aggregator (read projection)", "deployment/local/Dockerfile.aggregator", im.Aggregator, "E2E_AGGREGATOR_IMAGE"},
+		}
+		header := false
+		for _, b := range builds {
+			if os.Getenv(b.envOverride) != "" {
+				continue // operator pinned a prebuilt image — pulled below
+			}
+			if !header {
+				fmt.Println("== build JN images (local working tree) ==")
+				header = true
+			}
+			fmt.Printf("  building %-28s → %s\n", b.label, b.image)
+			if err := dockerx.Build(dockerx.BuildSpec{
+				Tag:        b.image,
+				Dockerfile: filepath.Join(root, b.dockerfile),
+				Context:    root,
+				BuildArgs:  map[string]string{"VERSION": version},
+				Secrets:    secrets,
+			}); err != nil {
+				return fmt.Errorf("docker build %s (-f %s): %w", b.label, b.dockerfile, err)
+			}
+			fmt.Printf("  ✔ built %s\n", b.image)
+		}
+	}
+
+	// 2. Pull infra + the tooling fleet (+ any operator-pinned JN images).
 	if os.Getenv("E2E_SKIP_PULL") == "1" {
 		return nil
 	}
 	fmt.Println("== pull images ==")
-	for _, img := range stack.ResolveImages().All() {
+	for _, img := range pullList(im) {
 		if r := dockerx.Pull(img); !r.OK() {
 			return fmt.Errorf("docker pull %s failed — `docker login ghcr.io` (read:packages) and confirm the tag is published:\n%s",
 				img, strings.TrimSpace(r.Stderr))
 		}
 		fmt.Printf("  ✔ %s\n", img)
+	}
+	return nil
+}
+
+// pullList is the set of images to PULL: infra + the tooling fleet always, plus a
+// JN-owned image ONLY when the operator pinned it via E2E_*_IMAGE (otherwise it is
+// built locally, not pulled, so a stale ghcr image can never shadow the build).
+func pullList(im stack.Images) []string {
+	out := []string{im.Postgres, im.Seaweed, im.Ledger, im.Witness, im.Auditor}
+	if os.Getenv("E2E_JN_IMAGE") != "" {
+		out = append(out, im.JN)
+	}
+	if os.Getenv("E2E_AGGREGATOR_IMAGE") != "" {
+		out = append(out, im.Aggregator)
+	}
+	return out
+}
+
+// repoRoot locates the JN repo root (the docker build context): the nearest
+// ancestor of the cwd that holds BOTH go.mod and the JN Dockerfiles. Overridable
+// via E2E_REPO_ROOT.
+func repoRoot() (string, error) {
+	if r := os.Getenv("E2E_REPO_ROOT"); r != "" {
+		return filepath.Abs(r)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for dir := wd; ; {
+		_, goErr := os.Stat(filepath.Join(dir, "go.mod"))
+		_, dfErr := os.Stat(filepath.Join(dir, "deployment", "local", "Dockerfile.network-api"))
+		if goErr == nil && dfErr == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("could not find the JN repo root above %s (need go.mod + deployment/local/Dockerfile.network-api) — run from the repo, or set E2E_REPO_ROOT", wd)
+		}
+		dir = parent
+	}
+}
+
+// jnVersion stamps main.Version into the built binaries: the git describe of the
+// working tree (so a soak's logs identify the exact code), or "dev" outside git.
+func jnVersion(root string) string {
+	out, err := exec.Command("git", "-C", root, "describe", "--tags", "--always", "--dirty").Output()
+	if err != nil {
+		return "dev"
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// caBundleSecret passes the host CA bundle as the ca_bundle build secret when
+// present, so module/package fetches verify behind a TLS-inspecting egress proxy
+// (the CI sandbox / corporate-net case). A no-op when absent (the Dockerfiles
+// guard on an empty secret). Overridable via E2E_CA_BUNDLE.
+func caBundleSecret() []string {
+	p := os.Getenv("E2E_CA_BUNDLE")
+	if p == "" {
+		p = "/etc/ssl/certs/ca-certificates.crt"
+	}
+	if fi, err := os.Stat(p); err == nil && fi.Size() > 0 {
+		return []string{"id=ca_bundle,src=" + p}
 	}
 	return nil
 }

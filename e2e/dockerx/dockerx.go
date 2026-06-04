@@ -125,6 +125,46 @@ func ImagePresent(img string) bool { return run([]string{"docker", "image", "ins
 // Pull pulls an image.
 func Pull(img string) Result { return run([]string{"docker", "pull", img}) }
 
+// BuildSpec describes a `docker build`. Used to build the JN-owned images
+// (network-api, aggregator) from the LOCAL working tree so the e2e exercises the
+// code under test, never a stale ghcr-published image.
+type BuildSpec struct {
+	Tag        string            // -t
+	Dockerfile string            // -f (absolute or context-relative)
+	Context    string            // the build context directory (the repo root)
+	BuildArgs  map[string]string // --build-arg
+	Secrets    []string          // --secret entries, e.g. "id=ca_bundle,src=/path"
+}
+
+// buildArgv builds the argv for a `docker build`. Build args are sorted for
+// determinism.
+func buildArgv(s BuildSpec) []string {
+	a := []string{"docker", "build", "-f", s.Dockerfile, "-t", s.Tag}
+	for _, sec := range s.Secrets {
+		a = append(a, "--secret", sec)
+	}
+	keys := make([]string, 0, len(s.BuildArgs))
+	for k := range s.BuildArgs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		a = append(a, "--build-arg", k+"="+s.BuildArgs[k])
+	}
+	return append(a, s.Context)
+}
+
+// Build runs `docker build`, STREAMING progress to stdout/stderr (a multi-stage Go
+// build is slow and the operator wants live output). BuildKit is forced on so the
+// Dockerfiles' --mount=type=secret / type=cache directives work.
+func Build(s BuildSpec) error {
+	argv := buildArgv(s)
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Env = append(os.Environ(), "DOCKER_BUILDKIT=1")
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	return cmd.Run()
+}
+
 // NetworkCreate / NetworkRemove manage the run's docker network (errors ignored —
 // create is idempotent-ish, remove is best-effort).
 func NetworkCreate(net string) { _ = run([]string{"docker", "network", "create", net}) }

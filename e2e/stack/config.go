@@ -50,10 +50,13 @@ func auditHorizonSamples() string    { return env("E2E_AUDIT_RANDOM", "16") }
 func ledgerLogLevel() string         { return env("E2E_LEDGER_LOG_LEVEL", "") }
 
 // jnBestEffort, when truthy (E2E_JN_BEST_EFFORT=1), downgrades a JN bring-up
-// failure from fatal to a loud warning so `up` still persists the stack — used to
-// validate the open ledger/auditor/tools path while the JN image lags the branch
-// (the released ghcr JN predates the open-HTTPS JN→ledger leg). Default off: the
-// JN is the write gate, so its failure is fatal in normal operation.
+// failure from fatal to a loud warning so `up` still persists the stack — an
+// escape hatch to validate the open ledger/auditor/tools path in isolation.
+// `e2e up` now BUILDS the JN image from the local working tree (cmd/e2e
+// ensureImages), so the enforcer carries the branch's code (incl. the open-HTTPS
+// JN→ledger leg) and should come up cleanly — this flag should rarely be needed.
+// Default off: the JN is the write gate, so its failure is fatal in normal
+// operation.
 func jnBestEffort() bool {
 	switch strings.ToLower(env("E2E_JN_BEST_EFFORT", "")) {
 	case "1", "true", "yes", "on":
