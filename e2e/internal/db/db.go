@@ -2,8 +2,8 @@
 // network's PG by `docker exec {container} psql` — zero new Go dependencies
 // (mirrors the proven scale-suite pg_query), and no exposed-Postgres host port
 // (the deployment doesn't publish PG, so neither do the tests). The container
-// name comes from the run config (internal/env.NetworkConfig.PGContainer,
-// recorded in .run/{id}/config.json by the provisioner).
+// name comes from the run config (internal/env.Config.PGContainer — the one
+// shared Postgres per run, derived from the runstore manifest).
 package db
 
 import (
