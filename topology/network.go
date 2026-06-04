@@ -34,6 +34,21 @@ type JurisdictionNode struct {
 	FIPSCode  string            // FIPS county code (for county level)
 }
 
+// ID implements the SDK protocol.Node interface: a court's stable identifier is
+// its log DID. Plain accessor — keeps this package free of SDK imports; the
+// protocol.Node compile-assertion lives in the member package.
+func (n JurisdictionNode) ID() string { return n.DID }
+
+// Anchor implements protocol.Node: the DID this court anchors to and true, or
+// ("", false) at the chain root. Named Anchor (not AnchorDID) so it does not
+// collide with the AnchorDID field above.
+func (n JurisdictionNode) Anchor() (string, bool) {
+	if n.AnchorDID == "" {
+		return "", false
+	}
+	return n.AnchorDID, true
+}
+
 // Hierarchy is the complete jurisdiction tree rooted at the state level.
 type Hierarchy struct {
 	Root    *JurisdictionNode
