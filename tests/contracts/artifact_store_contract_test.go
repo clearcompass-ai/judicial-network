@@ -6,7 +6,7 @@ DESCRIPTION:
 	Wire-format contract tests pinning judicial-network's HTTP
 	interactions with the artifact-store service via the SDK's
 	storage.HTTPContentStore. Per the architecture spec, JN never
-	imports attesta-artifact-store/ directly — every wire call
+	imports baseproof-artifact-store/ directly — every wire call
 	flows through the SDK's ContentStore interface.
 
 	Coverage:
@@ -37,7 +37,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -239,7 +239,7 @@ func TestArtifactStoreContract_CIDDeterministic_RoundTrip(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────
 
 // TestArtifactStoreContract_Push_RetriesOn503 pins the SDK ContentStore
-// + RetryAfterRoundTripper integration. attesta-artifact-store
+// + RetryAfterRoundTripper integration. baseproof-artifact-store
 // commit cd44329 added 503-Retry-After honoring on GCS/RustFS bursts;
 // JN's HTTPContentStore must read that signal transparently. Pre-
 // regression check: a 503 on first attempt + 200 on second attempt

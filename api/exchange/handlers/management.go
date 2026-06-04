@@ -12,14 +12,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/escrow"
-	"github.com/clearcompass-ai/attesta/did"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/escrow"
+	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/lifecycle"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 

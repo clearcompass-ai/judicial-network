@@ -49,7 +49,7 @@ OVERVIEW:
 KEY DEPENDENCIES:
   - api/exchange/identity (IdentityProvider, SignRequest, etc.)
   - schemas (RoleCatalog)
-  - attesta envelope (SigningPayload, Serialize, Validate).
+  - baseproof envelope (SigningPayload, Serialize, Validate).
 */
 package delegation
 
@@ -60,8 +60,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/clearcompass-ai/attesta-tools/libs/identity"
-	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

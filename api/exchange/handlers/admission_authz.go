@@ -37,16 +37,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/clearcompass-ai/attesta/authz"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/authz"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
 )
 
 // WriteAuthHeader carries the base64 authz.WriteAuthorization out-of-band on the
 // single-submission path. It MUST byte-match the ledger's
 // admission.WriteAuthHeader — this is the cross-repo wire contract (the JN does
 // not import the ledger). Ledger: admission/write_auth_gate.go.
-const WriteAuthHeader = "X-Attesta-Write-Authorization"
+const WriteAuthHeader = "X-Baseproof-Write-Authorization"
 
 // AnchorFunc returns the WITNESS-COSIGNED, verified tree-head root for logDID —
 // the as-of anchor an authorization binds. It MUST verify the K-of-N witness

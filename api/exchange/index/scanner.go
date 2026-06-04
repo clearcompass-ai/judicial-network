@@ -17,7 +17,7 @@ DESCRIPTION:
 	last scanned position.
 
 KEY DEPENDENCIES:
-  - attesta/log: LedgerQueryAPI.ScanFromPosition (guide §27.3)
+  - baseproof/log: LedgerQueryAPI.ScanFromPosition (guide §27.3)
 */
 package index
 
@@ -28,8 +28,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdklog "github.com/baseproof/baseproof/log"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 )

@@ -1,25 +1,25 @@
 // Tests for judicial-schema-lifecycle-v1.
 //
 // Pins the rare-but-foundational governance contract:
-//   1. Registration in the JN domain Registry.
-//   2. Round-trip preservation for all four Action values.
-//   3. Mental-health-court publication (use case A) — PublicFields
-//      + PrivateFields round-trip.
-//   4. Davidson adoption (use case B) — AdoptingExchangeDID +
-//      PredecessorPos round-trip.
-//   5. Bail-reform amendment (use case C) — AmendmentDescription
-//      round-trip + SchemaVersion bump.
-//   6. Paper-form deprecation (use case D) — DeprecationEffective
-//      + GracePeriodSeconds round-trip; zero grace = hard cutover.
-//   7. SDK admission accepts each Action.
+//  1. Registration in the JN domain Registry.
+//  2. Round-trip preservation for all four Action values.
+//  3. Mental-health-court publication (use case A) — PublicFields
+//     + PrivateFields round-trip.
+//  4. Davidson adoption (use case B) — AdoptingExchangeDID +
+//     PredecessorPos round-trip.
+//  5. Bail-reform amendment (use case C) — AmendmentDescription
+//     round-trip + SchemaVersion bump.
+//  6. Paper-form deprecation (use case D) — DeprecationEffective
+//     + GracePeriodSeconds round-trip; zero grace = hard cutover.
+//  7. SDK admission accepts each Action.
 package schemas
 
 import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 func networkPos(seq uint64) types.LogPosition {

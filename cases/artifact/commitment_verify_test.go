@@ -22,11 +22,11 @@ import (
 
 	secp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkartifact "github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )

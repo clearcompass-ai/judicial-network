@@ -4,11 +4,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/anchor"
-	"github.com/clearcompass-ai/attesta/gossip/findings"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/anchor"
+	"github.com/baseproof/baseproof/gossip/findings"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
+	"github.com/baseproof/baseproof/witness"
 )
 
 // ledgerEndpoint is the source-endpoint hint stamped into findings built by the

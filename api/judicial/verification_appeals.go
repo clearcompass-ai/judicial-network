@@ -26,9 +26,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/anchor"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/anchor"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 	jntrust "github.com/clearcompass-ai/judicial-network/verification/trust"

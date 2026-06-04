@@ -17,19 +17,19 @@
 #   AUDITOR_WITNESS_QUORUM_K  K-of-N for the bootstrap-derived witness set
 #   AUDITOR_PEERS             "logDID=baseURL,..." source feeds (the ledger)
 
-name: attesta-auditor
+name: baseproof-auditor
 
 services:
   auditor-db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: "${AUDITOR_PG_USER:-attesta}"
-      POSTGRES_PASSWORD: "${AUDITOR_PG_PASS:-attestapassword}"
+      POSTGRES_USER: "${AUDITOR_PG_USER:-baseproof}"
+      POSTGRES_PASSWORD: "${AUDITOR_PG_PASS:-baseproofpassword}"
       POSTGRES_DB: "${AUDITOR_PG_DB:-auditor_gossip}"
     volumes:
       - auditor_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUDITOR_PG_USER:-attesta} -d ${AUDITOR_PG_DB:-auditor_gossip}"]
+      test: ["CMD-SHELL", "pg_isready -U ${AUDITOR_PG_USER:-baseproof} -d ${AUDITOR_PG_DB:-auditor_gossip}"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -39,7 +39,7 @@ services:
     # (ghcr.io/<owner>/attesta-tools/auditor). Override AUDITOR_IMAGE for a
     # local/unpublished build.
     image: "${AUDITOR_IMAGE:-ghcr.io/clearcompass-ai/attesta-tools/auditor:latest}"
-    container_name: attesta-auditor
+    container_name: baseproof-auditor
     depends_on:
       auditor-db:
         condition: service_healthy
@@ -50,7 +50,7 @@ services:
       # Durable custody store (the auditor IS the custodian). With a DSN set the
       # auditor runs the full pipeline (pull → verify → persist → serve), not the
       # health-only fallback.
-      AUDITOR_GOSSIP_DSN: "postgres://${AUDITOR_PG_USER:-attesta}:${AUDITOR_PG_PASS:-attestapassword}@auditor-db:5432/${AUDITOR_PG_DB:-auditor_gossip}?sslmode=disable"
+      AUDITOR_GOSSIP_DSN: "postgres://${AUDITOR_PG_USER:-baseproof}:${AUDITOR_PG_PASS:-baseproofpassword}@auditor-db:5432/${AUDITOR_PG_DB:-auditor_gossip}?sslmode=disable"
       # Shared trust root (mounted) → witness sets for re-verification.
       AUDITOR_NETWORK_BOOTSTRAP_FILE: "/run/auditor/bootstrap.json"
       AUDITOR_WITNESS_QUORUM_K: "${AUDITOR_WITNESS_QUORUM_K:-5}"

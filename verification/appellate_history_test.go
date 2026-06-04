@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/types"
 )
 
 // stubNext is a deterministic NextProofFn that returns each

@@ -1,13 +1,13 @@
 # Judicial Network — Architecture & Component Reference
 
 Evidence-based; every file/path verified against the working tree
-(**attesta SDK v1.14.0**; JN on the active feature branch). Aligns with the
-Attesta Architectural Principles (16 SDK · 15 Ledger · 14 Trust &
+(**baseproof SDK v1.14.0**; JN on the active feature branch). Aligns with the
+Baseproof Architectural Principles (16 SDK · 15 Ledger · 14 Trust &
 Equivocation Alignments · 10 Witness).
 
 ## 0. The one-sentence model
 
-The attesta SDK is the entire trust engine (identity, entry build,
+The baseproof SDK is the entire trust engine (identity, entry build,
 cosignature, Merkle proofs, gossip, verify); the JN is the judicial domain
 wrapped around it; the standalone-witness is an SDK signing oracle the
 ledger drives; auditors (including JN itself) re-derive every claim locally
@@ -16,7 +16,7 @@ from the cosigned root, trusting no server.
 ## 1. System topology (4 actors)
 
 ```
-standalone-witness     ledger (attesta-backed)         JN network-api            auditors
+standalone-witness     ledger (baseproof-backed)         JN network-api            auditors
 (signing oracle)       (sequencer + transparency)      (domain + zero-trust)     (anyone/light)
 POST /v1/cosign  ◄───  witnessclient.RequestCosignatures
   secp256k1 sign       assembles K-of-N CosignedTreeHead
@@ -33,7 +33,7 @@ or proof logic — it consumes SDK verdicts and SDK vocabulary (SDK Principle 1)
 The v1.14.0 `WitnessPublicKey.SchemeTag` change touched only JN test fixtures,
 not JN logic.
 
-| Concern | SDK (attesta) | JN (domain) |
+| Concern | SDK (baseproof) | JN (domain) |
 |---|---|---|
 | Identity | `did`, `network`, `crypto/signatures` | `did` (vendor mappings only), `api/exchange/keystore/*`, `api/exchange/auth` |
 | Entry build/sign | `core/envelope`, `builder`, `crypto/admission`, `crypto/sct` | `cases,appeals,parties,delegation,escrow,operations,onboarding,migration,consortium,schemas,prerequisites,policy,jurisdiction` |

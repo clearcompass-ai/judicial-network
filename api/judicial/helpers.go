@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 // logPositionRef is the JSON wire shape for a types.LogPosition.

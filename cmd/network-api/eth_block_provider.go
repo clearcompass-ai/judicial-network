@@ -4,7 +4,7 @@ FILE PATH: cmd/network-api/eth_block_provider.go
 DESCRIPTION:
 
 	HTTP head-tracking BlockProvider for EIP-1271 smart-contract-
-	wallet verification. attesta v1.7.1's PKHVerifier pins every
+	wallet verification. baseproof v1.7.1's PKHVerifier pins every
 	EIP-1271 eth_call to a specific (BlockNumber, BlockHash) supplied
 	by a did.BlockProvider; the SDK ships only StaticBlockProvider
 	(tests / pinned-replay) and leaves the production head-tracking
@@ -32,7 +32,7 @@ DESCRIPTION:
 	implicit accept.
 
 KEY DEPENDENCIES:
-  - attesta/did: BlockProvider interface + ErrBlockProviderUnavailable.
+  - baseproof/did: BlockProvider interface + ErrBlockProviderUnavailable.
 */
 package main
 
@@ -47,7 +47,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/did"
 )
 
 // ethBlockProvider is a did.BlockProvider backed by an Ethereum

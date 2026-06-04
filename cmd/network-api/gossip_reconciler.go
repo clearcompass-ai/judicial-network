@@ -56,11 +56,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/did"
-	"github.com/clearcompass-ai/attesta/gossip"
-	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/gossip"
+	sdklog "github.com/baseproof/baseproof/log"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/auditing/gossipverify"
 	"github.com/clearcompass-ai/attesta-tools/libs/auditing/peers"

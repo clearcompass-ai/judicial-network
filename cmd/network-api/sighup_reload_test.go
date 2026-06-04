@@ -1,16 +1,16 @@
 // D13 SIGHUP hot-reload tests.
 //
 // Pins:
-//   1. runSIGHUPReload is a no-op when ReloadOnSIGHUP=false.
-//   2. runSIGHUPReload short-circuits with a Warn when the
-//      Reconciler is nil (no gossip ingest).
-//   3. runSIGHUPReload short-circuits with a Warn when neither
-//      file path is configured.
-//   4. applyReload reads RegistryFile cleanly when present.
-//   5. applyReload reads AmendmentFile cleanly when present.
-//   6. applyReload retains the live snapshot for the failing file
-//      and still refreshes the other — per-file fault tolerance.
-//   7. applyReload returns cleanly when both file paths are empty.
+//  1. runSIGHUPReload is a no-op when ReloadOnSIGHUP=false.
+//  2. runSIGHUPReload short-circuits with a Warn when the
+//     Reconciler is nil (no gossip ingest).
+//  3. runSIGHUPReload short-circuits with a Warn when neither
+//     file path is configured.
+//  4. applyReload reads RegistryFile cleanly when present.
+//  5. applyReload reads AmendmentFile cleanly when present.
+//  6. applyReload retains the live snapshot for the failing file
+//     and still refreshes the other — per-file fault tolerance.
+//  7. applyReload returns cleanly when both file paths are empty.
 package main
 
 import (
@@ -23,8 +23,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/gossip"
-	"github.com/clearcompass-ai/attesta/network"
+	"github.com/baseproof/baseproof/gossip"
+	"github.com/baseproof/baseproof/network"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 

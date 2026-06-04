@@ -14,7 +14,7 @@ package schemas
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/core/envelope"
 )
 
 // TestSetAttestationPolicy_NilEntry — calling on a nil entry is a

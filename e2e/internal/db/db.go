@@ -21,7 +21,7 @@ func Exec(container, db, sql string) (string, error) {
 		return "", fmt.Errorf("db: empty PG container name")
 	}
 	out, err := exec.Command("docker", "exec", container,
-		"psql", "-U", "attesta", "-d", db, "-tAc", sql).CombinedOutput()
+		"psql", "-U", "baseproof", "-d", db, "-tAc", sql).CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("db: psql %s/%s failed: %w: %s", container, db, err, strings.TrimSpace(string(out)))
 	}

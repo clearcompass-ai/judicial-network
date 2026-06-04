@@ -9,7 +9,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Read-only: no SMT mutations, no entry creation.
 
 OVERVIEW: LookupDocket → case root position + status via EvaluateOrigin.
-KEY DEPENDENCIES: attesta/builder, attesta/core/smt, attesta/verifier
+KEY DEPENDENCIES: baseproof/builder, baseproof/core/smt, baseproof/verifier
 */
 package cases
 
@@ -18,10 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 type DocketQueryResult struct {

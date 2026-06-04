@@ -36,8 +36,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/did"
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	"github.com/baseproof/baseproof/did"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 )
 
 // MTLSExtractor extracts a DID from the client cert's SAN URI.

@@ -14,7 +14,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/storage"
 )
 
 func testCID(t *testing.T, b byte) storage.CID {

@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

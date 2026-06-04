@@ -216,7 +216,7 @@ func TestS1_12_HealthVersion(t *testing.T) {
 
 // S1.17 — On-log signature-policy amendment (MinSignaturesPerEntry governance).
 // The per-entry signature floor is configurable + always >0 and is amended ONLY
-// on-log: an AT-ENTRY-NETWORK-SIGNATURE-POLICY-V1 entry (published by the ledger
+// on-log: an BP-ENTRY-NETWORK-SIGNATURE-POLICY-V1 entry (published by the ledger
 // `signature-policy` cmd, signed over a witness-cosigned horizon) that the ledger
 // materializes via OnLogSignaturePolicyResolver. This asserts: (a) the ledger
 // exposes its network info (the policy surface), and (b) the gossip-by-kind
@@ -235,9 +235,9 @@ func TestS1_17_SignaturePolicyAmendment(t *testing.T) {
 
 	// (b) The amendment kind is a recognized gossip kind; the by-kind surface
 	// answers for it (200 with events once published, else 400/404 empty).
-	kc, kb, err := s.Ledger.GossipByKind("AT-ENTRY-NETWORK-SIGNATURE-POLICY-V1")
+	kc, kb, err := s.Ledger.GossipByKind("BP-ENTRY-NETWORK-SIGNATURE-POLICY-V1")
 	harness.Truthy(t, err == nil, "gossip by-kind error: "+harness.ErrStr(err))
-	harness.StatusIn(t, kc, "/v1/gossip/by-kind=AT-ENTRY-NETWORK-SIGNATURE-POLICY-V1 status", 200, 400, 404)
+	harness.StatusIn(t, kc, "/v1/gossip/by-kind=BP-ENTRY-NETWORK-SIGNATURE-POLICY-V1 status", 200, 400, 404)
 	if kc == 200 {
 		harness.ValidJSON(t, kb, "signature-policy amendment gossip")
 	}

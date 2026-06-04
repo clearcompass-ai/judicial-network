@@ -1,7 +1,7 @@
 /*
 Package trust is the judicial-network's seam between its existing
 single-backend (fetcher + leaf reader) topology and the SDK's
-LogTrustProvider interface (attesta v1.36+).
+LogTrustProvider interface (baseproof v1.36+).
 
 Why this package exists
 =======================
@@ -10,10 +10,10 @@ The SDK ships one evaluation surface for authority + delegation
 provenance:
 
   - LogTrustProvider:     EvaluateAuthorityWithTrust /
-                          VerifyDelegationProvenanceWithTrust
-                          — takes (LogTrustProvider, AsOf); multi-log
-                          capable, point-in-time capable, cross-log
-                          capable.
+    VerifyDelegationProvenanceWithTrust
+    — takes (LogTrustProvider, AsOf); multi-log
+    capable, point-in-time capable, cross-log
+    capable.
 
 Pre-v1.36 the SDK also shipped legacy single-reader walkers
 (EvaluateAuthority / VerifyDelegationProvenance). Those were
@@ -48,15 +48,15 @@ The migration's contract (the historical parity lock)
 When the legacy entry points still existed (v1.34, v1.35) the JN
 side carried explicit parity tests:
 
-  EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
-                  ≡
-  EvaluateAuthorityWithTrust(ctx, entity, NewLocalTrust(fetcher, leafReader),
-                             extractor, AsOf{})
+	EvaluateAuthority(ctx, leafKey, leafReader, fetcher, extractor)
+	                ≡
+	EvaluateAuthorityWithTrust(ctx, entity, NewLocalTrust(fetcher, leafReader),
+	                           extractor, AsOf{})
 
-  VerifyDelegationProvenance(ctx, ptrs, fetcher, leafReader)
-                  ≡
-  VerifyDelegationProvenanceWithTrust(ctx, ptrs, NewLocalTrust(fetcher, leafReader),
-                                      AsOf{})
+	VerifyDelegationProvenance(ctx, ptrs, fetcher, leafReader)
+	                ≡
+	VerifyDelegationProvenanceWithTrust(ctx, ptrs, NewLocalTrust(fetcher, leafReader),
+	                                    AsOf{})
 
 The SDK ran its own internal parity tests
 (TestEvalAuthWithTrust_LegacyParity equivalents). With the legacy

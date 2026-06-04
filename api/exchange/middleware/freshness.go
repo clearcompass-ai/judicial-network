@@ -11,7 +11,7 @@ DESCRIPTION:
 	accepts.
 
 KEY ARCHITECTURAL DECISIONS:
-  - Three named tempos per attesta/APPLY-destination-binding.md:
+  - Three named tempos per baseproof/APPLY-destination-binding.md:
     TempoAutomated   — 60s   (machine-to-machine, witnesses, anchors)
     TempoInteractive — 5min  (clerks, administrators)
     TempoDeliberative — 30min (deliberative judicial signings)
@@ -37,10 +37,10 @@ KEY ARCHITECTURAL DECISIONS:
     reaches the wrapped handler.
 
 KEY DEPENDENCIES:
-  - attesta/exchange/policy: CheckFreshness, FreshnessAutomated,
+  - baseproof/exchange/policy: CheckFreshness, FreshnessAutomated,
     FreshnessInteractive, FreshnessDeliberative, MaxFreshnessTolerance,
     and the typed errors.
-  - attesta/core/envelope: Deserialize.
+  - baseproof/core/envelope: Deserialize.
 */
 package middleware
 
@@ -53,8 +53,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/exchange/policy"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/exchange/policy"
 )
 
 // Tempo is a named-tier freshness window. The set is closed; new

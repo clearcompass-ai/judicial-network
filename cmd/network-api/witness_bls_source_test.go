@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 )
@@ -34,7 +34,7 @@ func blsDeclFixture(t *testing.T, seq uint64) (row witnessEndpointDeclJSON, id [
 	return witnessEndpointDeclJSON{
 		EffectiveSeq:      seq,
 		PubKeyID:          hex.EncodeToString(id[:]),
-		Endpoints:         map[string]string{"AttestaWitness": "https://w.example.org/v1/cosign"},
+		Endpoints:         map[string]string{"BaseproofWitness": "https://w.example.org/v1/cosign"},
 		SchemeTag:         sdksigs.SchemeBLS,
 		PublicKey:         hex.EncodeToString(pub),
 		ProofOfPossession: hex.EncodeToString(pop),

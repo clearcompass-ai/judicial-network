@@ -3,7 +3,7 @@ FILE PATH: verification/delegation_source.go
 
 DESCRIPTION:
 
-	JN adapter for attesta v1.2.0+'s delegation.EntrySource
+	JN adapter for baseproof v1.2.0+'s delegation.EntrySource
 	interface. Lets a JN service plug any lookup-by-DelegateDID
 	function into the SDK's leaf-first delegation walker
 	(delegation.Resolver), which in turn satisfies
@@ -18,7 +18,7 @@ DESCRIPTION:
 	    DelegationOf(ctx, delegateDID) -> (DelegationEntry, error)
 
 	JN's production storage does NOT index by Delegate_DID today
-	(see attesta/log.LedgerQueryAPI — the five query methods
+	(see baseproof/log.LedgerQueryAPI — the five query methods
 	cover CosignatureOf / TargetRoot / SignerDID / SchemaRef /
 	ScanFromPosition; none answer "which entry's
 	Header.DelegateDID is X"). A scan-based default would silently
@@ -61,9 +61,9 @@ TRUST ALIGNMENT:
 	particular index.
 
 KEY DEPENDENCIES:
-  - attesta/delegation: EntrySource, DelegationEntry, Resolver
-  - attesta/attestation: ErrUnknownDelegate, DelegationChain
-  - attesta/core/envelope: Entry, ControlHeader.DelegateDID
+  - baseproof/delegation: EntrySource, DelegationEntry, Resolver
+  - baseproof/attestation: ErrUnknownDelegate, DelegationChain
+  - baseproof/core/envelope: Entry, ControlHeader.DelegateDID
   - judicial-network/schemas: JudicialDelegationPayload
 */
 package verification
@@ -74,9 +74,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/delegation"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/delegation"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

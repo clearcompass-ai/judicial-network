@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

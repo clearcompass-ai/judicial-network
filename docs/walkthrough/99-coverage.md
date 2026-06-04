@@ -148,7 +148,7 @@ That's the whole story:
 Stop the topology when you're done:
 
 ```bash
-cd ~/attesta/ledger
+cd ~/baseproof/ledger
 make dev-down
 ```
 

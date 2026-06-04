@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/storage"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"

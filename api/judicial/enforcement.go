@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/enforcement"
 )

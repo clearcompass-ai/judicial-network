@@ -60,10 +60,10 @@ DESCRIPTION:
 	on unverified state rather than falling back to a trusted value.
 
 KEY DEPENDENCIES:
-  - attesta/log.HTTPCheckpointClient   (FetchVerifiedHorizon — trust step)
-  - attesta/core/smt.HTTPProofReader   (proof transport)
-  - attesta/core/smt.VerifyMembershipProof / VerifyNonMembershipProof
-  - attesta/crypto/cosign.WitnessKeySet (the K-of-N trust root)
+  - baseproof/log.HTTPCheckpointClient   (FetchVerifiedHorizon — trust step)
+  - baseproof/core/smt.HTTPProofReader   (proof transport)
+  - baseproof/core/smt.VerifyMembershipProof / VerifyNonMembershipProof
+  - baseproof/crypto/cosign.WitnessKeySet (the K-of-N trust root)
 */
 package verification
 
@@ -73,10 +73,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/types"
 )
 
 // defaultHorizonTTL matches the SDK witness.TreeHeadClient default

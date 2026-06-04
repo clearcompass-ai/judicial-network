@@ -2,14 +2,14 @@
 #
 # Versioning:
 #   judicial-network v0.0.1
-#     requires attesta v1.14.0 (Go module)
+#     requires baseproof v1.14.0 (Go module)
 #     requires ledger   v0.1.0 (HTTP, run via deployment/local/)
 #
 # All targets use POSIX sh and are intended to run in CI without
 # relying on developer tooling.
 
 GO          ?= go
-SDK_MODULE  := github.com/clearcompass-ai/attesta
+SDK_MODULE  := github.com/baseproof/baseproof
 JN_VERSION  := 0.0.1
 
 # Where compiled binaries land. Override on the make line if you
@@ -31,7 +31,7 @@ help: ## List available targets
 
 version: ## Print judicial-network version + dep pins
 	@echo "judicial-network    $(JN_VERSION)"
-	@echo "attesta (Go module) $$($(GO) list -m -f '{{.Version}}' $(SDK_MODULE))"
+	@echo "baseproof (Go module) $$($(GO) list -m -f '{{.Version}}' $(SDK_MODULE))"
 	@echo "ledger (HTTP)       v0.1.0  (run via 'make walkthrough-up')"
 
 # ────────────────────────────────────────────────────────────────────

@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/baseproof/baseproof/storage"
 	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
-	"github.com/clearcompass-ai/attesta/storage"
 )
 
 // Server is the court tools HTTP server.

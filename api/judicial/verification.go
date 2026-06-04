@@ -20,9 +20,9 @@ import (
 	"context"
 	"net/http"
 
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )

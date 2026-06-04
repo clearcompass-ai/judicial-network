@@ -29,8 +29,8 @@ package trust
 import (
 	"context"
 
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )

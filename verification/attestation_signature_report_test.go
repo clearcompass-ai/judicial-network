@@ -22,8 +22,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/signatures"
 )
 
 // buildSingleSignerEntry builds a fully-signed single-signature

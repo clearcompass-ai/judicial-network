@@ -5,7 +5,7 @@ DESCRIPTION:
 
 	Domain Path B scope_limit interceptor — the read-side defense
 	against the Compromised-Subordinate-Key attack
-	(attesta/docs/implementation-obligations.md).
+	(baseproof/docs/implementation-obligations.md).
 
 THE THREAT MODEL:
 
@@ -49,8 +49,8 @@ KEY ARCHITECTURAL DECISIONS:
     re-fetching.
 
 KEY DEPENDENCIES:
-  - attesta/types: EntryFetcher, LogPosition.
-  - attesta/core/envelope: Entry, ControlHeader.
+  - baseproof/types: EntryFetcher, LogPosition.
+  - baseproof/core/envelope: Entry, ControlHeader.
 */
 package verification
 
@@ -61,9 +61,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // Errors surfaced by the scope enforcer. Stable enum values — audit

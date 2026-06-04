@@ -50,9 +50,9 @@ This was created by the ledger's `make dev-up` (the
 container). Verify:
 
 ```bash
-$ docker exec attesta-dev-postgres \
-    psql -U attesta -l | grep court_tools
- court_tools | attesta | UTF8 | ...
+$ docker exec baseproof-dev-postgres \
+    psql -U baseproof -l | grep court_tools
+ court_tools | baseproof | UTF8 | ...
 ```
 
 If `court_tools` is missing — typically because you brought up
@@ -64,7 +64,7 @@ volumes; `dev-up` re-runs the init.)
 ## 2. Build the two binaries
 
 ```bash
-cd ~/attesta/jn
+cd ~/baseproof/jn
 go build -o ~/.local/bin/court-tools     ./tools/court-tools/cmd/court-tools
 go build -o ~/.local/bin/provider-tools  ./tools/provider-tools/cmd/provider-tools
 
@@ -79,7 +79,7 @@ ledger on `:8080`, court_did = `did:web:state:tn:davidson`,
 the right Postgres URL, no exchange:
 
 ```bash
-cat ~/attesta/jn/docs/walkthrough/config/tools.dev.json
+cat ~/baseproof/jn/docs/walkthrough/config/tools.dev.json
 ```
 
 That file is what `-config` accepts. (Env-var overrides via
@@ -90,7 +90,7 @@ That file is what `-config` accepts. (Env-var overrides via
 In one terminal:
 
 ```bash
-cd ~/attesta/jn
+cd ~/baseproof/jn
 court-tools -config docs/walkthrough/config/tools.dev.json
 ```
 
@@ -119,7 +119,7 @@ run), it'll either be a no-op or backfill the existing log.
 In a third terminal:
 
 ```bash
-cd ~/attesta/jn
+cd ~/baseproof/jn
 provider-tools -config docs/walkthrough/config/tools.dev.json
 ```
 

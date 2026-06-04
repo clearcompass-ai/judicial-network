@@ -3,7 +3,7 @@
 //	go test ./rotation/
 //
 // A 15-era ("year 1 → year 15") witness-set rotation chain through the real
-// attesta rotation primitives. Captured in the e2e suite as S6.19/S6.20.
+// baseproof rotation primitives. Captured in the e2e suite as S6.19/S6.20.
 package rotation
 
 import (

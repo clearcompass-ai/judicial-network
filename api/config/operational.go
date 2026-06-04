@@ -285,7 +285,7 @@ type MonitoringConfig struct {
 	// SignaturePolicyInterval configures the periodic signature-policy
 	// compliance audit (libs/monitoring.CheckSignaturePolicyCompliance) — the
 	// auditor half of the ledger's admission floor. It re-derives the network
-	// SignaturePolicy (the genesis baseline + on-log AT-ENTRY-NETWORK-SIGNATURE-
+	// SignaturePolicy (the genesis baseline + on-log BP-ENTRY-NETWORK-SIGNATURE-
 	// POLICY-V1 amendments) via the SDK walker and flags any admitted entry whose
 	// valid-signature count is below min_signatures_per_entry, or whose scheme is
 	// not admitted, at the policy in effect at its position. > 0 enables it
@@ -358,7 +358,7 @@ type GossipIngestConfig struct {
 	//
 	// PeerURL (and any Peers[].BaseURL) may be given as a bare did:web instead of
 	// an http(s) URL; the binary then resolves the gossip base from the DID
-	// document's AttestaLedger service endpoint at boot (parity with the auditor's
+	// document's BaseproofLedger service endpoint at boot (parity with the auditor's
 	// AUDITOR_PEERS did:web form). An http(s) value is used verbatim.
 	PeerURL string `json:"peer_url,omitempty"`
 
@@ -420,7 +420,7 @@ type GossipPeerConfig struct {
 // peer log so foreign heads land in the same shared journal
 // (libs/monitoring.HeadsJournal) the home-network heads do.
 //
-// SECURITY POSTURE
+// # SECURITY POSTURE
 //
 // Foreign-log ingest is INDEPENDENT of home-network admission. A
 // burned peer log (detected equivocation, KindEquivocationFinding)
@@ -667,7 +667,7 @@ type NonceStoreOpConfig struct {
 
 	// Redis-only fields. Empty/ignored for memory backend.
 	RedisAddr      string `json:"redis_addr,omitempty"`
-	RedisPassword string `json:"redis_password,omitempty"`
+	RedisPassword  string `json:"redis_password,omitempty"`
 	RedisDB        int    `json:"redis_db,omitempty"`
 	RedisKeyPrefix string `json:"redis_key_prefix,omitempty"`
 }

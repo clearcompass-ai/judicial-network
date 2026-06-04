@@ -18,7 +18,7 @@ case both parties would file separately.
 **Schema:** `jn/schemas/family_case.go:31` / `:79`.
 
 ```bash
-cd ~/attesta/keys
+cd ~/baseproof/keys
 cat > family-filing.spec.json <<EOF
 {
   "schema":      "family_case",

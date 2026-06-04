@@ -9,7 +9,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Outcome field determines downstream effect (mandate.go).
 
 OVERVIEW: RecordDecision → Path B entry with opinion artifact.
-KEY DEPENDENCIES: attesta/builder, cases/artifact
+KEY DEPENDENCIES: baseproof/builder, cases/artifact
 */
 package appeals
 
@@ -18,14 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/did"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/did"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 	"github.com/clearcompass-ai/judicial-network/schemas"

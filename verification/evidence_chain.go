@@ -44,10 +44,10 @@ OVERVIEW:
 	EvidenceChainResult      → flattened JN result for (B)
 
 KEY DEPENDENCIES:
-  - attesta/builder: ClassifyEntry (custody scanner)
-  - attesta/verifier: VerifyEvidenceChain, WalkParams,
+  - baseproof/builder: ClassifyEntry (custody scanner)
+  - baseproof/verifier: VerifyEvidenceChain, WalkParams,
     EvidenceChainReport (SDK seam)
-  - attesta/core/envelope, smt, types
+  - baseproof/core/envelope, smt, types
 */
 package verification
 
@@ -57,11 +57,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 type CustodyEvent struct {

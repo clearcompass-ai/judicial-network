@@ -37,8 +37,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/clearcompass-ai/attesta-tools/libs/identity"
-	"github.com/clearcompass-ai/attesta/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
 	"github.com/clearcompass-ai/judicial-network/schemas"

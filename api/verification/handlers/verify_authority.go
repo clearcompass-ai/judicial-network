@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )
@@ -16,7 +16,7 @@ import (
 //
 // The handler accepts an OPTIONAL ?as_of=<sequence> query parameter
 // pinning the cosigned head the authority walker evaluates against.
-// Under the attesta v1.43.0 Temporal-Anchor mandate (ZT-IMM-01) there
+// Under the baseproof v1.43.0 Temporal-Anchor mandate (ZT-IMM-01) there
 // is NO implicit wall-clock "latest": absent / empty / ?as_of=0 →
 // resolveAsOf snapshots the CURRENT head into a pinned AsOf
 // (verifier.ResolveLatest); ?as_of=N pins the journaled head
@@ -91,7 +91,7 @@ func asOfRequest(r *http.Request) (seq uint64, explicit bool, err error) {
 }
 
 // resolveAsOf turns the request's as_of intent into a PINNED
-// verifier.AsOf, honoring the attesta v1.43.0 Temporal-Anchor mandate
+// verifier.AsOf, honoring the baseproof v1.43.0 Temporal-Anchor mandate
 // (ZT-IMM-01): there is no implicit wall-clock latest, and every pin
 // carries a RootHash (ErrRootHashRequired otherwise).
 //

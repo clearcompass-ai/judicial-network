@@ -10,7 +10,7 @@ KEY ARCHITECTURAL DECISIONS:
   - GenerateDIDKey remains correct for test fixtures and ledger bootstrap.
 
 OVERVIEW: GenerateVendorDID → opaque DID. ResolveVendorDID → real DID lookup.
-KEY DEPENDENCIES: attesta/did (NewWebDID only)
+KEY DEPENDENCIES: baseproof/did (NewWebDID only)
 */
 package parties
 
@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/did"
 )
 
 var ErrVendorDIDNotFound = errors.New("parties/privacy: vendor DID not found")

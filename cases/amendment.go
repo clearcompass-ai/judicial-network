@@ -7,7 +7,7 @@ KEY ARCHITECTURAL DECISIONS:
   - artifact_cid updates after re-encryption.
 
 OVERVIEW: AmendCase → Path A amendment entry for status changes.
-KEY DEPENDENCIES: attesta/builder
+KEY DEPENDENCIES: baseproof/builder
 */
 package cases
 
@@ -15,9 +15,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

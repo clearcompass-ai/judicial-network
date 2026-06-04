@@ -20,7 +20,7 @@ OVERVIEW: AdoptSchema runs both phases and returns an AdoptionReport plus
 
 	the local entries ready for submission.
 
-KEY DEPENDENCIES: attesta/builder, attesta/verifier, attesta/schema
+KEY DEPENDENCIES: baseproof/builder, baseproof/verifier, baseproof/schema
 */
 package onboarding
 
@@ -29,11 +29,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // SchemaAdoptionConfig configures schema adoption.

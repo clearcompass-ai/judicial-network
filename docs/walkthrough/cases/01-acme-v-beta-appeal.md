@@ -7,7 +7,7 @@ ledger** (`$DAVIDSON`, port 8080) — the protocol's
 cross-exchange composition mechanism.
 
 Pre-flight: Act I (5 entries on Davidson) complete.
-`$EDWARDS`, `$CLERK` exported. You're in `~/attesta/keys`.
+`$EDWARDS`, `$CLERK` exported. You're in `~/baseproof/keys`.
 
 ## The cross-exchange seam
 

@@ -25,12 +25,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/did"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/did"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"

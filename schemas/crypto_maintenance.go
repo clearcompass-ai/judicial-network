@@ -60,7 +60,7 @@ KEY ARCHITECTURAL DECISIONS
 
 KEY DEPENDENCIES
   - schemas/registry.go: SchemaRegistration, ErrDeserialize
-  - attesta/types: LogPosition
+  - baseproof/types: LogPosition
 */
 package schemas
 
@@ -68,7 +68,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 )
 
 // SchemaCryptoMaintenanceV1 is the canonical schema URI.
@@ -76,8 +76,8 @@ const SchemaCryptoMaintenanceV1 = "judicial-crypto-maintenance-v1"
 
 // Action discriminator — closed set per dictionary §14.
 const (
-	ActionInstitutionalKeyRotation     = "institutional_key_rotation"
-	ActionMofNEscrowRecoveryExecution  = "mofn_escrow_recovery_execution"
+	ActionInstitutionalKeyRotation    = "institutional_key_rotation"
+	ActionMofNEscrowRecoveryExecution = "mofn_escrow_recovery_execution"
 )
 
 // CryptoMaintenancePayload is the Domain Payload for both §14

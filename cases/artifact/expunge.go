@@ -24,8 +24,8 @@ OVERVIEW:
 	BatchExpunge: multiple CIDs, continues on individual failures.
 
 KEY DEPENDENCIES:
-  - attesta/lifecycle/artifact: KeyStore for AES-GCM key destruction
-  - attesta/storage: ContentStore for ciphertext removal
+  - baseproof/lifecycle/artifact: KeyStore for AES-GCM key destruction
+  - baseproof/storage: ContentStore for ciphertext removal
   - DelegationKeyStore (defined in publish.go) for PRE key destruction
 */
 package artifact
@@ -34,8 +34,8 @@ import (
 	"context"
 	"fmt"
 
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/storage"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // -------------------------------------------------------------------------------------------------

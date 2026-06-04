@@ -65,7 +65,7 @@ DESCRIPTION:
 
 KEY DEPENDENCIES:
   - verification.VerifyEntryViaSDK (PR C seam)
-  - attesta verifier.VerifyComplete (SDK composite)
+  - baseproof verifier.VerifyComplete (SDK composite)
 */
 package handlers
 
@@ -76,10 +76,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
@@ -143,7 +143,7 @@ func (h *VerifyCompleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// ZT-IMM-01 (attesta v1.43.0): the authority stage requires a pinned
+	// ZT-IMM-01 (baseproof v1.43.0): the authority stage requires a pinned
 	// AsOf — it never reads time.Now(), so the composite verdict is a pure
 	// function of (head, entry). Snapshot the current head via ResolveLatest
 	// (the one deliberate, reproducible "now").

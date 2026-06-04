@@ -41,7 +41,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

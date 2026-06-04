@@ -3,9 +3,9 @@ package rotation
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/tests/sdk/equivocation"
 )

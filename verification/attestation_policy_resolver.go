@@ -3,7 +3,7 @@ FILE PATH: verification/attestation_policy_resolver.go
 
 DESCRIPTION:
 
-	JN seam for attesta v1.3.0's schema-anchored attestation policy
+	JN seam for baseproof v1.3.0's schema-anchored attestation policy
 	mechanism. Bridges two new wire fields:
 
 	  - ControlHeader.AttestationPolicyName *string (envelope side)
@@ -61,10 +61,10 @@ TRUST ALIGNMENT:
 	invalidating its signature.
 
 KEY DEPENDENCIES:
-  - attesta/attestation v1.3.0: VerifyEntryAttestationPolicy,
+  - baseproof/attestation v1.3.0: VerifyEntryAttestationPolicy,
     SignatureVerifier, DelegationResolver, PolicyReport
-  - attesta/core/envelope: Entry, ControlHeader.AttestationPolicyName
-  - attesta/types: AttestationPolicy, SchemaParameters,
+  - baseproof/core/envelope: Entry, ControlHeader.AttestationPolicyName
+  - baseproof/types: AttestationPolicy, SchemaParameters,
     FindAttestationPolicy, ErrDuplicatePolicyName
 */
 package verification
@@ -74,9 +74,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 // ErrAttestationPolicyResolve wraps every error path the resolver

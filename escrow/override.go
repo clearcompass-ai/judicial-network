@@ -25,19 +25,19 @@
 //	gossip channel.
 //
 // KEY DEPENDENCIES:
-//   - attesta/crypto/cosign: PurposeEscrowOverride, Verify,
+//   - baseproof/crypto/cosign: PurposeEscrowOverride, Verify,
 //     NewEscrowOverridePayload, HashAlgoSHA256
-//   - attesta/gossip/findings: NewEscrowOverrideFinding
-//   - attesta/types: WitnessSignature
+//   - baseproof/gossip/findings: NewEscrowOverrideFinding
+//   - baseproof/types: WitnessSignature
 package escrow
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/gossip/findings"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/gossip/findings"
+	"github.com/baseproof/baseproof/types"
 )
 
 // ErrEscrowOverride is the top-level sentinel for failures in

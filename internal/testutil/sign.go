@@ -28,8 +28,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/signatures"
 )
 
 // GenerateSigningKey returns a fresh secp256k1 private key. Fatals

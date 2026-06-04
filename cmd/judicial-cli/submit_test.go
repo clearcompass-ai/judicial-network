@@ -18,8 +18,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	sdkenv "github.com/clearcompass-ai/attesta/core/envelope"
-	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	sdkenv "github.com/baseproof/baseproof/core/envelope"
+	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
 )
 
 // helper: keygen into a tempdir and return the file path.

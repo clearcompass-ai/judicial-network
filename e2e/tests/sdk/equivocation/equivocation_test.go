@@ -2,7 +2,7 @@
 //
 //	go test ./equivocation/
 //
-// These exercise the H4 fork fixture end-to-end through the real attesta SDK
+// These exercise the H4 fork fixture end-to-end through the real baseproof SDK
 // (witness.DetectEquivocation, findings.NewEquivocationFinding, the
 // position-aware anchors, and the verifier burn-gate). The identical assertions
 // are captured in the e2e black-box suite (tests/phase6_equivocation_capture_test.go)

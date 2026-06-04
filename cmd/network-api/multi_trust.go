@@ -50,8 +50,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"

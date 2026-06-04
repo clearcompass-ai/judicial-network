@@ -3,7 +3,7 @@ FILE PATH: verification/attestation_signature_report.go
 
 DESCRIPTION:
 
-	JN adapter for attesta v1.2.0's attestation.VerifyEntrySignatures —
+	JN adapter for baseproof v1.2.0's attestation.VerifyEntrySignatures —
 	the SDK's GRANULAR per-signature verification primitive. Returns
 	one SignatureResult per element of entry.Signatures with Index,
 	SignerDID, AlgoID, Err — letting callers diagnose WHICH signer's
@@ -56,9 +56,9 @@ TRUST ALIGNMENT:
 	(ErrPrimaryDIDMismatch), NOT a per-signature one.
 
 KEY DEPENDENCIES:
-  - attesta/attestation: VerifyEntrySignatures, SignatureReport,
+  - baseproof/attestation: VerifyEntrySignatures, SignatureReport,
     SignatureResult, SignatureVerifier, VerifyOption
-  - attesta/core/envelope: Entry
+  - baseproof/core/envelope: Entry
 */
 package verification
 
@@ -67,8 +67,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
 )
 
 // ErrSignatureReport wraps every error path the JN-side signature

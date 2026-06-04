@@ -11,7 +11,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Wraps retrieve.go with enforcement-layer policy.
 
 OVERVIEW: GrantEvidenceAccess → sealed-mode artifact grant with enforcement checks.
-KEY DEPENDENCIES: attesta/lifecycle, cases/artifact
+KEY DEPENDENCIES: baseproof/lifecycle, cases/artifact
 */
 package enforcement
 
@@ -19,13 +19,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/did"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/smt"
+	sdkartifact "github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/did"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

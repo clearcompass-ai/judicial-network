@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )

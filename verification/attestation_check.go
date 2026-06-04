@@ -6,7 +6,7 @@ DESCRIPTION:
 	Read-side verifier for tn-key-attestation-v1 entries — the
 	judicial domain's evaluation of "what was the institution-witnessed
 	key custody mode for entity X at position P?". Implements the
-	pattern documented in attesta/docs/attestation-entries.md
+	pattern documented in baseproof/docs/attestation-entries.md
 	"Verifier surface".
 
 ALGORITHM (per attestation-entries.md):
@@ -45,8 +45,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

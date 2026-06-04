@@ -6,16 +6,16 @@
 // retired (see the "PARITY CONTRACT (historical note)" block at
 // the bottom of this file) because the legacy single-reader
 // walkers they compared against were deleted from the SDK in
-// attesta v1.36.0.
+// baseproof v1.36.0.
 package trust
 
 import (
 	"context"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ func TestLocalTrust_Leaf_DelegatesToLeafReader(t *testing.T) {
 // on the result.
 //
 // Those tests are deleted at the v1.36 floor. The legacy entry
-// points were removed from the SDK in attesta v1.36.0 (the
+// points were removed from the SDK in baseproof v1.36.0 (the
 // follow-up the PR #66 commit message tracked); only the
 // *WithTrust variants survive. The parity contract is fulfilled
 // by definition: there is no longer a "legacy" to compare

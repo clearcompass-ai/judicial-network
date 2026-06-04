@@ -14,9 +14,9 @@ DESCRIPTION:
 	time-lock for scope removal.
 
 KEY DEPENDENCIES:
-  - attesta/storage: ContentStore.Exists (guide §8.2)
-  - attesta/builder: BuildCommentary (guide §11.3)
-  - attesta/crypto/escrow: escrow node types (guide §15)
+  - baseproof/storage: ContentStore.Exists (guide §8.2)
+  - baseproof/builder: BuildCommentary (guide §11.3)
+  - baseproof/crypto/escrow: escrow node types (guide §15)
 */
 package load_accounting
 
@@ -26,9 +26,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // FireDrillRunner executes periodic liveness checks against escrow

@@ -3,11 +3,11 @@ package consortium
 import (
 	"context"
 
-	"github.com/clearcompass-ai/attesta/anchor"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/did"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/anchor"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 )
@@ -57,7 +57,7 @@ func BuildCrossCourtProof(
 // SOURCE network's witness topology, preventing the class of bug
 // where K and the key set drift out of sync for a given log.
 //
-// SDK-4 (attesta v1.43.0): trust is the SOURCE log's pinned, offline
+// SDK-4 (baseproof v1.43.0): trust is the SOURCE log's pinned, offline
 // burn/equivocation status. The zero value (Known=false) fails closed
 // with ErrTrustUnknown BEFORE any crypto; a burned source fails with
 // ErrEquivocatedLog. Callers obtain it from the heads journal via

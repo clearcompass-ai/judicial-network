@@ -21,11 +21,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/signatures"
 
-	"github.com/clearcompass-ai/attesta/did"
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	"github.com/baseproof/baseproof/did"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	keysigner "github.com/clearcompass-ai/attesta-tools/libs/keystore/signer"

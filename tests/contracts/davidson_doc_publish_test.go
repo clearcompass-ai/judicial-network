@@ -44,9 +44,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/lifecycle"
+	"github.com/baseproof/baseproof/storage"
 
 	"github.com/dustinxie/ecc"
 )

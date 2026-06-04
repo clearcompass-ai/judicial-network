@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/did"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
@@ -171,7 +171,7 @@ func TestNewMultiJurisdictionTrust_HomeDIDCollision_Rejected(t *testing.T) {
 // TrustRoot — HOME log
 // ─────────────────────────────────────────────────────────────────
 
-// TestMultiTrust_TrustRoot_Home_ResolvesJournaledHead pins the attesta
+// TestMultiTrust_TrustRoot_Home_ResolvesJournaledHead pins the baseproof
 // v1.43.0 change (ZT-IMM-01): the home log resolves its journaled VERIFIED
 // head — not LocalTrust's head-agnostic zero head — so ResolveLatest and the
 // per-hop as-of walks can pin an EXACT (RootHash-bearing) head. Entry/Leaf

@@ -14,8 +14,8 @@ is the default for daily development.)
 ## 1. Clone (or `cd` into) the three repos
 
 ```bash
-mkdir -p ~/attesta && cd ~/attesta
-git clone <fork>/attesta           sdk
+mkdir -p ~/baseproof && cd ~/baseproof
+git clone <fork>/baseproof           sdk
 git clone <fork>/ledger      ledger
 git clone <fork>/judicial-network       jn
 ```
@@ -59,7 +59,7 @@ you want a developer to hit early.
 The dev compose lives in the **ledger** repo. From there:
 
 ```bash
-cd ~/attesta/ledger
+cd ~/baseproof/ledger
 make dev-up
 ```
 
@@ -67,7 +67,7 @@ make dev-up
 gcloud ADC exists and both bucket env vars are set, and exits
 non-zero with a clear message on any failure. Once preflight
 passes, it builds the ledger image, starts Postgres, creates
-two databases (`attesta_davidson`, `attesta_coa`), and waits
+two databases (`baseproof_davidson`, `baseproof_coa`), and waits
 for both ledgers to report `/healthz = ok`. Cold build: 3–5
 min. Warm restart: ~15 seconds.
 
@@ -88,7 +88,7 @@ ok
 
 If either fails:
 
-- Most common first-run error: `attesta_coa` database missing.
+- Most common first-run error: `baseproof_coa` database missing.
   Fix: `make dev-down && make dev-up` (full reset; the init
   script only runs on fresh volumes).
 - Ledger log shows `bytestore init: ... permission denied`?
@@ -126,7 +126,7 @@ $ curl -fsS http://localhost:8080/v1/tree/head
 ## 5. Build the JN binaries
 
 ```bash
-cd ~/attesta/jn
+cd ~/baseproof/jn
 make install-bins
 ```
 
@@ -143,7 +143,7 @@ $ ./bin/judicial-cli version
 0.0.1
 $ make version
 judicial-network    0.0.1
-attesta (Go module) v1.14.0
+baseproof (Go module) v1.14.0
 ledger (HTTP)       v0.1.0  (run via 'make walkthrough-up')
 ```
 
@@ -196,8 +196,8 @@ After §01 you have:
 
 - Two ledgers (Davidson `:8080`, COA `:8081`), each writing
   bytes to **your real GCS bucket**.
-- One Postgres (`:5432`), three databases (`attesta_davidson`,
-  `attesta_coa`, `court_tools`). The first two back the
+- One Postgres (`:5432`), three databases (`baseproof_davidson`,
+  `baseproof_coa`, `court_tools`). The first two back the
   ledgers; the third backs the JN tools you'll boot in §03.
 - Two GCS buckets you own, currently empty.
 - One `judicial-cli` binary on your `$PATH`.
@@ -222,6 +222,6 @@ tools), with the cases in `cases/` driving traffic through both.
 | Ledger log: `bucket doesn't exist` | `gcloud storage buckets list --project=$GOOGLE_PROJECT` to confirm name |
 | `dev-up` hangs > 2 min | `make dev-logs` — usually Postgres still initializing |
 | `port 8080 already in use` | Previous run didn't shut down. `make dev-down` clears it. |
-| Build fails in `cmd/judicial-cli/` | `go mod download` from JN repo. Confirm `go.mod` shows `attesta v1.14.0`. |
+| Build fails in `cmd/judicial-cli/` | `go mod download` from JN repo. Confirm `go.mod` shows `baseproof v1.14.0`. |
 
 Next: **[02-real-dids.md](02-real-dids.md)**.

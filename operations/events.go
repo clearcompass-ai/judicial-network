@@ -22,7 +22,7 @@ OVERVIEW:
 	Covers: scheduling, closure, hours_change, notice, duty, conference,
 	continuance, and anything else a CMS or court ops module invents.
 
-KEY DEPENDENCIES: attesta/builder (BuildCommentary only)
+KEY DEPENDENCIES: baseproof/builder (BuildCommentary only)
 */
 package operations
 
@@ -30,9 +30,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 // EventConfig configures an operational event.

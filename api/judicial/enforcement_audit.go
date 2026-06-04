@@ -22,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
-	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	sdkartifact "github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/enforcement"
 )

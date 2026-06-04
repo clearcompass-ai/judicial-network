@@ -1,6 +1,6 @@
 # SDK-3 — Add `WitnessSetAt(asOf)` historical witness-set reconstruction
 
-> **Target repo:** clearcompass-ai/attesta
+> **Target repo:** baseproof/baseproof
 > **Labels:** `enhancement` · `long-term-verifiability` · `zero-trust-physics`
 > **Depends on:** — (backed by AT-1; consumed by judicial-network JN-2)
 > **Status:** Proposal / ready to implement. The SDK can verify a single key at a

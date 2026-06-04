@@ -17,7 +17,7 @@ DESCRIPTION:
 	            CROSS-exchange cosignatures (e.g., case transfers,
 	            relay attestations).
 
-	# SCOPE — NOT to be confused with attesta v1.2.0 attestation.Policy
+	# SCOPE — NOT to be confused with baseproof v1.2.0 attestation.Policy
 
 	This file governs MULTIPLE SIGNATURES INSIDE A SINGLE ENTRY:
 	one entry, N inline signatures in entry.Signatures, role-

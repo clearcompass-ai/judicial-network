@@ -4,7 +4,7 @@
 // pre-flight checks + certificate formatting. The SDK's
 // verifier.HardcodedGenesis / AnchorLogSync / TrustOnFirstUse
 // are the cryptographic source of truth (covered in
-// attesta/verifier/bootstrap_test.go); these tests cover:
+// baseproof/verifier/bootstrap_test.go); these tests cover:
 //
 //  1. HardcodedGenesis rejects empty court_did (ErrBootstrap).
 //  2. AnchorLogSync rejects nil client (ErrBootstrap).

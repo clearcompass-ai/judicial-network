@@ -10,7 +10,7 @@ KEY ARCHITECTURAL DECISIONS:
   - SDK correction #7: Checks EvaluateContest for pending enforcements.
 
 OVERVIEW: CheckEnforcementStatus → active/pending constraints + contest status.
-KEY DEPENDENCIES: attesta/verifier, attesta/schema
+KEY DEPENDENCIES: baseproof/verifier, baseproof/schema
 */
 package verification
 
@@ -18,10 +18,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 type EnforcementStatus struct {
@@ -54,7 +54,7 @@ func CheckEnforcementStatus(
 	if trustProvider == nil {
 		return nil, fmt.Errorf("verification/sealing_check: nil trustProvider (use deps.PickTrust())")
 	}
-	// ZT-IMM-01 (attesta v1.43.0): the live-status surface passes AsOf{}
+	// ZT-IMM-01 (baseproof v1.43.0): the live-status surface passes AsOf{}
 	// ("is this sealed RIGHT NOW?"); the SDK no longer treats a null AsOf as
 	// an implicit wall-clock latest, so resolve it to a pinned head here —
 	// a deliberate, reproducible "now".

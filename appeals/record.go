@@ -17,12 +17,12 @@ BUGFIX NOTES (§5.2):
     the source ledger issues a grant and the appellate side unwraps
     with its recipient private key. Both are valid operational modes;
     neither fits inside one helper without a caller hook.
-  - SourceDecryptor is that hook. TransferRecord handles attesta
+  - SourceDecryptor is that hook. TransferRecord handles baseproof
     plumbing; the caller supplies the crypto boundary. A reference
     DirectKeySourceDecryptor handles in-trust-boundary deployments.
 
 OVERVIEW: TransferRecord → re-encrypted artifacts + manifest commentary.
-KEY DEPENDENCIES: attesta/builder, log.LedgerQueryAPI, cases/artifact
+KEY DEPENDENCIES: baseproof/builder, log.LedgerQueryAPI, cases/artifact
 */
 package appeals
 
@@ -31,14 +31,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkartifact "github.com/clearcompass-ai/attesta/crypto/artifact"
-	"github.com/clearcompass-ai/attesta/did"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkartifact "github.com/baseproof/baseproof/crypto/artifact"
+	"github.com/baseproof/baseproof/did"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

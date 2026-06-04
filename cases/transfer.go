@@ -10,7 +10,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Uses BuildCrossLogProof (Gap 12), NOT ResolveCrossLogRef.
 
 OVERVIEW: TransferDivision (intra-county) and TransferCounty (inter-county).
-KEY DEPENDENCIES: attesta/builder, attesta/verifier, delegation/mirror
+KEY DEPENDENCIES: baseproof/builder, baseproof/verifier, delegation/mirror
 */
 package cases
 
@@ -19,11 +19,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // DivisionTransferConfig configures an intra-county division transfer.

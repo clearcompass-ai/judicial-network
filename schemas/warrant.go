@@ -85,7 +85,7 @@ KEY ARCHITECTURAL DECISIONS
 
 KEY DEPENDENCIES
   - schemas/registry.go: SchemaRegistration type, ErrDeserialize sentinel
-  - attesta/types: LogPosition
+  - baseproof/types: LogPosition
 */
 package schemas
 
@@ -93,7 +93,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 )
 
 // -------------------------------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # SDK-1 — Make `verifier.AsOf` a mandatory parameter (remove the implicit "latest" / local-clock default)
 
-> **Target repo:** clearcompass-ai/attesta
+> **Target repo:** baseproof/baseproof
 > **Labels:** `bug` · `breaking-change` · `determinism` · `zero-trust-physics`
 > **Depends on:** — (pairs with SDK-2; consumed by judicial-network JN-4)
 > **Status:** Proposal / ready to implement. The `*WithTrust` API already threads
@@ -101,6 +101,6 @@ func ResolveLatest(ctx, prov LogTrustProvider, logDID string) (AsOf, error)
 ```bash
 grep -rn "IsNull()" verifier/authority_withtrust.go verifier/provenance_withtrust.go verifier/log_trust.go
 grep -rn "time.Now" verifier/authority_withtrust.go        # the line to delete: :104-106
-go doc github.com/clearcompass-ai/attesta/verifier.EvaluateAuthorityWithTrust
-go doc github.com/clearcompass-ai/attesta/verifier.AsOf
+go doc github.com/baseproof/baseproof/verifier.EvaluateAuthorityWithTrust
+go doc github.com/baseproof/baseproof/verifier.AsOf
 ```

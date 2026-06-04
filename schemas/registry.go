@@ -7,7 +7,7 @@ OVERVIEW: NewRegistry() → 15 schemas. Appellate decisions use existing case
 	schemas. judicial-delegation-v1, judicial-revocation-v1, and
 	judicial-succession-v1 are the canonical authority-grant entries.
 
-KEY DEPENDENCIES: attesta/schema, attesta/core/envelope, attesta/types
+KEY DEPENDENCIES: baseproof/schema, baseproof/core/envelope, baseproof/types
 */
 package schemas
 
@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdkschema "github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdkschema "github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/types"
 )
 
 type ThresholdConfig struct {

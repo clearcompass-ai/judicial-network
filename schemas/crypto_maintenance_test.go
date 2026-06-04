@@ -1,20 +1,20 @@
 // Tests for judicial-crypto-maintenance-v1.
 //
 // Pins the continuity contract:
-//   1. Registration in JN Registry.
-//   2. Davidson HSM cert rotation (use case A) round-trips.
-//   3. Judge-died M-of-N recovery (use case B) round-trips with
-//      ThresholdM/N + ParticipatingDIDs.
-//   4. All Action constants round-trip.
-//   5. SDK admission.
+//  1. Registration in JN Registry.
+//  2. Davidson HSM cert rotation (use case A) round-trips.
+//  3. Judge-died M-of-N recovery (use case B) round-trips with
+//     ThresholdM/N + ParticipatingDIDs.
+//  4. All Action constants round-trip.
+//  5. SDK admission.
 package schemas
 
 import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
 )
 
 func cryptoPos(seq uint64) types.LogPosition {
@@ -62,9 +62,9 @@ func TestCryptoMaintenance_HSMCertRotation_Davidson(t *testing.T) {
 // dies in office.
 func TestCryptoMaintenance_JudgeDied_EscrowRecovery(t *testing.T) {
 	p := &CryptoMaintenancePayload{
-		Action:                ActionMofNEscrowRecoveryExecution,
-		ThresholdM:            3,
-		ThresholdN:            5,
+		Action:     ActionMofNEscrowRecoveryExecution,
+		ThresholdM: 3,
+		ThresholdN: 5,
 		ParticipatingDIDs: []string{
 			"did:web:judge.chief.davidson.example",
 			"did:web:judge.senior1.davidson.example",

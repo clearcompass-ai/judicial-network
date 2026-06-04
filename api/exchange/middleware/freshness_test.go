@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/exchange/policy"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/exchange/policy"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )

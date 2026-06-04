@@ -8,7 +8,7 @@ KEY ARCHITECTURAL DECISIONS:
   - References lower court's case schema (no dedicated appellate schema).
 
 OVERVIEW: FileAppeal → root entity + cross-log proof.
-KEY DEPENDENCIES: attesta/builder, attesta/verifier
+KEY DEPENDENCIES: baseproof/builder, baseproof/verifier
 */
 package appeals
 
@@ -17,10 +17,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

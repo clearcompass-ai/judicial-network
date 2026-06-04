@@ -4,7 +4,7 @@ FILE PATH: verification/delegation_chain.go
 DESCRIPTION:
 
 	Delegation chain verification for a specific filing. Supports
-	TWO complementary walking models from the attesta SDK:
+	TWO complementary walking models from the baseproof SDK:
 
 	  - BY-POINTER (legacy, v0.x): VerifyFilingDelegation walks an
 	    explicit DelegationPointers slice carried on the filing's
@@ -39,7 +39,7 @@ DESCRIPTION:
 	            entry's SchemaRef is permitted by every delegation's
 	            scope_limit (the read-side defense against the
 	            Compromised-Subordinate-Key attack documented in
-	            attesta/docs/implementation-obligations.md).
+	            baseproof/docs/implementation-obligations.md).
 
 KEY ARCHITECTURAL DECISIONS:
   - SDK correction #1: VerifyDelegationProvenance (linear walk) NOT
@@ -70,11 +70,11 @@ OVERVIEW:
 	  SDK's by-DID resolver (v1.2.0+).
 
 KEY DEPENDENCIES:
-  - attesta/verifier (VerifyDelegationProvenance) — by-pointer path
-  - attesta/attestation (DelegationChain, DelegationHop,
+  - baseproof/verifier (VerifyDelegationProvenance) — by-pointer path
+  - baseproof/attestation (DelegationChain, DelegationHop,
     DelegationResolver) — by-DID return shape (v1.2.0+)
-  - attesta/delegation (Resolver, Option) — by-DID walker (v1.2.0+)
-  - attesta/core/envelope, types, smt
+  - baseproof/delegation (Resolver, Option) — by-DID walker (v1.2.0+)
+  - baseproof/core/envelope, types, smt
   - judicial-network/verification (ScopeEnforcer, FuncEntrySource)
 */
 package verification
@@ -84,12 +84,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	sdkdelegation "github.com/clearcompass-ai/attesta/delegation"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	sdkdelegation "github.com/baseproof/baseproof/delegation"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // DelegationVerification carries the result of both verification
@@ -164,7 +164,7 @@ func VerifyFilingDelegation(
 	if trustProvider == nil {
 		return nil, fmt.Errorf("verification/delegation_chain: nil trustProvider (use deps.PickTrust())")
 	}
-	// ZT-IMM-01 (attesta v1.43.0): VerifyDelegationProvenanceWithTrust rejects a
+	// ZT-IMM-01 (baseproof v1.43.0): VerifyDelegationProvenanceWithTrust rejects a
 	// null AsOf with ErrAsOfRequired. A live-status caller passing AsOf{} means
 	// "as of now" — resolve it to a pinned head deliberately so the walk runs.
 	if asOf.IsNull() {
@@ -232,7 +232,7 @@ func VerifyFilingDelegation(
 	return result, nil
 }
 
-// ─── BY-DID walker (attesta v1.2.0+) ──────────────────────────
+// ─── BY-DID walker (baseproof v1.2.0+) ──────────────────────────
 
 // ErrDelegationResolve wraps every error path the by-DID resolver
 // surfaces. Underlying SDK sentinels (attestation.ErrUnknownDelegate,

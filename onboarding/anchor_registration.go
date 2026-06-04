@@ -15,7 +15,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Returns the anchor entry for submission to the state log by the caller.
 
 OVERVIEW: RegisterFirstAnchor wraps topology/anchor_publisher for onboarding.
-KEY DEPENDENCIES: attesta/anchor, attesta/witness, attesta/crypto/cosign
+KEY DEPENDENCIES: baseproof/anchor, baseproof/witness, baseproof/crypto/cosign
 */
 package onboarding
 
@@ -25,10 +25,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/anchor"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	sdklog "github.com/clearcompass-ai/attesta/log"
+	"github.com/baseproof/baseproof/anchor"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	sdklog "github.com/baseproof/baseproof/log"
 )
 
 // AnchorRegistrationConfig configures the initial anchor publication.

@@ -19,11 +19,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 	"github.com/clearcompass-ai/judicial-network/verification/trust"
@@ -123,7 +123,7 @@ func TestVerifyFilingDelegation_EmptyChain_WithEnforcer_ReportsScopeChecked(t *t
 
 // ───  short-circuit when leafReader is unhappy ───────────────
 
-// testHead is a verified cosigned head headedTrust serves so the attesta
+// testHead is a verified cosigned head headedTrust serves so the baseproof
 // v1.43.0 delegation walk can pin an EXACT head (RootHash mandatory under
 // ZT-ALN-01). pinnedAsOf pins it via the SDK's AsOfFromHead helper
 // (Sequence = TreeSize-1, RootHash).
@@ -257,7 +257,7 @@ func TestVerifyFilingDelegation_ScopeViolation_ReturnsViolationFlag(t *testing.T
 // ───  short-circuits  when chain is dead ──────────────
 
 func TestVerifyFilingDelegation_DeadHop_Phase2Skipped(t *testing.T) {
-	// SKIP (attesta v1.43.0 / ZT-ALN-01): leaf-revocation liveness is decided
+	// SKIP (baseproof v1.43.0 / ZT-ALN-01): leaf-revocation liveness is decided
 	// against the SMT membership proof bound to the pinned head's SMTRoot. A
 	// head-agnostic LocalTrust returns no membership proof and a synthetic head
 	// with a non-matching SMTRoot, so the revoked leaf can't be faithfully read

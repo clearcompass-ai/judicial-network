@@ -37,9 +37,9 @@
 //	{"consistent": false, "error": "..."}   on rejection
 //
 // KEY DEPENDENCIES:
-//   - attesta/verifier: VerifyConsistency
-//   - attesta/log: NewTesseraFetcher (HTTP-backed tile reader)
-//   - attesta/types: TreeHead
+//   - baseproof/verifier: VerifyConsistency
+//   - baseproof/log: NewTesseraFetcher (HTTP-backed tile reader)
+//   - baseproof/types: TreeHead
 package handlers
 
 import (
@@ -49,9 +49,9 @@ import (
 	"net/http"
 	"time"
 
-	sdklog "github.com/clearcompass-ai/attesta/log"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	sdklog "github.com/baseproof/baseproof/log"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 )
 
 // VerifyConsistencyHandler exposes verifier.VerifyConsistency

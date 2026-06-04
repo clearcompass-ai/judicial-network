@@ -9,9 +9,9 @@ DESCRIPTION:
 	A gossip peer's BaseURL may be given as a bare did:web (in
 	API_GOSSIP_INGEST_PEER_URL or a Peers[].BaseURL) instead of an http(s) URL.
 	At boot the binary resolves it ONCE to the ledger's gossip base from the DID
-	document's AttestaLedger service endpoint, using the SAME SDK mechanism the
+	document's BaseproofLedger service endpoint, using the SAME SDK mechanism the
 	auditor uses: did.DIDEndpointAdapter over a TTL-cached WebDIDResolver
-	(attesta v1.24.0). An http(s) BaseURL is used verbatim — resolution is
+	(baseproof v1.24.0). An http(s) BaseURL is used verbatim — resolution is
 	bypassed.
 
 	WHY "once, at the right layer" (not per-call through ResolvingCheckpointClient):
@@ -21,7 +21,7 @@ DESCRIPTION:
 	stays on ResolvingCheckpointClient, where nothing else needs the URL.
 
 	FAILS CLOSED: a did:web base with no resolver, an unresolvable DID, or a DID
-	document without an AttestaLedger endpoint errors at boot rather than starting
+	document without an BaseproofLedger endpoint errors at boot rather than starting
 	an ingest loop pointed nowhere. The LogDID (originator, the witness-set
 	routing key) is untouched — it continues to come from /v1/log-info discovery
 	or config; only the byte-source BaseURL is resolved here.
@@ -37,7 +37,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/did"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 )
@@ -48,14 +48,14 @@ import (
 // peer's endpoint rotation propagates within the window.
 const defaultDIDWebTTL = 5 * time.Minute
 
-// peerEndpointResolver resolves a did:web to its AttestaLedger service endpoint.
+// peerEndpointResolver resolves a did:web to its BaseproofLedger service endpoint.
 // did.DIDEndpointAdapter satisfies it; tests inject a fake (no network).
 type peerEndpointResolver interface {
 	LedgerEndpoint(ctx context.Context, didWeb string) (string, error)
 }
 
 // resolveGossipPeerEndpoints rewrites any peer whose BaseURL is a bare did:web
-// into its resolved AttestaLedger endpoint. http(s) bases pass through. The
+// into its resolved BaseproofLedger endpoint. http(s) bases pass through. The
 // returned slice is a copy — the input is not mutated. Fails closed on a
 // did:web base with a nil resolver, a resolve error, or an empty endpoint.
 func resolveGossipPeerEndpoints(ctx context.Context, peers []config.GossipPeerConfig, resolver peerEndpointResolver) ([]config.GossipPeerConfig, error) {
@@ -74,7 +74,7 @@ func resolveGossipPeerEndpoints(ctx context.Context, peers []config.GossipPeerCo
 			return nil, fmt.Errorf("resolve did:web peer base %q: %w", base, err)
 		}
 		if url == "" {
-			return nil, fmt.Errorf("did:web peer base %q resolved to an empty AttestaLedger endpoint", base)
+			return nil, fmt.Errorf("did:web peer base %q resolved to an empty BaseproofLedger endpoint", base)
 		}
 		out[i].BaseURL = url
 	}
@@ -86,7 +86,7 @@ func isDIDWeb(s string) bool {
 	return strings.HasPrefix(s, "did:web:")
 }
 
-// newDIDWebPeerResolver builds the TTL-cached did:web → AttestaLedger resolver:
+// newDIDWebPeerResolver builds the TTL-cached did:web → BaseproofLedger resolver:
 // did.DIDEndpointAdapter over a CachingResolver(WebDIDResolver). ttl <= 0 →
 // defaultDIDWebTTL.
 func newDIDWebPeerResolver(ttl time.Duration) *did.DIDEndpointAdapter {

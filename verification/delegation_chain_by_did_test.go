@@ -32,8 +32,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/attestation"
-	"github.com/clearcompass-ai/attesta/delegation"
+	"github.com/baseproof/baseproof/attestation"
+	"github.com/baseproof/baseproof/delegation"
 )
 
 // mapLookup builds a DelegationLookupFunc backed by a map. Any

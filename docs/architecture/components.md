@@ -1,4 +1,4 @@
-# Attesta — Core Components (Architecture Reference)
+# Baseproof — Core Components (Architecture Reference)
 
 > **Purpose.** One code-grounded map of every core component: what it is, where
 > it lives, what it does, **what it deliberately does not do**, and how they
@@ -100,15 +100,15 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 | Component | Class | Where | Duty |
 |---|---|---|---|
-| Network | Actor | `attesta/network/`, `crypto/cosign` (NetworkID) | The logbook; the addressed target of submissions |
-| Exchange | Actor | `attesta/exchange/`, `ledger/api/` | Operates the Network; economic firewall |
+| Network | Actor | `baseproof/network/`, `crypto/cosign` (NetworkID) | The logbook; the addressed target of submissions |
+| Exchange | Actor | `baseproof/exchange/`, `ledger/api/` | Operates the Network; economic firewall |
 | Ledger | Engine | `ledger/` | Network admission gate **+** dumb sequencer |
 | Witness | Actor | `attesta-tools/services/witness/` | Blindly cosigns tree heads |
 | Auditor | Actor | `attesta-tools/services/auditor/` | Re-runs the math; detects fraud; slashes |
 | Judicial Network | Actor | `judicial-network/` | Cross-network trust specialization of the Auditor |
-| SDK | Engine | `attesta/` | Owns all domain logic, crypto, schema, verification |
+| SDK | Engine | `baseproof/` | Owns all domain logic, crypto, schema, verification |
 | Tessera | Sub-system | `tessera/`, `ledger/tessera/`, `ledger/bytestore/` | Append-only log + transparently-fetched static tiles |
-| Gossip Network | Sub-system | `attesta/gossip/`, `attesta-tools/libs/monitoring/` | Pull-based dissemination (the Transparency Clock) |
+| Gossip Network | Sub-system | `baseproof/gossip/`, `attesta-tools/libs/monitoring/` | Pull-based dissemination (the Transparency Clock) |
 | Heads Journal | Sub-system | `attesta-tools/libs/monitoring/`, `auditor/.../store/` | Permanent, fork-aware archive of cosigned heads |
 
 > Format per entry: **Duty · Where (file:line) · Mechanism · Boundaries (what it
@@ -119,14 +119,14 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### Network — *the logbook & the addressed target*
 - **Duty.** Be the atomic unit of the chain: one append-only log with a permanent **NetworkID** from its founding charter; the entity a submission is *addressed to*.
-- **Where.** `cosign.NetworkID` / `NetworkIDFromWire` in `attesta/crypto/cosign/`; charter/bootstrap in `attesta/network/`.
+- **Where.** `cosign.NetworkID` / `NetworkIDFromWire` in `baseproof/crypto/cosign/`; charter/bootstrap in `baseproof/network/`.
 - **Mechanism.** The NetworkID is mixed into every cosignature digest and is the `Destination` a submission must name. It is the gate's domain identity (see Ledger).
 - **Boundaries.** Not a process; not the operator; not the storage. It can outlive its operator (`ZT-SCN-07`).
 - **Why.** The subject of **cryptographic domain separation** (`ZT-SCN-05` / `ZT-SDK-11`): a submission signed for Network A fails on Network B.
 
 ### Exchange — *the operator*
 - **Duty.** The legal/operational identity that runs a Network: API surface, infrastructure, and the **economic firewall** (rate-limit, write credits / bonds).
-- **Where.** `attesta/exchange/` (e.g. `exchange/auth/signed_request.go`); operates the Ledger admission API (`ledger/api/`).
+- **Where.** `baseproof/exchange/` (e.g. `exchange/auth/signed_request.go`); operates the Ledger admission API (`ledger/api/`).
 - **Mechanism.** Accepts submissions at the Network boundary, funds Mode A credits, runs the Witness + Ledger stack, serves reads.
 - **Boundaries.** **Lacks cryptographic authority to rewrite history** — it cannot forge a witnessed head, mutate a sealed payload, or drop an entry without being caught.
 - **Why.** Trust never rests on operator honesty; it rests on the recomputed quorum and the Auditor's math.
@@ -149,8 +149,8 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### Auditor — *the enforcer of truth*
 - **Duty.** Enforce physics, resolve cross-network trust, detect fraud — asynchronously and orthogonally to the Ledger.
-- **Where.** `attesta-tools/services/auditor/`; runs `attesta/verifier/verify_complete.go` and the reconciler `attesta-tools/libs/monitoring/gossip_reconciler.go`.
-- **Mechanism.** **Equivocation** — `services/auditor/internal/equivocation/slasher.go:111` (+ `scanner.go`): conflicting RootHash → `KindEquivocationFinding` → slash/freeze. **Cross-log** — `attesta/verifier/cross_log.go`, `anchor/anchor.go:213`: authenticate foreign proofs against the *foreign* head. **Policy** — `attesta/verifier/policy_stage.go`: did the `Signer_DID` hold authority **at that `asOf`**?
+- **Where.** `attesta-tools/services/auditor/`; runs `baseproof/verifier/verify_complete.go` and the reconciler `attesta-tools/libs/monitoring/gossip_reconciler.go`.
+- **Mechanism.** **Equivocation** — `services/auditor/internal/equivocation/slasher.go:111` (+ `scanner.go`): conflicting RootHash → `KindEquivocationFinding` → slash/freeze. **Cross-log** — `baseproof/verifier/cross_log.go`, `anchor/anchor.go:213`: authenticate foreign proofs against the *foreign* head. **Policy** — `baseproof/verifier/policy_stage.go`: did the `Signer_DID` hold authority **at that `asOf`**?
 - **Boundaries.** Does not sequence, does not hold the write path, does not require the offending Ledger to self-report.
 - **Why.** Where Separation of Duties lives — turns Witness evidence into burns/slashes.
 
@@ -165,7 +165,7 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### SDK — *the smart brain*
 - **Duty.** Own **all** domain logic, cryptography, schema, and verification — the single Universal Source of Truth (`ZT-SDK-01`). Every other component defers to it.
-- **Where.** `attesta/` — `verifier/` (`verify_complete.go`, `policy_stage.go`, `cross_log.go`, `log_trust.go`), `crypto/`, `anchor/`, `did/`, `core/envelope/`, `log/bundle/`, `witness/`, `gossip/`, `schema/`, `delegation/`, `authz/`, `types/`.
+- **Where.** `baseproof/` — `verifier/` (`verify_complete.go`, `policy_stage.go`, `cross_log.go`, `log_trust.go`), `crypto/`, `anchor/`, `did/`, `core/envelope/`, `log/bundle/`, `witness/`, `gossip/`, `schema/`, `delegation/`, `authz/`, `types/`.
 - **Mechanism.** Fail-closed in a single frame (`ZT-SDK-03`); Parse-Don't-Validate; identity-agnostic (`ZT-SDK-09`); per-signature PQ dispatch (`ZT-SCN-10`); all within the 65,535-byte cap (`core/envelope/tessera_compat.go:98`).
 - **Boundaries.** Runs no servers, stores no state — a pure library. Infrastructure blindly drops whatever it rejects.
 - **Why.** It is *where truth lives*; without it the SoD story has no subject.
@@ -195,7 +195,7 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### Tessera — *the log storage engine & transparent tiles*
 - **Duty.** Be the append-only Merkle log + static `c2sp.org/tlog-tiles` tiles beneath the Ledger, and serve those tiles **transparently**.
-- **Where.** Upstream `github.com/transparency-dev/tessera` (`tessera/`); integrated via `ledger/tessera/`; tiles served from object stores via `ledger/bytestore/{s3,gcs,publicurl,tile_backend}.go`; SDK-side bounded fetch `attesta/log/tessera_fetcher.go`; cross-log mirrors `attesta-tools/libs/auditing/gossipverify/tile_mirror.go`.
+- **Where.** Upstream `github.com/transparency-dev/tessera` (`tessera/`); integrated via `ledger/tessera/`; tiles served from object stores via `ledger/bytestore/{s3,gcs,publicurl,tile_backend}.go`; SDK-side bounded fetch `baseproof/log/tessera_fetcher.go`; cross-log mirrors `attesta-tools/libs/auditing/gossipverify/tile_mirror.go`.
 - **Mechanism — transparent fetch (the read side of `ZT-LED-10`).**
   - **Anonymous / credential-free** — public-read buckets, no API key or session (`bytestore/publicurl.go`: *"anonymous-read … no expiry"*; `s3.go:288`).
   - **Deterministic addressing** — a tile's URL is a pure function of its coordinates (`publicurl.PublicURL(seq, hash)`); any client computes any tile's location with no operator query.
@@ -207,7 +207,7 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### Gossip Network — *the transparency fabric*
 - **Duty.** Disseminate heads, findings, and equivocation proofs across peers, pull-based and fire-and-forget (the "Transparency Clock").
-- **Where.** `attesta/gossip/`, `attesta-tools/libs/monitoring/gossip_reconciler.go`, `ledger/gossipnet/`.
+- **Where.** `baseproof/gossip/`, `attesta-tools/libs/monitoring/gossip_reconciler.go`, `ledger/gossipnet/`.
 - **Mechanism.** Peers **pull** proven events via HTTP caches/CDNs (`ZT-LED-11`); Lamport time makes re-receipt idempotent (`ZT-SDK-14`); emit queues never block the commit hot-path (`ZT-SDK-13`).
 - **Boundaries.** Carries no authority — gossip is transport; a received finding is re-verified by the SDK before action.
 - **Why.** How Witnesses, Auditors, and peers learn state **without trusting the Ledger to self-report** (`ZT-SCN-06`); gossip degradation cannot pause ingestion (`ZT-LED-12`).
@@ -223,12 +223,12 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 | Artifact | Where | What it is |
 |---|---|---|
-| **Entry / Envelope** | `attesta/core/envelope/` | Canonical signed unit (payload + control header + N signatures), ≤ 65,535 B; `Destination` is bound into the signed hash |
-| **Cosigned Tree Head (STH)** | `attesta/crypto/cosign/` | Merkle root + K-of-N witness cosignatures, NetworkID-bound — the Universal Anchor (`ZT-ALN-01`) |
-| **Bundle** | `attesta/log/bundle/` | Self-contained, offline-verifiable artifact (entry + inclusion proof + cosigned head + SMT proof); `FormatV1` is frozen (`ZT-SCN-12`) |
-| **Cross-Log Proof / Anchor** | `attesta/anchor/`, `verifier/cross_log.go` | Binds one log's entry into another's tree — the cross-network trust artifact (`ZT-SCN-01`) |
-| **Witness Set / Quorum** | `attesta/crypto/cosign/witness_key_set.go` | Immutable K-of-N keyset bound to a NetworkID; rotates via verified events; reconstructable at any `asOf` |
-| **Identity / DID** | `attesta/did/` | Signer identities — did:web, did:pkh/EIP-1271, mTLS, role/vendor DIDs (`ZT-SCN-11`) |
+| **Entry / Envelope** | `baseproof/core/envelope/` | Canonical signed unit (payload + control header + N signatures), ≤ 65,535 B; `Destination` is bound into the signed hash |
+| **Cosigned Tree Head (STH)** | `baseproof/crypto/cosign/` | Merkle root + K-of-N witness cosignatures, NetworkID-bound — the Universal Anchor (`ZT-ALN-01`) |
+| **Bundle** | `baseproof/log/bundle/` | Self-contained, offline-verifiable artifact (entry + inclusion proof + cosigned head + SMT proof); `FormatV1` is frozen (`ZT-SCN-12`) |
+| **Cross-Log Proof / Anchor** | `baseproof/anchor/`, `verifier/cross_log.go` | Binds one log's entry into another's tree — the cross-network trust artifact (`ZT-SCN-01`) |
+| **Witness Set / Quorum** | `baseproof/crypto/cosign/witness_key_set.go` | Immutable K-of-N keyset bound to a NetworkID; rotates via verified events; reconstructable at any `asOf` |
+| **Identity / DID** | `baseproof/did/` | Signer identities — did:web, did:pkh/EIP-1271, mTLS, role/vendor DIDs (`ZT-SCN-11`) |
 
 ---
 
@@ -263,20 +263,20 @@ is why the system stays melt-proof at scale while remaining zero-trust.
 ## The dependency graph (who imports whom)
 
 ```
-        attesta  (SDK — the foundation; imports no sibling repo)
+        baseproof  (SDK — the foundation; imports no sibling repo)
         ▲   ▲   ▲
-        │   │   └─────────────── ledger              imports attesta ONLY
-        │   └────── attesta-tools (libs + services)  imports attesta
+        │   │   └─────────────── ledger              imports baseproof ONLY
+        │   └────── attesta-tools (libs + services)  imports baseproof
         │                  ▲
-        └──────────────────┴──── judicial-network    imports attesta + attesta-tools/libs
+        └──────────────────┴──── judicial-network    imports baseproof + attesta-tools/libs
 ```
 
 | Repo | Imports (verified) | Role in the stack |
 |---|---|---|
-| **attesta** (SDK) | — (foundation) | The Smart Brain. Every repo imports it; it imports none of them. Houses the 4-layer trust spine (View A). |
-| **ledger** | `attesta` **only** (`go.mod`; **0** files import attesta-tools) | The operator stack: network admission gate + Badger WAL + Tessera sequencer + gossipnet equivocation monitor. A self-contained SDK consumer. |
-| **attesta-tools** | `attesta` | Operator/auditor **libs** (`libs/monitoring` heads-journal, `libs/crosslog`, `libs/gossipingest`, `libs/auditing/gossipverify` tile-mirrors, …) **+ services** (`services/auditor`, `services/witness`) — each service is its **own module** that **never imports the ledger**. |
-| **judicial-network** | `attesta` **+** `attesta-tools/libs` (**71** non-test files) | The domain consumer: court business logic over the SDK trust spine + tools libs. |
+| **baseproof** (SDK) | — (foundation) | The Smart Brain. Every repo imports it; it imports none of them. Houses the 4-layer trust spine (View A). |
+| **ledger** | `baseproof` **only** (`go.mod`; **0** files import attesta-tools) | The operator stack: network admission gate + Badger WAL + Tessera sequencer + gossipnet equivocation monitor. A self-contained SDK consumer. |
+| **attesta-tools** | `baseproof` | Operator/auditor **libs** (`libs/monitoring` heads-journal, `libs/crosslog`, `libs/gossipingest`, `libs/auditing/gossipverify` tile-mirrors, …) **+ services** (`services/auditor`, `services/witness`) — each service is its **own module** that **never imports the ledger**. |
+| **judicial-network** | `baseproof` **+** `attesta-tools/libs` (**71** non-test files) | The domain consumer: court business logic over the SDK trust spine + tools libs. |
 
 **Two facts worth pinning:**
 - **The ledger does *not* depend on attesta-tools** — it is a pure SDK consumer; the auditor/witness tooling sits *beside* it, not beneath it.
@@ -315,9 +315,9 @@ is why the system stays melt-proof at scale while remaining zero-trust.
 | 3 | Witnesses ×N → **quorum** | `WitnessCollector` K-of-N aggregation | Each cosig verified under the immutable `WitnessKeySet` (`crypto/cosign/witness_key_set.go`); `1 ≤ K ≤ N`; BLS proof-of-possession defeats rogue-key |
 | 4 | **Ledger → object store** | tile PUT to S3/GCS (`ledger/bytestore/`) | Tiles are content-addressed (`c2sp.org/tlog-tiles`); readers authenticate them against the cosigned `RootHash`, never the bucket |
 | 5 | Ledger / peer ↔ **Gossip peers** | HTTP `POST /v1/gossip` (publish) + bounded pull (`gossip/client.go`, 64 KiB cap) | Events are **signed findings** (`gossip.Sign`), **re-verified by the SDK on receipt**; Lamport time makes re-delivery idempotent; pull-based ⇒ the publisher is never trusted |
-| 6 | Auditor / JN → **foreign tiles** | anonymous GET via `HTTPTileMirrors` (`attesta-tools/libs/auditing/gossipverify/tile_mirror.go`) | **Trust the root, not the server** — Merkle recompute vs the cosigned head; bounded `MaxTileBytes` (`attesta/log/tessera_fetcher.go:79`) |
+| 6 | Auditor / JN → **foreign tiles** | anonymous GET via `HTTPTileMirrors` (`attesta-tools/libs/auditing/gossipverify/tile_mirror.go`) | **Trust the root, not the server** — Merkle recompute vs the cosigned head; bounded `MaxTileBytes` (`baseproof/log/tessera_fetcher.go:79`) |
 | 7 | Auditor → **Heads Journal** | in-process `Record` (`attesta-tools/.../heads_journal.go`) | Only **verified** heads recorded; PK `(LogDID, Seq, RootHash)`; a conflicting root ⇒ store both + `ErrEquivocatedLog` |
-| 8 | JN → **cross-log verify** | `anchor.VerifyCrossLog(proof, sourceSet)` (`attesta/anchor/anchor.go:213`) | Recompute the **source** log's K-of-N quorum **offline** + inclusion vs the verified head's `RootHash`. ⚠ burn-gating is the open **SDK-4 / JN-3** gap |
+| 8 | JN → **cross-log verify** | `anchor.VerifyCrossLog(proof, sourceSet)` (`baseproof/anchor/anchor.go:213`) | Recompute the **source** log's K-of-N quorum **offline** + inclusion vs the verified head's `RootHash`. ⚠ burn-gating is the open **SDK-4 / JN-3** gap |
 | 9 | Witness → Auditor (**equivocation**) | witness cosigs on *both* forks → `witness.DetectEquivocation` → `KindEquivocationFinding` → gossip | The two independently-valid K-of-N cosignatures **are** the fraud proof; no ledger cooperation required |
 
 ## The four integrity invariants every channel obeys

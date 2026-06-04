@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/did"
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
+	"github.com/baseproof/baseproof/did"
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 )
 
 // VerifyOptions configures VerifyRequest. The shape mirrors
@@ -90,7 +90,7 @@ func VerifyRequest(
 			// way to bind a domain-extension into the SDK's
 			// signature verification while keeping every other
 			// SDK gate (nonce, domain, validity, hygiene) running
-			// against the envelope. See attesta v1.34 CHANGELOG.
+			// against the envelope. See baseproof v1.34 CHANGELOG.
 			CanonicalBytes: req.SigningBytes,
 		},
 	)

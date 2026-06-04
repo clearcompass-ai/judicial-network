@@ -10,8 +10,8 @@ DESCRIPTION:
 	the 7-day reduced time-lock.
 
 KEY DEPENDENCIES:
-  - attesta/builder: BuildCommentary (guide §11.3)
-  - attesta/lifecycle: ExecuteRemoval, ActivateRemoval (guide §20.2)
+  - baseproof/builder: BuildCommentary (guide §11.3)
+  - baseproof/lifecycle: ExecuteRemoval, ActivateRemoval (guide §20.2)
 */
 package load_accounting
 
@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/lifecycle"
+	"github.com/baseproof/baseproof/types"
 )
 
 // SettlementManager handles periodic settlement computation and

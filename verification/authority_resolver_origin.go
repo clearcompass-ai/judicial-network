@@ -40,7 +40,7 @@ OVERVIEW:
 
 KEY DEPENDENCIES:
   - schemas (JudicialDelegationPayload, schema URI consts).
-  - attesta envelope (Deserialize), verifier (EvaluateOrigin).
+  - baseproof envelope (Deserialize), verifier (EvaluateOrigin).
 */
 package verification
 
@@ -50,10 +50,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

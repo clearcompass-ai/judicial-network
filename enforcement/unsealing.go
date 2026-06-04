@@ -7,7 +7,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Same activation pattern: conditions → contest check → activate.
 
 OVERVIEW: UnsealCase → enforcement entry. RequestUnsealCosignature → cosig.
-KEY DEPENDENCIES: attesta/builder, attesta/lifecycle, attesta/verifier
+KEY DEPENDENCIES: baseproof/builder, baseproof/lifecycle, baseproof/verifier
 */
 package enforcement
 
@@ -15,10 +15,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/lifecycle"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

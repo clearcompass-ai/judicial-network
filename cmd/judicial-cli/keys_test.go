@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
-	sdkdid "github.com/clearcompass-ai/attesta/did"
+	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
+	sdkdid "github.com/baseproof/baseproof/did"
 )
 
 // TestKeygen_Roundtrip pins:

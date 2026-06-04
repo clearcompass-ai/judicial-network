@@ -26,11 +26,11 @@
 //	deployment manifest).
 //
 // KEY DEPENDENCIES:
-//   - attesta/verifier: HardcodedGenesis, AnchorLogSync,
+//   - baseproof/verifier: HardcodedGenesis, AnchorLogSync,
 //     TrustOnFirstUse, BootstrapResult, BootstrapMethod.
-//   - attesta/crypto/cosign: WitnessKeySet.
-//   - attesta/types: CosignedTreeHead, WitnessRotation.
-//   - attesta/witness: TreeHeadClient.
+//   - baseproof/crypto/cosign: WitnessKeySet.
+//   - baseproof/types: CosignedTreeHead, WitnessRotation.
+//   - baseproof/witness: TreeHeadClient.
 package onboarding
 
 import (
@@ -40,10 +40,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
-	"github.com/clearcompass-ai/attesta/witness"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
+	"github.com/baseproof/baseproof/witness"
 )
 
 // ErrBootstrap is the top-level sentinel; cryptographic

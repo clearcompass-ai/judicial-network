@@ -9,7 +9,7 @@ KEY ARCHITECTURAL DECISIONS:
   - Produces compliance report: which CIDs were erased, which failed.
 
 OVERVIEW: ExpungeCase → enforcement entry + batch erasure + compliance report.
-KEY DEPENDENCIES: attesta/builder, attesta/verifier, cases/artifact
+KEY DEPENDENCIES: baseproof/builder, baseproof/verifier, cases/artifact
 */
 package enforcement
 
@@ -18,14 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/core/smt"
-	lifecycleartifact "github.com/clearcompass-ai/attesta/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta/schema"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/core/smt"
+	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
+	"github.com/baseproof/baseproof/schema"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 )

@@ -19,23 +19,23 @@
 //
 //	The helpers in this file mirror the SDK's own matrix-test
 //	pattern verbatim (see
-//	attesta/tests/verify_entry_signatures_matrix_test.go) so the
+//	baseproof/tests/verify_entry_signatures_matrix_test.go) so the
 //	JN tests assert the production SDK seam and not a parallel
 //	encoder that could drift.
 //
 // KEY DEPENDENCIES:
-//   - attesta/crypto/multicall3: PackAggregate3 + BuildEIP1271Calls.
-//   - attesta/crypto/signatures: StubEthereumRPC + Multicall3CanonicalAddressHex.
-//   - attesta/did: PKHVerifierOptions, ExecutorClient, StaticBlockProvider,
+//   - baseproof/crypto/multicall3: PackAggregate3 + BuildEIP1271Calls.
+//   - baseproof/crypto/signatures: StubEthereumRPC + Multicall3CanonicalAddressHex.
+//   - baseproof/did: PKHVerifierOptions, ExecutorClient, StaticBlockProvider,
 //     DefaultVerifierRegistry.
 package contracts
 
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/crypto/multicall3"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/crypto/multicall3"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/did"
 
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )

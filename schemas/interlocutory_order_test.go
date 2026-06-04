@@ -1,21 +1,21 @@
 // Tests for judicial-interlocutory-order-v1.
 //
 // Pins the high-volume daily-court contract:
-//   1. Round-trip preservation across all fields.
-//   2. Registration in the JN domain Registry.
-//   3. Granted-motion-to-compel scenario (use case A from
-//      docstring) round-trips cleanly.
-//   4. Granted-in-part scenario (use case B) preserves Disposition.
-//   5. IsDispositive=true (case-ending order, use case C)
-//      round-trips and surfaces to consumers.
-//   6. Closed-set Disposition constants are usable as named values.
+//  1. Round-trip preservation across all fields.
+//  2. Registration in the JN domain Registry.
+//  3. Granted-motion-to-compel scenario (use case A from
+//     docstring) round-trips cleanly.
+//  4. Granted-in-part scenario (use case B) preserves Disposition.
+//  5. IsDispositive=true (case-ending order, use case C)
+//     round-trips and surfaces to consumers.
+//  6. Closed-set Disposition constants are usable as named values.
 package schemas
 
 import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/core/envelope"
 )
 
 func TestInterlocutoryOrder_RegisteredInJNRegistry(t *testing.T) {

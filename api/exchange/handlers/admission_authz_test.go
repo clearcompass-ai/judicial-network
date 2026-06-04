@@ -5,10 +5,10 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/authz"
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	sdksigs "github.com/clearcompass-ai/attesta/crypto/signatures"
+	"github.com/baseproof/baseproof/authz"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
 )
 
 // TestAdmissionAuthorizer_MintHeader_VerifiesAgainstJ proves the JN-minted

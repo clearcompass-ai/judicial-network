@@ -4,7 +4,7 @@
 //
 // It is PURE SDK: real secp256k1 K-of-N cosignatures over two different RFC-6962
 // roots at one tree size — exactly what witness.DetectEquivocation consumes
-// (attesta/witness/equivocation.go). "Physics, not mocks." Because it needs NO
+// (baseproof/witness/equivocation.go). "Physics, not mocks." Because it needs NO
 // live infrastructure, `go test ./equivocation/` runs the whole
 // equivocation → finding → position-aware → burn-gate chain on a developer
 // desktop with no stack provisioned.
@@ -22,9 +22,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/crypto/signatures"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/crypto/signatures"
+	"github.com/baseproof/baseproof/types"
 )
 
 // WitnessSet is a controllable k-of-n witness quorum: the verifier-facing

@@ -1,23 +1,23 @@
 // Tests for judicial-protective-order-v1.
 //
 // Pins the daily-court contract:
-//   1. Registration in the JN domain Registry.
-//   2. Ex parte DV protective order (use case A) round-trips
-//      with all standard restrictions.
-//   3. Civil TRO (use case B) — asset-freeze restrictions
-//      round-trip identically.
-//   4. Permanent injunction (use case C) — EffectiveUntil
-//      zero round-trips as zero (not auto-defaulted).
-//   5. Multiple ProtectedParties / RestrainedParties round-trip.
-//   6. Generic Restrictions strings (not in any closed set)
-//      round-trip — the schema is open-ended on purpose.
+//  1. Registration in the JN domain Registry.
+//  2. Ex parte DV protective order (use case A) round-trips
+//     with all standard restrictions.
+//  3. Civil TRO (use case B) — asset-freeze restrictions
+//     round-trip identically.
+//  4. Permanent injunction (use case C) — EffectiveUntil
+//     zero round-trips as zero (not auto-defaulted).
+//  5. Multiple ProtectedParties / RestrainedParties round-trip.
+//  6. Generic Restrictions strings (not in any closed set)
+//     round-trip — the schema is open-ended on purpose.
 package schemas
 
 import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/core/envelope"
+	"github.com/baseproof/baseproof/core/envelope"
 )
 
 func TestProtectiveOrder_RegisteredInJNRegistry(t *testing.T) {

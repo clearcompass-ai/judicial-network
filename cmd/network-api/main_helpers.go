@@ -28,12 +28,12 @@ import (
 
 	_ "github.com/lib/pq" // postgres driver for the durable gossip store
 
+	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
 	pkcs11ks "github.com/clearcompass-ai/attesta-tools/libs/keystore/pkcs11"
 	vaultks "github.com/clearcompass-ai/attesta-tools/libs/keystore/vault"
-	sdkauth "github.com/clearcompass-ai/attesta/exchange/auth"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
@@ -63,7 +63,7 @@ import (
 // binary. Per-network isolation lives at the ledger boundary: the
 // network-api binds to one ledger (LEDGER_ENDPOINT); the ledger
 // validates that an entry's destination is under its own network_id
-// (see attesta/exchange/admission). The e2e provisioner brings up
+// (see baseproof/exchange/admission). The e2e provisioner brings up
 // multiple JN binaries sharing this same registry; cross-network
 // admission is enforced downstream.
 func registerProductionBundles(r *jurisdiction.Registry) error {

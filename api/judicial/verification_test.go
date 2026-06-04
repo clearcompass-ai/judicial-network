@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 )
 
 // ─────────────────────────────────────────────────────────────────────

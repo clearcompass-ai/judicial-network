@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta/did"
+	"github.com/baseproof/baseproof/did"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
@@ -48,7 +48,7 @@ func writeFullBootstrap(t *testing.T, exchangeDID string, witnesses []string) st
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "network-bootstrap.json")
 	doc := `{` +
-		`"protocol_version":"attesta/v1",` +
+		`"protocol_version":"baseproof/v1",` +
 		`"network_name":"test",` +
 		`"exchange_did":"` + exchangeDID + `",` +
 		`"genesis_witness_set":[`
@@ -316,4 +316,3 @@ type fakeVerifier struct{}
 func (fakeVerifier) Verify(_ context.Context, _ string, _, _ []byte, _ uint16) error {
 	return errors.New("nope")
 }
-

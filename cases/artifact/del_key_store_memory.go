@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // InMemoryDelegationKeyStore is the reference DelegationKeyStore for

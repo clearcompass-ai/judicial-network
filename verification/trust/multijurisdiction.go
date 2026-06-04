@@ -85,9 +85,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clearcompass-ai/attesta/crypto/cosign"
-	"github.com/clearcompass-ai/attesta/types"
-	"github.com/clearcompass-ai/attesta/verifier"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/verifier"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
 )
@@ -243,7 +243,7 @@ func (m MultiJurisdictionTrust) TrustRoot(
 	asOf verifier.AsOf,
 ) (verifier.TrustRoot, error) {
 	if logDID == m.homeLogDID {
-		// ZT-IMM-01 (attesta v1.43.0): the home log resolves a journaled,
+		// ZT-IMM-01 (baseproof v1.43.0): the home log resolves a journaled,
 		// VERIFIED cosigned head too — not LocalTrust's head-agnostic zero
 		// head — so ResolveLatest and the per-hop walks can pin an exact head
 		// (RootHash mandatory). The home reconciler journals home heads, so

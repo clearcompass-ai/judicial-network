@@ -75,7 +75,7 @@ KEY ARCHITECTURAL DECISIONS
 
 KEY DEPENDENCIES
   - schemas/registry.go: SchemaRegistration type, ErrDeserialize sentinel
-  - attesta/types: LogPosition
+  - baseproof/types: LogPosition
 */
 package schemas
 
@@ -83,7 +83,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/types"
 )
 
 // -------------------------------------------------------------------------------------------------
@@ -95,11 +95,11 @@ const SchemaInterlocutoryOrderV1 = "judicial-interlocutory-order-v1"
 
 // Disposition values — the closed set per dictionary §6.
 const (
-	DispositionGranted                      = "granted"
-	DispositionDenied                       = "denied"
-	DispositionGrantedInPartDeniedInPart    = "granted_in_part_denied_in_part"
-	DispositionDeniedWithoutPrejudice       = "denied_without_prejudice"
-	DispositionTakenUnderAdvisement         = "taken_under_advisement"
+	DispositionGranted                   = "granted"
+	DispositionDenied                    = "denied"
+	DispositionGrantedInPartDeniedInPart = "granted_in_part_denied_in_part"
+	DispositionDeniedWithoutPrejudice    = "denied_without_prejudice"
+	DispositionTakenUnderAdvisement      = "taken_under_advisement"
 )
 
 // -------------------------------------------------------------------------------------------------

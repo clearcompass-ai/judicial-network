@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/lifecycle"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/lifecycle"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 )
 
 // ErrArbitrationDenied surfaces the arbitration verdict when a
@@ -76,7 +76,7 @@ func InitiateUngracefulMigration(cfg UngracefulMigrationConfig) (*lifecycle.Init
 }
 
 // ArbitrateHostileRecovery is the consensus-override path documented
-// in attesta/docs/recovery.md Part 2: Arbitrated / Hostile
+// in baseproof/docs/recovery.md Part 2: Arbitrated / Hostile
 // Recovery. When cooperative escrow recovery is impossible (stolen
 // keys, rogue staff, escrow-node failure) the network administrators
 // vote and an independent witness cosigns; SDK math evaluates whether

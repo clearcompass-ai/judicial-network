@@ -18,10 +18,10 @@ import (
 
 	secp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	"github.com/clearcompass-ai/attesta/core/vss"
-	"github.com/clearcompass-ai/attesta/crypto/escrow"
-	"github.com/clearcompass-ai/attesta/exchange/identity"
-	"github.com/clearcompass-ai/attesta/storage"
+	"github.com/baseproof/baseproof/core/vss"
+	"github.com/baseproof/baseproof/crypto/escrow"
+	"github.com/baseproof/baseproof/exchange/identity"
+	"github.com/baseproof/baseproof/storage"
 )
 
 // ─── Helpers ────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ DESCRIPTION:
 
 WAVE 1 ADMISSION GATEKEEPER:
 
-	Per attesta/docs/implementation-obligations.md ("Exchange
+	Per baseproof/docs/implementation-obligations.md ("Exchange
 	Admission Gatekeeper"), the build path MUST consult a domain
 	scope_limit registry BEFORE signing. The cryptographic chain on
 	the log will eventually catch a violation at read time
@@ -32,7 +32,7 @@ WAVE 1 ADMISSION GATEKEEPER:
 	403 Forbidden before KeyStore.Sign is ever called.
 
 KEY DEPENDENCIES:
-  - attesta/builder: all Build* functions (guide §11.3)
+  - baseproof/builder: all Build* functions (guide §11.3)
   - exchange/keystore: Sign (key custody)
   - exchange/auth: SignerDIDFromContext (authenticated caller)
 */
@@ -47,10 +47,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/clearcompass-ai/attesta/builder"
-	"github.com/clearcompass-ai/attesta/core/envelope"
-	"github.com/clearcompass-ai/attesta/storage"
-	"github.com/clearcompass-ai/attesta/types"
+	"github.com/baseproof/baseproof/builder"
+	"github.com/baseproof/baseproof/core/envelope"
+	"github.com/baseproof/baseproof/storage"
+	"github.com/baseproof/baseproof/types"
 
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
 	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
