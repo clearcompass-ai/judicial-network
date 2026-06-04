@@ -4,9 +4,9 @@
 # The judicial-network is the ENFORCER, not the custodian. It re-verifies
 # evidence it pulls (zero-trust) and reacts (admission / halt), but it must
 # host NO custodial gossip.Store and serve NO gossip feed — custody of fraud
-# evidence belongs to the external auditor (attesta-tools services/auditor).
+# evidence belongs to the external auditor (tooling services/auditor).
 #
-# attesta-tools enforces this structurally (the store impl is auditor-internal,
+# tooling enforces this structurally (the store impl is auditor-internal,
 # un-importable). The JN can still REACH the SDK's store types, so this guard
 # keeps the enforcer↔custodian split honest here: it fails if the JN ever
 # constructs a gossip.Store or mounts the feed again.

@@ -53,8 +53,8 @@ import (
 	"github.com/baseproof/baseproof/crypto/cosign"
 	"github.com/baseproof/baseproof/verifier"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/crosslog"
+	"github.com/baseproof/tooling/libs/monitoring"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"

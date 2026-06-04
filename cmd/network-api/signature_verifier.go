@@ -87,7 +87,7 @@ func buildSignatureVerifier(cfg config.Operational, resolver did.DIDResolver) (a
 // signed-request auth path: a registry that OMITS a method silently
 // rejects every signature using it (indistinguishable from an invalid
 // signature — the hazard documented at
-// attesta-tools/libs/auditing/didregistry/doc.go), so both seams
+// tooling/libs/auditing/didregistry/doc.go), so both seams
 // register the same full space and an unsupported algorithm fails with
 // a specific error, never a silent method-not-registered drop.
 //

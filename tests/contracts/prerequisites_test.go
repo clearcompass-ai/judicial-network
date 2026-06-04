@@ -36,7 +36,7 @@ import (
 	"testing"
 	"time"
 
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"

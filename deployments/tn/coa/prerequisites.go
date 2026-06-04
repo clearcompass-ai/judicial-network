@@ -36,7 +36,7 @@ package coa
 import (
 	"fmt"
 
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 )
 
 // PrerequisiteRules returns the closed-set TN COA prerequisite

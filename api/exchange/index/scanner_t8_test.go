@@ -31,7 +31,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
+	"github.com/baseproof/tooling/libs/crosslog"
 )
 
 // JN-shaped case payload — what scanner.indexDomainPayload normally

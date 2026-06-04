@@ -26,7 +26,7 @@ import (
 	"github.com/baseproof/baseproof/gossip"
 	"github.com/baseproof/baseproof/network"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/monitoring"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 )

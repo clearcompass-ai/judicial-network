@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 type contextKey string

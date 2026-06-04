@@ -12,9 +12,11 @@ import (
 	"github.com/clearcompass-ai/judicial-network/e2e/topology"
 )
 
-// Shared, harness-chosen identifiers (baseproof-branded). Image NAMESPACES and
-// did:attesta: DIDs are intentionally left as published (see the rename boundary);
-// everything the harness itself owns uses the baseproof name.
+// Shared, harness-chosen identifiers (baseproof-branded). The tooling fleet
+// images (ledger/witness/auditor) now publish under ghcr.io/baseproof/tooling;
+// JN's own images stay under ghcr.io/clearcompass-ai/judicial-network, and
+// did:attesta: DIDs are intentionally left as published. Everything the harness
+// itself owns uses the baseproof name.
 const (
 	pgUser     = "baseproof"
 	pgPassword = "baseproof"
@@ -33,7 +35,8 @@ const (
 
 	pgDBDefault = "baseproof_test" // POSTGRES_DB (the single-network ledger DB)
 
-	ghcr = "ghcr.io/clearcompass-ai" // image namespace — left per the rename boundary
+	ghcr    = "ghcr.io/clearcompass-ai"   // JN's own image namespace (unchanged)
+	tooling = "ghcr.io/baseproof/tooling" // relocated tooling fleet images
 )
 
 // uidGID returns the host uid:gid so image entrypoints write fixtures we can read.
@@ -83,9 +86,9 @@ func ResolveImages() Images {
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures from
 		// the v1.66.0 release; witness is unchanged (server-TLS only).
-		Ledger:     env("E2E_LEDGER_IMAGE", ghcr+"/attesta-tools/ledger:1.66.0"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", ghcr+"/attesta-tools/witness:1.52.0"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", ghcr+"/attesta-tools/auditor:1.66.0"),
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:1.66.0"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:1.52.0"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:1.66.0"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}

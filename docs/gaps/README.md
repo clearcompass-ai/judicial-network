@@ -30,8 +30,8 @@ reconstruction, or burn-awareness the physics require.
 | **SDK-2** | baseproof/baseproof | Add `RootHash` fork discriminator to `AsOf`/`LogPosition` | Scenario 4 / Physics #2 | — |
 | **SDK-3** | baseproof/baseproof | Add `WitnessSetAt(asOf)` historical witness-set reconstruction | Scenario 2 (Goal 13) | — |
 | **SDK-4** | baseproof/baseproof | `anchor.VerifyCrossLog` must take a burn oracle and fail closed | Physics #4 | — |
-| **AT-1** | clearcompass-ai/attesta-tools | Journal-backed `WitnessSetAt` materialization | Scenario 2 | SDK-3 |
-| **AT-2** | clearcompass-ai/attesta-tools | Wire the dormant standalone equivocation `Scanner` | Scenario 12 | — |
+| **AT-1** | baseproof/tooling | Journal-backed `WitnessSetAt` materialization | Scenario 2 | SDK-3 |
+| **AT-2** | baseproof/tooling | Wire the dormant standalone equivocation `Scanner` | Scenario 12 | — |
 | **JN-1** | clearcompass-ai/judicial-network | Pin cross-network resolution to RootHash (`HeadByRootHash`) | Scenario 4 | SDK-2 |
 | **JN-2** | clearcompass-ai/judicial-network | Replace static `foreignSets` with journal-backed historical sets | Scenario 2 | SDK-3, AT-1 |
 | **JN-3** | clearcompass-ai/judicial-network | Burn-gate the 4 `VerifyCrossLog` call sites | Physics #4 | SDK-4 |
@@ -67,6 +67,6 @@ actionable gap.
 ## Dedup note
 
 `judicial-network#69` reviewed directly. The GitHub API was rate-limited during
-the audit, so open issues in baseproof / attesta-tools / ledger / e2e-tests were
+the audit, so open issues in baseproof / tooling / ledger / e2e-tests were
 **not** queried — run a dedup pass there (especially baseproof, for any existing
 `AsOf`/PQ tickets) before filing SDK-1…SDK-4.

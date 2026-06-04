@@ -34,8 +34,8 @@ import (
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/witness"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
-	jnmon "github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/crosslog"
+	jnmon "github.com/baseproof/tooling/libs/monitoring"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 )
@@ -104,7 +104,7 @@ func buildMonitoringScheduler(
 	// D12 — URL drift audit (libs v1.29.0 monitoring.CheckURLDrift). Registers
 	// only when ALL four conditions are met: URLDriftInterval > 0, the
 	// AuthoritativeResolver is populated, the DID resolver is wired, and the
-	// bootstrap LocalLogDID is known. Mirrors the attesta-tools auditor's
+	// bootstrap LocalLogDID is known. Mirrors the tooling auditor's
 	// 4-condition gate (services/auditor/internal/app/app.go) — any missing
 	// piece silently disables the job (it's purely advisory).
 	if cfg.URLDriftInterval > 0 && deps.AuthoritativeResolver != nil && deps.Resolver != nil {

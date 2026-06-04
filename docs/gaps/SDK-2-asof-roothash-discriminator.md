@@ -31,9 +31,9 @@ indistinguishable through the SDK selector.
 |---|---|---|
 | `types/log_position.go:9-12` | `LogPosition{ LogDID string; Sequence uint64 }` | no RootHash field |
 | `verifier/log_trust.go:36` | `type AsOf = types.LogPosition` | docstring claims it unifies "fork", but the type can't |
-| `attesta-tools/libs/monitoring/heads_journal.go:139` | `HeadByRootHash(logDID, sequence, rootHash)` | exact-fork lookup exists one layer down |
-| `attesta-tools/libs/monitoring/heads_journal.go:146` | `HeadsAtSequence` "returns ≥2 (the diverging roots)" | journal models forks explicitly |
-| `attesta-tools/services/auditor/internal/store/heads_journal.go:110` | `PRIMARY KEY (log_did, sequence, root_hash)` | storage is root-keyed |
+| `tooling/libs/monitoring/heads_journal.go:139` | `HeadByRootHash(logDID, sequence, rootHash)` | exact-fork lookup exists one layer down |
+| `tooling/libs/monitoring/heads_journal.go:146` | `HeadsAtSequence` "returns ≥2 (the diverging roots)" | journal models forks explicitly |
+| `tooling/services/auditor/internal/store/heads_journal.go:110` | `PRIMARY KEY (log_did, sequence, root_hash)` | storage is root-keyed |
 | `judicial-network/verification/trust/multijurisdiction.go:284-287` | `resolveHead` → `HeadAt(asOf.Sequence)` | consumer drops the root dimension (see JN-1) |
 
 ## Impact (mapped to the mandate)
@@ -99,6 +99,6 @@ type AsOf struct {
 ```bash
 grep -rn "type LogPosition" types/
 grep -rn "type AsOf" verifier/
-grep -rn "HeadByRootHash\|HeadsAtSequence" ../attesta-tools/libs/monitoring/heads_journal.go
-grep -rn "PRIMARY KEY" ../attesta-tools/services/auditor/internal/store/heads_journal.go
+grep -rn "HeadByRootHash\|HeadsAtSequence" ../tooling/libs/monitoring/heads_journal.go
+grep -rn "PRIMARY KEY" ../tooling/services/auditor/internal/store/heads_journal.go
 ```

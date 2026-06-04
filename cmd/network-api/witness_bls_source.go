@@ -8,7 +8,7 @@
 // (scheme/key/PoP, baseproof v1.54).
 //
 // The materialize/validate/project walkers are domain-agnostic and used by every
-// network's auditor, so they live in attesta-tools/libs/crosslog (the witness
+// network's auditor, so they live in tooling/libs/crosslog (the witness
 // twin of AuditorSpec / BuildAuditorRegistryFromConfig). This file only decodes
 // JN's config rows and calls them:
 //
@@ -34,7 +34,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
+	"github.com/baseproof/tooling/libs/crosslog"
 )
 
 // witnessEndpointDeclJSON is the JSON/hex wire shape of one on-log witness

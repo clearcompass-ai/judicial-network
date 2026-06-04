@@ -52,9 +52,9 @@ import (
 	"github.com/baseproof/baseproof/storage"
 	"github.com/baseproof/baseproof/types"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
-	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
-	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	"github.com/baseproof/tooling/libs/httpmw/observability"
+	"github.com/baseproof/tooling/libs/httpmw/reliability"
+	"github.com/baseproof/tooling/libs/keystore"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 )

@@ -52,9 +52,9 @@ import (
 	"github.com/baseproof/baseproof/crypto/signatures"
 	"github.com/baseproof/baseproof/did"
 
-	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
-	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
-	keysigner "github.com/clearcompass-ai/attesta-tools/libs/keystore/signer"
+	middleware "github.com/baseproof/tooling/libs/httpmw"
+	"github.com/baseproof/tooling/libs/keystore"
+	keysigner "github.com/baseproof/tooling/libs/keystore/signer"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 

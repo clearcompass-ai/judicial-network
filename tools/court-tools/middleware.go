@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // SealedFilterMiddleware checks whether the requested case is sealed or expunged.

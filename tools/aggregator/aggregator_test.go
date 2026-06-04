@@ -27,8 +27,8 @@ import (
 	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/baseproof/baseproof/types"
 
-	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	libagg "github.com/baseproof/tooling/libs/aggregator"
+	common "github.com/baseproof/tooling/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 )
 

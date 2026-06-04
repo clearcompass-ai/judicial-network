@@ -31,7 +31,7 @@ import (
 	"github.com/baseproof/baseproof/log"
 	"github.com/baseproof/baseproof/types"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
+	"github.com/baseproof/tooling/libs/crosslog"
 )
 
 // SettlementLedger records per-member usage between two tree head

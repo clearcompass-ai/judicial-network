@@ -50,8 +50,8 @@ import (
 	"net/http"
 	"time"
 
-	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
-	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	middleware "github.com/baseproof/tooling/libs/httpmw"
+	"github.com/baseproof/tooling/libs/httpmw/observability"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/api/openapi"

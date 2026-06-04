@@ -22,7 +22,7 @@ import (
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/verifier"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	"github.com/baseproof/tooling/libs/keystore"
 )
 
 // produceRotation runs the production producer steps against the keystore:

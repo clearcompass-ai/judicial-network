@@ -25,7 +25,7 @@ import (
 	"context"
 	"encoding/json"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // PartiesFilingRow is the in-memory shape one row produces. The

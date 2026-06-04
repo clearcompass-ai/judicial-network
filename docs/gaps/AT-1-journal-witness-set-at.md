@@ -1,6 +1,6 @@
 # AT-1 — Journal-backed `WitnessSetAt` materialization
 
-> **Target repo:** clearcompass-ai/attesta-tools
+> **Target repo:** baseproof/tooling
 > **Labels:** `enhancement` · `long-term-verifiability`
 > **Depends on:** SDK-3 (the `WitnessSetAt` contract) · **Consumed by:** JN-2
 > **Status:** Proposal. The heads journal already persists every head with its

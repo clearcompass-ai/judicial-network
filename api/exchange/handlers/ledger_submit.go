@@ -39,7 +39,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/reliability"
+	"github.com/baseproof/tooling/libs/httpmw/reliability"
 )
 
 // submitToLedgerProtected runs submitToLedger inside the

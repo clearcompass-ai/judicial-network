@@ -30,7 +30,7 @@ DESCRIPTION:
 package appellate_base
 
 import (
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/policy"

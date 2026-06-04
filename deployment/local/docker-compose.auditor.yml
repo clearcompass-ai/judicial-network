@@ -6,7 +6,7 @@
 # (custody), runs detection, and serves its OWN /v1/gossip feed — which the JN
 # enforcer then re-verifies (verify-only). The JN hosts none of this.
 #
-# The auditor image lives in attesta-tools (services/auditor), OUTSIDE this repo,
+# The auditor image lives in tooling (services/auditor), OUTSIDE this repo,
 # so there is no `build:` here — the e2e/operator builds + tags it (default
 # auditor:local) and points AUDITOR_IMAGE at it. The auditor reaches the
 # host-run ledger via host.docker.internal; its store is a sibling service.
@@ -35,10 +35,10 @@ services:
       retries: 20
 
   auditor:
-    # Strict-pull: published by attesta-tools' publish-images workflow
-    # (ghcr.io/<owner>/attesta-tools/auditor). Override AUDITOR_IMAGE for a
+    # Strict-pull: published by tooling' publish-images workflow
+    # (ghcr.io/<owner>/tooling/auditor). Override AUDITOR_IMAGE for a
     # local/unpublished build.
-    image: "${AUDITOR_IMAGE:-ghcr.io/clearcompass-ai/attesta-tools/auditor:latest}"
+    image: "${AUDITOR_IMAGE:-ghcr.io/baseproof/tooling/auditor:latest}"
     container_name: baseproof-auditor
     depends_on:
       auditor-db:

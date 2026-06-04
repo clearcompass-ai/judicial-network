@@ -44,7 +44,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/monitoring"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 )

@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"github.com/baseproof/baseproof/core/envelope"
-	"github.com/clearcompass-ai/attesta-tools/libs/identity"
+	"github.com/baseproof/tooling/libs/identity"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	dcrecdsa "github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 )

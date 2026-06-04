@@ -24,7 +24,7 @@ import (
 	"github.com/baseproof/baseproof/witness"
 
 	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/monitoring"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"

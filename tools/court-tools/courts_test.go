@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // -------------------------------------------------------------------------

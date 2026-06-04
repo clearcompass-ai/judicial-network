@@ -29,11 +29,11 @@ import (
 	_ "github.com/lib/pq" // postgres driver for the durable gossip store
 
 	sdkauth "github.com/baseproof/baseproof/exchange/auth"
-	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
-	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
-	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
-	pkcs11ks "github.com/clearcompass-ai/attesta-tools/libs/keystore/pkcs11"
-	vaultks "github.com/clearcompass-ai/attesta-tools/libs/keystore/vault"
+	middleware "github.com/baseproof/tooling/libs/httpmw"
+	"github.com/baseproof/tooling/libs/httpmw/observability"
+	"github.com/baseproof/tooling/libs/keystore"
+	pkcs11ks "github.com/baseproof/tooling/libs/keystore/pkcs11"
+	vaultks "github.com/baseproof/tooling/libs/keystore/vault"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"

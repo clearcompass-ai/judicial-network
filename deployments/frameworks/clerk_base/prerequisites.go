@@ -18,7 +18,7 @@ DESCRIPTION:
 package clerk_base
 
 import (
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 )
 
 // MustPrerequisitePolicy returns the clerk-event prerequisite policy.

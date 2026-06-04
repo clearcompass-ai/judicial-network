@@ -7,7 +7,7 @@ import (
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/verifier"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // VerifyDelegationHandler handles GET /v1/verify/delegation/{logID}/{pos}.

@@ -27,7 +27,7 @@ DESCRIPTION:
 package supreme_base
 
 import (
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 	tnsupct "github.com/clearcompass-ai/judicial-network/deployments/tn/sup_ct"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/policy"

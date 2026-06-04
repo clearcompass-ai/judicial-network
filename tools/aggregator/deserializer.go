@@ -5,7 +5,7 @@ import (
 
 	"github.com/baseproof/baseproof/core/envelope"
 
-	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
+	libagg "github.com/baseproof/tooling/libs/aggregator"
 )
 
 // ClassifiedEntry is a decoded ledger entry plus its judicial EntryType. The

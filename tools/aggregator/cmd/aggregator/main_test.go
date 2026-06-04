@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
-	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	libagg "github.com/baseproof/tooling/libs/aggregator"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // ─────────────────────────────────────────────────────────────────────

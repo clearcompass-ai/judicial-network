@@ -3,7 +3,7 @@ package aggregator
 import (
 	_ "embed"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // embeddedSchema is the projection schema, embedded so the aggregator binary is

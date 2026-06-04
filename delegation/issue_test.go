@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/baseproof/baseproof/core/envelope"
-	"github.com/clearcompass-ai/attesta-tools/libs/identity"
+	"github.com/baseproof/tooling/libs/identity"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"

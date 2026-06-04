@@ -39,8 +39,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
-	"github.com/clearcompass-ai/attesta-tools/libs/httpmw/observability"
+	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/baseproof/tooling/libs/httpmw/observability"
 )
 
 // errMissingDB / errMissingLedger are surfaced from run() when

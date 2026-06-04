@@ -18,7 +18,7 @@ package trial
 import (
 	"testing"
 
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 )
 
 func TestMotions3D_ExpectedEvents(t *testing.T) {

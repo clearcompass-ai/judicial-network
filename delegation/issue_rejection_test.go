@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/identity"
+	"github.com/baseproof/tooling/libs/identity"
 )
 
 // ─── request validation ────────────────────────────────────────────

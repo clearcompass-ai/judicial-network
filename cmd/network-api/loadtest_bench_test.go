@@ -50,8 +50,8 @@ import (
 	"testing"
 	"time"
 
-	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
-	"github.com/clearcompass-ai/attesta-tools/libs/keystore"
+	middleware "github.com/baseproof/tooling/libs/httpmw"
+	"github.com/baseproof/tooling/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"

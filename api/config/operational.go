@@ -221,7 +221,7 @@ type Operational struct {
 //     registered Scope as of a specific log position). Optional
 //     independently of Enforce: an empty amendments slice is valid.
 //
-// Both files mirror the attesta-tools auditor service's
+// Both files mirror the tooling auditor service's
 // AUDITOR_REGISTRY_FILE / AUDITOR_AMENDMENT_FILE shape — same JSON,
 // same sort discipline (ascending by EffectivePos).
 //
@@ -851,7 +851,7 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 	}
 
 	// Auditor-scope gate (v1.33.x). Off by default; flip on once registry +
-	// amendment files are provisioned. Mirrors the attesta-tools auditor's
+	// amendment files are provisioned. Mirrors the tooling auditor's
 	// AUDITOR_ENFORCE_SCOPES / AUDITOR_REGISTRY_FILE / AUDITOR_AMENDMENT_FILE
 	// env surface so one operator manifest drives both auditor and JN.
 	if b, ok := envBool("API_ENFORCE_SCOPES"); ok {

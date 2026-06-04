@@ -40,7 +40,7 @@ import (
 	"testing"
 	"time"
 
-	middleware "github.com/clearcompass-ai/attesta-tools/libs/httpmw"
+	middleware "github.com/baseproof/tooling/libs/httpmw"
 )
 
 // ─────────────────────────────────────────────────────────────────────

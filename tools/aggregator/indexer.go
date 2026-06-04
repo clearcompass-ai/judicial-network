@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // Indexer writes classified entries into Postgres tables.

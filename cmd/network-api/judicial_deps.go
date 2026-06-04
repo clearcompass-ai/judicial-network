@@ -72,7 +72,7 @@ import (
 
 	lifecycleartifact "github.com/baseproof/baseproof/lifecycle/artifact"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
+	"github.com/baseproof/tooling/libs/crosslog"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
 	"github.com/clearcompass-ai/judicial-network/cases/artifact"
