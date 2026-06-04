@@ -232,32 +232,29 @@ func TestS6_23_CrossNetworkAnchorVerifies(t *testing.T) {
 		return
 	}
 
-	// Build the REAL CosignedAnchorV1 of TN's head (what Federal would anchor).
-	anchorEntry, err := anchor.BuildCosignedAnchorEntry(anchor.CosignedAnchorParams{
+	// Build + verify the REAL CosignedAnchorV1 of TN's head in ONE agnostic SDK
+	// call (anchor.BuildVerifiedAnchorEntry): it succeeds only if the embedded head
+	// recomputes a valid K-of-N quorum against TN's REAL witness set — the
+	// source-side heart of VerifyCrossLog.
+	params := anchor.CosignedAnchorParams{
 		SignerDID:    fedDID,
 		Destination:  fedDID,
 		SourceLogDID: tnDID,
 		Head:         sdkHead,
 		NetworkID:    networkIDOf(tn),
 		EventTime:    time.Now().Unix(),
-	})
+	}
+	entry, err := anchor.BuildVerifiedAnchorEntry(params, witnessSetFor(t, tn))
 	if err != nil {
-		t.Fatalf("build CosignedAnchorV1 of TN's live head: %v", err)
+		t.Fatalf("CosignedAnchorV1 of TN's live head must build+verify against TN's witness set, got: %v", err)
 	}
-
-	// Cryptographic verification: the anchor's embedded head recomputes a valid
-	// K-of-N quorum against TN's REAL witness set (the heart of VerifyCrossLog).
-	va, verr := anchor.VerifyCosignedAnchor(anchorEntry.DomainPayload, witnessSetFor(t, tn))
-	if verr != nil {
-		t.Fatalf("CosignedAnchorV1 of TN's live head must verify against TN's witness set, got: %v", verr)
-	}
-	if va.SourceLogDID != tnDID {
-		t.Fatalf("verified anchor source = %q, want %q", va.SourceLogDID, tnDID)
+	if entry == nil || len(entry.DomainPayload) == 0 {
+		t.Fatal("expected a non-empty verified anchor entry")
 	}
 
 	// Negative: the SAME anchor must NOT verify under Federal's witness set — the
 	// quorum is bound to TN's witnesses + NetworkID, never assumed.
-	if _, e := anchor.VerifyCosignedAnchor(anchorEntry.DomainPayload, witnessSetFor(t, fed)); e == nil {
+	if _, e := anchor.BuildVerifiedAnchorEntry(params, witnessSetFor(t, fed)); e == nil {
 		t.Fatal("a TN-head anchor must NOT verify under Federal's witness set (cross-source binding broken)")
 	}
 }

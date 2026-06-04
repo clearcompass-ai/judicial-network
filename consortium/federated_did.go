@@ -3,11 +3,7 @@ package consortium
 import (
 	"context"
 
-	"github.com/baseproof/baseproof/anchor"
-	"github.com/baseproof/baseproof/crypto/cosign"
 	"github.com/baseproof/baseproof/did"
-	"github.com/baseproof/baseproof/types"
-	"github.com/baseproof/baseproof/verifier"
 
 	judicialdid "github.com/clearcompass-ai/judicial-network/did"
 )
@@ -31,41 +27,9 @@ func (fr *FederatedResolver) Resolve(ctx context.Context, didStr string) (*did.D
 	return fr.resolver.Resolve(ctx, didStr)
 }
 
-// BuildCrossCourtProof constructs a compound proof that an entry on
-// one court's log is verifiable from another court's perspective.
-// ctx threads into the fetcher / prover RPCs.
-func BuildCrossCourtProof(
-	ctx context.Context,
-	sourceRef types.LogPosition,
-	anchorRef types.LogPosition,
-	fetcher types.EntryFetcher,
-	sourceProver verifier.MerkleProver,
-	localProver verifier.MerkleProver,
-	sourceHead types.CosignedTreeHead,
-	localHead types.CosignedTreeHead,
-) (*types.CrossLogProof, error) {
-	return verifier.BuildCrossLogProof(ctx,
-		sourceRef, anchorRef, fetcher,
-		sourceProver, localProver,
-		sourceHead, localHead,
-	)
-}
-
-// VerifyCrossCourtProof verifies a compound proof across courts.
-// v0.3.0: the (keys, K, networkID, blsVerifier) parameter group is
-// encapsulated into a single *cosign.WitnessKeySet representing the
-// SOURCE network's witness topology, preventing the class of bug
-// where K and the key set drift out of sync for a given log.
-//
-// SDK-4 (baseproof v1.43.0): trust is the SOURCE log's pinned, offline
-// burn/equivocation status. The zero value (Known=false) fails closed
-// with ErrTrustUnknown BEFORE any crypto; a burned source fails with
-// ErrEquivocatedLog. Callers obtain it from the heads journal via
-// trust.StatusFor — the SDK gate is the single burn chokepoint.
-func VerifyCrossCourtProof(
-	proof types.CrossLogProof,
-	sourceSet *cosign.WitnessKeySet,
-	trust verifier.TrustStatus,
-) error {
-	return anchor.VerifyCrossLog(proof, sourceSet, trust)
-}
+// NOTE: cross-court proof build/verify are NOT wrapped here. They are
+// domain-agnostic SDK capabilities — callers invoke them directly:
+//   - build:  verifier.BuildCrossLogProof(...)
+//   - verify: anchor.VerifyCrossLog(proof, sourceSet, trust)
+// (the former BuildCrossCourtProof/VerifyCrossCourtProof pass-throughs added a
+// judicial name but zero judicial logic, so they were removed — JN#110.)

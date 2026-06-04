@@ -135,21 +135,19 @@ func buildVerifiedAnchor(src stack.Target, dstLogDID string) (string, uint64, er
 	if err != nil {
 		return "", 0, fmt.Errorf("source witness set: %w", err)
 	}
-	entry, err := anchor.BuildCosignedAnchorEntry(anchor.CosignedAnchorParams{
+	// Build + offline-verify in ONE agnostic SDK call: the embedded head must
+	// recompute a valid K-of-N quorum against the source's own witness set before
+	// the anchor is publishable (fail-closed otherwise).
+	entry, err := anchor.BuildVerifiedAnchorEntry(anchor.CosignedAnchorParams{
 		SignerDID:    dstLogDID,
 		Destination:  dstLogDID,
 		SourceLogDID: src.LogDID,
 		Head:         sdkHead,
 		NetworkID:    nid,
 		EventTime:    time.Now().Unix(),
-	})
+	}, set)
 	if err != nil {
-		return "", 0, fmt.Errorf("build anchor entry: %w", err)
-	}
-	// Offline cryptographic verification before publishing: the embedded head
-	// recomputes a valid K-of-N quorum against the source's own witness set.
-	if _, err := anchor.VerifyCosignedAnchor(entry.DomainPayload, set); err != nil {
-		return "", 0, fmt.Errorf("anchor of source head fails verification (not K-of-N): %w", err)
+		return "", 0, fmt.Errorf("build+verify anchor of source head: %w", err)
 	}
 	return string(entry.DomainPayload), head.TreeSize, nil
 }
