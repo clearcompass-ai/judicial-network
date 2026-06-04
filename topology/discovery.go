@@ -5,12 +5,15 @@ DESCRIPTION: Court DID → anchor chain resolution. Walks the anchor hierarchy
 	to verify a court is a legitimate participant.
 
 KEY ARCHITECTURAL DECISIONS:
-  - Uses DIDResolver for court DID → DID Document → ledger endpoint.
-  - Uses TreeHeadClient to fetch and cache tree heads along the chain.
+  - The bounded pointer-follow (depth cap + cycle-guard) is the SDK's agnostic
+    walk.WalkAnchorChain over protocol.Node; topology.JurisdictionNode satisfies
+    Node (member package / baseproof#7). This file keeps ONLY the domain
+    enrichment — DIDResolver for court DID → ledger endpoint, TreeHeadClient for
+    the per-node cached tree size.
   - Max chain depth 10 (state → county is typically depth 2).
 
-OVERVIEW: DiscoverAnchorChain walks from court to state root.
-KEY DEPENDENCIES: baseproof/did, baseproof/witness
+OVERVIEW: DiscoverAnchorChain walks court → state root via the SDK walker.
+KEY DEPENDENCIES: baseproof/{did,witness,walk,protocol}
 */
 package topology
 
@@ -19,6 +22,8 @@ import (
 	"fmt"
 
 	"github.com/baseproof/baseproof/did"
+	"github.com/baseproof/baseproof/protocol"
+	"github.com/baseproof/baseproof/walk"
 	"github.com/baseproof/baseproof/witness"
 )
 
@@ -39,9 +44,10 @@ type AnchorChainResult struct {
 	Valid        bool
 }
 
-// DiscoverAnchorChain walks the anchor hierarchy from a court DID to
-// the state root. Each step resolves the DID Document to find the
-// ledger endpoint and parent anchor DID. ctx bounds the resolver RPCs.
+// DiscoverAnchorChain walks the anchor hierarchy from a court DID to the state
+// root and enriches each step with its ledger endpoint + cached tree size. The
+// walk itself is delegated to the SDK's agnostic walk.WalkAnchorChain (bounded
+// at maxAnchorChainDepth, cycle-detected); ctx bounds the resolver RPCs.
 func DiscoverAnchorChain(
 	ctx context.Context,
 	courtDID string,
@@ -53,54 +59,45 @@ func DiscoverAnchorChain(
 		return nil, fmt.Errorf("topology/discovery: nil hierarchy")
 	}
 
-	result := &AnchorChainResult{}
-	current := courtDID
-	visited := make(map[string]bool)
-
-	for depth := 0; depth < maxAnchorChainDepth; depth++ {
-		if visited[current] {
-			break
-		}
-		visited[current] = true
-
-		node, ok := hierarchy.ByDID[current]
+	// Delegate the bounded pointer-follow to the SDK walker. JurisdictionNode
+	// satisfies protocol.Node; the hierarchy is the domain's node lookup.
+	lookup := func(logDID string) (protocol.Node, bool) {
+		n, ok := hierarchy.ByDID[logDID]
 		if !ok {
-			break
+			return nil, false
 		}
+		return n, true
+	}
+	chain := walk.WalkAnchorChain(courtDID, lookup, maxAnchorChainDepth)
 
-		chainNode := AnchorChainNode{
-			LogDID: current,
-			Depth:  depth,
-		}
+	result := &AnchorChainResult{}
+	for depth, node := range chain {
+		logDID := node.ID()
+		chainNode := AnchorChainNode{LogDID: logDID, Depth: depth}
 
-		// Resolve ledger URL from DID Document.
+		// Resolve ledger URL from the DID Document (domain enrichment).
 		if resolver != nil {
-			doc, err := resolver.Resolve(ctx, current)
-			if err == nil {
-				url, urlErr := doc.LedgerEndpointURL()
-				if urlErr == nil {
+			if doc, err := resolver.Resolve(ctx, logDID); err == nil {
+				if url, urlErr := doc.LedgerEndpointURL(); urlErr == nil {
 					chainNode.LedgerURL = url
 				}
 			}
 		}
-
-		// Fetch tree size from cached head.
+		// Tree size from the cached head (domain enrichment).
 		if client != nil {
-			head, _, found := client.CachedHead(current)
-			if found {
+			if head, _, found := client.CachedHead(logDID); found {
 				chainNode.TreeSize = head.TreeSize
 			}
 		}
-
 		result.Chain = append(result.Chain, chainNode)
-
-		if node.AnchorDID == "" || node.AnchorDID == current {
-			result.StateRootDID = current
-			result.Valid = true
-			break
-		}
-		current = node.AnchorDID
 	}
 
+	// The walk reached a genuine state root iff its last node self-anchors or has
+	// no parent (walk.AnchorChainRoot) — preserving the prior Valid semantics
+	// (AnchorDID == "" || AnchorDID == self).
+	if root, ok := walk.AnchorChainRoot(chain); ok {
+		result.StateRootDID = root.ID()
+		result.Valid = true
+	}
 	return result, nil
 }

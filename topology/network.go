@@ -81,20 +81,3 @@ func (h *Hierarchy) Parent(did string) *JurisdictionNode {
 	}
 	return h.ByDID[node.ParentDID]
 }
-
-// AnchorChain returns the anchor path from a county log up to the state root.
-func (h *Hierarchy) AnchorChain(did string) []string {
-	var chain []string
-	current := did
-	visited := make(map[string]bool)
-	for current != "" && !visited[current] {
-		visited[current] = true
-		chain = append(chain, current)
-		node, ok := h.ByDID[current]
-		if !ok {
-			break
-		}
-		current = node.AnchorDID
-	}
-	return chain
-}
