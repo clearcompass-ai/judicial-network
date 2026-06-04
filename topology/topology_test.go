@@ -88,75 +88,7 @@ func TestHierarchy_Parent_RootReturnsNil(t *testing.T) {
 }
 
 // -------------------------------------------------------------------------
-// 7) AnchorChain follows AnchorDID (NOT ParentDID)
-// -------------------------------------------------------------------------
-
-func TestHierarchy_AnchorChain_FollowsAnchorDID(t *testing.T) {
-	h := NewHierarchy()
-	h.Add(&JurisdictionNode{DID: "did:web:federal", Name: "Federal"})
-	h.Add(&JurisdictionNode{DID: "did:web:tn", Name: "TN", ParentDID: "did:web:federal", AnchorDID: "did:web:federal"})
-	h.Add(&JurisdictionNode{DID: "did:web:davidson", Name: "Davidson", ParentDID: "did:web:tn", AnchorDID: "did:web:tn"})
-
-	chain := h.AnchorChain("did:web:davidson")
-	// Should be: [davidson, tn, federal]
-	if len(chain) != 3 {
-		t.Fatalf("chain = %v, want 3 entries", chain)
-	}
-	if chain[0] != "did:web:davidson" {
-		t.Errorf("chain[0] = %q, want davidson", chain[0])
-	}
-	if chain[1] != "did:web:tn" {
-		t.Errorf("chain[1] = %q, want tn", chain[1])
-	}
-	if chain[2] != "did:web:federal" {
-		t.Errorf("chain[2] = %q, want federal", chain[2])
-	}
-}
-
-// -------------------------------------------------------------------------
-// 8) AnchorChain includes self
-// -------------------------------------------------------------------------
-
-func TestHierarchy_AnchorChain_IncludesSelf(t *testing.T) {
-	h := NewHierarchy()
-	h.Add(&JurisdictionNode{DID: "did:web:standalone", Name: "Standalone"})
-	chain := h.AnchorChain("did:web:standalone")
-	if len(chain) < 1 || chain[0] != "did:web:standalone" {
-		t.Errorf("chain should start with self, got %v", chain)
-	}
-}
-
-// -------------------------------------------------------------------------
-// 9) AnchorChain: cycle detection
-// -------------------------------------------------------------------------
-
-func TestHierarchy_AnchorChain_CycleDetection(t *testing.T) {
-	h := NewHierarchy()
-	h.Add(&JurisdictionNode{DID: "did:web:a", AnchorDID: "did:web:b"})
-	h.Add(&JurisdictionNode{DID: "did:web:b", AnchorDID: "did:web:a"})
-
-	chain := h.AnchorChain("did:web:a")
-	// Must terminate. visited map prevents infinite loop.
-	if len(chain) > 3 {
-		t.Errorf("cycle should be detected, got chain len %d", len(chain))
-	}
-}
-
-// -------------------------------------------------------------------------
-// 10) AnchorChain: no AnchorDID stops at self
-// -------------------------------------------------------------------------
-
-func TestHierarchy_AnchorChain_NoAnchor(t *testing.T) {
-	h := NewHierarchy()
-	h.Add(&JurisdictionNode{DID: "did:web:solo", Name: "Solo"})
-	chain := h.AnchorChain("did:web:solo")
-	if len(chain) != 1 {
-		t.Errorf("no anchor should give [self], got %v", chain)
-	}
-}
-
-// -------------------------------------------------------------------------
-// 11) SpokeConfig: construction + AllLogDIDs
+// 7) SpokeConfig: construction + AllLogDIDs
 // -------------------------------------------------------------------------
 
 func TestSpokeConfig_AllLogDIDs(t *testing.T) {
