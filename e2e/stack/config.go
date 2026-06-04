@@ -86,9 +86,9 @@ func ResolveImages() Images {
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures from
 		// the v1.66.0 release; witness is unchanged (server-TLS only).
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:1.66.0"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:1.52.0"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:1.66.0"),
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.1"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.1"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.1"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
