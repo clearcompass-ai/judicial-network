@@ -26,8 +26,8 @@ import (
 
 	"github.com/baseproof/baseproof/anchor"
 	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/tooling/libs/federation"
 
-	"github.com/clearcompass-ai/judicial-network/consortium"
 	jntrust "github.com/clearcompass-ai/judicial-network/verification/trust"
 )
 
@@ -69,11 +69,11 @@ func (h *consortiumProposeAddHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		writeError(w, http.StatusBadRequest, "target_did and destination required")
 		return
 	}
-	proposal, err := consortium.ProposeMemberAddition(consortium.MembershipProposal{
+	proposal, err := federation.ProposeMemberAddition(federation.MembershipProposal{
 		Destination: req.Destination,
 		ProposerDID: proposer,
 		TargetDID:   req.TargetDID,
-		CourtName:   req.CourtName,
+		MemberName:  req.CourtName,
 		Reason:      req.Reason,
 	})
 	if err != nil {
@@ -99,11 +99,11 @@ func (h *consortiumProposeRemoveHandler) ServeHTTP(w http.ResponseWriter, r *htt
 		writeError(w, http.StatusBadRequest, "target_did and destination required")
 		return
 	}
-	proposal, err := consortium.ProposeMemberRemoval(consortium.MembershipProposal{
+	proposal, err := federation.ProposeMemberRemoval(federation.MembershipProposal{
 		Destination: req.Destination,
 		ProposerDID: proposer,
 		TargetDID:   req.TargetDID,
-		CourtName:   req.CourtName,
+		MemberName:  req.CourtName,
 		Reason:      req.Reason,
 	})
 	if err != nil {
