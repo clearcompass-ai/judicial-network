@@ -147,6 +147,22 @@ func validateQuorum(t stack.Target) (int, error) {
 	return res.ValidCount, nil
 }
 
+// waitCosigned polls /v1/tree/head until the network's current head carries >= K
+// witness cosignatures (the fleet finishing finalization after a freshly-sequenced
+// entry), or the timeout elapses. Drain advances tree_size; cosign finalizes it.
+func waitCosigned(t stack.Target, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if _, sigs := stack.HeadStatus(t.CertsDir, t.LedgerPort); sigs >= t.QuorumK {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(2 * time.Second)
+	}
+}
+
 // federation.load — submit a CLIENT workload to EACH network's OWN endpoint and
 // confirm every network advances and stays witness-cosigned. The multi-network
 // analog of audit.tiles: each network's own ledger admits its own entries via its
@@ -234,6 +250,14 @@ func federationCrossLog(s *Session) error {
 			sz, _ := stack.HeadStatus(dst.CertsDir, dst.LedgerPort)
 			return fmt.Errorf("network %s did not commit the anchor of %s (size stuck at %d, want >=%d)",
 				nm.Name, srcName, sz, before+1)
+		}
+		// Drain = sequenced; the witness fleet must then RE-COSIGN the new head to
+		// K-of-N before it's finalized. Wait for that, so downstream verification
+		// sees a fully-cosigned head rather than a transient under-quorum checkpoint.
+		if !waitCosigned(dst, 90*time.Second) {
+			sz, sigs := stack.HeadStatus(dst.CertsDir, dst.LedgerPort)
+			return fmt.Errorf("network %s head not re-cosigned to K=%d after anchoring %s (size=%d, sigs=%d)",
+				nm.Name, dst.QuorumK, srcName, sz, sigs)
 		}
 		fmt.Printf("  [PASS] %-8s published a VERIFIED CosignedAnchorV1 of %-8s head (size=%d) into its OWN log\n",
 			nm.Name, srcName, srcSize)
