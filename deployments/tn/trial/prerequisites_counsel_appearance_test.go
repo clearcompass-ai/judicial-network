@@ -24,7 +24,7 @@ package trial
 import (
 	"testing"
 
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 )
 
 // ─── Hard: case_initiation ancestor ────────────────────────────────

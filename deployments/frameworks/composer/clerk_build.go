@@ -17,7 +17,7 @@ package composer
 import (
 	"fmt"
 
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 	"github.com/clearcompass-ai/judicial-network/deployments/frameworks/clerk_base"
 	"github.com/clearcompass-ai/judicial-network/deployments/frameworks/credentials"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"

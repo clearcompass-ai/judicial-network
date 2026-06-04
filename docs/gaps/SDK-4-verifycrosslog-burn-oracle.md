@@ -30,8 +30,8 @@ on that log must immediately return a fatal ErrEquivocatedLog."* Today
 |---|---|---|
 | `anchor/anchor.go:213-223` | `VerifyCrossLog(proof, sourceSet)`: `Deserialize` → `VerifyCosignedAnchor` (quorum) → `VerifyInclusion` | no burn/equivocation consultation |
 | `anchor/anchor.go:202` | "…the source log, which may by then be offline or **equivocating**" | the risk is acknowledged in prose, not checked |
-| `attesta-tools/libs/monitoring/heads_journal.go:279` | `ErrEquivocatedLog = "…log burned due to equivocation"` | the sentinel exists, elsewhere |
-| `attesta-tools/libs/monitoring/heads_journal.go:159` | `BurnStatus(ctx, logDID) (BurnStatus, error)` | the burn oracle exists, elsewhere |
+| `tooling/libs/monitoring/heads_journal.go:279` | `ErrEquivocatedLog = "…log burned due to equivocation"` | the sentinel exists, elsewhere |
+| `tooling/libs/monitoring/heads_journal.go:159` | `BurnStatus(ctx, logDID) (BurnStatus, error)` | the burn oracle exists, elsewhere |
 
 ## Impact (mapped to the mandate)
 
@@ -94,5 +94,5 @@ func VerifyCrossLogWithBurnCheck(
 ```bash
 grep -rn "func VerifyCrossLog" anchor/anchor.go
 sed -n '200,224p' anchor/anchor.go
-grep -rn "ErrEquivocatedLog\|func.*BurnStatus" ../attesta-tools/libs/monitoring/heads_journal.go
+grep -rn "ErrEquivocatedLog\|func.*BurnStatus" ../tooling/libs/monitoring/heads_journal.go
 ```

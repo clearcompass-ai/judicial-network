@@ -1,6 +1,6 @@
 name: sdk-version-pin
 
-# D10 — pin the baseproof SDK + attesta-tools libs versions JN consumes so a
+# D10 — pin the baseproof SDK + tooling libs versions JN consumes so a
 # stray bump (manual or automated) fails the PR rather than landing
 # silently. The pins are the contract the migration plan in issue #61
 # enforces: every JN package is verified against this exact pair.
@@ -16,7 +16,7 @@ permissions:
 
 env:
   REQUIRED_BASEPROOF_VERSION: v0.0.1-rc1
-  REQUIRED_LIBS_VERSION: v1.66.1-0.20260603234803-15df28cb965e
+  REQUIRED_LIBS_VERSION: v0.1.0
 
 jobs:
   sdk-version-pin:
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: assert baseproof + attesta-tools/libs pins
+      - name: assert baseproof + tooling/libs pins
         run: |
           set -euo pipefail
 
@@ -36,10 +36,10 @@ jobs:
           fi
           echo "✓ baseproof @ ${actual_baseproof}"
 
-          actual_libs=$(grep -E '^\s+github.com/clearcompass-ai/attesta-tools/libs v' go.mod | head -1 | awk '{print $2}')
+          actual_libs=$(grep -E '^\s+github.com/baseproof/tooling/libs v' go.mod | head -1 | awk '{print $2}')
           if [[ "$actual_libs" != "${REQUIRED_LIBS_VERSION}" ]]; then
-            echo "::error file=go.mod::attesta-tools/libs pinned to ${actual_libs}, want ${REQUIRED_LIBS_VERSION}"
+            echo "::error file=go.mod::tooling/libs pinned to ${actual_libs}, want ${REQUIRED_LIBS_VERSION}"
             echo "::error::libs version drift: see https://github.com/clearcompass-ai/judicial-network/issues/61"
             exit 1
           fi
-          echo "✓ attesta-tools/libs @ ${actual_libs}"
+          echo "✓ tooling/libs @ ${actual_libs}"

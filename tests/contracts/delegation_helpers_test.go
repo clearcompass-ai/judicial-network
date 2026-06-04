@@ -39,7 +39,7 @@ import (
 	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/baseproof/baseproof/core/smt"
 	"github.com/baseproof/baseproof/types"
-	"github.com/clearcompass-ai/attesta-tools/libs/identity"
+	"github.com/baseproof/tooling/libs/identity"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	davidson "github.com/clearcompass-ai/judicial-network/internal/testfixtures/davidsonlegacy"
 	"github.com/clearcompass-ai/judicial-network/schemas"

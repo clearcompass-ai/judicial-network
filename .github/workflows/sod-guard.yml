@@ -2,7 +2,7 @@ name: sod-guard
 
 # Separation of Duties (the enforcer↔custodian split). The JN must host no
 # custodial gossip.Store and serve no gossip feed — custody belongs to the
-# external auditor. This is the JN side of attesta-tools' dependency law.
+# external auditor. This is the JN side of tooling' dependency law.
 
 on:
   push:

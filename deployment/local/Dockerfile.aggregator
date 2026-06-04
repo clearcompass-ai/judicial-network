@@ -23,7 +23,7 @@ WORKDIR /src
 
 COPY go.mod go.sum ./
 
-# All deps are public (baseproof SDK + attesta-tools/libs), so no VCS auth is
+# All deps are public (baseproof SDK + tooling/libs), so no VCS auth is
 # needed. The optional ca_bundle secret trusts a TLS-inspecting proxy's CA;
 # cache mounts speed re-builds without bloating the final image.
 RUN --mount=type=secret,id=ca_bundle \

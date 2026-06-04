@@ -62,10 +62,10 @@ import (
 	"github.com/baseproof/baseproof/gossip"
 	sdklog "github.com/baseproof/baseproof/log"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/auditing/gossipverify"
-	"github.com/clearcompass-ai/attesta-tools/libs/auditing/peers"
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/auditing/gossipverify"
+	"github.com/baseproof/tooling/libs/auditing/peers"
+	"github.com/baseproof/tooling/libs/crosslog"
+	"github.com/baseproof/tooling/libs/monitoring"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"

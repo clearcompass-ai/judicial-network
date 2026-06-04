@@ -21,7 +21,7 @@ the resolver doesn't call `HeadByRootHash`).
 |---|---|---|
 | `verification/trust/multijurisdiction.go:284-287` | `resolveHead`: `asOf.Sequence == 0 → LatestHead` else `HeadAt(logDID, asOf.Sequence)` | resolves by sequence only; never `HeadByRootHash` |
 | `verification/trust/multijurisdiction.go:51-57` | AS-OF SEMANTICS doc — sequence-based | no root dimension |
-| (substrate) `attesta-tools/.../store/heads_journal.go:139` | `HeadByRootHash(...)` already available | the call the resolver should make |
+| (substrate) `tooling/.../store/heads_journal.go:139` | `HeadByRootHash(...)` already available | the call the resolver should make |
 
 ## Impact
 

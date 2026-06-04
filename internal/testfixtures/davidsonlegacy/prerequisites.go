@@ -44,7 +44,7 @@ package davidsonlegacy
 import (
 	"fmt"
 
-	prerequisites "github.com/clearcompass-ai/attesta-tools/libs/prereq"
+	prerequisites "github.com/baseproof/tooling/libs/prereq"
 )
 
 // PrerequisiteRules returns the legacy v1.6 Davidson prereq

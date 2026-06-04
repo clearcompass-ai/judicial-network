@@ -103,13 +103,13 @@ who stamp each new page without reading it; the **Auditors** are outside
 | Network | Actor | `baseproof/network/`, `crypto/cosign` (NetworkID) | The logbook; the addressed target of submissions |
 | Exchange | Actor | `baseproof/exchange/`, `ledger/api/` | Operates the Network; economic firewall |
 | Ledger | Engine | `ledger/` | Network admission gate **+** dumb sequencer |
-| Witness | Actor | `attesta-tools/services/witness/` | Blindly cosigns tree heads |
-| Auditor | Actor | `attesta-tools/services/auditor/` | Re-runs the math; detects fraud; slashes |
+| Witness | Actor | `tooling/services/witness/` | Blindly cosigns tree heads |
+| Auditor | Actor | `tooling/services/auditor/` | Re-runs the math; detects fraud; slashes |
 | Judicial Network | Actor | `judicial-network/` | Cross-network trust specialization of the Auditor |
 | SDK | Engine | `baseproof/` | Owns all domain logic, crypto, schema, verification |
 | Tessera | Sub-system | `tessera/`, `ledger/tessera/`, `ledger/bytestore/` | Append-only log + transparently-fetched static tiles |
-| Gossip Network | Sub-system | `baseproof/gossip/`, `attesta-tools/libs/monitoring/` | Pull-based dissemination (the Transparency Clock) |
-| Heads Journal | Sub-system | `attesta-tools/libs/monitoring/`, `auditor/.../store/` | Permanent, fork-aware archive of cosigned heads |
+| Gossip Network | Sub-system | `baseproof/gossip/`, `tooling/libs/monitoring/` | Pull-based dissemination (the Transparency Clock) |
+| Heads Journal | Sub-system | `tooling/libs/monitoring/`, `auditor/.../store/` | Permanent, fork-aware archive of cosigned heads |
 
 > Format per entry: **Duty · Where (file:line) · Mechanism · Boundaries (what it
 > does NOT do) · Why.** Interconnection is in Layer 1 (counts) and Layer 3 (flow)
@@ -142,14 +142,14 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### Witness — *the blind notary*
 - **Duty.** Lend cryptographic weight (one of **K-of-N**) attesting a Tree Head was presented at a moment in time.
-- **Where.** `attesta-tools/services/witness/internal/serve/serve.go` (cosign handler; signer at `:150`); `cmd/witness/main.go`. *(`witkey/witkey.go` is only key loading.)*
+- **Where.** `tooling/services/witness/internal/serve/serve.go` (cosign handler; signer at `:150`); `cmd/witness/main.go`. *(`witkey/witkey.go` is only key loading.)*
 - **Mechanism.** Reads only the Target Root + Sequence size and signs the dense log root. Its sole state is a RAM-only, per-process `lastSignedSize` misfire guard (`serve.go:245-302`).
 - **Boundaries — Detective, not Preventative (`ZT-WIT-01`).** It does **not** prevent forks: *"size-only monotonicity does not prevent a fork"* (`serve.go:48`), it has *"no log access"* to check consistency (`:54`), and *"fork detection is a DETECTIVE control owned by the auditors"* (`:61`, `main.go:26`). It cannot read payloads → cannot censor.
 - **Why.** A Witness blindly cosigns **both** sides of a same-sequence fork — and that is the point: two valid K-of-N cosignatures are the **evidence** the Auditor uses to prove equivocation (`ZT-SCN-06`).
 
 ### Auditor — *the enforcer of truth*
 - **Duty.** Enforce physics, resolve cross-network trust, detect fraud — asynchronously and orthogonally to the Ledger.
-- **Where.** `attesta-tools/services/auditor/`; runs `baseproof/verifier/verify_complete.go` and the reconciler `attesta-tools/libs/monitoring/gossip_reconciler.go`.
+- **Where.** `tooling/services/auditor/`; runs `baseproof/verifier/verify_complete.go` and the reconciler `tooling/libs/monitoring/gossip_reconciler.go`.
 - **Mechanism.** **Equivocation** — `services/auditor/internal/equivocation/slasher.go:111` (+ `scanner.go`): conflicting RootHash → `KindEquivocationFinding` → slash/freeze. **Cross-log** — `baseproof/verifier/cross_log.go`, `anchor/anchor.go:213`: authenticate foreign proofs against the *foreign* head. **Policy** — `baseproof/verifier/policy_stage.go`: did the `Signer_DID` hold authority **at that `asOf`**?
 - **Boundaries.** Does not sequence, does not hold the write path, does not require the offending Ledger to self-report.
 - **Why.** Where Separation of Duties lives — turns Witness evidence into burns/slashes.
@@ -195,7 +195,7 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### Tessera — *the log storage engine & transparent tiles*
 - **Duty.** Be the append-only Merkle log + static `c2sp.org/tlog-tiles` tiles beneath the Ledger, and serve those tiles **transparently**.
-- **Where.** Upstream `github.com/transparency-dev/tessera` (`tessera/`); integrated via `ledger/tessera/`; tiles served from object stores via `ledger/bytestore/{s3,gcs,publicurl,tile_backend}.go`; SDK-side bounded fetch `baseproof/log/tessera_fetcher.go`; cross-log mirrors `attesta-tools/libs/auditing/gossipverify/tile_mirror.go`.
+- **Where.** Upstream `github.com/transparency-dev/tessera` (`tessera/`); integrated via `ledger/tessera/`; tiles served from object stores via `ledger/bytestore/{s3,gcs,publicurl,tile_backend}.go`; SDK-side bounded fetch `baseproof/log/tessera_fetcher.go`; cross-log mirrors `tooling/libs/auditing/gossipverify/tile_mirror.go`.
 - **Mechanism — transparent fetch (the read side of `ZT-LED-10`).**
   - **Anonymous / credential-free** — public-read buckets, no API key or session (`bytestore/publicurl.go`: *"anonymous-read … no expiry"*; `s3.go:288`).
   - **Deterministic addressing** — a tile's URL is a pure function of its coordinates (`publicurl.PublicURL(seq, hash)`); any client computes any tile's location with no operator query.
@@ -207,14 +207,14 @@ who stamp each new page without reading it; the **Auditors** are outside
 
 ### Gossip Network — *the transparency fabric*
 - **Duty.** Disseminate heads, findings, and equivocation proofs across peers, pull-based and fire-and-forget (the "Transparency Clock").
-- **Where.** `baseproof/gossip/`, `attesta-tools/libs/monitoring/gossip_reconciler.go`, `ledger/gossipnet/`.
+- **Where.** `baseproof/gossip/`, `tooling/libs/monitoring/gossip_reconciler.go`, `ledger/gossipnet/`.
 - **Mechanism.** Peers **pull** proven events via HTTP caches/CDNs (`ZT-LED-11`); Lamport time makes re-receipt idempotent (`ZT-SDK-14`); emit queues never block the commit hot-path (`ZT-SDK-13`).
 - **Boundaries.** Carries no authority — gossip is transport; a received finding is re-verified by the SDK before action.
 - **Why.** How Witnesses, Auditors, and peers learn state **without trusting the Ledger to self-report** (`ZT-SCN-06`); gossip degradation cannot pause ingestion (`ZT-LED-12`).
 
 ### Heads Journal — *the cryptographic bedrock*
 - **Duty.** Durably archive every cosigned head, addressable historically and fork-aware.
-- **Where.** `attesta-tools/libs/monitoring/heads_journal.go` (+ `_memory.go`); Postgres at `attesta-tools/services/auditor/internal/store/heads_journal.go`.
+- **Where.** `tooling/libs/monitoring/heads_journal.go` (+ `_memory.go`); Postgres at `tooling/services/auditor/internal/store/heads_journal.go`.
 - **Mechanism.** Primary key **`(LogDID, Sequence, RootHash)`** (`store/heads_journal.go:110`) → a fork stores both rows and triggers the burn transition in one advisory-locked txn. Reads: `HeadAt`, `HeadAtTime`, `HeadByRootHash`, `HeadsAtSequence`, `LatestHead`, `BurnStatus`; `ErrEquivocatedLog` on burned logs (`:279`).
 - **Boundaries.** A *witness, not a judge* — records both forks, lets the responder decide slashing. **Never pruned** (no TTL, no PruneJob hook).
 - **Why.** The single substrate behind `asOf` history (`ZT-SCN-03`), fork-ID (`ZT-SCN-04`), Year-15 reconstruction (`ZT-SCN-02`), and burn fail-closed (`ZT-IMM-04`). ~250M rows / 15 yrs ≈ tens of GB — trivial; permanent bedrock (`ZT-IMM-03`).
@@ -266,20 +266,20 @@ is why the system stays melt-proof at scale while remaining zero-trust.
         baseproof  (SDK — the foundation; imports no sibling repo)
         ▲   ▲   ▲
         │   │   └─────────────── ledger              imports baseproof ONLY
-        │   └────── attesta-tools (libs + services)  imports baseproof
+        │   └────── tooling (libs + services)  imports baseproof
         │                  ▲
-        └──────────────────┴──── judicial-network    imports baseproof + attesta-tools/libs
+        └──────────────────┴──── judicial-network    imports baseproof + tooling/libs
 ```
 
 | Repo | Imports (verified) | Role in the stack |
 |---|---|---|
 | **baseproof** (SDK) | — (foundation) | The Smart Brain. Every repo imports it; it imports none of them. Houses the 4-layer trust spine (View A). |
-| **ledger** | `baseproof` **only** (`go.mod`; **0** files import attesta-tools) | The operator stack: network admission gate + Badger WAL + Tessera sequencer + gossipnet equivocation monitor. A self-contained SDK consumer. |
-| **attesta-tools** | `baseproof` | Operator/auditor **libs** (`libs/monitoring` heads-journal, `libs/crosslog`, `libs/gossipingest`, `libs/auditing/gossipverify` tile-mirrors, …) **+ services** (`services/auditor`, `services/witness`) — each service is its **own module** that **never imports the ledger**. |
-| **judicial-network** | `baseproof` **+** `attesta-tools/libs` (**71** non-test files) | The domain consumer: court business logic over the SDK trust spine + tools libs. |
+| **ledger** | `baseproof` **only** (`go.mod`; **0** files import tooling) | The operator stack: network admission gate + Badger WAL + Tessera sequencer + gossipnet equivocation monitor. A self-contained SDK consumer. |
+| **tooling** | `baseproof` | Operator/auditor **libs** (`libs/monitoring` heads-journal, `libs/crosslog`, `libs/gossipingest`, `libs/auditing/gossipverify` tile-mirrors, …) **+ services** (`services/auditor`, `services/witness`) — each service is its **own module** that **never imports the ledger**. |
+| **judicial-network** | `baseproof` **+** `tooling/libs` (**71** non-test files) | The domain consumer: court business logic over the SDK trust spine + tools libs. |
 
 **Two facts worth pinning:**
-- **The ledger does *not* depend on attesta-tools** — it is a pure SDK consumer; the auditor/witness tooling sits *beside* it, not beneath it.
+- **The ledger does *not* depend on tooling** — it is a pure SDK consumer; the auditor/witness tooling sits *beside* it, not beneath it.
 - **The witness & auditor services never import the ledger** (separation of duties enforced at the *module* boundary, not just by convention) — so detection/attestation cannot be coupled to sequencing.
 
 ## JN internal layers (derived — JN ships no canonical layer doc)
@@ -295,7 +295,7 @@ is why the system stays melt-proof at scale while remaining zero-trust.
 ## End-to-end connectivity (one hop per line)
 
 1. The **ledger** (SDK-only) sequences a Network's entries behind its admission gate and publishes cosigned heads over gossip.
-2. **attesta-tools** `gossipingest`+`monitoring` ingest those heads into the **Heads Journal**; `services/auditor` re-verifies and slashes; `services/witness` cosigns on the commit path — all on **SDK** crypto/verifier, **none importing the ledger**.
+2. **tooling** `gossipingest`+`monitoring` ingest those heads into the **Heads Journal**; `services/auditor` re-verifies and slashes; `services/witness` cosigns on the commit path — all on **SDK** crypto/verifier, **none importing the ledger**.
 3. The **JN** builds `MultiJurisdictionTrust` (**Spine Layer 2**) over the tools **Heads Journal** + **tile mirrors**, drives the SDK **WithTrust walkers** (**Layer 3**) and **cross-log composites** (**Layer 4**) from its **API** layer, and applies its **domain** packages for court policy.
 
 > The throughline: a single **SDK trust spine** (View A) is instantiated by `anchor.MultiLog` in-process, by `MultiJurisdictionTrust` in the JN, and consumed by the ledger's admission gate — so cross-log verification resolves *identically* whoever runs it. That uniformity is the whole point of pushing trust into the SDK.
@@ -315,8 +315,8 @@ is why the system stays melt-proof at scale while remaining zero-trust.
 | 3 | Witnesses ×N → **quorum** | `WitnessCollector` K-of-N aggregation | Each cosig verified under the immutable `WitnessKeySet` (`crypto/cosign/witness_key_set.go`); `1 ≤ K ≤ N`; BLS proof-of-possession defeats rogue-key |
 | 4 | **Ledger → object store** | tile PUT to S3/GCS (`ledger/bytestore/`) | Tiles are content-addressed (`c2sp.org/tlog-tiles`); readers authenticate them against the cosigned `RootHash`, never the bucket |
 | 5 | Ledger / peer ↔ **Gossip peers** | HTTP `POST /v1/gossip` (publish) + bounded pull (`gossip/client.go`, 64 KiB cap) | Events are **signed findings** (`gossip.Sign`), **re-verified by the SDK on receipt**; Lamport time makes re-delivery idempotent; pull-based ⇒ the publisher is never trusted |
-| 6 | Auditor / JN → **foreign tiles** | anonymous GET via `HTTPTileMirrors` (`attesta-tools/libs/auditing/gossipverify/tile_mirror.go`) | **Trust the root, not the server** — Merkle recompute vs the cosigned head; bounded `MaxTileBytes` (`baseproof/log/tessera_fetcher.go:79`) |
-| 7 | Auditor → **Heads Journal** | in-process `Record` (`attesta-tools/.../heads_journal.go`) | Only **verified** heads recorded; PK `(LogDID, Seq, RootHash)`; a conflicting root ⇒ store both + `ErrEquivocatedLog` |
+| 6 | Auditor / JN → **foreign tiles** | anonymous GET via `HTTPTileMirrors` (`tooling/libs/auditing/gossipverify/tile_mirror.go`) | **Trust the root, not the server** — Merkle recompute vs the cosigned head; bounded `MaxTileBytes` (`baseproof/log/tessera_fetcher.go:79`) |
+| 7 | Auditor → **Heads Journal** | in-process `Record` (`tooling/.../heads_journal.go`) | Only **verified** heads recorded; PK `(LogDID, Seq, RootHash)`; a conflicting root ⇒ store both + `ErrEquivocatedLog` |
 | 8 | JN → **cross-log verify** | `anchor.VerifyCrossLog(proof, sourceSet)` (`baseproof/anchor/anchor.go:213`) | Recompute the **source** log's K-of-N quorum **offline** + inclusion vs the verified head's `RootHash`. ⚠ burn-gating is the open **SDK-4 / JN-3** gap |
 | 9 | Witness → Auditor (**equivocation**) | witness cosigs on *both* forks → `witness.DetectEquivocation` → `KindEquivocationFinding` → gossip | The two independently-valid K-of-N cosignatures **are** the fraud proof; no ledger cooperation required |
 

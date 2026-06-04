@@ -10,7 +10,7 @@ name: publish-image
 #   ghcr.io/clearcompass-ai/judicial-network/aggregator  (read-projection)
 #
 # network-api keeps the BARE repo name because docker-compose.jn.yml's `image:`
-# ref depends on it. Deps are public (baseproof SDK + attesta-tools/libs), so no
+# ref depends on it. Deps are public (baseproof SDK + tooling/libs), so no
 # build-time VCS auth is needed.
 
 on:

@@ -26,7 +26,7 @@ import (
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/witness"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/monitoring"
 )
 
 func registerMonitoringRoutes(mux *http.ServeMux, deps *Dependencies) {

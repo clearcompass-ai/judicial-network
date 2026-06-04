@@ -69,7 +69,7 @@ import (
 	"fmt"
 
 	"github.com/baseproof/baseproof/core/envelope"
-	"github.com/clearcompass-ai/attesta-tools/libs/identity"
+	"github.com/baseproof/tooling/libs/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

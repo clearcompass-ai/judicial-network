@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // stubDB satisfies dbProber. errOnPing controls whether the

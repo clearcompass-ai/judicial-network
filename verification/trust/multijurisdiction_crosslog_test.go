@@ -40,7 +40,7 @@ import (
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/verifier"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/monitoring"
 )
 
 // ─────────────────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ import (
 	"github.com/baseproof/baseproof/schema"
 	"github.com/baseproof/baseproof/verifier"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/monitoring"
 
 	"github.com/clearcompass-ai/judicial-network/api/verification/handlers"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"

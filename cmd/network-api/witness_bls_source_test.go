@@ -12,7 +12,7 @@ import (
 	"github.com/baseproof/baseproof/crypto/cosign"
 	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
+	"github.com/baseproof/tooling/libs/crosslog"
 )
 
 const blsPeerLogDID = "did:web:state:tn:williamson"

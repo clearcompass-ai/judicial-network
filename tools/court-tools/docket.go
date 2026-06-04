@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // PublishDocket handles POST /v1/docket.

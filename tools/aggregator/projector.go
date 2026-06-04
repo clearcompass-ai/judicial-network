@@ -3,7 +3,7 @@ package aggregator
 import (
 	"context"
 
-	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
+	libagg "github.com/baseproof/tooling/libs/aggregator"
 )
 
 // JudicialProjector adapts the agnostic libs/aggregator engine to the judicial

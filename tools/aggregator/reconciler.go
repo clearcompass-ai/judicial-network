@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	libagg "github.com/clearcompass-ai/attesta-tools/libs/aggregator"
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	libagg "github.com/baseproof/tooling/libs/aggregator"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // Reconciler periodically verifies that Postgres matches the log.

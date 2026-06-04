@@ -74,7 +74,7 @@ import (
 	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/baseproof/baseproof/types"
 
-	policycache "github.com/clearcompass-ai/attesta-tools/libs/cache"
+	policycache "github.com/baseproof/tooling/libs/cache"
 )
 
 // ErrLedgerDelegationResolver is the umbrella sentinel for every

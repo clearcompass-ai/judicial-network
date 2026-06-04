@@ -17,7 +17,7 @@ import (
 
 	"github.com/baseproof/baseproof/storage"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/monitoring"
 )
 
 // stubBLS satisfies cosign.BLSAggregateVerifier for tests that need a

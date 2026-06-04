@@ -10,8 +10,8 @@ import (
 	"github.com/baseproof/baseproof/network"
 	"github.com/baseproof/baseproof/types"
 
-	"github.com/clearcompass-ai/attesta-tools/libs/crosslog"
-	jnmon "github.com/clearcompass-ai/attesta-tools/libs/monitoring"
+	"github.com/baseproof/tooling/libs/crosslog"
+	jnmon "github.com/baseproof/tooling/libs/monitoring"
 )
 
 const sigPolLogDID = "did:web:state:tn:test"

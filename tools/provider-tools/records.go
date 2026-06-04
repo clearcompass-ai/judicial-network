@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	common "github.com/clearcompass-ai/attesta-tools/libs/clitools"
+	common "github.com/baseproof/tooling/libs/clitools"
 )
 
 // GetRecord handles GET /v1/records/{docket}.

@@ -1,6 +1,6 @@
 # AT-2 — Wire the dormant standalone equivocation `Scanner`
 
-> **Target repo:** clearcompass-ai/attesta-tools
+> **Target repo:** baseproof/tooling
 > **Labels:** `bug` · `defense-in-depth` · `equivocation`
 > **Depends on:** —
 > **Status:** Proposal. The standalone, sequencer-independent equivocation

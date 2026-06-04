@@ -8,7 +8,7 @@ DESCRIPTION:
 	  - loadAuditorRegistry  → network.AuditorRegistrationByPosition
 	  - loadAuditorAmendments → network.AuditorScopeAmendmentByPosition
 
-	Both shapes mirror the attesta-tools auditor service
+	Both shapes mirror the tooling auditor service
 	(services/auditor/internal/app/auditor_registry.go +
 	auditor_amendments.go), so one operator manifest drives both auditor
 	AND JN with byte-identical inputs. The JSON shape is the on-log
