@@ -22,8 +22,7 @@ WALK_COMPOSE := docker compose -f deployment/local/docker-compose.walkthrough.ym
         audit-sdk lint judicial-cli network-api court-tools provider-tools \
         aggregator install-bins \
         walkthrough-up walkthrough-down walkthrough-logs walkthrough-status \
-        dev-certs identity jn-up jn-down \
-        clarity-up clarity-down clarity-status smoke
+        dev-certs identity jn-up jn-down e2e smoke
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -62,6 +61,10 @@ provider-tools: ## Build tools/provider-tools into ./bin/
 aggregator: ## Build tools/aggregator into ./bin/
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/aggregator ./tools/aggregator/cmd/aggregator
+
+e2e: ## Build cmd/e2e (the Go end-to-end stack runner: up/run/status/wipe) into ./bin/
+	@mkdir -p $(BIN_DIR)
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/e2e ./cmd/e2e
 
 # The standalone witness daemon lives in its own repo
 # (github.com/clearcompass-ai/standalone-witness — extracted from
@@ -172,14 +175,12 @@ jn-up: ## Run the JN enforcer (network-api) in Docker. mTLS + verify-only ingest
 jn-down: ## Stop the JN enforcer (docker compose down)
 	./scripts/run-jn.sh down
 
-clarity-up: ## Full stack from GHCR images (no source checkout): witnesses → ledger → auditor → aggregator → JN. Size with: ./e2e/clarity.py up --witnesses N
-	./e2e/clarity.py up
-
-clarity-down: ## Tear down the full Clarity stack.
-	./e2e/clarity.py down
-
-clarity-status: ## Probe what's currently up across the stack.
-	./e2e/clarity.py status
+# The full GHCR-image stack (witnesses → ledger → auditor → aggregator → JN) is
+# brought up by the Go runner, `make e2e` then ./bin/e2e:
+#     ./bin/e2e up federation        # bring up + persist a federated stack
+#     ./bin/e2e run federation.soak  # run a recipe against it
+#     ./bin/e2e status | wipe        # inspect / tear down
+# (see cmd/e2e — `./bin/e2e help`).
 
 walkthrough-logs: ## Tail logs from court-tools + provider-tools
 	$(WALK_COMPOSE) logs -f

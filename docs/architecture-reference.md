@@ -119,9 +119,10 @@ The whole realistic stack comes up with **one command** — witnesses → ledger
 auditor → aggregator → JN, each health-checked in dependency order:
 
 ```bash
-make clarity-up        # or: ./e2e/clarity_e2e.py up
-make clarity-status    # probe what's currently up
-make clarity-down      # tear it all down (clears stale processes + WAL locks)
+make e2e                   # build the Go runner → ./bin/e2e
+./bin/e2e up federation    # bring up + persist the federated stack
+./bin/e2e status           # probe what's currently up
+./bin/e2e wipe             # tear it all down (containers + state)
 ```
 
 Runtime Separation of Duties — three distinct stores, one per role:

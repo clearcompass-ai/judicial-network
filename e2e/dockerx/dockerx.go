@@ -1,8 +1,8 @@
 // Package dockerx is the only layer that shells out to the `docker` CLI.
 //
 // The argv for each command is built by a pure function (testable without a
-// daemon); thin wrappers execute it. This mirrors the Python harness's driver.py
-// so the bring-up logic above it stays docker-implementation-agnostic.
+// daemon); thin wrappers execute it, so the bring-up logic above it stays
+// docker-implementation-agnostic.
 package dockerx
 
 import (
