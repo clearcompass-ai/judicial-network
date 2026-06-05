@@ -14,9 +14,9 @@ import (
 	"os"
 )
 
-// Manifest mirrors the JSON written by scripts/provision.py's
-// write_topology_manifest. Field tags match the manifest exactly so
-// drift surfaces at decode time.
+// Manifest mirrors the topology manifest JSON the Go stack provisioner
+// writes. Field tags match the manifest exactly so drift surfaces at
+// decode time.
 type Manifest struct {
 	Networks          []NetworkView         `json:"networks"`
 	WitnessIdentities []WitnessIdentityView `json:"witness_identities"`
