@@ -24,6 +24,7 @@ import (
 	"github.com/baseproof/tooling/libs/clitools"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/stack"
+	"github.com/clearcompass-ai/judicial-network/networkbundle"
 )
 
 func init() {
@@ -96,8 +97,18 @@ func federationProof(s *Session) error {
 		return fmt.Errorf("resolve seq for key %s: %w", short(st.Leaves[0].Key), err)
 	}
 
-	// 5. GATHER the proof from the live ledger (online assembly behind the seam).
-	gather, err := libsbundle.NewStandaloneLedgerGather(client, baseURL, httpClient, doc, t.QuorumK, seq, key)
+	// 5. GATHER the proof via the network BUNDLE — the single per-network object
+	//    (endpoint + trust root + vocabulary) the gather drives. The bundle fetches
+	//    the genesis bootstrap from the endpoint and hash-verifies it against its
+	//    pin. A genesis-only network carries no governance/signer vocabulary, so its
+	//    complete proof is Part I + receipt + burn + witness short-circuit; the
+	//    bundle-driven path is exercised regardless. CitedMemberKey names a real
+	//    committed member (the federation citation target).
+	nb, err := networkbundle.Build(doc, baseURL, t.QuorumK, networkbundle.Vocabulary{CitedMemberKey: key})
+	if err != nil {
+		return err
+	}
+	gather, err := libsbundle.NewBundleGather(ctx, nb, client, httpClient, seq, key)
 	if err != nil {
 		return err
 	}
