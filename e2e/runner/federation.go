@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -45,6 +46,7 @@ func federationSoak(s *Session) error {
 	if len(nets) < 2 {
 		return fmt.Errorf("federation.soak requires >= 2 networks (one network = one log), have %d", len(nets))
 	}
+	ctx := context.Background()
 	n := intEnv("E2E_FED_ENTRIES", 2000)
 	workers := intEnv("E2E_FED_WORKERS", 16)
 	batch := intEnv("E2E_FED_BATCH_SIZE", 1)
@@ -53,7 +55,7 @@ func federationSoak(s *Session) error {
 	random := intEnv("E2E_AUDIT_RANDOM", 16)
 	auditFull := intEnv("E2E_AUDIT_FULL", 0) == 1
 
-	fmt.Printf("== federation.soak 1/4: load %d entries/network + multi-witness verify + SMT audit ==\n", n)
+	fmt.Printf("== federation.soak 1/4: load %d entries/network + multi-witness verify + SMT audit + v2 proof ==\n", n)
 	for _, nm := range nets {
 		t, ok := s.Target(nm.Name)
 		if !ok {
@@ -99,6 +101,16 @@ func federationSoak(s *Session) error {
 		sz, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
 		fmt.Printf("  [PASS] %-8s load=%d (roots=%d amends=%d) size=%d | %d/%d witnesses re-verified | %d SMT proofs audited\n",
 			nm.Name, n, st.Roots, st.Amendments, sz, valid, t.QuorumK, smp)
+		// v2 self-anchored proof of a real committed member on THIS network: generate
+		// via the bundle-driven gather, verify FULLY OFFLINE against the genesis trust
+		// root, and run the tamper matrix — the deepest soak also acceptance-tests the
+		// proof generate→verify loop per network.
+		if len(st.Leaves) == 0 {
+			return fmt.Errorf("network %s: no SMT leaves to prove", nm.Name)
+		}
+		if err := proveEntry(ctx, nm.Name, t, st.Leaves[0].Key); err != nil {
+			return fmt.Errorf("network %s v2 proof: %w", nm.Name, err)
+		}
 	}
 
 	fmt.Println("== federation.soak 2/4: cross-network anchoring (real CosignedAnchorV1) ==")
