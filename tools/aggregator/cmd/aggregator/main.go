@@ -41,8 +41,10 @@ import (
 
 	_ "github.com/lib/pq" // postgres driver for the projection store (clitools.NewDB)
 
+	sdklog "github.com/baseproof/baseproof/log"
 	libagg "github.com/baseproof/tooling/libs/aggregator"
 	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/baseproof/tooling/libs/tracing"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 )
 
@@ -139,6 +141,21 @@ func run(argv []string, d deps) error {
 		return errMissingLedger
 	}
 
+	// Tracing: global W3C propagator + the aggregator's own spans when
+	// AGGREGATOR_OTLP_TRACES_ENDPOINT is set.
+	traceShutdown, err := tracing.Setup(tracing.Config{
+		ServiceName: "aggregator",
+		Endpoint:    os.Getenv("AGGREGATOR_OTLP_TRACES_ENDPOINT"),
+	})
+	if err != nil {
+		return fmt.Errorf("aggregator: tracing setup: %w", err)
+	}
+	defer func() {
+		sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = traceShutdown(sctx)
+	}()
+
 	db, err := d.openDB(cfg.DatabaseURL)
 	if err != nil {
 		return err
@@ -167,11 +184,13 @@ func run(argv []string, d deps) error {
 	if err != nil {
 		return fmt.Errorf("aggregator: probe ledger client: %w", err)
 	}
+	probeClient.Transport = sdklog.WithOTel(probeClient.Transport) // trace + inject on probe calls
 	probes := newProbeHandlers(db, cfg.LedgerURL, probeClient)
 
 	srv := &http.Server{
-		Addr:              args.listenAddr,
-		Handler:           probes.Handler(),
+		Addr: args.listenAddr,
+		// OTel SERVER span (outermost): continues any inbound trace.
+		Handler:           sdklog.NewOTelHandler(probes.Handler()),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       90 * time.Second,
 	}
