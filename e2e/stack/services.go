@@ -255,7 +255,11 @@ func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 		// proof/verify recipes can follow the redirect and fetch the bytes — the
 		// e2e analog of a production public bytestore. The ledger itself reads/writes
 		// via the in-network S3_ENDPOINT above; this only addresses external readers.
-		"LEDGER_BYTE_STORE_PUBLIC_BASE_URL": fmt.Sprintf("http://localhost:%d", seaweedHostPort()),
+		//
+		// MUST include the bucket: PublicURL = base + "/" + key(seq,hash), and the
+		// empty-default is DefaultS3PathStyle(endpoint, bucket) which embeds the
+		// bucket. Omitting it yields ".../entries/<seq>/<hash>" (no bucket) → 404.
+		"LEDGER_BYTE_STORE_PUBLIC_BASE_URL": fmt.Sprintf("http://localhost:%d/%s", seaweedHostPort(), nc.Bucket),
 		"LEDGER_BYTE_STORE_S3_BUCKET":     nc.Bucket,
 		"LEDGER_BYTE_STORE_S3_REGION":     "us-east-1",
 		"LEDGER_BYTE_STORE_S3_ACCESS_KEY": "any",
