@@ -88,16 +88,17 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures. The
-		// fleet is pinned to the tooling v0.0.20 release — the first that serves the
-		// v2-proof read surface end to end: GET /v1/receipt/proof/{seq} (the receipt
-		// section), deep OTel tracing, the AIMD shipper, the Phase-2 durability
-		// gauges (baseproof_wal_backlog_total / horizon_lag_total / shipper_aimd_limit),
-		// and the hash-sharded bytestore key. The earlier 0.0.5 pin predated the
-		// receipt endpoint, so shipped-entry proofs 404'd. Override per-image via
-		// E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.20"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.20"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.20"),
+		// fleet is pinned to the tooling v0.0.21 release — the first where receipt
+		// proofs bind to their OWN covering checkpoint (fix B): GET /v1/receipt/proof/
+		// {seq} embeds the covering-checkpoint head, so a SETTLED entry far below the
+		// horizon verifies (its receipt lives in a per-checkpoint-delta ReceiptRoot the
+		// horizon would not contain). v0.0.21 also carries deep OTel tracing, the AIMD
+		// shipper, the Phase-2 durability gauges (baseproof_wal_backlog_total /
+		// horizon_lag_total / shipper_aimd_limit), the hash-sharded bytestore key, and
+		// the witness cross-module image build. Override per-image via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.21"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.21"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.21"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
