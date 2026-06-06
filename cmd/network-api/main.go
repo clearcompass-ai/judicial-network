@@ -60,6 +60,7 @@ import (
 	"github.com/baseproof/tooling/libs/httpmw/reliability"
 	"github.com/baseproof/tooling/libs/keystore"
 	"github.com/baseproof/tooling/libs/sdkguard"
+	"github.com/baseproof/tooling/libs/tracing"
 	"github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
@@ -138,6 +139,22 @@ func run(argv []string, d deps) error {
 		return err
 	}
 
+	// Tracing: install the global W3C propagator (so the JN edge starts a trace
+	// that the ledger/witness continue) and export the JN's own spans when
+	// NETWORK_API_OTLP_TRACES_ENDPOINT is set. Always returns a usable shutdown.
+	traceShutdown, err := tracing.Setup(tracing.Config{
+		ServiceName: "network-api",
+		Endpoint:    os.Getenv("NETWORK_API_OTLP_TRACES_ENDPOINT"),
+	})
+	if err != nil {
+		return fmt.Errorf("tracing setup: %w", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = traceShutdown(ctx)
+	}()
+
 	// The JN is the Smart Edge over a ledger — an auditor with no purpose
 	// without one. Refuse to start unless the ledger is reachable. /readyz
 	// keeps it honest after boot; this keeps it honest AT boot. Injected via
@@ -207,6 +224,12 @@ func run(argv []string, d deps) error {
 		if err != nil {
 			return fmt.Errorf("ledger server-verify client: %w", err)
 		}
+	}
+	// Trace + propagate on the single outbound ledger surface: every admission
+	// write and judicial read carries a client span and injects traceparent, so
+	// the ledger's admission SERVER span continues THIS request's trace.
+	if ledgerSubmitClient != nil {
+		ledgerSubmitClient.Transport = sdklog.WithOTel(ledgerSubmitClient.Transport)
 	}
 
 	// Construct the composer-level authenticator (mTLS or JWT) per

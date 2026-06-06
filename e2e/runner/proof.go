@@ -57,80 +57,77 @@ func federationProof(s *Session) error {
 		return fmt.Errorf("builder did not drain the backfill (raise E2E_DRAIN_TIMEOUT_MIN)")
 	}
 
-	// 2. The genesis trust root — the ONLY external input the offline verifier needs.
+	// 2–7: gather a v2 proof of a committed member, verify it offline, tamper it.
+	return proveEntry(ctx, t.Network, t, st.Leaves[0].Key)
+}
+
+// proveEntry gathers a v2 self-anchored proof of the member at leafKeyHex on
+// network `name`/t via the BUNDLE-driven gather, verifies it FULLY OFFLINE with
+// only the genesis trust root, and runs the tamper matrix (fail-closed: err==nil ⟺
+// Valid). Shared by federation.proof and the federation.soak proof phase, so the
+// deepest federated run also exercises the v2 proof generate→verify loop per
+// network. The bundle carries the endpoint + trust root + vocabulary; a genesis-only
+// network's complete proof is Part I + receipt + burn + witness short-circuit.
+func proveEntry(ctx context.Context, name string, t stack.Target, leafKeyHex string) error {
+	var key [32]byte
+	kb, err := hex.DecodeString(leafKeyHex)
+	if err != nil || len(kb) != 32 {
+		return fmt.Errorf("%s: leaf key %q is not 32-byte hex", name, leafKeyHex)
+	}
+	copy(key[:], kb)
+
 	doc, err := readBootstrapDoc(t)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	trustRoots, err := genesisTrustRoots(doc, t.QuorumK)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", name, err)
 	}
 
-	// 3. The ledger read clients: server-verify against the run CA, NO client cert
-	//    (the ledger serves reads openly; writes gate on in-body crypto).
 	baseURL := fmt.Sprintf("https://localhost:%d", t.LedgerPort)
 	caFile := filepath.Join(t.CertsDir, "ca.crt")
 	client, err := clitools.NewServerVerifyLedgerClient(baseURL, caFile, "localhost", t.LogDID)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	httpClient, err := caPinnedClient(caFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", name, err)
 	}
 
-	// 4. Pick a target SMT-committed entry; resolve its seq from the SMT leaf
-	//    (OriginTip), so we have the (seq, key) pair the gather needs.
-	var key [32]byte
-	kb, err := hex.DecodeString(st.Leaves[0].Key)
-	if err != nil || len(kb) != 32 {
-		return fmt.Errorf("oracle leaf key %q is not 32-byte hex", st.Leaves[0].Key)
-	}
-	copy(key[:], kb)
 	hz, err := client.Horizon()
 	if err != nil {
-		return fmt.Errorf("fetch horizon: %w", err)
+		return fmt.Errorf("%s: fetch horizon: %w", name, err)
 	}
 	seq, err := smtKeySeq(ctx, httpClient, baseURL, key, hz.SMTRoot)
 	if err != nil {
-		return fmt.Errorf("resolve seq for key %s: %w", short(st.Leaves[0].Key), err)
+		return fmt.Errorf("%s: resolve seq for key %s: %w", name, short(leafKeyHex), err)
 	}
 
-	// 5. GATHER the proof via the network BUNDLE — the single per-network object
-	//    (endpoint + trust root + vocabulary) the gather drives. The bundle fetches
-	//    the genesis bootstrap from the endpoint and hash-verifies it against its
-	//    pin. A genesis-only network carries no governance/signer vocabulary, so its
-	//    complete proof is Part I + receipt + burn + witness short-circuit; the
-	//    bundle-driven path is exercised regardless. CitedMemberKey names a real
-	//    committed member (the federation citation target).
 	nb, err := networkbundle.Build(doc, baseURL, t.QuorumK, networkbundle.Vocabulary{CitedMemberKey: key})
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	gather, err := libsbundle.NewBundleGather(ctx, nb, client, httpClient, seq, key)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	proof, err := sdkbundle.BuildStandalone(ctx, gather, seq)
 	if err != nil {
-		return fmt.Errorf("BuildStandalone seq=%d: %w", seq, err)
+		return fmt.Errorf("%s: BuildStandalone seq=%d: %w", name, seq, err)
 	}
 
-	// 6. VERIFY OFFLINE. VerifyStandalone consults only (proof, trustRoots) + SHA-256
-	//    — no ledger, no network. A green verdict here would hold with the stack down.
 	res, err := sdkbundle.VerifyStandalone(ctx, proof, trustRoots)
 	if err != nil || res == nil || !res.Valid {
-		return fmt.Errorf("offline verify FAILED: err=%v", err)
+		return fmt.Errorf("%s: offline verify FAILED: err=%v", name, err)
 	}
-	fmt.Printf("  [PASS] proof seq=%d verified OFFLINE — coverage %v\n", seq, res.Coverage.Verified)
+	fmt.Printf("  [PASS] %-8s v2 proof seq=%d verified OFFLINE — coverage %v\n", name, seq, res.Coverage.Verified)
 
-	// 7. TAMPER MATRIX (fail-closed contract: err==nil ⟺ Valid). Each forgery must
-	//    invalidate the proof.
 	if err := tamperRejected(ctx, proof, trustRoots); err != nil {
-		return err
+		return fmt.Errorf("%s: %w", name, err)
 	}
-	fmt.Println("  [PASS] tamper matrix rejected (forged root_hash / smt_root / entry byte)")
+	fmt.Printf("  [PASS] %-8s tamper matrix rejected (forged root_hash / smt_root / entry byte)\n", name)
 	return nil
 }
 

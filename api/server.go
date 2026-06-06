@@ -50,6 +50,7 @@ import (
 	"net/http"
 	"time"
 
+	sdklog "github.com/baseproof/baseproof/log"
 	middleware "github.com/baseproof/tooling/libs/httpmw"
 	"github.com/baseproof/tooling/libs/httpmw/observability"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
@@ -247,8 +248,11 @@ func NewServer(cfg Config) (*Server, error) {
 	}
 
 	srv := &http.Server{
-		Addr:         cfg.Addr,
-		Handler:      mux,
+		Addr: cfg.Addr,
+		// OTel SERVER span (outermost): extracts the caller's W3C traceparent so a
+		// client request flows as one trace from the JN edge through to the ledger,
+		// and names the span by the matched route pattern (low cardinality).
+		Handler:      sdklog.NewOTelHandler(mux),
 		ReadTimeout:  read,
 		WriteTimeout: write,
 		IdleTimeout:  idle,
