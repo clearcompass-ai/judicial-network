@@ -138,6 +138,12 @@ func (in Infra) Up() error {
 	}
 	if r := dockerx.Run(dockerx.RunSpec{
 		Name: in.S3(), Network: in.network, Image: in.images.Seaweed, Detached: true,
+		// Publish the S3 port to the host so an OFF-NETWORK verifier (the host-side
+		// e2e runner) can follow the ledger's 302 redirect for SHIPPED entries and
+		// fetch the bytes — the same way a production verifier reaches the public
+		// bytestore CDN. seaweedfs runs with no configured identities, so the GET is
+		// anonymous (no S3 signing). See ledgerBaseEnv's PUBLIC_BASE_URL.
+		Ports:     []dockerx.Port{{Host: seaweedHostPort(), Container: 8333}},
 		ImageArgs: []string{"server", "-s3", "-s3.port=8333", "-s3.allowEmptyFolder=true", "-ip.bind=0.0.0.0"},
 	}); !r.OK() {
 		return fmt.Errorf("seaweedfs run: %s", tail(r.Stderr, 300))
@@ -225,6 +231,18 @@ func UpWitnessFleet(nc NetConfig, fixturesDir, witnessImage string) error {
 // transport identity. Every caller — auditors, JN, aggregator, the
 // seed/backfill/audit tool containers, the host probes — verifies the server cert
 // against the run CA and presents NO client cert.
+// seaweedHostPort is the host port the shared seaweedfs S3 endpoint is published
+// on, so host-side verifiers can follow shipped-entry redirects. Override with
+// E2E_SEAWEED_HOST_PORT to avoid a clash when running multiple stacks. Default 8333.
+func seaweedHostPort() int {
+	if v := os.Getenv("E2E_SEAWEED_HOST_PORT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 8333
+}
+
 func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 	return map[string]string{
 		"LEDGER_DATABASE_URL":             dsn(in.PG(), nc.DB),
@@ -232,6 +250,12 @@ func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 		"LEDGER_ADDR":                     ":8080",
 		"LEDGER_BYTE_STORE_BACKEND":       "s3",
 		"LEDGER_BYTE_STORE_S3_ENDPOINT":   "http://" + in.S3() + ":8333",
+		// Public URL the ledger puts in the 302 Location for SHIPPED entries.
+		// Host-reachable (seaweedfs is published to the host) so the host-side
+		// proof/verify recipes can follow the redirect and fetch the bytes — the
+		// e2e analog of a production public bytestore. The ledger itself reads/writes
+		// via the in-network S3_ENDPOINT above; this only addresses external readers.
+		"LEDGER_BYTE_STORE_PUBLIC_BASE_URL": fmt.Sprintf("http://localhost:%d", seaweedHostPort()),
 		"LEDGER_BYTE_STORE_S3_BUCKET":     nc.Bucket,
 		"LEDGER_BYTE_STORE_S3_REGION":     "us-east-1",
 		"LEDGER_BYTE_STORE_S3_ACCESS_KEY": "any",
