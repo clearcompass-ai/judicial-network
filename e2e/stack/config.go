@@ -7,6 +7,7 @@ package stack
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/topology"
@@ -75,6 +76,18 @@ func readerEnabled() bool {
 		return true
 	}
 	return false
+}
+
+// walRetentionBufferEnv reads E2E_WAL_RETENTION_BUFFER — the WAL retention GC
+// margin in SEQUENCES that turns GC on for the verify.walgc arm. 0/unset ⇒ GC
+// stays off (the production-safe default).
+func walRetentionBufferEnv() uint64 {
+	if v := strings.TrimSpace(env("E2E_WAL_RETENTION_BUFFER", "")); v != "" {
+		if n, err := strconv.ParseUint(v, 10, 64); err == nil {
+			return n
+		}
+	}
+	return 0
 }
 
 func env(key, def string) string {
@@ -187,6 +200,11 @@ const (
 // for multiple networks each gets a "{netname}" segment, its own database, and a
 // strided host-port block.
 func DeriveNetConfigs(spec topology.StackSpec, runID string) []NetConfig {
+	// E2E_WAL_RETENTION_BUFFER turns WAL GC on for the verify.walgc arm without
+	// editing a preset (spec is a value — this override is local to this stack).
+	if b := walRetentionBufferEnv(); b > 0 {
+		spec.Tuning.WALRetentionBuffer = b
+	}
 	network := "baseproof-" + runID
 	single := len(spec.Networks) == 1
 	out := make([]NetConfig, 0, len(spec.Networks))

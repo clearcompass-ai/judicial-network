@@ -125,11 +125,12 @@ func (l *Layout) manifestPath() string { return filepath.Join(l.Home, "stack.jso
 
 // Manifest is the persisted record of a brought-up stack.
 type Manifest struct {
-	ID        string            `json:"id"`
-	Preset    string            `json:"preset"`
-	Network   string            `json:"network"`   // docker network name
-	Admission string            `json:"admission"` // credits|pow (how the runner drives workloads)
-	Networks  []NetworkManifest `json:"networks"`
+	ID                 string            `json:"id"`
+	Preset             string            `json:"preset"`
+	Network            string            `json:"network"`                        // docker network name
+	Admission          string            `json:"admission"`                      // credits|pow (how the runner drives workloads)
+	WALRetentionBuffer uint64            `json:"wal_retention_buffer,omitempty"` // WAL GC margin (0 ⇒ GC off); gates verify.walgc
+	Networks           []NetworkManifest `json:"networks"`
 }
 
 // NetworkManifest is one network's externally-addressable surface — the complete

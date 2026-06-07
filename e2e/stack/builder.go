@@ -54,7 +54,10 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 	}
 	okf("postgres + seaweedfs up (per-network buckets created at ledger bring-up)")
 
-	manifest := &runstore.Manifest{ID: runID, Preset: spec.Name, Network: network, Admission: spec.Tuning.Admission}
+	manifest := &runstore.Manifest{
+		ID: runID, Preset: spec.Name, Network: network, Admission: spec.Tuning.Admission,
+		WALRetentionBuffer: ncs[0].Tuning.WALRetentionBuffer, // env-overridden in DeriveNetConfigs; gates verify.walgc
+	}
 	for i := range ncs {
 		nc := &ncs[i]
 		fixturesDir := lay.Fixtures

@@ -47,6 +47,7 @@ type Tuning struct {
 	BatchSize            int    // 0 ⇒ ledger default
 	PGMaxConns           int    // 0 ⇒ ledger default
 	SequencerMaxInflight int    // 0 ⇒ ledger default
+	WALRetentionBuffer   uint64 // shipped-entry WAL GC margin in sequences; 0 ⇒ GC off (the default)
 }
 
 // DefaultTuning is the throughput baseline: fast (credit) admission, proofs served
