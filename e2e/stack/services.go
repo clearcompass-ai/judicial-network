@@ -292,6 +292,12 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if nc.Tuning.PGMaxConns > 0 {
 		envm["LEDGER_PG_MAX_CONNS"] = strconv.Itoa(nc.Tuning.PGMaxConns)
 	}
+	if nc.Tuning.WALRetentionBuffer > 0 {
+		envm["LEDGER_WAL_RETENTION_BUFFER"] = strconv.FormatUint(nc.Tuning.WALRetentionBuffer, 10)
+		// Short GC poll so verify.walgc observes a reclaim promptly after load —
+		// the work-driven GC fires within one poll once a buffer's worth ships.
+		envm["LEDGER_WAL_RETENTION_INTERVAL"] = "10s"
+	}
 	if lvl := ledgerLogLevel(); lvl != "" {
 		envm["LEDGER_LOG_LEVEL"] = lvl
 	}
