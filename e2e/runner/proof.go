@@ -80,7 +80,15 @@ func forEachNetwork(s *Session, fn func(name string, t stack.Target) error) erro
 // cosigned horizon the rest of the way (the witness-cosign lag).
 func backfillDrained(t stack.Target, image string, n int) (*stack.BackfillStats, error) {
 	before, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
-	st, err := stack.Backfill(t, image, n, 8, 0.0, 1)
+	// Default to the original 8-worker, unbatched load; let big runs (300k+) raise
+	// throughput via E2E_BACKFILL_WORKERS / E2E_BACKFILL_BATCH. Batching needs
+	// credits admission (the only mode that batches) — fall back to unbatched on PoW.
+	workers := intEnv("E2E_BACKFILL_WORKERS", 8)
+	batch := intEnv("E2E_BACKFILL_BATCH", 1)
+	if batch > 1 && t.Admission != "credits" {
+		batch = 1
+	}
+	st, err := stack.Backfill(t, image, n, workers, 0.0, batch)
 	if err != nil {
 		return nil, err
 	}
