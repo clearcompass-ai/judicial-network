@@ -37,24 +37,40 @@ func init() {
 // the gather), and confirm the tamper matrix fails closed. This is the end-to-end
 // acceptance of the proof generate→verify loop (epic baseproof#5, Waves 1–2).
 func federationProof(s *Session) error {
-	t, ok := s.Target("")
-	if !ok {
+	ctx := context.Background()
+	n := intEnv("E2E_PROOF_ENTRIES", 16)
+	// Works on single (1 network) AND federation (N) — every log is proven.
+	return forEachNetwork(s, func(name string, t stack.Target) error {
+		st, err := backfillDrained(t, s.Images.Ledger, n)
+		if err != nil {
+			return err
+		}
+		if len(st.Leaves) == 0 {
+			return fmt.Errorf("backfill produced no SMT leaves")
+		}
+		// gather a v2 proof of a committed member, verify it offline, tamper it.
+		return proveEntry(ctx, name, t, st.Leaves[0].Key)
+	})
+}
+
+// forEachNetwork runs fn for every network in the persisted manifest — one on the
+// `single` preset, N on `federation` — so a proof recipe validates EVERY log, not
+// just the first. Fails on the first network's error, tagged with its name.
+func forEachNetwork(s *Session, fn func(name string, t stack.Target) error) error {
+	nets := s.Manifest.Networks
+	if len(nets) == 0 {
 		return fmt.Errorf("no network in the persisted manifest")
 	}
-	ctx := context.Background()
-
-	// 1. A workload so the SMT carries member keys and the head is witness-cosigned.
-	n := intEnv("E2E_PROOF_ENTRIES", 16)
-	st, err := backfillDrained(t, s.Images.Ledger, n)
-	if err != nil {
-		return err
+	for _, nm := range nets {
+		t, ok := s.Target(nm.Name)
+		if !ok {
+			return fmt.Errorf("no target for network %q", nm.Name)
+		}
+		if err := fn(nm.Name, t); err != nil {
+			return fmt.Errorf("network %s: %w", nm.Name, err)
+		}
 	}
-	if len(st.Leaves) == 0 {
-		return fmt.Errorf("backfill produced no SMT leaves")
-	}
-
-	// 2–7: gather a v2 proof of a committed member, verify it offline, tamper it.
-	return proveEntry(ctx, t.Network, t, st.Leaves[0].Key)
+	return nil
 }
 
 // backfillDrained loads n entries and waits until the COMMITTED head reaches the
