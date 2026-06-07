@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/stack"
 )
@@ -25,11 +24,9 @@ func federationProofCold(s *Session) error {
 		return fmt.Errorf("no network in the persisted manifest")
 	}
 	ctx := context.Background()
-	drain := time.Duration(intEnv("E2E_DRAIN_TIMEOUT_MIN", 15)) * time.Minute
 
 	// 1. A small first batch: entry 0 is committed at an EARLY checkpoint.
-	n1 := intEnv("E2E_COLD_EARLY", 4)
-	early, err := stack.Backfill(t, s.Images.Ledger, n1, 8, 0.0, 1)
+	early, err := backfillDrained(t, s.Images.Ledger, intEnv("E2E_COLD_EARLY", 4))
 	if err != nil {
 		return fmt.Errorf("early backfill: %w", err)
 	}
@@ -37,19 +34,11 @@ func federationProofCold(s *Session) error {
 		return fmt.Errorf("early backfill produced no leaves")
 	}
 	coldKey := early.Leaves[0].Key
-	if !stack.WaitDrained(t.CertsDir, t.LedgerPort, early.Roots+1, drain) { // +1 genesis seed
-		return fmt.Errorf("early batch did not drain (raise E2E_DRAIN_TIMEOUT_MIN)")
-	}
 	earlySize, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
 
 	// 2. A large second batch pushes the horizon FAR past entry 0 — it goes cold.
-	n2 := intEnv("E2E_COLD_ADVANCE", 40)
-	late, err := stack.Backfill(t, s.Images.Ledger, n2, 8, 0.0, 1)
-	if err != nil {
+	if _, err := backfillDrained(t, s.Images.Ledger, intEnv("E2E_COLD_ADVANCE", 40)); err != nil {
 		return fmt.Errorf("advance backfill: %w", err)
-	}
-	if !stack.WaitDrained(t.CertsDir, t.LedgerPort, early.Roots+late.Roots+1, drain) {
-		return fmt.Errorf("advance batch did not drain (raise E2E_DRAIN_TIMEOUT_MIN)")
 	}
 	lateSize, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
 
