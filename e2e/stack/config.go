@@ -65,6 +65,18 @@ func jnBestEffort() bool {
 	return false
 }
 
+// readerEnabled (E2E_READER=1) launches a PG-off ledger-reader read front per
+// network at `up`, so the federation.proof.pgoff arm has a real object-store-
+// backed front to prove against. Default off: the read front is an extra
+// container per network the base stack does not need.
+func readerEnabled() bool {
+	switch strings.ToLower(env("E2E_READER", "")) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
 func env(key, def string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
@@ -88,20 +100,25 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures. The
-		// fleet is pinned to the tooling 0.0.25 release — a superset of 0.0.23
+		// fleet is pinned to the tooling 0.0.26 release — a superset of 0.0.23
 		// (receipt fix B: GET /v1/receipt/proof/{seq} binds to its OWN
 		// covering-checkpoint head, so a SETTLED entry far below the horizon verifies
 		// against a per-checkpoint-delta ReceiptRoot; PLUS Phase 1 cold reads: the
 		// PG-free read front and the per-size-checkpoint (1.1a), receipt-commitment
 		// (1.2a) and witness-rotation (1.2b) archives those proofs reconstruct from),
-		// 0.0.24 (adds /ledger-reader — the PG-OFF arm's read front), and Phase 2 (WAL
+		// 0.0.24 (adds /ledger-reader — the PG-OFF arm's read front), Phase 2 (WAL
 		// retention GC [off unless LEDGER_WAL_RETENTION_BUFFER is set], incremental SMT
 		// tiling, and the read-cost-bounding QueryBy* keyset pagination + covering
-		// indexes + immutable receipt cache). Witness + auditor are the SAME 0.0.25
-		// coordinated fleet build; override any image via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.25"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.25"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.25"),
+		// indexes + immutable receipt cache), and 0.0.27 (the read front reconstructs
+		// INCLUSION proofs + /raw seq→hash from the OBJECT STORE alone — the writer
+		// ships tessera log tiles + entry bundles to S3, so the PG-off reader needs no
+		// filesystem shared with the writer; the reader also serves HTTPS + reads the
+		// writer's LEDGER_* env; 0.0.27 hardens the tile-ship cursor so a new network
+		// never bulk-ships). Witness + auditor are the SAME 0.0.27 coordinated
+		// fleet build; override any image via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.27"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.27"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.27"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
@@ -123,6 +140,7 @@ type NetConfig struct {
 	LogDID     string // resolved exchange_did from the bootstrap (filled after fixtures)
 
 	LedgerPort     int
+	ReaderPort     int // PG-off read front (ledger-reader) host port; 0 when not launched
 	JNPort         int
 	AggregatorPort int
 	AuditorPorts   []int
@@ -156,6 +174,7 @@ func dsn(pgContainer, db string) string {
 // to distinct HOST ports so multiple networks coexist. Strides keep them apart.
 const (
 	ledgerPortBase     = 8080
+	readerPortBase     = 8081 // PG-off read front, one per network (free slot below the auditor block)
 	jnPortBase         = 8443
 	auditorPortBase    = 8088
 	aggregatorPortBase = 8092
@@ -200,6 +219,7 @@ func DeriveNetConfigs(spec topology.StackSpec, runID string) []NetConfig {
 			DB:             db,
 			LogDIDSeed:     seed,
 			LedgerPort:     ledgerPortBase + i*perNetworkStride,
+			ReaderPort:     readerPortBase + i*perNetworkStride,
 			JNPort:         jnPortBase + i*perNetworkStride,
 			AggregatorPort: aggregatorPortBase + i*perNetworkStride,
 			AuditorPorts:   auditorPorts,

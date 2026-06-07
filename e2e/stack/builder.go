@@ -95,6 +95,20 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		}
 		okf("ledger /healthz == ok")
 
+		// Optional PG-off read front (the federation.proof.pgoff arm). Same image's
+		// /ledger-reader entrypoint, same shared object store + server cert, Postgres
+		// pointed at a dead host — it reconstructs proofs from the object store the
+		// writer ships tiles to. Opt-in (E2E_READER=1) so the default stack stays lean.
+		readerPort := 0
+		if readerEnabled() {
+			stage("network %q — PG-off read front on :%d (object-store-backed)", nc.Spec.Name, nc.ReaderPort)
+			if err := UpReader(*nc, in, lay.Certs, images.Ledger); err != nil {
+				return nil, fmt.Errorf("network %s read front: %w", nc.Spec.Name, err)
+			}
+			readerPort = nc.ReaderPort
+			okf("read front /healthz == ok (Postgres off)")
+		}
+
 		stage("network %q — seed (genesis-seed → fleet cosigns the head)", nc.Spec.Name)
 		if err := SeedOnUp(in, *nc, fixturesDir, lay.Certs, images.Ledger); err != nil {
 			return nil, fmt.Errorf("network %s: %w", nc.Spec.Name, err)
@@ -151,7 +165,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 
 		manifest.Networks = append(manifest.Networks, runstore.NetworkManifest{
 			Name: nc.Spec.Name, LogDID: did, QuorumK: nc.Spec.QuorumK,
-			LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort, JNPort: jnPort,
+			LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort, ReaderPort: readerPort, JNPort: jnPort,
 			AggregatorPort: aggPort, AuditorPorts: nc.AuditorPorts,
 		})
 	}

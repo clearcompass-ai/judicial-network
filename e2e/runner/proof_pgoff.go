@@ -24,14 +24,20 @@ func init() {
 // E2E_READER_PORT. Until that reader-launch lands this arm SKIPS (no-op, not a
 // failure) so it can be merged ahead of the stack wiring.
 func federationProofPgOff(s *Session) error {
-	readerPort := intEnv("E2E_READER_PORT", 0)
-	if readerPort == 0 {
-		fmt.Println("== federation.proof.pgoff SKIPPED: set E2E_READER_PORT to the PG-off ledger-reader's host port ==")
-		return nil
-	}
 	t, ok := s.Target("")
 	if !ok {
 		return fmt.Errorf("no network in the persisted manifest")
+	}
+	// The stack launches the read front when brought up with E2E_READER=1 — its
+	// host port lands in the persisted manifest (t.ReaderPort). E2E_READER_PORT
+	// remains a manual override for a reader started out-of-band.
+	readerPort := t.ReaderPort
+	if override := intEnv("E2E_READER_PORT", 0); override != 0 {
+		readerPort = override
+	}
+	if readerPort == 0 {
+		fmt.Println("== federation.proof.pgoff SKIPPED: bring the stack up with E2E_READER=1 (or set E2E_READER_PORT) to launch the PG-off read front ==")
+		return nil
 	}
 	ctx := context.Background()
 
