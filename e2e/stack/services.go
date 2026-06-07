@@ -327,7 +327,7 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 // /ledger-reader entrypoint, the SAME shared object store (SeaweedFS) and server
 // cert as the writer, but Postgres pointed at a dead host. It reconstructs the
 // horizon / inclusion / SMT / receipt proof surface from the object store the
-// writer ships its tessera tiles to (tooling 0.0.27+), so it needs NO filesystem
+// writer ships its tessera tiles to (tooling 0.0.28+), so it needs NO filesystem
 // shared with the writer — only the bucket. The reader serves open HTTPS (same
 // cert, gated on /healthz over a server-verify probe), so the proof tooling
 // pins it against the run CA exactly as it does the writer. Reuses ledgerBaseEnv
