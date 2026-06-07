@@ -88,17 +88,19 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures. The
-		// fleet is pinned to the tooling v0.0.21 release — the first where receipt
-		// proofs bind to their OWN covering checkpoint (fix B): GET /v1/receipt/proof/
-		// {seq} embeds the covering-checkpoint head, so a SETTLED entry far below the
-		// horizon verifies (its receipt lives in a per-checkpoint-delta ReceiptRoot the
-		// horizon would not contain). v0.0.21 also carries deep OTel tracing, the AIMD
-		// shipper, the Phase-2 durability gauges (baseproof_wal_backlog_total /
-		// horizon_lag_total / shipper_aimd_limit), the hash-sharded bytestore key, and
-		// the witness cross-module image build. Override per-image via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.21"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.21"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.21"),
+		// ledger is pinned to the tooling 0.0.23 release — v0.0.21 (receipt fix B:
+		// GET /v1/receipt/proof/{seq} binds to its OWN covering-checkpoint head, so a
+		// SETTLED entry far below the horizon verifies against a per-checkpoint-delta
+		// ReceiptRoot) PLUS Phase 1 cold reads: the PG-free read front (horizon /
+		// inclusion / SMT / entry reconstructed from the object store) and the per-size
+		// checkpoint (1.1a), receipt-commitment (1.2a) and witness-rotation (1.2b)
+		// archives those proofs reconstruct from. Witness + auditor are the SAME 0.0.23
+		// coordinated fleet build (all three share digest sha-02e9338…); override any
+		// image via E2E_*_IMAGE. NOTE: the PG-OFF arm (federation.proof.pgoff) needs
+		// 0.0.24, the next build, which adds /ledger-reader to the image.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.23"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.23"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.23"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
