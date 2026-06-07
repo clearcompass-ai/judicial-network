@@ -45,20 +45,35 @@ func federationProof(s *Session) error {
 
 	// 1. A workload so the SMT carries member keys and the head is witness-cosigned.
 	n := intEnv("E2E_PROOF_ENTRIES", 16)
-	st, err := stack.Backfill(t, s.Images.Ledger, n, 8, 0.0, 1)
+	st, err := backfillDrained(t, s.Images.Ledger, n)
 	if err != nil {
 		return err
 	}
 	if len(st.Leaves) == 0 {
 		return fmt.Errorf("backfill produced no SMT leaves")
 	}
-	if !stack.WaitDrained(t.CertsDir, t.LedgerPort, st.Roots+1, // +1 for the genesis seed
-		time.Duration(intEnv("E2E_DRAIN_TIMEOUT_MIN", 15))*time.Minute) {
-		return fmt.Errorf("builder did not drain the backfill (raise E2E_DRAIN_TIMEOUT_MIN)")
-	}
 
 	// 2–7: gather a v2 proof of a committed member, verify it offline, tamper it.
 	return proveEntry(ctx, t.Network, t, st.Leaves[0].Key)
+}
+
+// backfillDrained loads n entries and waits until the COMMITTED head reaches the
+// ABSOLUTE size that includes them (size-before + roots) — robust on a reused stack,
+// where a per-batch target (roots+1) is already satisfied and the wait would no-op,
+// letting proveEntry race a not-yet-committed entry. proveEntry then polls the
+// cosigned horizon the rest of the way (the witness-cosign lag).
+func backfillDrained(t stack.Target, image string, n int) (*stack.BackfillStats, error) {
+	before, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
+	st, err := stack.Backfill(t, image, n, 8, 0.0, 1)
+	if err != nil {
+		return nil, err
+	}
+	target := before + st.Roots
+	if !stack.WaitDrained(t.CertsDir, t.LedgerPort, target,
+		time.Duration(intEnv("E2E_DRAIN_TIMEOUT_MIN", 15))*time.Minute) {
+		return nil, fmt.Errorf("backfill did not drain to tree_size %d (raise E2E_DRAIN_TIMEOUT_MIN)", target)
+	}
+	return st, nil
 }
 
 // proveEntry gathers a v2 self-anchored proof of the member at leafKeyHex on
@@ -96,13 +111,26 @@ func proveEntry(ctx context.Context, name string, t stack.Target, leafKeyHex str
 		return fmt.Errorf("%s: %w", name, err)
 	}
 
-	hz, err := client.Horizon()
-	if err != nil {
-		return fmt.Errorf("%s: fetch horizon: %w", name, err)
-	}
-	seq, err := smtKeySeq(ctx, httpClient, baseURL, key, hz.SMTRoot)
-	if err != nil {
-		return fmt.Errorf("%s: resolve seq for key %s: %w", name, short(leafKeyHex), err)
+	// Resolve the entry's committed seq, POLLING the cosigned horizon until it
+	// includes the entry. The witness-cosigned horizon (/v1/tree/horizon) lags the
+	// committed head by a witness round, so a freshly backfilled entry resolves only
+	// once cosigning catches up — a one-shot fetch races and reports non_membership on
+	// a reused/persisted stack or under a fast loader. Robust at any scale.
+	var seq uint64
+	resolveDeadline := time.Now().Add(time.Duration(intEnv("E2E_RESOLVE_TIMEOUT_MIN", 5)) * time.Minute)
+	for {
+		hz, hErr := client.Horizon()
+		if hErr == nil {
+			if s, sErr := smtKeySeq(ctx, httpClient, baseURL, key, hz.SMTRoot); sErr == nil {
+				seq = s
+				break
+			} else if time.Now().After(resolveDeadline) {
+				return fmt.Errorf("%s: resolve seq for key %s (horizon never covered it): %w", name, short(leafKeyHex), sErr)
+			}
+		} else if time.Now().After(resolveDeadline) {
+			return fmt.Errorf("%s: fetch horizon: %w", name, hErr)
+		}
+		time.Sleep(2 * time.Second)
 	}
 
 	nb, err := networkbundle.Build(doc, baseURL, t.QuorumK, networkbundle.Vocabulary{CitedMemberKey: key})
