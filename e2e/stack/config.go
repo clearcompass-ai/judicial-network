@@ -88,19 +88,20 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures. The
-		// ledger is pinned to the tooling 0.0.23 release — v0.0.21 (receipt fix B:
-		// GET /v1/receipt/proof/{seq} binds to its OWN covering-checkpoint head, so a
-		// SETTLED entry far below the horizon verifies against a per-checkpoint-delta
-		// ReceiptRoot) PLUS Phase 1 cold reads: the PG-free read front (horizon /
-		// inclusion / SMT / entry reconstructed from the object store) and the per-size
-		// checkpoint (1.1a), receipt-commitment (1.2a) and witness-rotation (1.2b)
-		// archives those proofs reconstruct from. Witness + auditor are the SAME 0.0.23
-		// coordinated fleet build (all three share digest sha-02e9338…); override any
-		// image via E2E_*_IMAGE. NOTE: the PG-OFF arm (federation.proof.pgoff) needs
-		// 0.0.24, the next build, which adds /ledger-reader to the image.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.23"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.23"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.23"),
+		// fleet is pinned to the tooling 0.0.25 release — a superset of 0.0.23
+		// (receipt fix B: GET /v1/receipt/proof/{seq} binds to its OWN
+		// covering-checkpoint head, so a SETTLED entry far below the horizon verifies
+		// against a per-checkpoint-delta ReceiptRoot; PLUS Phase 1 cold reads: the
+		// PG-free read front and the per-size-checkpoint (1.1a), receipt-commitment
+		// (1.2a) and witness-rotation (1.2b) archives those proofs reconstruct from),
+		// 0.0.24 (adds /ledger-reader — the PG-OFF arm's read front), and Phase 2 (WAL
+		// retention GC [off unless LEDGER_WAL_RETENTION_BUFFER is set], incremental SMT
+		// tiling, and the read-cost-bounding QueryBy* keyset pagination + covering
+		// indexes + immutable receipt cache). Witness + auditor are the SAME 0.0.25
+		// coordinated fleet build; override any image via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.25"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.25"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.25"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
