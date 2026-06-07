@@ -141,6 +141,7 @@ type NetworkManifest struct {
 	QuorumK        int    `json:"quorum_k"`
 	LedgerName     string `json:"ledger_name"`
 	LedgerPort     int    `json:"ledger_port"`
+	ReaderPort     int    `json:"reader_port,omitempty"` // PG-off read front; 0/omitted when not launched
 	JNPort         int    `json:"jn_port,omitempty"`
 	AggregatorPort int    `json:"aggregator_port,omitempty"`
 	AuditorPorts   []int  `json:"auditor_ports,omitempty"`

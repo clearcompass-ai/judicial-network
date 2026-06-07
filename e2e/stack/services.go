@@ -245,11 +245,11 @@ func seaweedHostPort() int {
 
 func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 	return map[string]string{
-		"LEDGER_DATABASE_URL":             dsn(in.PG(), nc.DB),
-		"LEDGER_LOG_DID":                  nc.LogDID,
-		"LEDGER_ADDR":                     ":8080",
-		"LEDGER_BYTE_STORE_BACKEND":       "s3",
-		"LEDGER_BYTE_STORE_S3_ENDPOINT":   "http://" + in.S3() + ":8333",
+		"LEDGER_DATABASE_URL":           dsn(in.PG(), nc.DB),
+		"LEDGER_LOG_DID":                nc.LogDID,
+		"LEDGER_ADDR":                   ":8080",
+		"LEDGER_BYTE_STORE_BACKEND":     "s3",
+		"LEDGER_BYTE_STORE_S3_ENDPOINT": "http://" + in.S3() + ":8333",
 		// Public URL the ledger puts in the 302 Location for SHIPPED entries.
 		// Host-reachable (seaweedfs is published to the host) so the host-side
 		// proof/verify recipes can follow the redirect and fetch the bytes — the
@@ -260,20 +260,20 @@ func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 		// empty-default is DefaultS3PathStyle(endpoint, bucket) which embeds the
 		// bucket. Omitting it yields ".../entries/<seq>/<hash>" (no bucket) → 404.
 		"LEDGER_BYTE_STORE_PUBLIC_BASE_URL": fmt.Sprintf("http://localhost:%d/%s", seaweedHostPort(), nc.Bucket),
-		"LEDGER_BYTE_STORE_S3_BUCKET":     nc.Bucket,
-		"LEDGER_BYTE_STORE_S3_REGION":     "us-east-1",
-		"LEDGER_BYTE_STORE_S3_ACCESS_KEY": "any",
-		"LEDGER_BYTE_STORE_S3_SECRET_KEY": "any",
-		"LEDGER_BYTE_STORE_S3_PATH_STYLE": "true",
-		"LEDGER_WITNESS_ENDPOINTS":        witnessEndpoints(nc),
-		"LEDGER_WITNESS_QUORUM_K":         strconv.Itoa(nc.Spec.QuorumK),
-		"LEDGER_NETWORK_BOOTSTRAP_FILE":   mntFixtures + "/network-bootstrap.json",
-		"LEDGER_TESSERA_STORAGE_DIR":      "/var/lib/ledger/tessera",
-		"LEDGER_WAL_PATH":                 "/var/lib/ledger/wal",
-		"LEDGER_TESSERA_ANTISPAM_PATH":    "/var/lib/ledger/antispam",
-		"LEDGER_SMT_TILE_EMIT_DIR":        tileDir,
-		"LEDGER_SMT_PROOF_SOURCE":         nc.Tuning.ProofSource,
-		"LEDGER_SEQUENCER_INTERVAL":       sequencerInterval(),
+		"LEDGER_BYTE_STORE_S3_BUCKET":       nc.Bucket,
+		"LEDGER_BYTE_STORE_S3_REGION":       "us-east-1",
+		"LEDGER_BYTE_STORE_S3_ACCESS_KEY":   "any",
+		"LEDGER_BYTE_STORE_S3_SECRET_KEY":   "any",
+		"LEDGER_BYTE_STORE_S3_PATH_STYLE":   "true",
+		"LEDGER_WITNESS_ENDPOINTS":          witnessEndpoints(nc),
+		"LEDGER_WITNESS_QUORUM_K":           strconv.Itoa(nc.Spec.QuorumK),
+		"LEDGER_NETWORK_BOOTSTRAP_FILE":     mntFixtures + "/network-bootstrap.json",
+		"LEDGER_TESSERA_STORAGE_DIR":        "/var/lib/ledger/tessera",
+		"LEDGER_WAL_PATH":                   "/var/lib/ledger/wal",
+		"LEDGER_TESSERA_ANTISPAM_PATH":      "/var/lib/ledger/antispam",
+		"LEDGER_SMT_TILE_EMIT_DIR":          tileDir,
+		"LEDGER_SMT_PROOF_SOURCE":           nc.Tuning.ProofSource,
+		"LEDGER_SEQUENCER_INTERVAL":         sequencerInterval(),
 		// Open HTTPS — the ledger terminates TLS in-binary (server cert SAN covers
 		// this container's name) but sets NO inbound client-CA, so the listener does
 		// not request a client cert. Reads open; writes gated by in-body crypto.
@@ -313,6 +313,45 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 		return ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/healthz", nc.LedgerPort)) == "ok"
 	}) {
 		return fmt.Errorf("%s open-HTTPS /healthz never == ok", nc.Name("ledger"))
+	}
+	return nil
+}
+
+// UpReader brings up this network's PG-OFF read front — the SAME ledger image's
+// /ledger-reader entrypoint, the SAME shared object store (SeaweedFS) and server
+// cert as the writer, but Postgres pointed at a dead host. It reconstructs the
+// horizon / inclusion / SMT / receipt proof surface from the object store the
+// writer ships its tessera tiles to (tooling 0.0.27+), so it needs NO filesystem
+// shared with the writer — only the bucket. The reader serves open HTTPS (same
+// cert, gated on /healthz over a server-verify probe), so the proof tooling
+// pins it against the run CA exactly as it does the writer. Reuses ledgerBaseEnv
+// wholesale: the byte-store/TLS/LogDID env is identical; only the DSN differs,
+// and the writer-only env the reader does not read (witnesses, bootstrap,
+// sequencer, signer) is harmlessly ignored.
+func UpReader(nc NetConfig, in Infra, certsDir, ledgerImage string) error {
+	envm := ledgerBaseEnv(nc, in)
+	// Postgres OFF: a well-formed but unresolvable DSN (.invalid never resolves,
+	// RFC 2606). The reader boots (LazyConnect) and serves the object-store surface;
+	// PG-backed value lookups error per-request — exactly the cold-read contract.
+	envm["LEDGER_DATABASE_URL"] = dsn("ledger-reader-pg-off.invalid", nc.DB)
+	if lvl := ledgerLogLevel(); lvl != "" {
+		envm["LEDGER_LOG_LEVEL"] = lvl
+	}
+	if r := dockerx.Run(dockerx.RunSpec{
+		Name: nc.Name("reader"), Network: nc.Network, Image: ledgerImage, Detached: true,
+		Entrypoint: "/ledger-reader",
+		Env:        envm,
+		// The reader listens on the writer's in-container :8080 (distinct container,
+		// so no clash) and is published to its own host port.
+		Ports:  []dockerx.Port{{Host: nc.ReaderPort, Container: 8080}},
+		Mounts: []dockerx.Mount{{Host: certsDir, Container: mntCerts + ":ro"}},
+	}); !r.OK() {
+		return fmt.Errorf("%s run: %s", nc.Name("reader"), tail(r.Stderr, 300))
+	}
+	if !poll(120*time.Second, func() bool {
+		return ledgerBody(certsDir, fmt.Sprintf("https://localhost:%d/healthz", nc.ReaderPort)) == "ok"
+	}) {
+		return fmt.Errorf("%s read front /healthz never == ok", nc.Name("reader"))
 	}
 	return nil
 }
