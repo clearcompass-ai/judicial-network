@@ -36,6 +36,7 @@ func (s *Session) Target(networkName string) (stack.Target, bool) {
 		return stack.Target{
 			Network: s.Manifest.Network, LedgerName: n.LedgerName, LedgerPort: n.LedgerPort, ReaderPort: n.ReaderPort, JNPort: n.JNPort,
 			LogDID: n.LogDID, QuorumK: n.QuorumK, FixturesDir: fx, CertsDir: s.Layout.Certs, Admission: s.Manifest.Admission,
+			DB: n.DB, Bucket: n.Bucket,
 		}, true
 	}
 	return stack.Target{}, false
