@@ -327,14 +327,16 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 // /ledger-reader entrypoint, the SAME shared object store (SeaweedFS) and server
 // cert as the writer, but Postgres pointed at a dead host. It reconstructs the
 // horizon / inclusion / SMT / receipt proof surface from the object store the
-// writer ships its tessera tiles to (tooling 0.0.29+), so it needs NO filesystem
-// shared with the writer — only the bucket. The reader serves open HTTPS (same
-// cert, gated on /healthz over a server-verify probe), so the proof tooling
+// writer ships its tessera tiles to (tooling 0.0.31+), so it needs no LOG-DATA
+// filesystem shared with the writer — only the bucket. The reader serves open HTTPS
+// (same cert, gated on /healthz over a server-verify probe), so the proof tooling
 // pins it against the run CA exactly as it does the writer. Reuses ledgerBaseEnv
-// wholesale: the byte-store/TLS/LogDID env is identical; only the DSN differs,
-// and the writer-only env the reader does not read (witnesses, bootstrap,
+// wholesale: the byte-store/TLS/LogDID env is identical; only the DSN differs. The
+// fixtures dir is mounted read-only for ONE genesis CONFIG file the reader serves —
+// network-bootstrap.json (GET /v1/network/bootstrap, which the v2 proof gather
+// SHA-256-checks against the trust root); the other writer-only env (witnesses,
 // sequencer, signer) is harmlessly ignored.
-func UpReader(nc NetConfig, in Infra, certsDir, ledgerImage string) error {
+func UpReader(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string) error {
 	envm := ledgerBaseEnv(nc, in)
 	// Postgres OFF: a well-formed but unresolvable DSN (.invalid never resolves,
 	// RFC 2606). The reader boots (LazyConnect) and serves the object-store surface;
@@ -349,8 +351,11 @@ func UpReader(nc NetConfig, in Infra, certsDir, ledgerImage string) error {
 		Env:        envm,
 		// The reader listens on the writer's in-container :8080 (distinct container,
 		// so no clash) and is published to its own host port.
-		Ports:  []dockerx.Port{{Host: nc.ReaderPort, Container: 8080}},
-		Mounts: []dockerx.Mount{{Host: certsDir, Container: mntCerts + ":ro"}},
+		Ports: []dockerx.Port{{Host: nc.ReaderPort, Container: 8080}},
+		Mounts: []dockerx.Mount{
+			{Host: certsDir, Container: mntCerts + ":ro"},
+			{Host: fixturesDir, Container: mntFixtures + ":ro"}, // genesis bootstrap → /v1/network/bootstrap
+		},
 	}); !r.OK() {
 		return fmt.Errorf("%s run: %s", nc.Name("reader"), tail(r.Stderr, 300))
 	}

@@ -113,7 +113,7 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures. The
-		// fleet is pinned to the tooling 0.0.31 release — a superset of 0.0.23
+		// fleet is pinned to the tooling 0.0.32 release — a superset of 0.0.23
 		// (receipt fix B: GET /v1/receipt/proof/{seq} binds to its OWN
 		// covering-checkpoint head, so a SETTLED entry far below the horizon verifies
 		// against a per-checkpoint-delta ReceiptRoot; PLUS Phase 1 cold reads: the
@@ -132,15 +132,20 @@ func ResolveImages() Images {
 		// the receipt head resolves with no Postgres, and the per-size checkpoint, size
 		// index, and receipt-commitment archives publish durable-before-horizon — so a
 		// FULL v2 proof verifies offline against the PG-off reader, not just the
-		// inclusion+SMT legs), and 0.0.31 (the read front now DERIVES the per-log
+		// inclusion+SMT legs), 0.0.31 (the read front now DERIVES the per-log
 		// object-store namespace the writer prepends — bytestore.NamespaceForLog(LogDID)
 		// — so the cold reader actually resolves that horizon + those archives instead
 		// of reading an empty namespace at the bucket root; without it every substrate
-		// read 404s and /v1/tree/horizon 503s). Witness + auditor are the SAME 0.0.31
+		// read 404s and /v1/tree/horizon 503s), and 0.0.32 (the read front now serves
+		// GET /v1/network/bootstrap — the genesis CONFIG the v2 gather SHA-256-checks
+		// against the trust root — from LEDGER_NETWORK_BOOTSTRAP_FILE, and puts a
+		// host-reachable URL in the /raw 302 via LEDGER_BYTE_STORE_PUBLIC_BASE_URL
+		// instead of the in-network S3 endpoint; the LAST two addressing gaps for a full
+		// offline proof against the PG-off reader). Witness + auditor are the SAME 0.0.32
 		// coordinated fleet build; override any image via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.31"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.31"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.31"),
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.32"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.32"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.32"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}

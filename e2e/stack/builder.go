@@ -105,7 +105,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		readerPort := 0
 		if readerEnabled() {
 			stage("network %q — PG-off read front on :%d (object-store-backed)", nc.Spec.Name, nc.ReaderPort)
-			if err := UpReader(*nc, in, lay.Certs, images.Ledger); err != nil {
+			if err := UpReader(*nc, in, fixturesDir, lay.Certs, images.Ledger); err != nil {
 				return nil, fmt.Errorf("network %s read front: %w", nc.Spec.Name, err)
 			}
 			readerPort = nc.ReaderPort
