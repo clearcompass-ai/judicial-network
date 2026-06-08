@@ -65,16 +65,32 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 			fixturesDir = filepath.Join(lay.Fixtures, nc.Spec.Name)
 		}
 
-		stage("network %q — fixtures (%d witnesses) + signer key", nc.Spec.Name, nc.Spec.Witnesses)
-		did, err := MintBootstrap(fixturesDir, images.Witness, nc.Spec.Witnesses, nc.LogDIDSeed, uidGID())
+		stage("network %q — fixtures (%d witnesses) + signer/auditor keys", nc.Spec.Name, nc.Spec.Witnesses)
+		// Mint the ledger gossip-originator key AND the auditor gossip key FIRST, so
+		// both did:keys can be declared as genesis auditors in the bootstrap. The
+		// always-on auditor-scope gate recognizes them: the ledger's monitor and the
+		// auditor's scanner both publish claim-class findings (equivocation, etc.).
+		if err := MintSignerKey(fixturesDir, images.Ledger, uidGID()); err != nil {
+			return nil, fmt.Errorf("network %s: ledger signer key: %w", nc.Spec.Name, err)
+		}
+		ledgerDID, err := ledgerDIDFromSignerKey(filepath.Join(fixturesDir, ledgerSignerKeyFile))
+		if err != nil {
+			return nil, fmt.Errorf("network %s: derive ledger did:key: %w", nc.Spec.Name, err)
+		}
+		auditorDID, err := MintAuditorGossipKey(fixturesDir)
+		if err != nil {
+			return nil, fmt.Errorf("network %s: mint auditor gossip key: %w", nc.Spec.Name, err)
+		}
+		// Findings URL is fixture-only: the gate keys on DID + scope, not the URL,
+		// but the SDK requires every auditor registration to carry a valid one.
+		findingsURL := "https://" + nc.Name("ledger") + ":8080/v1/gossip"
+		did, err := MintBootstrap(fixturesDir, images.Witness, nc.Spec.Witnesses, nc.LogDIDSeed, uidGID(),
+			[]string{ledgerDID, auditorDID}, findingsURL)
 		if err != nil {
 			return nil, fmt.Errorf("network %s: %w", nc.Spec.Name, err)
 		}
 		nc.LogDID = did
-		if err := MintSignerKey(fixturesDir, images.Ledger, uidGID()); err != nil {
-			return nil, fmt.Errorf("network %s: %w", nc.Spec.Name, err)
-		}
-		okf("bootstrap log DID: %s", did)
+		okf("bootstrap log DID: %s (genesis auditors: ledger + auditor)", did)
 
 		if nc.DB != pgDBDefault {
 			if err := in.EnsureDB(nc.DB); err != nil {

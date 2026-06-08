@@ -47,6 +47,7 @@ func uidGID() string { return fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()) }
 func sequencerInterval() string      { return env("E2E_SEQUENCER_INTERVAL", "250ms") }
 func auditorPollInterval() string    { return env("E2E_AUDITOR_POLL_INTERVAL", "2s") }
 func auditorHorizonInterval() string { return env("E2E_AUDITOR_HORIZON_INTERVAL", "5s") }
+func auditorScanInterval() string    { return env("E2E_AUDITOR_SCAN_INTERVAL", "5s") }
 func auditHorizonSamples() string    { return env("E2E_AUDIT_RANDOM", "16") }
 func ledgerLogLevel() string         { return env("E2E_LEDGER_LOG_LEVEL", "") }
 

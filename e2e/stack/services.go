@@ -471,6 +471,13 @@ func auditorEnv(nc NetConfig, in Infra, idx int) map[string]string {
 		"AUDITOR_POLL_INTERVAL":          auditorPollInterval(),
 		"AUDITOR_HORIZON_INTERVAL":       auditorHorizonInterval(),
 		"AUDITOR_HORIZON_SAMPLES":        auditHorizonSamples(),
+		// Independent equivocation detection (emit leg): the scanner signs the
+		// findings it pushes to the ledger mesh under this gossip identity — minted
+		// into the fixtures dir and declared as a genesis auditor, so its findings
+		// are recognized by the always-on gate. Enabling both unblocks the
+		// gate-routed finding flow end-to-end.
+		"AUDITOR_GOSSIP_SIGNING_KEY":         mntFixtures + "/" + auditorGossipKeyFile,
+		"AUDITOR_EQUIVOCATION_SCAN_INTERVAL": auditorScanInterval(),
 	}
 }
 
