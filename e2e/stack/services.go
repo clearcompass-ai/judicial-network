@@ -301,6 +301,13 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if lvl := ledgerLogLevel(); lvl != "" {
 		envm["LEDGER_LOG_LEVEL"] = lvl
 	}
+	// Opt-in Go pprof listener (heap/alloc/CPU) for memory forensics on the real
+	// ledger binary: set E2E_LEDGER_PPROF_ADDR=:6060, then
+	//   docker exec <fed-ledger> wget -qO- http://localhost:6060/debug/pprof/heap
+	// No host port is published — reach it via `docker exec` inside the container.
+	if a := env("E2E_LEDGER_PPROF_ADDR", ""); a != "" {
+		envm["LEDGER_PPROF_ADDR"] = a
+	}
 	if _, err := os.Stat(filepath.Join(fixturesDir, "ledger-signer.key")); err == nil {
 		envm["LEDGER_SIGNER_KEY_FILE"] = mntFixtures + "/ledger-signer.key"
 	}
