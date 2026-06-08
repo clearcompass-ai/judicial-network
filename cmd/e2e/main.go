@@ -7,7 +7,7 @@
 //
 //	e2e up <preset> | --networks N --witnesses M --auditors K --k Q [--plan]
 //	e2e list                        list stack presets
-//	e2e status [--id ID]            show the persisted stack + health
+//	e2e status [--id ID] [--watch 5s]  stack health; --watch = live across-the-stack poll
 //	e2e run [selectors]             run tests against the persisted stack
 //	e2e wipe [--id ID]              tear down + drop state
 package main
@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/dockerx"
 	"github.com/clearcompass-ai/judicial-network/e2e/runner"
@@ -67,7 +68,8 @@ usage:
   e2e up <preset | --networks N --witnesses M --auditors K --k Q> [--plan] [--id ID]
                           bring up + persist a stack
   e2e list                list stack presets
-  e2e status [--id ID]    show the persisted stack + health
+  e2e status [--id ID] [--watch 5s]
+                          stack health; --watch polls committed/cosigned/reader/backlog
   e2e run [selectors]     run tests against the persisted stack
   e2e wipe [--id ID]      tear down + drop state
 
@@ -342,6 +344,7 @@ func cmdList([]string) error {
 func cmdStatus(args []string) error {
 	fs := flag.NewFlagSet("status", flag.ContinueOnError)
 	id := fs.String("id", "", "run id (default: latest)")
+	watch := fs.Duration("watch", 0, "poll the stack every interval (e.g. 5s); 0 = one-shot snapshot")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -357,18 +360,115 @@ func cmdStatus(args []string) error {
 	if err != nil {
 		return fmt.Errorf("no persisted stack for run %s — bring one up first", runID)
 	}
-	fmt.Printf("stack %q (preset %s, network %s)\n", m.ID, m.Preset, m.Network)
+
+	if *watch <= 0 {
+		renderStackStatus(m, lay, nil, time.Time{})
+		return nil
+	}
+
+	// Watch mode: a recipe-independent, across-the-stack progress poll. Run it in a
+	// SECOND terminal while any recipe drives load — it shows, per network, whether
+	// work is PROPAGATING: committed head (builder) + its delta, the cosigned horizon
+	// (witnesses) it lags, the reader's horizon (cold-serve parity), and the WAL
+	// backlog (shipping). Ctrl-C to stop.
+	fmt.Printf("watching stack %q every %s — committed=builder, cosigned=witnesses, reader=cold front; Ctrl-C to stop\n",
+		m.ID, *watch)
+	start := time.Now()
+	prev := map[string]headSample{}
+	for {
+		prev = renderStackStatus(m, lay, prev, start)
+		time.Sleep(*watch)
+	}
+}
+
+// headSample is one tick's per-network heads, kept so the next tick can show deltas.
+type headSample struct{ committed, cosigned int }
+
+// renderStackStatus draws one across-the-stack snapshot and returns this tick's heads
+// (for the next tick's deltas). prev==nil / start==zero ⇒ the one-shot snapshot.
+func renderStackStatus(m *runstore.Manifest, lay *runstore.Layout, prev map[string]headSample, start time.Time) map[string]headSample {
+	if start.IsZero() {
+		fmt.Printf("stack %q (preset %s, network %s)\n", m.ID, m.Preset, m.Network)
+	} else {
+		fmt.Printf("\n── %s  run %s  (elapsed %s) ─────────────────────────────────────\n",
+			time.Now().Format("15:04:05"), m.ID, time.Since(start).Round(time.Second))
+	}
+	now := make(map[string]headSample, len(m.Networks))
 	w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(w, "  network\tledger\thealth\tquorum")
+	fmt.Fprintln(w, "  net\thealth\tcommitted\tcosigned\tlag\treader\tbacklog\tstate")
 	for _, n := range m.Networks {
 		health := "down"
 		if stack.LedgerHealthy(n, lay.Certs) {
 			health = "ok"
 		}
-		fmt.Fprintf(w, "  %s\thttps://localhost:%d\t%s\tK=%d\n", n.Name, n.LedgerPort, health, n.QuorumK)
+		committed, _ := stack.HeadStatus(lay.Certs, n.LedgerPort)
+		cosigned := horizonSize(lay.Certs, n.LedgerPort)
+		now[n.Name] = headSample{committed: committed, cosigned: cosigned}
+
+		dc, delta, haveDelta := "", 0, false
+		if p, ok := prev[n.Name]; ok {
+			delta, haveDelta = committed-p.committed, true
+			dc = fmt.Sprintf(" (%+d)", delta)
+		}
+		reader := "-"
+		if n.ReaderPort != 0 {
+			reader = sizeOrDash(horizonSize(lay.Certs, n.ReaderPort))
+		}
+		backlog := backlogOrDash(lay.Certs, n.LedgerPort)
+		fmt.Fprintf(w, "  %s\t%s\t%d%s\t%s\t%d\t%s\t%s\t%s\n",
+			n.Name, health, committed, dc, sizeOrDash(cosigned), committed-cosigned, reader, backlog,
+			stackState(health, committed, cosigned, delta, haveDelta, backlog))
 	}
 	_ = w.Flush()
-	return nil
+	return now
+}
+
+// horizonSize is the cosigned horizon tree_size at a port, 0 when unavailable
+// (pre-genesis 503 / unreachable).
+func horizonSize(certsDir string, port int) int {
+	hz, err := stack.FetchHorizon(certsDir, port)
+	if err != nil {
+		return 0
+	}
+	return hz.TreeSize
+}
+
+func sizeOrDash(n int) string {
+	if n <= 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", n)
+}
+
+func backlogOrDash(certsDir string, port int) string {
+	if v, ok := stack.WALBacklog(certsDir, port); ok {
+		return fmt.Sprintf("%d", v)
+	}
+	return "-"
+}
+
+// stackState classifies a network's propagation from the live signals — the one-word
+// answer to "what is happening here": DOWN, committing (builder advancing), cosigning
+// (committed done, witnesses catching up), shipping (backlog draining), STALLED
+// (committed behind + not advancing + backlog), or caught-up.
+func stackState(health string, committed, cosigned, delta int, haveDelta bool, backlog string) string {
+	if health != "ok" {
+		return "DOWN"
+	}
+	if haveDelta && delta > 0 {
+		return "committing"
+	}
+	pending := backlog != "0" && backlog != "-"
+	if committed > cosigned {
+		if haveDelta && delta == 0 && pending {
+			return "STALLED?" // committed behind cosign, not advancing, work pending
+		}
+		return "cosigning"
+	}
+	if pending {
+		return "shipping"
+	}
+	return "caught-up"
 }
 
 func cmdWipe(args []string) error {
