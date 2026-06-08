@@ -143,6 +143,8 @@ type NetworkManifest struct {
 	LedgerName     string `json:"ledger_name"`
 	LedgerPort     int    `json:"ledger_port"`
 	ReaderPort     int    `json:"reader_port,omitempty"` // PG-off read front; 0/omitted when not launched
+	DB             string `json:"db,omitempty"`          // per-network Postgres database (federation.dr rebuild target)
+	Bucket         string `json:"bucket,omitempty"`      // per-network object-store bucket (federation.dr rebuild source)
 	JNPort         int    `json:"jn_port,omitempty"`
 	AggregatorPort int    `json:"aggregator_port,omitempty"`
 	AuditorPorts   []int  `json:"auditor_ports,omitempty"`

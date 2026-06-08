@@ -169,6 +169,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		manifest.Networks = append(manifest.Networks, runstore.NetworkManifest{
 			Name: nc.Spec.Name, LogDID: did, QuorumK: nc.Spec.QuorumK,
 			LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort, ReaderPort: readerPort, JNPort: jnPort,
+			DB: nc.DB, Bucket: nc.Bucket,
 			AggregatorPort: aggPort, AuditorPorts: nc.AuditorPorts,
 		})
 	}

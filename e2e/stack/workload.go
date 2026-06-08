@@ -29,6 +29,8 @@ type Target struct {
 	FixturesDir string // host fixtures dir (the /out + audit mount)
 	CertsDir    string // host certs dir (the run CA the tools pin to verify the ledger)
 	Admission   string // credits|pow
+	DB          string // per-network Postgres database (rebuild target for federation.dr)
+	Bucket      string // per-network object-store bucket (rebuild source for federation.dr)
 }
 
 func (t Target) innerURL() string { return "https://" + t.LedgerName + ":8080" }
@@ -77,6 +79,7 @@ func (nc NetConfig) target(fixturesDir, certsDir string) Target {
 	return Target{
 		Network: nc.Network, LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort, ReaderPort: nc.ReaderPort, JNPort: nc.JNPort,
 		LogDID: nc.LogDID, QuorumK: nc.Spec.QuorumK, FixturesDir: fixturesDir, CertsDir: certsDir, Admission: nc.Tuning.Admission,
+		DB: nc.DB, Bucket: nc.Bucket,
 	}
 }
 

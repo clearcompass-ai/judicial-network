@@ -362,6 +362,91 @@ func UpReader(nc NetConfig, in Infra, certsDir, ledgerImage string) error {
 	return nil
 }
 
+// ── federation.dr — disaster-recovery primitives ──────────────────────────
+
+// pgContainer / s3Container derive the shared-infra container names from a
+// network's docker network ("baseproof-{runID}"), which the Infra prefix equals —
+// so a recipe with only a Target can reach them.
+func pgContainer(network string) string { return network + "-postgres" }
+func s3Container(network string) string { return network + "-seaweedfs" }
+
+// WipeLedgerProjection simulates the loss federation.dr recovers from: it removes
+// the writer ledger (whose tessera dir is container-internal, so this is a node
+// loss; it also closes the ledger's Postgres connections so the projection is
+// mutable), then empties the projection tables — mirroring rebuild-projection's
+// resetProjectionTables (DELETE entry_index + smt_leaves; reset builder_cursor to
+// the -1 sentinel and smt_root_state to a placeholder root). The rebuild then
+// reconstructs them from the object store, so a correct post-rebuild state proves
+// the reconstruction (not stale leftovers).
+func WipeLedgerProjection(t Target) error {
+	dockerx.Remove(t.LedgerName)
+	pg := pgContainer(t.Network)
+	for _, sql := range []string{
+		"DELETE FROM entry_index",
+		"DELETE FROM smt_leaves",
+		"UPDATE builder_cursor SET last_processed_sequence = -1 WHERE id = 1",
+		"UPDATE smt_root_state SET current_root = decode('" + strings.Repeat("00", 32) + "', 'hex'), committed_through_seq = 0 WHERE id = 1",
+	} {
+		if _, ok := dockerx.PGQuery(pg, pgUser, t.DB, sql); !ok {
+			return fmt.Errorf("wipe projection: %q failed against %s/%s", sql, pg, t.DB)
+		}
+	}
+	return nil
+}
+
+// UpRebuildJob runs /rebuild-projection ONCE against this network, reconstructing
+// the Postgres projection (entry_index + SMT) from the OBJECT STORE alone:
+// --tiles-from-bytestore reads tessera tiles + entry bytes from the shared store
+// (the same bucket/prefix the writer ships to) and takes the head from the
+// cosigned horizon. The DR backbone (tooling v0.0.29+). Foreground + --rm; the
+// captured Result carries the rebuild's stdout/exit.
+func UpRebuildJob(t Target, ledgerImage string) (dockerx.Result, error) {
+	name := t.LedgerName + "-rebuild"
+	dockerx.Remove(name)
+	r := dockerx.Run(dockerx.RunSpec{
+		Name: name, Network: t.Network, Image: ledgerImage, Remove: true,
+		Entrypoint: "/rebuild-projection",
+		ImageArgs: []string{
+			"--tiles-from-bytestore",
+			"--pg-dsn", dsn(pgContainer(t.Network), t.DB),
+			"--log-did", t.LogDID,
+			"--bytestore-backend", "s3",
+			"--bytestore-bucket", t.Bucket,
+			"--bytestore-prefix", "entries", // matches the bytestore default the writer uses
+			"--bytestore-endpoint", "http://" + s3Container(t.Network) + ":8333",
+			"--bytestore-region", "us-east-1",
+			"--bytestore-access-key", "any",
+			"--bytestore-secret-key", "any",
+			"--bytestore-path-style",
+			"--verbose",
+		},
+	})
+	if !r.OK() {
+		return r, fmt.Errorf("%s: rebuild-projection failed: %s", name, tail(r.Stderr, 600))
+	}
+	return r, nil
+}
+
+// RebuiltProjectionState reads the post-rebuild projection: the entry_index row
+// count and the smt_root_state root (lowercase hex). federation.dr asserts these
+// equal the captured cosigned head (count == tree_size; root == smt_root).
+func RebuiltProjectionState(t Target) (entryCount int, smtRootHex string, err error) {
+	pg := pgContainer(t.Network)
+	cntStr, ok := dockerx.PGQuery(pg, pgUser, t.DB, "SELECT count(*) FROM entry_index")
+	if !ok {
+		return 0, "", fmt.Errorf("query entry_index count against %s/%s", pg, t.DB)
+	}
+	cnt, cErr := strconv.Atoi(strings.TrimSpace(cntStr))
+	if cErr != nil {
+		return 0, "", fmt.Errorf("parse entry_index count %q: %w", cntStr, cErr)
+	}
+	root, ok := dockerx.PGQuery(pg, pgUser, t.DB, "SELECT encode(current_root, 'hex') FROM smt_root_state WHERE id = 1")
+	if !ok {
+		return 0, "", fmt.Errorf("query smt_root_state against %s/%s", pg, t.DB)
+	}
+	return cnt, strings.TrimSpace(root), nil
+}
+
 // auditorEnv is one auditor's deterministic env. Its OWN listener stays plain
 // http (probed over the host port), but it pulls from the ledger over OPEN HTTPS
 // — AUDITOR_PEERS is the https ledger URL; AUDITOR_PEER_ALLOW_SELF_SIGNED opens

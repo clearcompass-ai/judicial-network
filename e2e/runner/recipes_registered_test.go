@@ -11,6 +11,8 @@ func TestRecipesRegistered(t *testing.T) {
 		"verify.pagination",
 		"verify.walgc",
 		"federation.proof.pgoff",
+		"federation.dr",
+		"federation.shadow",
 	}
 	for _, name := range want {
 		if _, ok := registry[name]; !ok {
