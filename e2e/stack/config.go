@@ -113,7 +113,7 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures. The
-		// fleet is pinned to the tooling 0.0.34 release — a superset of 0.0.23
+		// fleet is pinned to the tooling 0.0.35 release — a superset of 0.0.23
 		// (receipt fix B: GET /v1/receipt/proof/{seq} binds to its OWN
 		// covering-checkpoint head, so a SETTLED entry far below the horizon verifies
 		// against a per-checkpoint-delta ReceiptRoot; PLUS Phase 1 cold reads: the
@@ -146,18 +146,18 @@ func ResolveImages() Images {
 		// the checkpoint loop prunes durably-tiled nodes AND the builder drops intra-batch
 		// orphan nodes via the SDK's OverlayNodeStore.ReachableMutations, so the ledger heap
 		// is O(throughput × checkpoint-interval), not O(history) — the 300k-backfill OOM),
-		// and 0.0.34 (that bounded tail's durable-set prune no longer STALLS tiling: re-emitting
+		// and 0.0.35 (that bounded tail's durable-set prune no longer STALLS tiling: re-emitting
 		// a checkpoint's tile re-reads unchanged interiors the prune evicted, which the tile
 		// store cannot address by interior hash — so the checkpoint held "smt_tiles_not_durable:
 		// interior node missing". The writer now threads the prior committed root into the SDK's
 		// incremental emitter [v0.0.3-rc6 BuildDirtyTiles fromRoot warm-walk], warming the
 		// same-position prior tile before each re-emit so those interiors resolve; the tail stays
 		// bounded AND tiling progresses — the prerequisite for the 300k cold-serve backfill).
-		// Witness + auditor are the SAME 0.0.34 coordinated fleet build; override any image
+		// Witness + auditor are the SAME 0.0.35 coordinated fleet build; override any image
 		// via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.34"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.34"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.34"),
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.35"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.35"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.35"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
