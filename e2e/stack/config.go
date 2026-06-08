@@ -113,7 +113,7 @@ func ResolveImages() Images {
 		Postgres: env("E2E_POSTGRES_IMAGE", "postgres:16-alpine"),
 		Seaweed:  env("E2E_SEAWEED_IMAGE", "chrislusf/seaweedfs:3.71"),
 		// ledger + auditor carry the open-HTTPS server / open-client postures. The
-		// fleet is pinned to the tooling 0.0.32 release — a superset of 0.0.23
+		// fleet is pinned to the tooling 0.0.33 release — a superset of 0.0.23
 		// (receipt fix B: GET /v1/receipt/proof/{seq} binds to its OWN
 		// covering-checkpoint head, so a SETTLED entry far below the horizon verifies
 		// against a per-checkpoint-delta ReceiptRoot; PLUS Phase 1 cold reads: the
@@ -141,11 +141,16 @@ func ResolveImages() Images {
 		// against the trust root — from LEDGER_NETWORK_BOOTSTRAP_FILE, and puts a
 		// host-reachable URL in the /raw 302 via LEDGER_BYTE_STORE_PUBLIC_BASE_URL
 		// instead of the in-network S3 endpoint; the LAST two addressing gaps for a full
-		// offline proof against the PG-off reader). Witness + auditor are the SAME 0.0.32
-		// coordinated fleet build; override any image via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.32"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.32"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.32"),
+		// offline proof against the PG-off reader), and 0.0.33 (the writer no longer OOMs
+		// under sustained load — the in-memory SMT node tail is bounded to the un-tiled gap:
+		// the checkpoint loop prunes durably-tiled nodes AND the builder drops intra-batch
+		// orphan nodes via the SDK's OverlayNodeStore.ReachableMutations, so the ledger heap
+		// is O(throughput × checkpoint-interval), not O(history) — the 300k-backfill OOM).
+		// Witness + auditor are the SAME 0.0.33 coordinated fleet build; override any image
+		// via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.33"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.33"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.33"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
