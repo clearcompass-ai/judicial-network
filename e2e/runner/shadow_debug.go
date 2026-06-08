@@ -13,6 +13,8 @@ import (
 	"time"
 
 	sdkbundle "github.com/baseproof/baseproof/log/bundle"
+	"github.com/baseproof/baseproof/types"
+
 	libsbundle "github.com/baseproof/tooling/libs/bundle"
 	"github.com/baseproof/tooling/libs/clitools"
 
@@ -142,26 +144,37 @@ func instrumentedProve(ctx context.Context, label string, t stack.Target, port i
 		return err
 	}
 
-	// ── horizon (clitools' own client) ───────────────────────────────────────
+	// ── resolve the committed seq, POLLING the cosigned horizon until it covers the
+	// entry. The witness-cosigned horizon lags the committed head by a witness round,
+	// so right after Backfill/WaitDrained a one-shot resolve races and reports
+	// non_membership — the SAME flake proveEntry guards against. Poll up to
+	// E2E_RESOLVE_TIMEOUT_MIN so the sweep + build instrumentation below always runs
+	// against a covered entry, on BOTH arms. ──
+	var hz types.CosignedTreeHead
+	var seq uint64
 	t0 := time.Now()
-	hz, err := client.Horizon()
-	if err != nil {
-		say("✗ horizon: %v  (%s)", err, since(t0))
-		code, _, snip := getProbe(ctx, hc, baseURL+"/v1/tree/horizon")
-		say("  ↳ raw /v1/tree/horizon → %d %s", code, snip)
-		return err
+	resolveDeadline := time.Now().Add(time.Duration(intEnv("E2E_RESOLVE_TIMEOUT_MIN", 5)) * time.Minute)
+	for {
+		h, hErr := client.Horizon()
+		if hErr == nil {
+			if s, sErr := smtKeySeq(ctx, hc, baseURL, key, h.SMTRoot); sErr == nil {
+				hz, seq = h, s
+				break
+			} else if time.Now().After(resolveDeadline) {
+				say("✗ resolve seq for key %s (horizon never covered it): %v  (%s)", short(hex.EncodeToString(key[:])), sErr, since(t0))
+				return sErr
+			}
+		} else if time.Now().After(resolveDeadline) {
+			say("✗ horizon: %v  (%s)", hErr, since(t0))
+			code, _, snip := getProbe(ctx, hc, baseURL+"/v1/tree/horizon")
+			say("  ↳ raw /v1/tree/horizon → %d %s", code, snip)
+			return hErr
+		}
+		time.Sleep(2 * time.Second)
 	}
 	say("✓ horizon: tree_size=%d smt_root=%s… root_hash=%s…  (%s)",
 		hz.TreeSize, hex.EncodeToString(hz.SMTRoot[:])[:12], hex.EncodeToString(hz.RootHash[:])[:12], since(t0))
-
-	// ── key → seq via /v1/smt/proof (my traced client) ───────────────────────
-	t0 = time.Now()
-	seq, err := smtKeySeq(ctx, hc, baseURL, key, hz.SMTRoot)
-	if err != nil {
-		say("✗ smtKeySeq (the exact poll-loop call): %v  (%s)", err, since(t0))
-		return err
-	}
-	say("✓ smtKeySeq: key→seq=%d  (%s)", seq, since(t0))
+	say("✓ smtKeySeq: key→seq=%d", seq)
 
 	// ── explicit endpoint sweep: every surface the v2 proof depends on ────────
 	sweep := func(tagName, url string) int {
