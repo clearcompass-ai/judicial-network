@@ -154,12 +154,20 @@ func ResolveImages() Images {
 		// incremental emitter [v0.0.3-rc6 BuildDirtyTiles fromRoot warm-walk], warming the
 		// same-position prior tile before each re-emit so those interiors resolve; the tail stays
 		// bounded AND tiling progresses — the prerequisite for the 300k cold-serve backfill).
-		// 0.0.37 = rc8 (shared TileCache node-bounded) + the non-destructive tail-GC
-		// safety audit (LEDGER_TAIL_GC_AUDIT). Witness + auditor are the SAME 0.0.37
-		// coordinated fleet build; override any image via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.37"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.37"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.37"),
+		// 0.0.39 = the flat-to-20M build: rc8 (node-bounded TileCache) + tail orphan
+		// prune (LEDGER_TAIL_GC_PRUNE — memory flat) + incremental WAL retention-GC
+		// (throughput flat regardless of LEDGER_WAL_RETENTION_BUFFER) + the tail-GC
+		// audit (LEDGER_TAIL_GC_AUDIT). v0.1.1 then fixed the pruned-tail tiling STALL
+		// AT SCALE: the rc7/rc8 memory cap had re-bounded the emit walk's read-through,
+		// so past ~172k entries it evicted a dirty band's clean interior mid-walk and
+		// the checkpoint held "smt_tiles_not_durable: interior node missing" (the SMT
+		// horizon froze while integration ran on). v0.1.1 tiles each checkpoint through
+		// a FRESH UNBOUNDED per-emit store, so the cap stays on the long-lived proof
+		// path and the horizon advances in lockstep with integration. Witness + auditor
+		// are the SAME v0.1.1 coordinated fleet build; override any image via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.1"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.1"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.1"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}

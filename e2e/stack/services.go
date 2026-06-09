@@ -315,6 +315,12 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if v := env("E2E_LEDGER_TAIL_GC_AUDIT", ""); v != "" {
 		envm["LEDGER_TAIL_GC_AUDIT"] = v
 	}
+	// Tail orphan prune (0.0.38+): E2E_LEDGER_TAIL_GC_PRUNE=1 bounds the in-memory
+	// SMT node tail to the un-tiled gap (memory flat in history). Keep the audit on
+	// alongside as a live safety net (it must read 0 violations).
+	if v := env("E2E_LEDGER_TAIL_GC_PRUNE", ""); v != "" {
+		envm["LEDGER_TAIL_GC_PRUNE"] = v
+	}
 	// GOMEMLIMIT caps the ledger's Go heap so the runtime GCs/scavenges instead of
 	// ratcheting RSS to the high-water (the profile shows the LIVE heap is bounded —
 	// Badger memtables + the 4096-tile SMT cache — so the climbing cgroup RSS is just
