@@ -18,6 +18,12 @@ func TestParseScales(t *testing.T) {
 	if got, err := parseScales("20000"); err != nil || !reflect.DeepEqual(got, []int{20000}) {
 		t.Fatalf("single-value got %v err %v, want [20000]", got, err)
 	}
+	// the full leaf-loss-at-scale ladder: 20K → 200K → 2M → 20M (the bug surfaced
+	// past ~172K, so every rung from 200K up exercises the v0.1.4 fix). No cap.
+	if got, err := parseScales("20000 200000 2000000 20000000"); err != nil ||
+		!reflect.DeepEqual(got, []int{20000, 200000, 2000000, 20000000}) {
+		t.Fatalf("20K→20M ladder got %v err %v, want [20000 200000 2000000 20000000]", got, err)
+	}
 	// de-duplicates and sorts ascending
 	if got, _ := parseScales("500000 200000 500000"); !reflect.DeepEqual(got, []int{200000, 500000}) {
 		t.Fatalf("dedup/sort got %v", got)

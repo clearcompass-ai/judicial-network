@@ -324,6 +324,45 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if v := env("E2E_LEDGER_TAIL_GC_PRUNE", ""); v != "" {
 		envm["LEDGER_TAIL_GC_PRUNE"] = v
 	}
+	// Leaf-loss fix (v0.1.4). The durable node→tile-top index makes every emitted
+	// node resolvable by hash, so a compressed top-skip to a band interior no longer
+	// faults "missing node (referenced by ancestor)" → silent PathD → a missing
+	// smt_leaves row served as non-membership. It is DEFAULT-ON in the ledger; this
+	// passthrough exists so a soak can A/B it (E2E_LEDGER_NODE_INDEX=0 reverts to the
+	// top-only resolution that loses leaves, with the builder's MissingNodeError halt
+	// catching the gap loudly instead of dropping it).
+	if v := env("E2E_LEDGER_NODE_INDEX", ""); v != "" {
+		envm["LEDGER_NODE_INDEX"] = v
+	}
+	// Leaf-loss VALIDATION diagnostics (v0.1.4+), flipped per run with no rebuild —
+	// the published fleet carries them all. `up … --trace` presets the first two:
+	//   - LEDGER_TRACE_COMMIT=1: a per-batch commit-integrity check that names the
+	//     leaf-loss SOURCE node + seq at commit time, O(delta) — a clean soak
+	//     pass/fail (0 flags ⇒ the fix holds), before any cascade.
+	//   - LEDGER_TILE_VERIFY_FETCH=1: classifies a Get miss (ClassifyTileMiss) as
+	//     INTERIOR_TOP_SKIP (the index fixes) vs STRANDED_TOP (a separate bug), so a
+	//     residual miss is attributable.
+	//   - LEDGER_COMMIT_ALL_NODES=1: commits the FULL overlay delta instead of the
+	//     ReachableMutations projection — the isolation toggle for a residual loss.
+	//   - LEDGER_TRACE_EVICTION=1: non-destructive eviction shadow on the tailed
+	//     node store (tracks would-be-evicted suspects instead of dropping them).
+	for _, k := range []string{
+		"LEDGER_TRACE_COMMIT", "LEDGER_TILE_VERIFY_FETCH",
+		"LEDGER_COMMIT_ALL_NODES", "LEDGER_TRACE_EVICTION",
+	} {
+		if v := env("E2E_"+k, ""); v != "" {
+			envm[k] = v
+		}
+	}
+	// SDK + reconciler Trace Mode (off by default — it is the firehose, distinct
+	// from the bounded diagnostics above). BASEPROOF_TRACE=1 lights up
+	// builder.ProcessBatch, smt.GetLeaf/SetLeaves/TiledNodeStore, jellyfishInsert's
+	// missing-node fault, and the rebuild/WAL/gossip reconcilers — all greppable by
+	// the bptrace: prefix. Honored by the published 0.1.4+ fleet (which embeds
+	// baseproof v0.0.4-rc2); no custom-built image is needed.
+	if v := env("BASEPROOF_TRACE", ""); v != "" {
+		envm["BASEPROOF_TRACE"] = v
+	}
 	// GOMEMLIMIT caps the ledger's Go heap so the runtime GCs/scavenges instead of
 	// ratcheting RSS to the high-water (the profile shows the LIVE heap is bounded —
 	// Badger memtables + the 4096-tile SMT cache — so the climbing cgroup RSS is just
