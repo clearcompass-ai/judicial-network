@@ -354,6 +354,22 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if v := env("E2E_LEDGER_GOMEMLIMIT", "1GiB"); v != "off" {
 		envm["GOMEMLIMIT"] = v
 	}
+	// SDK + reconciler Trace Mode (off by default). BASEPROOF_TRACE=1 lights up
+	// builder.ProcessBatch, smt.GetLeaf/SetLeaves/TiledNodeStore, jellyfishInsert's
+	// missing-node fault, and the rebuild/WAL/gossip reconcilers — all greppable by
+	// the bptrace: prefix. The ledger image must be built from the instrumented
+	// tooling (baseproof v0.0.4-rc1); set E2E_LEDGER_IMAGE accordingly.
+	if v := env("BASEPROOF_TRACE", ""); v != "" {
+		envm["BASEPROOF_TRACE"] = v
+	}
+	// Per-batch commit diagnostics (LEDGER_TRACE_COMMIT batch-dump + commit-integrity),
+	// the ReachableMutations isolation toggle, and the non-destructive eviction shadow.
+	// Mapped from E2E_LEDGER_* so they can be flipped per run without a rebuild.
+	for _, k := range []string{"LEDGER_TRACE_COMMIT", "LEDGER_COMMIT_ALL_NODES", "LEDGER_TRACE_EVICTION"} {
+		if v := env("E2E_"+k, ""); v != "" {
+			envm[k] = v
+		}
+	}
 	if _, err := os.Stat(filepath.Join(fixturesDir, "ledger-signer.key")); err == nil {
 		envm["LEDGER_SIGNER_KEY_FILE"] = mntFixtures + "/ledger-signer.key"
 	}
