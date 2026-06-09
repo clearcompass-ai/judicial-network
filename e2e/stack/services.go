@@ -334,18 +334,34 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if v := env("E2E_LEDGER_NODE_INDEX", ""); v != "" {
 		envm["LEDGER_NODE_INDEX"] = v
 	}
-	// Leaf-loss VALIDATION diagnostics (v0.1.4), enabled by `up … --trace`:
+	// Leaf-loss VALIDATION diagnostics (v0.1.4+), flipped per run with no rebuild —
+	// the published fleet carries them all. `up … --trace` presets the first two:
 	//   - LEDGER_TRACE_COMMIT=1: a per-batch commit-integrity check that names the
 	//     leaf-loss SOURCE node + seq at commit time, O(delta) — a clean soak
 	//     pass/fail (0 flags ⇒ the fix holds), before any cascade.
 	//   - LEDGER_TILE_VERIFY_FETCH=1: classifies a Get miss (ClassifyTileMiss) as
 	//     INTERIOR_TOP_SKIP (the index fixes) vs STRANDED_TOP (a separate bug), so a
 	//     residual miss is attributable.
-	if v := env("E2E_LEDGER_TRACE_COMMIT", ""); v != "" {
-		envm["LEDGER_TRACE_COMMIT"] = v
+	//   - LEDGER_COMMIT_ALL_NODES=1: commits the FULL overlay delta instead of the
+	//     ReachableMutations projection — the isolation toggle for a residual loss.
+	//   - LEDGER_TRACE_EVICTION=1: non-destructive eviction shadow on the tailed
+	//     node store (tracks would-be-evicted suspects instead of dropping them).
+	for _, k := range []string{
+		"LEDGER_TRACE_COMMIT", "LEDGER_TILE_VERIFY_FETCH",
+		"LEDGER_COMMIT_ALL_NODES", "LEDGER_TRACE_EVICTION",
+	} {
+		if v := env("E2E_"+k, ""); v != "" {
+			envm[k] = v
+		}
 	}
-	if v := env("E2E_LEDGER_TILE_VERIFY_FETCH", ""); v != "" {
-		envm["LEDGER_TILE_VERIFY_FETCH"] = v
+	// SDK + reconciler Trace Mode (off by default — it is the firehose, distinct
+	// from the bounded diagnostics above). BASEPROOF_TRACE=1 lights up
+	// builder.ProcessBatch, smt.GetLeaf/SetLeaves/TiledNodeStore, jellyfishInsert's
+	// missing-node fault, and the rebuild/WAL/gossip reconcilers — all greppable by
+	// the bptrace: prefix. Honored by the published 0.1.4+ fleet (which embeds
+	// baseproof v0.0.4-rc2); no custom-built image is needed.
+	if v := env("BASEPROOF_TRACE", ""); v != "" {
+		envm["BASEPROOF_TRACE"] = v
 	}
 	// GOMEMLIMIT caps the ledger's Go heap so the runtime GCs/scavenges instead of
 	// ratcheting RSS to the high-water (the profile shows the LIVE heap is bounded —
@@ -353,22 +369,6 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	// uncollected headroom). Default 1GiB; E2E_LEDGER_GOMEMLIMIT=off disables.
 	if v := env("E2E_LEDGER_GOMEMLIMIT", "1GiB"); v != "off" {
 		envm["GOMEMLIMIT"] = v
-	}
-	// SDK + reconciler Trace Mode (off by default). BASEPROOF_TRACE=1 lights up
-	// builder.ProcessBatch, smt.GetLeaf/SetLeaves/TiledNodeStore, jellyfishInsert's
-	// missing-node fault, and the rebuild/WAL/gossip reconcilers — all greppable by
-	// the bptrace: prefix. The ledger image must be built from the instrumented
-	// tooling (baseproof v0.0.4-rc1); set E2E_LEDGER_IMAGE accordingly.
-	if v := env("BASEPROOF_TRACE", ""); v != "" {
-		envm["BASEPROOF_TRACE"] = v
-	}
-	// Per-batch commit diagnostics (LEDGER_TRACE_COMMIT batch-dump + commit-integrity),
-	// the ReachableMutations isolation toggle, and the non-destructive eviction shadow.
-	// Mapped from E2E_LEDGER_* so they can be flipped per run without a rebuild.
-	for _, k := range []string{"LEDGER_TRACE_COMMIT", "LEDGER_COMMIT_ALL_NODES", "LEDGER_TRACE_EVICTION"} {
-		if v := env("E2E_"+k, ""); v != "" {
-			envm[k] = v
-		}
 	}
 	if _, err := os.Stat(filepath.Join(fixturesDir, "ledger-signer.key")); err == nil {
 		envm["LEDGER_SIGNER_KEY_FILE"] = mntFixtures + "/ledger-signer.key"

@@ -182,11 +182,12 @@ func ResolveImages() Images {
 		// dropping the leaf; the ledger builds/persists that index at tile-emit time
 		// (LEDGER_NODE_INDEX, default on) with a backfill for recovery, plus a per-batch
 		// commit-integrity diagnostic (LEDGER_TRACE_COMMIT) and a reusable tile-miss
-		// classifier. Witness + auditor are the SAME v0.1.4 coordinated fleet build;
-		// override via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.4"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.4"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.4"),
+		// classifier. v0.1.5 = v0.1.4 + an embedded-Postgres test for that durable
+		// index (no runtime change). Witness + auditor are the SAME v0.1.5
+		// coordinated fleet build; override via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.5"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.5"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.5"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}

@@ -140,7 +140,7 @@ func cmdUp(args []string) error {
 		id        = fs.String("id", "", "reuse a specific 3-char run id (default: a fresh id)")
 		planOnly  = fs.Bool("plan", false, "resolve + print the topology plan without bringing anything up")
 		debug     = fs.Bool("debug", false, "forensics preset: tail-GC prune + audit + ledger pprof on :6060 (for verify.tiling / heap dumps)")
-		trace     = fs.Bool("trace", false, "leaf-loss validation preset (v0.1.4): per-batch commit-integrity + tile-miss classification")
+		trace     = fs.Bool("trace", false, "leaf-loss validation preset (v0.1.4+): per-batch commit-integrity + tile-miss classification")
 	)
 	preset, err := parseUpArgs(fs, args)
 	if err != nil {
@@ -156,7 +156,7 @@ func cmdUp(args []string) error {
 		fmt.Println("  --debug: tail-GC prune + audit ON; ledger pprof on :6060 (docker exec <ledger> wget -qO- http://localhost:6060/debug/pprof/heap)")
 	}
 	if *trace {
-		// Leaf-loss validation preset (v0.1.4). The node-index fix is default-ON in
+		// Leaf-loss validation preset (v0.1.4+). The node-index fix is default-ON in
 		// the image; this turns on the SIGNALS that prove it in a soak: the per-batch
 		// commit-integrity check (names any leaf-loss source node + seq at commit
 		// time, O(delta)) and the tile-miss classifier (INTERIOR_TOP_SKIP — fixed by

@@ -153,7 +153,8 @@ func preflight(t stack.Target, image, evRoot string) int {
 	fmt.Fprintf(&b, "resolved_image=%s\ncontainer=%s\n", image, t.LedgerName)
 	for _, ln := range strings.Split(env, "\n") {
 		if strings.HasPrefix(ln, "LEDGER_TAIL_GC") || strings.HasPrefix(ln, "LEDGER_PPROF") || strings.HasPrefix(ln, "GOMEMLIMIT") ||
-			strings.HasPrefix(ln, "LEDGER_NODE_INDEX") || strings.HasPrefix(ln, "LEDGER_TRACE_COMMIT") || strings.HasPrefix(ln, "LEDGER_TILE_VERIFY_FETCH") {
+			strings.HasPrefix(ln, "LEDGER_NODE_INDEX") || strings.HasPrefix(ln, "LEDGER_TRACE_COMMIT") || strings.HasPrefix(ln, "LEDGER_TILE_VERIFY_FETCH") ||
+			strings.HasPrefix(ln, "LEDGER_COMMIT_ALL_NODES") || strings.HasPrefix(ln, "LEDGER_TRACE_EVICTION") || strings.HasPrefix(ln, "BASEPROOF_TRACE") {
 			fmt.Fprintln(&b, ln)
 		}
 	}

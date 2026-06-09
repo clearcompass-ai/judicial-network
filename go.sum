@@ -2,14 +2,10 @@ github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a h1:HbKu58rmZp
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis/v2 v2.33.0 h1:uvTF0EDeu9RLnUEG27Db5I68ESoIxTiXbNUiji6lZrA=
 github.com/alicebob/miniredis/v2 v2.33.0/go.mod h1:MhP4a3EU7aENRi9aO+tHfTBZicLqQevyi/DJpoj6mi0=
-github.com/baseproof/baseproof v0.0.3-rc9 h1:WoY5sqZlmyG/5CRHejGXBxQghrzSLJpFrX5gkgzBK2o=
-github.com/baseproof/baseproof v0.0.3-rc9/go.mod h1:dofQ7zm9qOLDQEiwuFPORHOjkITeL/83YAnR4+TXFSc=
 github.com/baseproof/baseproof v0.0.4-rc2 h1:JBYCV8kjZb8lWt0EA61SlM/Rplx+IwRtNYogcc68tw4=
 github.com/baseproof/baseproof v0.0.4-rc2/go.mod h1:dofQ7zm9qOLDQEiwuFPORHOjkITeL/83YAnR4+TXFSc=
-github.com/baseproof/tooling/libs v0.1.2 h1:Eg//N0dJhV5chiSQIE0enO2kcG7rsG6bx//p5pyHTmY=
-github.com/baseproof/tooling/libs v0.1.2/go.mod h1:YBMMtTUM7txN3U/HTfh2ZtmiN1qjzaJfK0TsIt+6nzc=
-github.com/baseproof/tooling/libs v0.1.4 h1:8TwED6/Cz38hGs80G2BWybjMfncXPJWYJX2X6raVYSU=
-github.com/baseproof/tooling/libs v0.1.4/go.mod h1:GwA//gm9m4cWk0xeq1pYPIh5EiDn4Jj/C95HEytO+8s=
+github.com/baseproof/tooling/libs v0.1.5 h1:eDy6Ytry/tM+hCj28h3H/48QH4WLNrSLboOzrCi91hA=
+github.com/baseproof/tooling/libs v0.1.5/go.mod h1:GwA//gm9m4cWk0xeq1pYPIh5EiDn4Jj/C95HEytO+8s=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bits-and-blooms/bitset v1.24.4 h1:95H15Og1clikBrKr/DuzMXkQzECs1M6hhoGXLwLQOZE=
