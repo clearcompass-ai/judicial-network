@@ -1,0 +1,96 @@
+{{- include "aggregator.validateDatabase" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aggregator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aggregator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aggregator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "aggregator.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        # Roll the pod when non-secret env or the chart-managed DB Secret changes.
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret-db: {{ include (print $.Template.BasePath "/secret-db.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "aggregator.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: aggregator
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.extraArgs }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.container.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "aggregator.fullname" . }}
+          env:
+            # REQUIRED. The aggregator reads TOOLS_DATABASE_URL straight from the
+            # Secret (operator-supplied existingSecret or chart-managed inline).
+            - name: TOOLS_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aggregator.dbSecretName" . }}
+                  key: TOOLS_DATABASE_URL
+          {{- with .Values.container.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.container.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.container.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.container.resources | nindent 12 }}
+          {{- if .Values.ledgerClientTLS.existingSecret }}
+          volumeMounts:
+            # Standard mount path for outbound mTLS material — the binary
+            # auto-detects ca.crt/tls.crt/tls.key here, so NO *_FILE env is set
+            # (the orchestrator-agnostic convention).
+            - name: ledger-tls
+              mountPath: /etc/aggregator/ledger-tls
+              readOnly: true
+          {{- end }}
+      {{- if .Values.ledgerClientTLS.existingSecret }}
+      volumes:
+        - name: ledger-tls
+          secret:
+            secretName: {{ .Values.ledgerClientTLS.existingSecret }}
+      {{- end }}

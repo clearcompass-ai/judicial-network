@@ -1,0 +1,122 @@
+# =============================================================================
+# values.yaml — Judicial-Network network-api Helm chart defaults.
+#
+# The network-api binary is fully env-driven and auto-detects its cert/key/
+# bootstrap files at the STANDARD mount paths under /etc/network-api. This
+# chart's job is just to (a) render the non-secret API_* env into a ConfigMap
+# and (b) mount the operator's Secrets at those standard paths — NO cert path is
+# ever put in env.
+#
+# The service is mTLS-ONLY (tls.RequireAndVerifyClientCert): it ALWAYS serves
+# HTTPS on :8443 and demands a verified client cert. There is no TLS toggle.
+# Because a kubelet httpGet probe cannot present a client cert, liveness and
+# readiness use a tcpSocket probe on the listener port.
+# =============================================================================
+
+image:
+  repository: ghcr.io/clearcompass-ai/judicial-network
+  # Empty tag falls back to .Chart.AppVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# network-api is stateless; scale freely.
+replicas: 1
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+# Non-root by default (matches the image's uid 65532).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+container:
+  port: 8443
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "2", memory: 512Mi}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+  # mTLS-only listener — a kubelet httpGet probe cannot present a client cert,
+  # so we use a tcpSocket probe against the listener port.
+  livenessProbe:
+    tcpSocket: {port: https}
+    initialDelaySeconds: 3
+    periodSeconds: 10
+    timeoutSeconds: 2
+  readinessProbe:
+    tcpSocket: {port: https}
+    initialDelaySeconds: 3
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+service:
+  type: ClusterIP
+  port: 8443
+  annotations: {}
+
+# Non-secret API_* env → ConfigMap (envFrom). 1:1 with the env the binary reads
+# (api/config/operational.go). Only non-empty values are emitted, EXCEPT
+# API_LISTEN_ADDR which is always rendered.
+config:
+  listenAddr: ":8443"
+  ledgerEndpoint: ""
+  witnessQuorumK: ""
+  gossipIngestEnabled: false   # bool → "true"/"false"
+  gossipIngestPeerURL: ""
+  keystoreBackend: ""
+  verificationEndpoint: ""
+
+# Free-form extra API_* env (verbatim key→value strings).
+extraEnv: {}
+# Flag-only tunables (not env-backed).
+extraArgs: []
+
+# --- Cert / key / bootstrap injection (the standard-mount convention) ---------
+# Set the existing Secret; the chart mounts it at the STANDARD path and the
+# binary auto-detects it (zero env). Generate material off-cluster, e.g.:
+#   kubectl -n jn create secret tls network-api-tls --cert=server.crt --key=server.key
+#   kubectl -n jn create secret generic network-api-bootstrap --from-file=bootstrap.json=network-bootstrap.json
+
+# REQUIRED: server TLS for the mTLS listener. The Secret MUST contain tls.crt,
+# tls.key AND ca.crt (the client CA for RequireAndVerifyClientCert). The whole
+# Secret is mounted read-only at /etc/network-api/tls.
+serverTLS:
+  existingSecret: ""
+
+# REQUIRED: the network BootstrapDocument. Mounted at /etc/network-api/bootstrap.json.
+bootstrap:
+  existingSecret: ""
+  key: "bootstrap.json"
+
+# OPTIONAL: the admission authority public key (PEM). When set, mounted at
+# /etc/network-api/keys/admission-authority.pem.
+admissionKey:
+  existingSecret: ""
+  key: "admission-authority.pem"
+
+# OPTIONAL: outbound client mTLS to the ledger (a Secret with ca.crt + tls.crt +
+# tls.key). When set, the whole Secret is mounted at /etc/network-api/ledger-tls.
+ledgerClientTLS:
+  existingSecret: ""

@@ -1,0 +1,35 @@
+{{/*
+Non-secret API_* environment. Sourced via envFrom (deployment.yaml). The server
+TLS material, bootstrap doc, admission key, and ledger client TLS are NOT here —
+they are mounted Secrets the binary auto-detects at the standard /etc/network-api
+paths. Only non-empty values are emitted, except API_LISTEN_ADDR which is always
+rendered, and API_GOSSIP_INGEST_ENABLED which is always emitted as a bool.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "network-api.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "network-api.labels" . | nindent 4 }}
+data:
+  API_LISTEN_ADDR: {{ .Values.config.listenAddr | quote }}
+  {{- if .Values.config.ledgerEndpoint }}
+  API_LEDGER_ENDPOINT: {{ .Values.config.ledgerEndpoint | quote }}
+  {{- end }}
+  {{- if .Values.config.witnessQuorumK }}
+  API_WITNESS_QUORUM_K: {{ .Values.config.witnessQuorumK | quote }}
+  {{- end }}
+  API_GOSSIP_INGEST_ENABLED: {{ .Values.config.gossipIngestEnabled | ternary "true" "false" | quote }}
+  {{- if .Values.config.gossipIngestPeerURL }}
+  API_GOSSIP_INGEST_PEER_URL: {{ .Values.config.gossipIngestPeerURL | quote }}
+  {{- end }}
+  {{- if .Values.config.keystoreBackend }}
+  API_KEYSTORE_BACKEND: {{ .Values.config.keystoreBackend | quote }}
+  {{- end }}
+  {{- if .Values.config.verificationEndpoint }}
+  API_VERIFICATION_ENDPOINT: {{ .Values.config.verificationEndpoint | quote }}
+  {{- end }}
+  {{- range $k, $v := .Values.extraEnv }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

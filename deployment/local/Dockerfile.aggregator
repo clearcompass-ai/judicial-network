@@ -55,7 +55,12 @@ RUN --mount=type=secret,id=ca_bundle \
       cat /run/secrets/ca_bundle >> /etc/ssl/certs/ca-certificates.crt; \
     fi; \
     apk --no-cache add ca-certificates tzdata wget \
-    && adduser -D -H -u 65532 aggregator
+    && adduser -D -H -u 65532 aggregator \
+    # Standard config-injection root; a Secret mounted at /etc/aggregator/ledger-tls
+    # (ledger mTLS client material) is auto-detected. Pre-created + owned so the
+    # mount has a parent on a read-only rootfs.
+    && mkdir -p /etc/aggregator/ledger-tls \
+    && chown -R 65532:65532 /etc/aggregator
 
 WORKDIR /
 COPY --from=builder /aggregator /aggregator

@@ -55,10 +55,21 @@ RUN --mount=type=secret,id=ca_bundle \
     if [ -s /run/secrets/ca_bundle ]; then \
       cat /run/secrets/ca_bundle >> /etc/ssl/certs/ca-certificates.crt; \
     fi; \
-    apk --no-cache add ca-certificates tzdata wget
+    apk --no-cache add ca-certificates tzdata wget \
+    && adduser -D -H -u 65532 network-api \
+    # Standard config-injection root; mounted Secrets at
+    # /etc/network-api/{tls,ledger-tls,keys,bootstrap.json} are read here. No
+    # config is baked in — only the empty, correctly-owned dir.
+    && mkdir -p /etc/network-api/tls /etc/network-api/keys /etc/network-api/ledger-tls \
+    && chown -R 65532:65532 /etc/network-api
 
 WORKDIR /
 COPY --from=builder /network-api /network-api
+
+# Non-root (uid 65532) — matches the rest of the fleet and satisfies a k8s
+# runAsNonRoot PodSecurityContext. The JN holds no local state; it reads mounted
+# mTLS Secrets (k8s default 0644 / world-readable) and writes nothing to disk.
+USER 65532:65532
 
 EXPOSE 8443
 

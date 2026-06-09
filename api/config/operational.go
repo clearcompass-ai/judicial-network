@@ -876,7 +876,38 @@ func ApplyEnvOverrides(cfg Operational) Operational {
 		}
 	}
 
+	// Standard-path fallback (the orchestrator-agnostic injection convention):
+	// the explicit API_* env above ALWAYS wins; otherwise a Secret/volume mounted
+	// at the conventional /etc/network-api/… path is picked up with ZERO env
+	// wiring, so the same image "just works" whether the deployer sets env or only
+	// mounts the secret. The network-api is mTLS-only, so the client CA (ca.crt)
+	// auto-mounting is the expected posture (unlike an optional-mTLS service).
+	cfg.Auth.TLSCertFile = orStdFile(cfg.Auth.TLSCertFile, "/etc/network-api/tls/tls.crt")
+	cfg.Auth.TLSKeyFile = orStdFile(cfg.Auth.TLSKeyFile, "/etc/network-api/tls/tls.key")
+	cfg.Auth.ClientCAFile = orStdFile(cfg.Auth.ClientCAFile, "/etc/network-api/tls/ca.crt")
+	cfg.NetworkBootstrapFile = orStdFile(cfg.NetworkBootstrapFile, "/etc/network-api/bootstrap.json")
+	cfg.LedgerCAFile = orStdFile(cfg.LedgerCAFile, "/etc/network-api/ledger-tls/ca.crt")
+	cfg.LedgerCertFile = orStdFile(cfg.LedgerCertFile, "/etc/network-api/ledger-tls/tls.crt")
+	cfg.LedgerKeyFile = orStdFile(cfg.LedgerKeyFile, "/etc/network-api/ledger-tls/tls.key")
+
 	return cfg
+}
+
+// orStdFile implements the standard cert/key/bootstrap injection convention: an
+// explicitly-configured path (already applied from API_* env / JSON) wins;
+// otherwise, if a file exists at the conventional mount path, use it; otherwise
+// leave it "" — byte-identical to the pre-convention behavior. The stat is
+// boot-only (ApplyEnvOverrides runs once).
+func orStdFile(explicit, stdPath string) string {
+	if strings.TrimSpace(explicit) != "" {
+		return explicit
+	}
+	if stdPath != "" {
+		if info, err := os.Stat(stdPath); err == nil && !info.IsDir() {
+			return stdPath
+		}
+	}
+	return ""
 }
 
 // envBool parses a boolean env var. Returns (value, present); present is

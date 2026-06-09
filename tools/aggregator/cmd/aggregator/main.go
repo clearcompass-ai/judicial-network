@@ -36,6 +36,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -118,6 +119,23 @@ func parseFlags(argv []string) (runArgs, error) {
 	return out, nil
 }
 
+// orStdFile implements the standard cert/key injection convention: an
+// explicitly-configured path (TOOLS_* env / JSON) wins; otherwise, if a file
+// exists at the conventional mount path, use it (a Secret/volume dropped at
+// /etc/aggregator/… is picked up with zero env); otherwise leave it "" —
+// byte-identical to the prior behavior. Boot-only stat.
+func orStdFile(explicit, stdPath string) string {
+	if strings.TrimSpace(explicit) != "" {
+		return explicit
+	}
+	if stdPath != "" {
+		if info, err := os.Stat(stdPath); err == nil && !info.IsDir() {
+			return stdPath
+		}
+	}
+	return ""
+}
+
 // run is the testable entry point. main calls it with os.Args[1:]
 // and realDeps; tests pass crafted args + stubs.
 //
@@ -134,6 +152,15 @@ func run(argv []string, d deps) error {
 	if err != nil {
 		return err
 	}
+	// Standard-path fallback for the ledger mTLS client material (the
+	// orchestrator-agnostic injection convention): TOOLS_* env / JSON wins;
+	// otherwise a Secret/volume mounted at the conventional /etc/aggregator/…
+	// path is picked up with zero env. Applied here (the composition root), so
+	// the shared clitools loader stays generic and the ledger-client mode
+	// (mTLS vs server-verify) is decided AFTER the fallback fills these in.
+	cfg.LedgerCAFile = orStdFile(cfg.LedgerCAFile, "/etc/aggregator/ledger-tls/ca.crt")
+	cfg.LedgerClientCertFile = orStdFile(cfg.LedgerClientCertFile, "/etc/aggregator/ledger-tls/tls.crt")
+	cfg.LedgerClientKeyFile = orStdFile(cfg.LedgerClientKeyFile, "/etc/aggregator/ledger-tls/tls.key")
 	if cfg.DatabaseURL == "" {
 		return errMissingDB
 	}
