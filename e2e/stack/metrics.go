@@ -56,6 +56,13 @@ func scrapeGauge(certsDir string, port int, name string) (float64, bool) {
 	return parsePromGauge(text, name)
 }
 
+// ScrapeGauge fetches one Prometheus gauge by exact name from the ledger's
+// open-HTTPS /metrics (server-verify, no client cert). Exported so recipes (e.g.
+// verify.tiling) read arbitrary ledger gauges over HTTPS.
+func ScrapeGauge(certsDir string, port int, name string) (float64, bool) {
+	return scrapeGauge(certsDir, port, name)
+}
+
 // WALDiskBytes returns baseproof_wal_disk_bytes (Badger LSM + value-log size) —
 // the gauge verify.walgc watches stay BOUNDED as entries accumulate under GC.
 func WALDiskBytes(certsDir string, port int) (int64, bool) {
