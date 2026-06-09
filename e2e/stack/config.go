@@ -32,7 +32,11 @@ const (
 	mntKeys     = "/keys"
 	mntOut      = "/out"
 
-	tileDir = "/var/lib/ledger/tiles"
+	// Under /var/lib/baseproof — the dir the ledger image (v0.1.2+) pre-creates and
+	// chowns to its non-root uid (65532). The e2e ledger runs as that uid with no
+	// writable volume here, so storage MUST live under the image-owned parent;
+	// /var/lib/ledger would be root-owned and uncreatable (writer crashes at boot).
+	tileDir = "/var/lib/baseproof/tiles"
 
 	pgDBDefault = "baseproof_test" // POSTGRES_DB (the single-network ledger DB)
 
