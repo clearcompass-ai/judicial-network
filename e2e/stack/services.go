@@ -308,6 +308,20 @@ func UpLedger(nc NetConfig, in Infra, fixturesDir, certsDir, ledgerImage string)
 	if a := env("E2E_LEDGER_PPROF_ADDR", ""); a != "" {
 		envm["LEDGER_PPROF_ADDR"] = a
 	}
+	// Opt-in tail-GC safety audit (non-destructive): E2E_LEDGER_TAIL_GC_AUDIT=1 runs
+	// TailGCAudit each checkpoint and logs any violation at ERROR. Validates the
+	// orphan-prune's assumption (published ⇒ durable) in a real soak BEFORE that
+	// prune ships. Needs the 0.0.37+ ledger image.
+	if v := env("E2E_LEDGER_TAIL_GC_AUDIT", ""); v != "" {
+		envm["LEDGER_TAIL_GC_AUDIT"] = v
+	}
+	// GOMEMLIMIT caps the ledger's Go heap so the runtime GCs/scavenges instead of
+	// ratcheting RSS to the high-water (the profile shows the LIVE heap is bounded —
+	// Badger memtables + the 4096-tile SMT cache — so the climbing cgroup RSS is just
+	// uncollected headroom). Default 1GiB; E2E_LEDGER_GOMEMLIMIT=off disables.
+	if v := env("E2E_LEDGER_GOMEMLIMIT", "1GiB"); v != "off" {
+		envm["GOMEMLIMIT"] = v
+	}
 	if _, err := os.Stat(filepath.Join(fixturesDir, "ledger-signer.key")); err == nil {
 		envm["LEDGER_SIGNER_KEY_FILE"] = mntFixtures + "/ledger-signer.key"
 	}
