@@ -32,7 +32,11 @@ const (
 	mntKeys     = "/keys"
 	mntOut      = "/out"
 
-	tileDir = "/var/lib/ledger/tiles"
+	// Under /var/lib/baseproof — the dir the ledger image (v0.1.2+) pre-creates and
+	// chowns to its non-root uid (65532). The e2e ledger runs as that uid with no
+	// writable volume here, so storage MUST live under the image-owned parent;
+	// /var/lib/ledger would be root-owned and uncreatable (writer crashes at boot).
+	tileDir = "/var/lib/baseproof/tiles"
 
 	pgDBDefault = "baseproof_test" // POSTGRES_DB (the single-network ledger DB)
 
@@ -174,11 +178,14 @@ func ResolveImages() Images {
 		// hash, and ProcessBatch now FAILS LOUD on a residual gap instead of silently
 		// dropping a leaf. v0.1.5 rides baseproof v0.0.4-rc2 (the NodeIndex consumer +
 		// fail-loud halt) — JN's go.mod pins the SAME SDK so the BP-ENTRY byte-match
-		// admission contract holds. Witness + auditor are the SAME v0.1.5 coordinated
-		// fleet build; override via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.5"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.5"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.5"),
+		// admission contract holds. v0.1.6 is the orchestrator-agnostic deploy
+		// release on the same SDK: PORT + /etc/secrets PaaS injection, v-aligned
+		// Helm charts (non-root fsGroup, 0440 secrets, auditor in-cluster Postgres)
+		// — NO change to the SMT commit/integration path. Witness + auditor are the
+		// SAME v0.1.6 coordinated fleet build; override via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.6"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.6"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.6"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
