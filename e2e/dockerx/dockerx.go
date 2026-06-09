@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Mount is a -v host:container bind.
@@ -176,6 +177,27 @@ func Remove(names ...string) {
 		return
 	}
 	_ = run(append([]string{"docker", "rm", "-f", "-v"}, names...))
+}
+
+// Reclaim force-removes any container holding `name` and BLOCKS until the name is
+// actually free for reuse. A SIGKILL/OOM-killed (exit 137) container with a busy
+// bind-mount can wedge in Dead / "Removal In Progress": `docker rm -f` returns
+// but the name lingers, so a follow-on `docker run --name` fails with a Conflict.
+// We re-issue the force-remove and poll `docker container inspect` (exact-name,
+// no regex) until the name is gone, bounded; an unreclaimable name returns an
+// error so the caller fails loudly with guidance instead of an opaque Conflict.
+func Reclaim(name string) error {
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		Remove(name)
+		if run([]string{"docker", "container", "inspect", name}).Code != 0 {
+			return nil // inspect failed ⇒ no such container ⇒ name is free
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("container %q could not be reclaimed (stuck Dead / Removal-In-Progress after force-remove); run `docker rm -f %s` or restart the docker daemon, then retry", name, name)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 // PSByPrefix returns container ids whose name matches a prefix.

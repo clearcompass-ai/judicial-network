@@ -97,7 +97,10 @@ spec:
         - name: tmp
           emptyDir: {}
         {{- if .Values.ledgerClientTLS.existingSecret }}
+        {{- /* 0440 + the pod fsGroup (65532): readable by the non-root process,
+               not world-readable inside the container. */}}
         - name: ledger-tls
           secret:
             secretName: {{ .Values.ledgerClientTLS.existingSecret }}
+            defaultMode: 0440
         {{- end }}

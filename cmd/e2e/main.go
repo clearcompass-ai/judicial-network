@@ -212,6 +212,17 @@ type jnImageBuild struct {
 func ensureImages() error {
 	im := stack.ResolveImages()
 
+	// Show exactly what is driving each container (default vs E2E_*_IMAGE
+	// override) BEFORE building/pulling, and loudly flag a tooling-fleet tag
+	// skew — the silent footgun where a stray E2E_LEDGER_IMAGE pins a stale
+	// ledger against a newer witness/auditor (different SDK → broken admission,
+	// missing SMT fixes).
+	banner, skew := im.Describe()
+	fmt.Print(banner)
+	if skew {
+		fmt.Println("  → continuing (WARNING only); unset the stray override if this is unintended.")
+	}
+
 	// 1. Build the JN-owned images from source (unless pinned via env).
 	if os.Getenv("E2E_SKIP_BUILD") != "1" {
 		root, err := repoRoot()

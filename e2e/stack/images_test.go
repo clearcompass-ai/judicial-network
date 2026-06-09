@@ -36,8 +36,8 @@ func TestResolveImages_Namespaces(t *testing.T) {
 		"auditor": im.Auditor,
 	}
 	for svc, ref := range relocated {
-		if want := "ghcr.io/baseproof/tooling/" + svc + ":0.1.5"; ref != want {
-			t.Errorf("%s image = %q, want %q (relocated fleet, 0.1.5 release)", svc, ref, want)
+		if want := "ghcr.io/baseproof/tooling/" + svc + ":0.1.6"; ref != want {
+			t.Errorf("%s image = %q, want %q (relocated fleet, 0.1.6 release)", svc, ref, want)
 		}
 		if strings.Contains(ref, "attesta-tools") || strings.Contains(ref, "clearcompass-ai") {
 			t.Errorf("%s image %q still references the retired namespace", svc, ref)
@@ -56,16 +56,16 @@ func TestResolveImages_Namespaces(t *testing.T) {
 }
 
 // TestResolveImages_TesseraUpstream proves the upstream selector suffixes the
-// ledger variant under the new namespace/tag (ghcr's 0.1.5-upstream tag).
+// ledger variant under the new namespace/tag (ghcr's 0.1.6-upstream tag).
 func TestResolveImages_TesseraUpstream(t *testing.T) {
 	clearImageEnv(t)
 	t.Setenv("E2E_TESSERA", "upstream")
 	im := ResolveImages()
-	if want := "ghcr.io/baseproof/tooling/ledger:0.1.5-upstream"; im.Ledger != want {
+	if want := "ghcr.io/baseproof/tooling/ledger:0.1.6-upstream"; im.Ledger != want {
 		t.Errorf("upstream ledger = %q, want %q", im.Ledger, want)
 	}
 	// Only the ledger has an upstream variant; witness/auditor are unaffected.
-	if want := "ghcr.io/baseproof/tooling/witness:0.1.5"; im.Witness != want {
+	if want := "ghcr.io/baseproof/tooling/witness:0.1.6"; im.Witness != want {
 		t.Errorf("witness = %q, want %q (no upstream suffix)", im.Witness, want)
 	}
 }
@@ -78,4 +78,44 @@ func TestResolveImages_EnvOverride(t *testing.T) {
 	if got := ResolveImages().Ledger; got != "ghcr.io/baseproof/tooling/ledger:9.9.9" {
 		t.Errorf("override ledger = %q, want the explicit pin", got)
 	}
+}
+
+// TestDescribeImages proves the `up` banner names which images come from an
+// E2E_*_IMAGE override and detects a tooling-fleet tag SKEW — the stale-ledger
+// footgun (a stray E2E_LEDGER_IMAGE pinning an old ledger against a newer
+// witness/auditor, which silently breaks admission and drops the SMT fixes).
+func TestDescribeImages(t *testing.T) {
+	t.Run("coordinated default fleet — no skew, ledger not overridden", func(t *testing.T) {
+		clearImageEnv(t)
+		banner, skew := ResolveImages().Describe()
+		if skew {
+			t.Fatalf("coordinated default fleet flagged as skew:\n%s", banner)
+		}
+		if strings.Contains(banner, "OVERRIDE via E2E_LEDGER_IMAGE") {
+			t.Errorf("default ledger should not report an override:\n%s", banner)
+		}
+	})
+
+	t.Run("stale ledger override → skew + names the env var", func(t *testing.T) {
+		clearImageEnv(t)
+		t.Setenv("E2E_LEDGER_IMAGE", "ghcr.io/baseproof/tooling/ledger:0.1.1")
+		banner, skew := ResolveImages().Describe()
+		if !skew {
+			t.Fatalf("ledger 0.1.1 against witness/auditor 0.1.5 not flagged as skew:\n%s", banner)
+		}
+		if !strings.Contains(banner, "OVERRIDE via E2E_LEDGER_IMAGE") {
+			t.Errorf("banner must name the driving env var:\n%s", banner)
+		}
+		if !strings.Contains(banner, "FLEET SKEW") {
+			t.Errorf("banner must call out FLEET SKEW:\n%s", banner)
+		}
+	})
+
+	t.Run("upstream ledger variant is NOT a skew", func(t *testing.T) {
+		clearImageEnv(t)
+		t.Setenv("E2E_TESSERA", "upstream") // ledger:0.1.5-upstream vs witness/auditor:0.1.5
+		if banner, skew := ResolveImages().Describe(); skew {
+			t.Errorf("upstream ledger variant wrongly flagged as fleet skew:\n%s", banner)
+		}
+	})
 }

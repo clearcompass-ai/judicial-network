@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 env:
-  REQUIRED_BASEPROOF_VERSION: v0.0.1-rc1
-  REQUIRED_LIBS_VERSION: v0.0.1
+  REQUIRED_BASEPROOF_VERSION: v0.0.4-rc2
+  REQUIRED_LIBS_VERSION: v0.1.6
 
 jobs:
   sdk-version-pin:
