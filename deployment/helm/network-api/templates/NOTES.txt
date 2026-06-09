@@ -1,0 +1,17 @@
+network-api {{ .Chart.AppVersion }} deployed as {{ include "network-api.fullname" . }}.
+
+TLS     : mTLS-only (RequireAndVerifyClientCert) — clients MUST present a cert.
+Listen  : {{ .Values.config.listenAddr }}  (Service {{ include "network-api.fullname" . }}:{{ .Values.service.port }})
+
+Injected at the standard paths (auto-detected, no env):
+  /etc/network-api/tls/{tls.crt,tls.key,ca.crt} ← Secret {{ .Values.serverTLS.existingSecret }}
+  /etc/network-api/bootstrap.json               ← Secret {{ .Values.bootstrap.existingSecret }}
+{{- if .Values.admissionKey.existingSecret }}
+  /etc/network-api/keys/admission-authority.pem ← Secret {{ .Values.admissionKey.existingSecret }}
+{{- end }}
+{{- if .Values.ledgerClientTLS.existingSecret }}
+  /etc/network-api/ledger-tls/{ca.crt,tls.crt,tls.key} ← Secret {{ .Values.ledgerClientTLS.existingSecret }}
+{{- end }}
+
+Liveness/readiness: tcpSocket on port {{ .Values.container.port }} (the mTLS
+listener rejects probes that cannot present a client cert, so no httpGet probe).

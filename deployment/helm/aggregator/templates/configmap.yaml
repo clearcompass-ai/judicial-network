@@ -1,0 +1,30 @@
+{{/*
+Non-secret environment. Sourced via envFrom (deployment.yaml). The database URL
+and TLS client material are NOT here — the URL is injected from a Secret and the
+TLS material is a mounted Secret the binary auto-detects at the standard
+/etc/aggregator path.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aggregator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aggregator.labels" . | nindent 4 }}
+data:
+  TOOLS_LEDGER_URL: {{ .Values.config.ledgerURL | quote }}
+  {{- if .Values.config.officersLog }}
+  TOOLS_OFFICERS_LOG: {{ .Values.config.officersLog | quote }}
+  {{- end }}
+  {{- if .Values.config.casesLog }}
+  TOOLS_CASES_LOG: {{ .Values.config.casesLog | quote }}
+  {{- end }}
+  {{- if .Values.config.partiesLog }}
+  TOOLS_PARTIES_LOG: {{ .Values.config.partiesLog | quote }}
+  {{- end }}
+  {{- if .Values.config.otlpTracesEndpoint }}
+  AGGREGATOR_OTLP_TRACES_ENDPOINT: {{ .Values.config.otlpTracesEndpoint | quote }}
+  {{- end }}
+  {{- range $k, $v := .Values.extraEnv }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

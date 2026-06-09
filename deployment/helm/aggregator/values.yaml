@@ -1,0 +1,109 @@
+# =============================================================================
+# values.yaml — Judicial-Network aggregator Helm chart defaults.
+#
+# The aggregator binary is fully env/flag-driven and auto-detects cert/key
+# files at the STANDARD mount paths under /etc/aggregator. This chart's job is
+# just to (a) render the non-secret TOOLS_*/AGGREGATOR_* env into a ConfigMap,
+# (b) inject the database URL from a Secret, and (c) mount the operator's TLS
+# Secret at the standard path — NO cert path is ever put in env.
+# =============================================================================
+
+image:
+  repository: ghcr.io/clearcompass-ai/judicial-network/aggregator
+  # Empty tag falls back to .Chart.AppVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# The aggregator rebuilds its read-projection from the ledger; a single
+# replica is the default (scale out only behind a shared/partitioned store).
+replicas: 1
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8092"
+  prometheus.io/path: "/metrics"
+podLabels: {}
+
+# Non-root by default (matches the image's uid 65532).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+container:
+  port: 8092
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "2", memory: 512Mi}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+  livenessProbe:
+    httpGet: {path: /healthz, port: http, scheme: HTTP}
+    initialDelaySeconds: 3
+    periodSeconds: 10
+    timeoutSeconds: 2
+  readinessProbe:
+    httpGet: {path: /healthz, port: http, scheme: HTTP}
+    initialDelaySeconds: 3
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+service:
+  type: ClusterIP
+  port: 8092
+  annotations: {}
+
+# --- Database (REQUIRED) ------------------------------------------------------
+# The aggregator reads TOOLS_DATABASE_URL. Pick exactly one path:
+#   - existingSecret: production. Pre-create a Secret with key
+#     TOOLS_DATABASE_URL (rotation by external-secrets, Vault, etc.).
+#   - url: dev / CI. Chart writes a Secret "<fullname>-db" with this URL inline.
+database:
+  existingSecret: ""
+  url: ""
+
+# Non-secret env → ConfigMap (envFrom). 1:1 with the env the binary reads.
+# Only emitted when non-empty, EXCEPT TOOLS_LEDGER_URL which is always emitted.
+config:
+  ledgerURL: ""          # TOOLS_LEDGER_URL (always emitted)
+  officersLog: ""        # TOOLS_OFFICERS_LOG
+  casesLog: ""           # TOOLS_CASES_LOG
+  partiesLog: ""         # TOOLS_PARTIES_LOG
+  otlpTracesEndpoint: "" # AGGREGATOR_OTLP_TRACES_ENDPOINT
+
+# Free-form extra env (verbatim key→value strings).
+extraEnv: {}
+# Flag-only tunables (not env-backed), e.g. ["-max-rps=50", "-burst=100"].
+extraArgs: []
+
+# --- Cert injection (the standard-mount convention) ---------------------------
+# Set the existing Secret; the chart mounts it at the STANDARD path and the
+# binary auto-detects it (zero env). Generate the material off-cluster, e.g.:
+#   kubectl -n aggregator create secret generic aggregator-ledger-tls \
+#     --from-file=ca.crt=ca.crt --from-file=tls.crt=tls.crt --from-file=tls.key=tls.key
+
+# OPTIONAL: outbound mTLS client material for talking to the ledger
+# (a Secret with ca.crt + tls.crt + tls.key). Mounted at
+# /etc/aggregator/ledger-tls and auto-detected.
+ledgerClientTLS:
+  existingSecret: ""

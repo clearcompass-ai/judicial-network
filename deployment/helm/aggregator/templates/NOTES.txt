@@ -1,0 +1,13 @@
+Aggregator {{ .Chart.AppVersion }} deployed as {{ include "aggregator.fullname" . }}.
+
+Ledger        : {{ .Values.config.ledgerURL | default "(TOOLS_LEDGER_URL unset)" }}
+Database       : {{ if .Values.database.existingSecret }}existingSecret {{ .Values.database.existingSecret }} (key TOOLS_DATABASE_URL){{ else }}chart-managed Secret {{ include "aggregator.fullname" . }}-db (inline url){{ end }}
+Listen         : :{{ .Values.container.port }}  (Service {{ include "aggregator.fullname" . }}:{{ .Values.service.port }})
+
+{{- if .Values.ledgerClientTLS.existingSecret }}
+
+Injected at the standard path (auto-detected, no env):
+  /etc/aggregator/ledger-tls/{ca.crt,tls.crt,tls.key} ← Secret {{ .Values.ledgerClientTLS.existingSecret }}
+{{- end }}
+
+Liveness: GET /healthz on the http listener (port {{ .Values.container.port }}).

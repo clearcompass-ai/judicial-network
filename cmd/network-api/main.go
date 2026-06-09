@@ -352,7 +352,15 @@ func run(argv []string, d deps) error {
 	// the same trust root VerifyingLeafReader uses), NOT the ledger's unverified
 	// /v1/tree/head word. Fail-closed: no witness set for the log ⇒ refuse to mint.
 	var admissionAuthorizer *handlers.AdmissionAuthorizer
-	if keyFile := os.Getenv("API_ADMISSION_AUTHORITY_KEY_FILE"); keyFile != "" {
+	// Standard-path fallback: env wins; else a Secret mounted at the conventional
+	// path is picked up with zero env (the orchestrator-agnostic convention).
+	keyFile := os.Getenv("API_ADMISSION_AUTHORITY_KEY_FILE")
+	if keyFile == "" {
+		if info, err := os.Stat("/etc/network-api/keys/admission-authority.pem"); err == nil && !info.IsDir() {
+			keyFile = "/etc/network-api/keys/admission-authority.pem"
+		}
+	}
+	if keyFile != "" {
 		anchorWitnessSets, wErr := buildWitnessSets(cfg)
 		if wErr != nil {
 			return fmt.Errorf("admission anchor witness sets: %w", wErr)
