@@ -184,7 +184,13 @@ func Backfill(t Target, ledgerImage string, n, workers int, amendRatio float64, 
 		args = append(args, "-batch-size", strconv.Itoa(batchSize), "-epoch", strconv.Itoa(max(64, workers*batchSize)))
 	}
 	bf := t.LedgerName + "-backfill"
-	dockerx.Remove(bf)
+	// Reclaim the name before (re)launching: a prior run's OOM-killed (137) backfill
+	// can leave a Dead container that `docker rm -f` alone does not free, so a bare
+	// re-run hits a name Conflict. Reclaim force-removes AND verifies the name is
+	// gone, failing loudly if it is wedged.
+	if err := dockerx.Reclaim(bf); err != nil {
+		return nil, fmt.Errorf("backfill: %w", err)
+	}
 	if r := dockerx.Run(dockerx.RunSpec{
 		Name: bf, Network: t.Network, Image: ledgerImage, Detached: true, Entrypoint: "/backfill", User: uidGID(),
 		Mounts:    []dockerx.Mount{{Host: t.FixturesDir, Container: mntOut}, certsMount(t)},
@@ -194,10 +200,15 @@ func Backfill(t Target, ledgerImage string, n, workers int, amendRatio float64, 
 	}
 	_ = dockerx.LogsFollow(bf)
 	code := dockerx.Wait(bf)
-	dockerx.Remove(bf)
 	if code != "0" {
-		return nil, fmt.Errorf("backfill exited %s — image predates /backfill, or the ledger WRITE path is stuck", code)
+		// Capture the container's own tail BEFORE removing it, and classify the exit
+		// so a SIGKILL/OOM (137) is not misreported as a stale image.
+		logs := tail(dockerx.Logs(bf), 1200)
+		dockerx.Remove(bf)
+		return nil, fmt.Errorf("backfill exited %s — %s\n--- backfill container tail ---\n%s",
+			code, backfillExitHint(code), logs)
 	}
+	dockerx.Remove(bf)
 	b, err := os.ReadFile(manifestHost)
 	if err != nil {
 		return nil, fmt.Errorf("backfill produced no manifest: %w", err)
@@ -207,6 +218,24 @@ func Backfill(t Target, ledgerImage string, n, workers int, amendRatio float64, 
 		return nil, fmt.Errorf("parse backfill manifest: %w", err)
 	}
 	return &st, nil
+}
+
+// backfillExitHint maps a backfill container exit code to an actionable cause, so
+// a SIGKILL/OOM (137) or SIGTERM (143) is not misdiagnosed as "image predates
+// /backfill" — which is really only the entrypoint-missing (126/127) case.
+func backfillExitHint(code string) string {
+	switch code {
+	case "137":
+		return "SIGKILL: the backfill CLIENT was OOM-killed or `docker kill`ed (NOT a stale image; the ledger WRITE path is unaffected). Give the backfill container more memory, or lower -workers / split -n."
+	case "143":
+		return "SIGTERM: the backfill was terminated mid-load (shutdown or a timeout)."
+	case "125":
+		return "`docker run` itself failed (bad flags or resource limits) — the backfill never started."
+	case "126", "127":
+		return "entrypoint not executable / not found — the image likely predates /backfill."
+	default:
+		return "the backfill hit an error mid-load, or the ledger WRITE path is stuck — see the tail below."
+	}
 }
 
 // RunAudit runs the stateless light-client auditor against the persisted stack's
