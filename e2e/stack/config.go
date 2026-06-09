@@ -165,11 +165,20 @@ func ResolveImages() Images {
 		// a FRESH UNBOUNDED per-emit store, so the cap stays on the long-lived proof
 		// path and the horizon advances in lockstep with integration. v0.1.2 = v0.1.1
 		// plus baseproof rc9 (test-only) + deploy/config-injection (Helm, non-root,
-		// std-path certs) — NO change to the SMT commit/integration path. Witness +
-		// auditor are the SAME v0.1.2 coordinated fleet build; override via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.2"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.2"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.2"),
+		// std-path certs) — NO change to the SMT commit/integration path. v0.1.5 closes
+		// the SMT leaf-loss / tiling-stall fault: a band-INTERIOR reached by a
+		// compressed pointer (skipping its tile top) was unfetchable from the top-keyed
+		// tile store, faulting "missing node (referenced by ancestor)" → PathD → a
+		// dropped leaf (served as non-membership). The durable node→tile-top index
+		// (PGNodeIndex, migration 0018, default-on) makes the tile store complete by
+		// hash, and ProcessBatch now FAILS LOUD on a residual gap instead of silently
+		// dropping a leaf. v0.1.5 rides baseproof v0.0.4-rc2 (the NodeIndex consumer +
+		// fail-loud halt) — JN's go.mod pins the SAME SDK so the BP-ENTRY byte-match
+		// admission contract holds. Witness + auditor are the SAME v0.1.5 coordinated
+		// fleet build; override via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.5"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.5"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.5"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
