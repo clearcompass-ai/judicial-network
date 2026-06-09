@@ -154,11 +154,12 @@ func ResolveImages() Images {
 		// incremental emitter [v0.0.3-rc6 BuildDirtyTiles fromRoot warm-walk], warming the
 		// same-position prior tile before each re-emit so those interiors resolve; the tail stays
 		// bounded AND tiling progresses — the prerequisite for the 300k cold-serve backfill).
-		// Witness + auditor are the SAME 0.0.36 coordinated fleet build; override any image
-		// via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.36"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.36"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.36"),
+		// 0.0.37 = rc8 (shared TileCache node-bounded) + the non-destructive tail-GC
+		// safety audit (LEDGER_TAIL_GC_AUDIT). Witness + auditor are the SAME 0.0.37
+		// coordinated fleet build; override any image via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.0.37"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.0.37"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.0.37"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
