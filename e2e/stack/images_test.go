@@ -79,3 +79,43 @@ func TestResolveImages_EnvOverride(t *testing.T) {
 		t.Errorf("override ledger = %q, want the explicit pin", got)
 	}
 }
+
+// TestDescribeImages proves the `up` banner names which images come from an
+// E2E_*_IMAGE override and detects a tooling-fleet tag SKEW — the stale-ledger
+// footgun (a stray E2E_LEDGER_IMAGE pinning an old ledger against a newer
+// witness/auditor, which silently breaks admission and drops the SMT fixes).
+func TestDescribeImages(t *testing.T) {
+	t.Run("coordinated default fleet — no skew, ledger not overridden", func(t *testing.T) {
+		clearImageEnv(t)
+		banner, skew := ResolveImages().Describe()
+		if skew {
+			t.Fatalf("coordinated default fleet flagged as skew:\n%s", banner)
+		}
+		if strings.Contains(banner, "OVERRIDE via E2E_LEDGER_IMAGE") {
+			t.Errorf("default ledger should not report an override:\n%s", banner)
+		}
+	})
+
+	t.Run("stale ledger override → skew + names the env var", func(t *testing.T) {
+		clearImageEnv(t)
+		t.Setenv("E2E_LEDGER_IMAGE", "ghcr.io/baseproof/tooling/ledger:0.1.1")
+		banner, skew := ResolveImages().Describe()
+		if !skew {
+			t.Fatalf("ledger 0.1.1 against witness/auditor 0.1.5 not flagged as skew:\n%s", banner)
+		}
+		if !strings.Contains(banner, "OVERRIDE via E2E_LEDGER_IMAGE") {
+			t.Errorf("banner must name the driving env var:\n%s", banner)
+		}
+		if !strings.Contains(banner, "FLEET SKEW") {
+			t.Errorf("banner must call out FLEET SKEW:\n%s", banner)
+		}
+	})
+
+	t.Run("upstream ledger variant is NOT a skew", func(t *testing.T) {
+		clearImageEnv(t)
+		t.Setenv("E2E_TESSERA", "upstream") // ledger:0.1.5-upstream vs witness/auditor:0.1.5
+		if banner, skew := ResolveImages().Describe(); skew {
+			t.Errorf("upstream ledger variant wrongly flagged as fleet skew:\n%s", banner)
+		}
+	})
+}
