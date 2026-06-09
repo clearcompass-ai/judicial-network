@@ -152,13 +152,20 @@ func preflight(t stack.Target, image, evRoot string) int {
 	var b strings.Builder
 	fmt.Fprintf(&b, "resolved_image=%s\ncontainer=%s\n", image, t.LedgerName)
 	for _, ln := range strings.Split(env, "\n") {
-		if strings.HasPrefix(ln, "LEDGER_TAIL_GC") || strings.HasPrefix(ln, "LEDGER_PPROF") || strings.HasPrefix(ln, "GOMEMLIMIT") {
+		if strings.HasPrefix(ln, "LEDGER_TAIL_GC") || strings.HasPrefix(ln, "LEDGER_PPROF") || strings.HasPrefix(ln, "GOMEMLIMIT") ||
+			strings.HasPrefix(ln, "LEDGER_NODE_INDEX") || strings.HasPrefix(ln, "LEDGER_TRACE_COMMIT") || strings.HasPrefix(ln, "LEDGER_TILE_VERIFY_FETCH") {
 			fmt.Fprintln(&b, ln)
 		}
 	}
 	_ = os.WriteFile(filepath.Join(evRoot, "preflight.txt"), []byte(b.String()), 0o644)
 	if !strings.Contains(env, "LEDGER_TAIL_GC_PRUNE=1") {
 		fmt.Println("  WARN: LEDGER_TAIL_GC_PRUNE is not set on the ledger — the tail prune is OFF for this run.")
+	}
+	// v0.1.4 leaf-loss fix is default-ON, so LEDGER_NODE_INDEX only appears here when
+	// explicitly set (an A/B arm). Flag the OFF arm loudly — it is expected to LOSE
+	// leaves at scale (the very fault this release closes).
+	if strings.Contains(env, "LEDGER_NODE_INDEX=0") {
+		fmt.Println("  WARN: LEDGER_NODE_INDEX=0 — the node-index leaf-loss fix is DISABLED for this run (A/B baseline; expect leaf loss at scale).")
 	}
 	port := 0
 	for _, ln := range strings.Split(env, "\n") {

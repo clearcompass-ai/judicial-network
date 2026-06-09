@@ -165,11 +165,24 @@ func ResolveImages() Images {
 		// a FRESH UNBOUNDED per-emit store, so the cap stays on the long-lived proof
 		// path and the horizon advances in lockstep with integration. v0.1.2 = v0.1.1
 		// plus baseproof rc9 (test-only) + deploy/config-injection (Helm, non-root,
-		// std-path certs) — NO change to the SMT commit/integration path. Witness +
-		// auditor are the SAME v0.1.2 coordinated fleet build; override via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.2"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.2"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.2"),
+		// std-path certs) — NO change to the SMT commit/integration path.
+		//
+		// v0.1.4 closes the LEAF-LOSS residue v0.1.1's warm-walk did not: a compressed
+		// pointer can reach a band INTERIOR without its tile top, and tiles are keyed by
+		// TOP, so that interior was unfetchable — the builder's SetLeaves faulted
+		// "missing node (referenced by ancestor)", silently demoted the entry to PathD,
+		// and the committed (cosigned) root OMITTED its leaf, served thereafter as
+		// non-membership. baseproof v0.0.4-rc2 adds a node→owning-tile-top index
+		// consulted on a TiledNodeStore.Get miss (any node resolvable by hash,
+		// regardless of walk order) AND makes ProcessBatch HALT on the fault instead of
+		// dropping the leaf; the ledger builds/persists that index at tile-emit time
+		// (LEDGER_NODE_INDEX, default on) with a backfill for recovery, plus a per-batch
+		// commit-integrity diagnostic (LEDGER_TRACE_COMMIT) and a reusable tile-miss
+		// classifier. Witness + auditor are the SAME v0.1.4 coordinated fleet build;
+		// override via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.4"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.4"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.4"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
