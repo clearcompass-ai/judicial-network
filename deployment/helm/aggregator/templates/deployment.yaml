@@ -27,6 +27,8 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: {{ include "aggregator.serviceAccountName" . }}
+      # The aggregator never calls the Kubernetes API — don't mount its token.
+      automountServiceAccountToken: false
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -79,18 +81,23 @@ spec:
             {{- toYaml .Values.container.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.container.resources | nindent 12 }}
-          {{- if .Values.ledgerClientTLS.existingSecret }}
           volumeMounts:
+            # readOnlyRootFilesystem is on, so give the process a writable /tmp.
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.ledgerClientTLS.existingSecret }}
             # Standard mount path for outbound mTLS material — the binary
             # auto-detects ca.crt/tls.crt/tls.key here, so NO *_FILE env is set
             # (the orchestrator-agnostic convention).
             - name: ledger-tls
               mountPath: /etc/aggregator/ledger-tls
               readOnly: true
-          {{- end }}
-      {{- if .Values.ledgerClientTLS.existingSecret }}
+            {{- end }}
       volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.ledgerClientTLS.existingSecret }}
         - name: ledger-tls
           secret:
             secretName: {{ .Values.ledgerClientTLS.existingSecret }}
-      {{- end }}
+        {{- end }}

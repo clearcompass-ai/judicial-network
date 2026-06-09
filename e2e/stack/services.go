@@ -268,12 +268,15 @@ func ledgerBaseEnv(nc NetConfig, in Infra) map[string]string {
 		"LEDGER_WITNESS_ENDPOINTS":          witnessEndpoints(nc),
 		"LEDGER_WITNESS_QUORUM_K":           strconv.Itoa(nc.Spec.QuorumK),
 		"LEDGER_NETWORK_BOOTSTRAP_FILE":     mntFixtures + "/network-bootstrap.json",
-		"LEDGER_TESSERA_STORAGE_DIR":        "/var/lib/ledger/tessera",
-		"LEDGER_WAL_PATH":                   "/var/lib/ledger/wal",
-		"LEDGER_TESSERA_ANTISPAM_PATH":      "/var/lib/ledger/antispam",
-		"LEDGER_SMT_TILE_EMIT_DIR":          tileDir,
-		"LEDGER_SMT_PROOF_SOURCE":           nc.Tuning.ProofSource,
-		"LEDGER_SEQUENCER_INTERVAL":         sequencerInterval(),
+		// All under /var/lib/baseproof — the image-owned (uid 65532) parent the
+		// non-root ledger can create subdirs in; /var/lib/ledger would be root-owned
+		// and uncreatable by the non-root writer (see tileDir in config.go).
+		"LEDGER_TESSERA_STORAGE_DIR":   "/var/lib/baseproof/tessera",
+		"LEDGER_WAL_PATH":              "/var/lib/baseproof/wal",
+		"LEDGER_TESSERA_ANTISPAM_PATH": "/var/lib/baseproof/tessera-antispam",
+		"LEDGER_SMT_TILE_EMIT_DIR":     tileDir,
+		"LEDGER_SMT_PROOF_SOURCE":      nc.Tuning.ProofSource,
+		"LEDGER_SEQUENCER_INTERVAL":    sequencerInterval(),
 		// Open HTTPS — the ledger terminates TLS in-binary (server cert SAN covers
 		// this container's name) but sets NO inbound client-CA, so the listener does
 		// not request a client cert. Reads open; writes gated by in-body crypto.
