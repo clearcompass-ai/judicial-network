@@ -120,6 +120,14 @@ func parseUpArgs(fs *flag.FlagSet, args []string) (string, error) {
 	return preset, nil
 }
 
+// setDefaultEnv sets k=v only when k is unset, so an explicit env var still wins
+// over a flag-driven default (e.g. `up --debug`, `run --scales`).
+func setDefaultEnv(k, v string) {
+	if os.Getenv(k) == "" {
+		_ = os.Setenv(k, v)
+	}
+}
+
 func cmdUp(args []string) error {
 	fs := flag.NewFlagSet("up", flag.ContinueOnError)
 	var (
@@ -131,10 +139,20 @@ func cmdUp(args []string) error {
 		proof     = fs.String("proof", "", "override tuning: tiles|pg|shadow")
 		id        = fs.String("id", "", "reuse a specific 3-char run id (default: a fresh id)")
 		planOnly  = fs.Bool("plan", false, "resolve + print the topology plan without bringing anything up")
+		debug     = fs.Bool("debug", false, "forensics preset: tail-GC prune + audit + ledger pprof on :6060 (for verify.tiling / heap dumps)")
 	)
 	preset, err := parseUpArgs(fs, args)
 	if err != nil {
 		return err
+	}
+	if *debug {
+		// Flip on the validation/forensics knobs the ledger reads at boot, so
+		// `up federation --debug` replaces the manual env triplet. setDefaultEnv
+		// only sets unset keys, so an explicit E2E_LEDGER_* still wins.
+		setDefaultEnv("E2E_LEDGER_TAIL_GC_PRUNE", "1")
+		setDefaultEnv("E2E_LEDGER_TAIL_GC_AUDIT", "1")
+		setDefaultEnv("E2E_LEDGER_PPROF_ADDR", ":6060")
+		fmt.Println("  --debug: tail-GC prune + audit ON; ledger pprof on :6060 (docker exec <ledger> wget -qO- http://localhost:6060/debug/pprof/heap)")
 	}
 	spec, err := resolveSpec(preset, *networks, *witnesses, *auditors, *quorumK, *admission, *proof)
 	if err != nil {
@@ -491,10 +509,13 @@ func cmdWipe(args []string) error {
 func cmdRun(args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	var (
-		id   = fs.String("id", "", "run id (default: latest)")
-		name = fs.String("name", "", "recipe name filter (substring)")
-		tag  = fs.String("tag", "", "recipe tag filter")
-		list = fs.Bool("list", false, "list recipes and exit")
+		id     = fs.String("id", "", "run id (default: latest)")
+		name   = fs.String("name", "", "recipe name filter (substring)")
+		tag    = fs.String("tag", "", "recipe tag filter")
+		list   = fs.Bool("list", false, "list recipes and exit")
+		scales = fs.String("scales", "", `verify.tiling: cumulative entry-count ladder, e.g. "200000 500000 1000000 2000000"`)
+		mode   = fs.String("mode", "", "verify.tiling: deep|quick")
+		cpuSec = fs.Int("cpu-seconds", -1, "verify.tiling: CPU profile seconds per 1% snapshot (0 disables)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -504,6 +525,17 @@ func cmdRun(args []string) error {
 			fmt.Printf("  %s\n", n)
 		}
 		return nil
+	}
+	// Recipe flags are sugar over the recipe's env knobs (so an explicit env still
+	// wins if a flag is left unset). verify.tiling reads E2E_VALIDATE_*.
+	if *scales != "" {
+		_ = os.Setenv("E2E_VALIDATE_SCALES", *scales)
+	}
+	if *mode != "" {
+		_ = os.Setenv("E2E_VALIDATE_MODE", *mode)
+	}
+	if *cpuSec >= 0 {
+		_ = os.Setenv("E2E_VALIDATE_CPU_SECONDS", fmt.Sprint(*cpuSec))
 	}
 	var names, tags []string
 	if *name != "" {

@@ -14,6 +14,10 @@ func TestParseScales(t *testing.T) {
 	if want := []int{200000, 500000, 1000000, 2000000}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
+	// a SINGLE value is a one-rung run (just 20K)
+	if got, err := parseScales("20000"); err != nil || !reflect.DeepEqual(got, []int{20000}) {
+		t.Fatalf("single-value got %v err %v, want [20000]", got, err)
+	}
 	// de-duplicates and sorts ascending
 	if got, _ := parseScales("500000 200000 500000"); !reflect.DeepEqual(got, []int{200000, 500000}) {
 		t.Fatalf("dedup/sort got %v", got)
