@@ -169,11 +169,13 @@ func ResolveImages() Images {
 		// a FRESH UNBOUNDED per-emit store, so the cap stays on the long-lived proof
 		// path and the horizon advances in lockstep with integration. v0.1.2 = v0.1.1
 		// plus baseproof rc9 (test-only) + deploy/config-injection (Helm, non-root,
-		// std-path certs) — NO change to the SMT commit/integration path. Witness +
-		// auditor are the SAME v0.1.2 coordinated fleet build; override via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.2"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.2"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.2"),
+		// std-path certs) — NO change to the SMT commit/integration path. v0.1.5 then
+		// bumps the SDK to baseproof v0.0.4-rc2 (SMT node-hash index + tile HEAD/GET
+		// trace + node-index backfill, #58–#60) and re-pins libs to v0.1.5. Witness +
+		// auditor are the SAME v0.1.5 coordinated fleet build; override via E2E_*_IMAGE.
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.5"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.5"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.5"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
