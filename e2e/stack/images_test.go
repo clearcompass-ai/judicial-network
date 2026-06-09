@@ -36,8 +36,8 @@ func TestResolveImages_Namespaces(t *testing.T) {
 		"auditor": im.Auditor,
 	}
 	for svc, ref := range relocated {
-		if want := "ghcr.io/baseproof/tooling/" + svc + ":0.1.1"; ref != want {
-			t.Errorf("%s image = %q, want %q (relocated fleet, 0.1.1 release)", svc, ref, want)
+		if want := "ghcr.io/baseproof/tooling/" + svc + ":0.1.2"; ref != want {
+			t.Errorf("%s image = %q, want %q (relocated fleet, 0.1.2 release)", svc, ref, want)
 		}
 		if strings.Contains(ref, "attesta-tools") || strings.Contains(ref, "clearcompass-ai") {
 			t.Errorf("%s image %q still references the retired namespace", svc, ref)
@@ -56,16 +56,16 @@ func TestResolveImages_Namespaces(t *testing.T) {
 }
 
 // TestResolveImages_TesseraUpstream proves the upstream selector suffixes the
-// ledger variant under the new namespace/tag (ghcr's 0.1.1-upstream tag).
+// ledger variant under the new namespace/tag (ghcr's 0.1.2-upstream tag).
 func TestResolveImages_TesseraUpstream(t *testing.T) {
 	clearImageEnv(t)
 	t.Setenv("E2E_TESSERA", "upstream")
 	im := ResolveImages()
-	if want := "ghcr.io/baseproof/tooling/ledger:0.1.1-upstream"; im.Ledger != want {
+	if want := "ghcr.io/baseproof/tooling/ledger:0.1.2-upstream"; im.Ledger != want {
 		t.Errorf("upstream ledger = %q, want %q", im.Ledger, want)
 	}
 	// Only the ledger has an upstream variant; witness/auditor are unaffected.
-	if want := "ghcr.io/baseproof/tooling/witness:0.1.1"; im.Witness != want {
+	if want := "ghcr.io/baseproof/tooling/witness:0.1.2"; im.Witness != want {
 		t.Errorf("witness = %q, want %q (no upstream suffix)", im.Witness, want)
 	}
 }

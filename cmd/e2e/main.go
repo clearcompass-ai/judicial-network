@@ -506,6 +506,26 @@ func cmdWipe(args []string) error {
 	return nil
 }
 
+// parseInterleaved parses fs allowing flags to appear BEFORE or AFTER positional
+// args, returning the positionals in order. Go's flag package stops at the first
+// non-flag token, so a bare fs.Parse silently drops flags written after a positional
+// (e.g. `run verify.tiling --scales N`). This parses flags, consumes one positional,
+// and repeats until none remain.
+func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for rest := args; ; {
+		if err := fs.Parse(rest); err != nil {
+			return nil, err
+		}
+		rest = fs.Args()
+		if len(rest) == 0 {
+			return pos, nil
+		}
+		pos = append(pos, rest[0])
+		rest = rest[1:]
+	}
+}
+
 func cmdRun(args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	var (
@@ -517,7 +537,13 @@ func cmdRun(args []string) error {
 		mode   = fs.String("mode", "", "verify.tiling: deep|quick")
 		cpuSec = fs.Int("cpu-seconds", -1, "verify.tiling: CPU profile seconds per 1% snapshot (0 disables)")
 	)
-	if err := fs.Parse(args); err != nil {
+	// Accept flags whether they appear BEFORE or AFTER the positional recipe names.
+	// Go's flag package stops at the first non-flag arg, so a bare fs.Parse(args)
+	// silently DROPS flags written after a recipe name (e.g.
+	// `run verify.tiling --scales 20000` would ignore --scales and fall back to the
+	// default). Interleave: parse flags, take one positional, repeat.
+	names, err := parseInterleaved(fs, args)
+	if err != nil {
 		return err
 	}
 	if *list {
@@ -537,14 +563,12 @@ func cmdRun(args []string) error {
 	if *cpuSec >= 0 {
 		_ = os.Setenv("E2E_VALIDATE_CPU_SECONDS", fmt.Sprint(*cpuSec))
 	}
-	var names, tags []string
+	var tags []string
 	if *name != "" {
 		names = append(names, *name)
 	}
 	if *tag != "" {
 		tags = append(tags, *tag)
 	}
-	// positional recipe names (e.g. `e2e run audit.tiles`).
-	names = append(names, fs.Args()...)
 	return runner.Run(*id, names, tags)
 }
