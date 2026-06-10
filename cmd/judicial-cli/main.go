@@ -125,6 +125,8 @@ func dispatch(subcmd string, args []string) error {
 		return runKeygen(args)
 	case "submit":
 		return runSubmit(args)
+	case "publish-manifest":
+		return runPublishManifest(args)
 	case "get":
 		return runGet(args)
 	case "head":

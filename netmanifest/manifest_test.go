@@ -1,19 +1,25 @@
-package netmanifest
+package netmanifest_test
 
 // manifest_test.go — the describe projection over the REAL Davidson bundle
 // (the same compiled policy the SubmitGate enforces), so the test proves the
-// served contract on production rules, not a fixture.
+// served contract on production rules, not a fixture. Black-box package: the
+// trial framework imports netmanifest for its overlay, so an internal test
+// importing davidson would cycle.
 
 import (
 	"testing"
 
 	davidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
+	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
+
+	. "github.com/clearcompass-ai/judicial-network/netmanifest"
 )
 
 func davidsonManifest(t *testing.T) *Manifest {
 	t.Helper()
 	m, err := Build(davidson.MustBundle(), BuildInput{
 		Network: NetworkRef{Name: "tn-davidson", QuorumK: 2},
+		Overlay: trial.ManifestOverlay(),
 		Endpoints: []Endpoint{
 			{ID: "ledger", URL: "https://ledger.test:8443", Transport: Transport{TLS: "server-verify"}, Status: "/healthz"},
 			{ID: "gate", URL: "https://gate.test:9443", Transport: Transport{TLS: "mtls"}, Status: "/readyz", DependsOn: []string{"ledger"}},
