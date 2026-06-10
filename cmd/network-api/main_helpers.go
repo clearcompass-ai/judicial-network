@@ -38,9 +38,12 @@ import (
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 
+	"github.com/clearcompass-ai/judicial-network/api/manifesthttp"
 	"github.com/clearcompass-ai/judicial-network/deployments/registry"
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
+	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
+	"github.com/clearcompass-ai/judicial-network/netmanifest"
 )
 
 // registerProductionBundles loads every JN deployment Bundle from the
@@ -339,4 +342,80 @@ func requireLedgerMTLS(endpoint, certFile, keyFile string, allowPlaintext, allow
 			"API_LEDGER_ALLOW_PLAINTEXT=true (TLS-terminating-proxy / loopback)")
 	}
 	return nil
+}
+
+// buildManifestHandler wires GET /v1/network/bundle (api/manifesthttp): the
+// DESCRIBE projection of the SAME frozen registry the SubmitGate enforces
+// with. Admission posture is derived from boot state, never asserted: gating
+// is "write-authorization" iff the admission authorizer (J) is wired; the
+// credit payment mode is declared iff the Mode A relay token is configured.
+// API_NETWORK_MANIFEST_SCHEMA (<log-did>@<seq>, the manifest anchor schema)
+// turns on published-manifest resolution against the ledger.
+func buildManifestHandler(reg *jurisdiction.Registry, ledgerEndpoint string, ledgerClient *http.Client, gated bool) (http.Handler, error) {
+	creditToken := os.Getenv("API_LEDGER_CREDIT_TOKEN")
+	publicURL := os.Getenv("API_PUBLIC_URL") // this gate's own public base URL (optional)
+
+	input := func(destination string) netmanifest.BuildInput {
+		in := netmanifest.BuildInput{
+			Status: netmanifest.StatusProbes{
+				Protocol: "ledger:/v1/entries-hash/{hash}",
+				Finality: "ledger:/v1/tree/horizon",
+				Domain:   "terminal entry of the instance's closed_by/amended_by chain",
+			},
+		}
+		if ledgerEndpoint != "" {
+			in.Endpoints = append(in.Endpoints, netmanifest.Endpoint{
+				ID: "ledger", URL: ledgerEndpoint, Protocol: "baseproof-ledger/v1",
+				Transport: netmanifest.Transport{TLS: "server-verify"}, Status: "/healthz",
+			})
+		}
+		gating := "open"
+		if gated {
+			gating = "write-authorization"
+		}
+		payment := []string{"pow"}
+		if creditToken != "" {
+			payment = append([]string{"credit"}, payment...)
+		}
+		switch {
+		case publicURL != "":
+			in.Endpoints = append(in.Endpoints, netmanifest.Endpoint{
+				ID: "gate", URL: publicURL, Protocol: "baseproof-exchange/v1",
+				Transport: netmanifest.Transport{TLS: "mtls"}, Status: "/readyz",
+				DependsOn: dependsOnLedger(ledgerEndpoint),
+			})
+			in.Submit = netmanifest.Submit{Endpoint: "gate", Path: "/v1/entries/submit"}
+		case ledgerEndpoint != "":
+			in.Submit = netmanifest.Submit{Endpoint: "ledger", Path: "/v1/entries"}
+		}
+		in.Admission = netmanifest.Admission{
+			Payment: payment, Gating: gating, WriteVia: in.Submit.Endpoint,
+			PolicyProbe: "ledger:/v1/admission/policy",
+		}
+		// Authoring overlay: only deployments that ship one (the TN trial
+		// framework today). Framework bundles without an overlay serve the bare
+		// enforced projection.
+		if destination == tndavidson.ExchangeDID {
+			in.Overlay = trial.ManifestOverlay()
+		}
+		return in
+	}
+
+	return manifesthttp.New(manifesthttp.Config{
+		Lookup:        reg.Bundle,
+		Destinations:  reg.ExchangeDIDs,
+		Input:         input,
+		Anchor:        os.Getenv("API_NETWORK_MANIFEST_SCHEMA"),
+		LedgerBaseURL: ledgerEndpoint,
+		Client:        ledgerClient,
+	})
+}
+
+// dependsOnLedger declares the gate→ledger deployment edge only when a ledger
+// endpoint is actually declared (the JN's readyz gates on the ledger).
+func dependsOnLedger(ledgerEndpoint string) []string {
+	if ledgerEndpoint == "" {
+		return nil
+	}
+	return []string{"ledger"}
 }
