@@ -595,6 +595,13 @@ func submitToLedger(w http.ResponseWriter, deps *Dependencies, signed []byte) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	// PAYMENT axis (Mode A): relay the JN's credit-session Bearer token so the
+	// ledger authenticates the forward → skips Mode B PoW and deducts one credit.
+	// Empty ⇒ Mode B (the entry carries its own PoW stamp) — the prior posture.
+	// Orthogonal to the gating attach below; a gated network needs both.
+	if deps.LedgerCreditToken != "" {
+		req.Header.Set("Authorization", "Bearer "+deps.LedgerCreditToken)
+	}
 	if deps.AdmissionAuthorizer != nil {
 		hdr, mErr := deps.AdmissionAuthorizer.MintHeader(signed)
 		if mErr != nil {

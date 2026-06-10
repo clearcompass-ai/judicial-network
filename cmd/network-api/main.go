@@ -486,6 +486,12 @@ func run(argv []string, d deps) error {
 			// Gate-5 issuance: mint+attach a WriteAuthorization on every forwarded
 			// write when J is configured (nil → ungated proxy).
 			AdmissionAuthorizer: admissionAuthorizer,
+			// PAYMENT axis (Mode A): the JN's credit-session Bearer token, relayed
+			// on every forwarded write so the ledger authenticates it → skips Mode B
+			// PoW + deducts a credit (its balance>0 gate is the backstop). Empty ⇒
+			// Mode B (the entry carries its own PoW stamp). Orthogonal to the gating
+			// attach above; a gated network needs both.
+			LedgerCreditToken: os.Getenv("API_LEDGER_CREDIT_TOKEN"),
 		},
 		Verification: verification.ServerConfig{
 			// SignatureVerifier is the native v1.7.1 receipt-aware
