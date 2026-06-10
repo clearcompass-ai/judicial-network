@@ -183,9 +183,9 @@ func ResolveImages() Images {
 		// Helm charts (non-root fsGroup, 0440 secrets, auditor in-cluster Postgres)
 		// — NO change to the SMT commit/integration path. Witness + auditor are the
 		// SAME v0.1.6 coordinated fleet build; override via E2E_*_IMAGE.
-		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.6"+suffix),
-		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.6"),
-		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.6"),
+		Ledger:     env("E2E_LEDGER_IMAGE", tooling+"/ledger:0.1.8"+suffix),
+		Witness:    env("E2E_WITNESS_IMAGE", tooling+"/witness:0.1.8"),
+		Auditor:    env("E2E_AUDITOR_IMAGE", tooling+"/auditor:0.1.8"),
 		Aggregator: env("E2E_AGGREGATOR_IMAGE", ghcr+"/judicial-network/aggregator:latest"),
 		JN:         env("E2E_JN_IMAGE", ghcr+"/judicial-network:latest"),
 	}
