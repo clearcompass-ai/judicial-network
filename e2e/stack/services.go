@@ -528,7 +528,7 @@ func RebuiltProjectionState(t Target) (entryCount int, smtRootHex string, err er
 // against AUDITOR_PEER_CA_FILE, present NO client cert). The cosignature crypto,
 // not the transport, is the trust.
 func auditorEnv(nc NetConfig, in Infra, idx int) map[string]string {
-	return map[string]string{
+	m := map[string]string{
 		"AUDITOR_LISTEN_ADDR":            ":8088",
 		"AUDITOR_GOSSIP_DSN":             dsn(in.PG(), nc.GossipDB(idx)),
 		"AUDITOR_NETWORK_BOOTSTRAP_FILE": mntFixtures + "/network-bootstrap.json",
@@ -548,6 +548,24 @@ func auditorEnv(nc NetConfig, in Infra, idx int) map[string]string {
 		"AUDITOR_GOSSIP_SIGNING_KEY":         mntFixtures + "/" + auditorGossipKeyFile,
 		"AUDITOR_EQUIVOCATION_SCAN_INTERVAL": auditorScanInterval(),
 	}
+	// v0.1.9 rotation-safety knobs — ON by default in the image (journal-first
+	// era-aware resolution + scan reconciliation + consistency audit). These
+	// passthroughs only TUNE them per run; unset keeps the image defaults. The
+	// one local-dev note: AUDITOR_MAX_HEAD_AGE (default 1h) warns when a log's
+	// latest verified head goes stale — an idle stack warning after an hour is
+	// truthful liveness signal; set E2E_AUDITOR_MAX_HEAD_AGE=0 to silence it on
+	// a long-idle dev stack, or raise it for slow soaks.
+	for _, k := range []string{
+		"AUDITOR_MAX_HEAD_AGE",
+		"AUDITOR_ROTATION_SCAN_INTERVAL",
+		"AUDITOR_ROTATION_CONSISTENCY_INTERVAL",
+		"AUDITOR_ROTATION_ADOPTION_GRACE",
+	} {
+		if v := env("E2E_"+k, ""); v != "" {
+			m[k] = v
+		}
+	}
+	return m
 }
 
 // UpAuditors brings up this network's auditors. Their gossip databases must already
