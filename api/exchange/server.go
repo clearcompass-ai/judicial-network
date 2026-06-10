@@ -100,6 +100,12 @@ type ServerConfig struct {
 	// Production wires NewBundleSubmitGate(registry).
 	SubmitGate handlers.SubmitGater
 
+	// LedgerCreditToken, when non-empty, is relayed as Authorization: Bearer on
+	// every forwarded write (the PAYMENT axis, Mode A) so the ledger authenticates
+	// the forward → skips Mode B PoW and deducts a credit. Empty ⇒ Mode B (the
+	// entry carries its own PoW stamp). main.go wires it from API_LEDGER_CREDIT_TOKEN.
+	LedgerCreditToken string
+
 	// AdmissionAuthorizer mints the gate-5 WriteAuthorization (gating axis)
 	// attached at the submit chokepoint after SubmitGate accepts. nil → no
 	// attach (ungated logs / tests). main.go wires it from
@@ -158,6 +164,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		AdmissionAuthorizer:   cfg.AdmissionAuthorizer,
 		LedgerSubmitClient:    cfg.LedgerSubmitClient,
 		ContentStore:          cfg.ContentStore,
+		LedgerCreditToken:     cfg.LedgerCreditToken,
 	}
 
 	mux := http.NewServeMux()

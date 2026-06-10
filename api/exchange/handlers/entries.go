@@ -204,6 +204,16 @@ type Dependencies struct {
 	// alongside the inbound jn_http_* RED triad.
 	LedgerMetrics *observability.LedgerSubmitMetrics
 
+	// LedgerCreditToken, when non-empty, is relayed as Authorization: Bearer on
+	// every forwarded write (the PAYMENT axis, Mode A). The ledger authenticates
+	// it against its sessions table → skips Mode B PoW and deducts one credit (its
+	// balance>0 gate is the backstop: bulk is honored from any positive balance,
+	// then blocked once non-positive). Empty ⇒ Mode B — the entry must carry its
+	// own PoW stamp (the pre-existing posture). ORTHOGONAL to AdmissionAuthorizer
+	// below (the gating axis): a gated network needs BOTH. Production wires it from
+	// API_LEDGER_CREDIT_TOKEN.
+	LedgerCreditToken string
+
 	// AdmissionAuthorizer mints the gate-5 WriteAuthorization (gating axis)
 	// attached at the submitToLedger chokepoint after SubmitGate accepts. nil →
 	// no attach (ungated logs / tests); the forward path stays a pure proxy.
