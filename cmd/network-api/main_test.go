@@ -163,15 +163,15 @@ func TestRegisterProductionBundles_AllRegistered(t *testing.T) {
 		// Registry-loaded — sample one per state to confirm LoadInto
 		// ran end-to-end.
 		"did:web:state:tn:sc",
-		"did:web:state:tn:davidson:circuit:7",        // Davidson Probate Division
-		"did:web:state:tn:davidson:juvenile",         // Davidson Juvenile & Family (single court → no ordinal)
+		"did:web:state:tn:davidson:circuit:7", // Davidson Probate Division
+		"did:web:state:tn:davidson:juvenile",  // Davidson Juvenile & Family (single court → no ordinal)
 		"did:web:state:tn:knox:chancery:1",
 		"did:web:fed:scotus:us",
 		"did:web:fed:circuit:6th",
 		"did:web:fed:circuit:9th",
 		"did:web:fed:district:ca_northern",
 		"did:web:state:ca:sc",
-		"did:web:state:ca:riverside:unified_superior",      // single Superior → no ordinal
+		"did:web:state:ca:riverside:unified_superior", // single Superior → no ordinal
 		"did:web:state:ca:santa_clara:unified_superior",
 		// Clerk offices — confirm BuildClerk path ran.
 		"did:web:state:tn:davidson:clerk:county",

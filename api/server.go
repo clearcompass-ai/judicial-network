@@ -128,6 +128,12 @@ type Config struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
+
+	// Manifest serves the network consumption manifest at
+	// GET /v1/network/bundle (api/manifesthttp). UNAUTHENTICATED like
+	// /v1/openapi.yaml — it is the network's public consumption contract.
+	// nil → the route falls through to the exchange catch-all (404).
+	Manifest http.Handler
 }
 
 // validate enforces composer-level constraints. Per-constituent
@@ -229,6 +235,12 @@ func NewServer(cfg Config) (*Server, error) {
 	// without a client cert. The spec bytes are embedded into the
 	// binary at build time from api/openapi/openapi.yaml.
 	mux.Handle("GET /v1/openapi.yaml", openapi.Handler())
+
+	// Network consumption manifest — unauthenticated for the same reason as
+	// the OpenAPI spec. More specific than the /v1/ catch-all, so it wins.
+	if cfg.Manifest != nil {
+		mux.Handle("GET /v1/network/bundle", cfg.Manifest)
+	}
 
 	// The /v1/gossip pull feed is the AUDITOR's surface, not the JN's
 	// (Separation of Duties). The JN serves no gossip feed — Phase B removed it.

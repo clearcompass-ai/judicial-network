@@ -448,6 +448,13 @@ func run(argv []string, d deps) error {
 		return fmt.Errorf("signer auth: %w", err)
 	}
 
+	// Network consumption manifest (GET /v1/network/bundle) — the describe
+	// projection of the SAME frozen registry the SubmitGate enforces with.
+	manifestHandler, err := buildManifestHandler(registry, cfg.LedgerEndpoint, ledgerSubmitClient, admissionAuthorizer != nil)
+	if err != nil {
+		return fmt.Errorf("network manifest handler: %w", err)
+	}
+
 	srv, err := api.NewServer(api.Config{
 		Addr:          cfg.ListenAddr,
 		TLSCertFile:   cfg.Auth.TLSCertFile,
@@ -456,6 +463,7 @@ func run(argv []string, d deps) error {
 		Auth:          authenticator,
 		Observability: obs,
 		ReadyzChecks:  readyzChecks,
+		Manifest:      manifestHandler,
 		Exchange: exchange.ServerConfig{
 			LedgerEndpoint:        cfg.LedgerEndpoint,
 			LedgerCert:            cfg.LedgerCertFile,
