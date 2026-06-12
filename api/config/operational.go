@@ -526,7 +526,8 @@ type WitnessConfig struct {
 	WitnessEndpoints map[string][]string `json:"witness_endpoints,omitempty"`
 
 	// Sets declares the per-log witness topology used for CROSS-LOG
-	// verification (Dependencies.WitnessSets). Each entry names a
+	// verification (the FED-1 era resolver's HOME trust roots — each
+	// roster is a chain ROOT, never a forever-set). Each entry names a
 	// source/peer log's witness DIDs + K-of-N quorum; the binary resolves
 	// them to secp256k1 keysets at boot against the network's NetworkID
 	// (NetworkBootstrapFile). Empty leaves WitnessSets empty — cross-log

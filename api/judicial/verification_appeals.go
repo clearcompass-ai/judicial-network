@@ -14,7 +14,7 @@ DESCRIPTION:
 	callers walk hop-by-hop using cross-log-proof verification.
 
 	v0.3.0: both handlers read the per-source-log witness topology
-	from deps.WitnessSets (a single map[string]*cosign.WitnessKeySet),
+	from the deps' era resolver (FED-1 #107 — per-hop, head-anchored),
 	not from three parallel maps. Keys + K + NetworkID + BLS verifier
 	are bound together at construction time; the request supplies only
 	source_log_did and the proof itself.

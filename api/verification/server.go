@@ -57,7 +57,7 @@ func policyStageEnabledFromEnv() bool {
 
 // ServerConfig configures the verification service.
 //
-// v0.3.0: WitnessSets replaces the legacy trio of WitnessKeys /
+// History: v0.3.0 collapsed the legacy trio (WitnessKeys /
 // WitnessQuorum / WitnessNetwork + BLSVerifier. One *cosign.WitnessKeySet
 // per log DID carries keys, K, NetworkID, and the BLSAggregateVerifier
 // together — SDK Principle 10 (Two-Tier Quorum Encapsulation).

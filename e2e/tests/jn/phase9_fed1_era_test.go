@@ -14,15 +14,22 @@
 //	     /v1/network/witnesses/current flips to the new era; a stale
 //	     re-submit is the door's 422 (nothing half-applied, live).
 //	S9.2 TNResolvesBothEras              — through TN's cross-log-proof
-//	     handler, a proof riding an era-N head AND one riding an era-N+1
-//	     head BOTH clear RESOLUTION (the static map could never explain the
-//	     N+1 head); a head cosigned by a set on NO chain is the named
-//	     cannot_resolve_era class. Verdict-vs-class discrimination: any
-//	     cryptographic verify verdict means resolution SUCCEEDED.
-//	S9.3 EraSeparationIsCryptographic    — ZT-SCN-02 at federation altitude,
-//	     judged locally with SDK math: the era-N head satisfies set(N) and
-//	     NOT set(N+1), and vice versa — era selection is load-bearing,
-//	     not decorative.
+//	     handler: the head captured BEFORE the rotation (era N) still
+//	     clears RESOLUTION after it (continuity — no false fork alarm),
+//	     the post-rotation head clears it too (the leg the static map
+//	     could never pass), and a head K-cosigned by FRESH keys on no
+//	     chain — a real forged cosignature set, not just a stripped one —
+//	     is the named cannot_resolve_era class. Verdict-vs-class
+//	     discrimination: any cryptographic verify verdict means
+//	     resolution SUCCEEDED.
+//	S9.3 EraContinuityIsCryptographic    — judged locally with SDK math:
+//	     the sets differ, the pre-rotation head satisfies set(N), the
+//	     post-rotation head satisfies set(N+1). A SHRINK rotation keeps
+//	     every live signer in both rosters, so the strict both-direction
+//	     EXCLUSION (ZT-SCN-02) is structurally unattainable on live keys
+//	     here; it is pinned where disjoint sets are constructible — the
+//	     libs transitional-head and ZT-SCN-02 suites — and the e2e's
+//	     exclusion leg is S9.2's fresh-key forged head.
 //
 // DoD coverage map (#107): era-correct lookup end-to-end (S9.2); forged /
 // off-chain refusal at the consumer (S9.2 rogue case; the reconciler-level
@@ -38,7 +45,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -63,9 +69,7 @@ import (
 func federalWitnessKeys(t *testing.T, s *harness.Stack) map[string]*ecdsa.PrivateKey {
 	t.Helper()
 	fx := filepath.Dir(s.Federal.Cfg.BootstrapPath)
-	if s.Federal.Cfg.BootstrapPath == "" {
-		s.Pending(t, "S9: run exposes no federal fixtures dir (witness key custody unavailable)")
-	}
+	s.Gate(t, s.Federal.Cfg.BootstrapPath != "", "S9: run exposes no federal fixtures dir (witness key custody unavailable)")
 	roster := make(map[string]struct{}, len(s.Federal.Boot.GenesisWitnessSet))
 	for _, d := range s.Federal.Boot.GenesisWitnessSet {
 		roster[d] = struct{}{}
@@ -99,9 +103,7 @@ func federalWitnessKeys(t *testing.T, s *harness.Stack) map[string]*ecdsa.Privat
 			}
 		}
 	}
-	if len(out) < s.Federal.QuorumK() {
-		s.Pending(t, "S9: found %d/%d federal witness keys in fixtures — key custody incomplete", len(out), s.Federal.QuorumK())
-	}
+	s.Gate(t, len(out) >= s.Federal.QuorumK(), "S9: found %d/%d federal witness keys in fixtures — key custody incomplete", len(out), s.Federal.QuorumK())
 	return out
 }
 
@@ -119,9 +121,7 @@ func federalCurrentSet(t *testing.T, s *harness.Stack) (liveWitnessView, []rotat
 	t.Helper()
 	var v liveWitnessView
 	code, err := s.Federal.Ledger.GetJSON("/v1/network/witnesses/current", &v)
-	if err != nil || code != 200 || len(v.Keys) == 0 {
-		s.Pending(t, "S9: federal serves no witness history (code=%d err=%v)", code, err)
-	}
+	s.Gate(t, err == nil && code == 200 && len(v.Keys) > 0, "S9: federal serves no witness history (code=%d err=%v)", code, err)
 	keys := make([]rotationdraft.Key, 0, len(v.Keys))
 	for _, k := range v.Keys {
 		keys = append(keys, rotationdraft.Key{IDHex: k.ID, PublicKey: k.PublicKey, SchemeTag: k.SchemeTag})
@@ -135,9 +135,7 @@ func rotateFederal(t *testing.T, s *harness.Stack, privs map[string]*ecdsa.Priva
 	t.Helper()
 	cur, curKeys := federalCurrentSet(t, s)
 	k := s.Federal.QuorumK()
-	if len(curKeys) <= k {
-		s.Pending(t, "S9: federal set too small for a shrink rotation (n=%d k=%d)", len(curKeys), k)
-	}
+	s.Gate(t, len(curKeys) > k, "S9: federal set too small for a shrink rotation (n=%d k=%d)", len(curKeys), k)
 	d := &rotationdraft.Draft{
 		SchemaVersion: rotationdraft.DraftFormat,
 		NetworkIDHex:  hex.EncodeToString(s.Federal.Boot.NetworkID[:]),
@@ -150,7 +148,11 @@ func rotateFederal(t *testing.T, s *harness.Stack, privs map[string]*ecdsa.Priva
 	for _, key := range privs {
 		c, err := d.SignConsent(key)
 		if err != nil {
-			continue // a dropped member's key may refuse nothing here; tolerate per-key
+			// Per-key tolerance is safe: Finalize's SDK self-verification is
+			// the gate — an under-quorum or mis-bucketed consent set cannot
+			// mint a rotation, so skipping an unusable key here only moves
+			// the failure to the named place.
+			continue
 		}
 		consents = append(consents, c)
 		if len(consents) >= k+1 { // K predecessors + slack for routing
@@ -181,10 +183,20 @@ func rotateFederal(t *testing.T, s *harness.Stack, privs map[string]*ecdsa.Priva
 
 func TestS9_FED1_EraRotationEndToEnd(t *testing.T) {
 	s := harness.NewStack(t)
-	if s.TN == nil || s.Federal == nil || s.TN.Boot.NetworkID == ([32]byte{}) {
-		s.Pending(t, "S9: federation run required (federal + tn)")
-	}
+	// Gate-class (strict-fatal): every precondition below is something the
+	// federation preset PROVISIONS. If one degrades, the #107 headline
+	// acceptance must fail the strict job loudly, never self-excuse.
+	s.Gate(t, s.TN != nil && s.Federal != nil && s.TN.Boot.NetworkID != ([32]byte{}),
+		"S9: federation run required (federal + tn)")
 	privs := federalWitnessKeys(t, s)
+
+	// The era-N anchor: a LIVE cosigned head captured BEFORE the rotation.
+	rawPre, preCode, preErr := s.Federal.Ledger.TreeHead()
+	s.Gate(t, preErr == nil && preCode == 200, "S9: federal serves no pre-rotation head (code=%d err=%v)", preCode, preErr)
+	preHead, preErr := e2ecosign.ToSDKHead(rawPre)
+	if preErr != nil {
+		t.Fatalf("S9: map pre-rotation head: %v", preErr)
+	}
 
 	// ── S9.1: the ceremony through the real door ──────────────────────
 	eraN, payload := rotateFederal(t, s, privs)
@@ -208,28 +220,31 @@ func TestS9_FED1_EraRotationEndToEnd(t *testing.T) {
 		t.Fatalf("S9.1: stale re-submit = %d (err=%v), want 422: %s", code, err, body)
 	}
 
-	// ── S9.3: era separation is cryptographic (ZT-SCN-02, locally) ────
-	// Judged with SDK math over LIVE heads: the pre-rotation cosigned head
-	// satisfies set(N) and not set(N+1) — era selection is load-bearing.
+	// ── S9.3: era continuity is cryptographic, judged locally ─────────
+	// Hard asserts, scoped to what a live SHRINK permits (every live signer
+	// is in both rosters, so both-direction EXCLUSION is unattainable here
+	// and stays pinned at the libs disjoint-set suites — the transitional-
+	// head boundary regression and ZT-SCN-02): the sets DIFFER, the
+	// pre-rotation head satisfies set(N), the post-rotation head satisfies
+	// set(N+1). The e2e's exclusion leg is S9.2's fresh-key forged head.
 	setN := mustKeySet(t, s, eraN)
 	setN1 := mustKeySet(t, s, eraN1)
-	rawHead, hcode, herr := s.Federal.Ledger.TreeHead() // captured AFTER rotation: cosigned by N+1
+	if setN.SetHash() == setN1.SetHash() {
+		t.Fatalf("S9.3: rotation did not change the set")
+	}
+	rawPost, hcode, herr := s.Federal.Ledger.TreeHead() // post-rotation: cosigned by set(N+1)
 	if herr != nil || hcode != 200 {
 		t.Fatalf("S9.3: federal live head: code=%d err=%v", hcode, herr)
 	}
-	headN, herr := e2ecosign.ToSDKHead(rawHead)
+	postHead, herr := e2ecosign.ToSDKHead(rawPost)
 	if herr != nil {
 		t.Fatalf("S9.3: map live head to SDK shape: %v", herr)
 	}
-	if sdkcosign.VerifyTreeHeadCosignatures(headN, setN1) < setN1.Quorum() {
-		t.Fatalf("S9.3: live head must satisfy the NEW era set")
+	if sdkcosign.VerifyTreeHeadCosignatures(preHead, setN) < setN.Quorum() {
+		t.Fatalf("S9.3: the pre-rotation head must satisfy its OWN era set(N)")
 	}
-	if sdkcosign.VerifyTreeHeadCosignatures(headN, setN) >= setN.Quorum() {
-		// Possible only in the transitional window; tolerate but require the
-		// two sets to differ so the assertion below is non-trivial.
-		if setN.SetHash() == setN1.SetHash() {
-			t.Fatalf("S9.3: rotation did not change the set")
-		}
+	if sdkcosign.VerifyTreeHeadCosignatures(postHead, setN1) < setN1.Quorum() {
+		t.Fatalf("S9.3: the post-rotation head must satisfy the NEW era set(N+1)")
 	}
 
 	// ── S9.2: TN resolves BOTH eras through its live handler ──────────
@@ -259,18 +274,29 @@ func TestS9_FED1_EraRotationEndToEnd(t *testing.T) {
 		return code, cls
 	}
 
-	if code, cls := tnResolve(headN); cls == "cannot_resolve_era" || code == 400 {
+	// Era-N CONTINUITY through the live path: the head captured BEFORE the
+	// rotation still resolves AFTER it — no false fork alarm for
+	// legitimately-historic material.
+	if code, cls := tnResolve(preHead); cls == "cannot_resolve_era" || code == 400 {
+		t.Fatalf("S9.2: the era-N head must STILL resolve on tn post-rotation: code=%d class=%q", code, cls)
+	}
+	// The new era resolves — the leg the static map could never pass.
+	if code, cls := tnResolve(postHead); cls == "cannot_resolve_era" || code == 400 {
 		t.Fatalf("S9.2: era-N+1 head must RESOLVE on tn (the static map never could): code=%d class=%q", code, cls)
 	}
 
-	// A head cosigned by a set on NO chain: the named refusal class.
-	rogueHead := headN
-	rogueHead.Signatures = nil
-	if rogueHead.TreeSize == 0 {
-		rogueHead.TreeSize = 1
+	// A head K-cosigned by FRESH keys — a real forged cosignature set on no
+	// chain (rejection-proof license: SDK signing primitives, hand-assembled
+	// only to prove refusal) — is the named class.
+	forged := forgedCosignedHead(t, s, postHead.TreeSize+1)
+	if code, cls := tnResolve(forged); code != 422 || cls != "cannot_resolve_era" {
+		t.Fatalf("S9.2: a forged-cosigned head must be the named class: code=%d class=%q", code, cls)
 	}
-	if code, cls := tnResolve(rogueHead); code != 422 || cls != "cannot_resolve_era" {
-		t.Fatalf("S9.2: an unexplainable head must be the named class: code=%d class=%q", code, cls)
+	// And the trivial shape (no signatures at all) refuses identically.
+	bare := postHead
+	bare.Signatures = nil
+	if code, cls := tnResolve(bare); code != 422 || cls != "cannot_resolve_era" {
+		t.Fatalf("S9.2: an unsigned head must be the named class: code=%d class=%q", code, cls)
 	}
 }
 
@@ -297,4 +323,32 @@ func mustKeySet(t *testing.T, s *harness.Stack, v liveWitnessView) *sdkcosign.Wi
 	return set
 }
 
-var _ = fmt.Sprintf // keep fmt for future scenario growth
+// forgedCosignedHead mints a structurally-valid head K-cosigned by THREE
+// fresh keys that exist on no chain — the real forged shape (valid-looking
+// cosignatures, wrong authority), built with SDK signing primitives under
+// the rejection-proof license.
+func forgedCosignedHead(t *testing.T, s *harness.Stack, size uint64) types.CosignedTreeHead {
+	t.Helper()
+	head := types.TreeHead{
+		RootHash: [32]byte{0xF0}, SMTRoot: [32]byte{0xF1}, ReceiptRoot: [32]byte{0xF2}, TreeSize: size,
+	}
+	payload := sdkcosign.NewTreeHeadPayload(head)
+	netID := sdkcosign.NetworkID(s.Federal.Boot.NetworkID)
+	sigs := make([]types.WitnessSignature, 3)
+	for i := range sigs {
+		kp, err := sdkdid.GenerateDIDKeySecp256k1()
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys, err := witness.KeysFromDIDs([]string{kp.DID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		sb, err := sdkcosign.SignECDSA(payload, netID, sdkcosign.HashAlgoSHA256, kp.PrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sigs[i] = types.WitnessSignature{PubKeyID: keys[0].ID, SchemeTag: keys[0].SchemeTag, SigBytes: sb}
+	}
+	return types.CosignedTreeHead{TreeHead: head, Signatures: sigs}
+}
