@@ -26,12 +26,12 @@ DESCRIPTION:
 package main
 
 import (
-	"github.com/baseproof/tooling/libs/networkbundle"
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"net/http"
 	"strconv"
 	"strings"

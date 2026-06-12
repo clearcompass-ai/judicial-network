@@ -40,14 +40,14 @@ package clerk_base
 
 // ─── County Clerk civic events ──────────────────────────────────────
 const (
-	EventMarriageLicenseIssued       = "clerk_marriage_license_issued"
-	EventMarriageLicenseReturned     = "clerk_marriage_license_returned"
-	EventVehicleTitleTransfer        = "clerk_vehicle_title_transfer"
-	EventVehicleRegistrationRenewed  = "clerk_vehicle_registration_renewed"
-	EventBusinessTaxFiled            = "clerk_business_tax_filed"
-	EventNotaryCommissionIssued      = "clerk_notary_commission_issued"
+	EventMarriageLicenseIssued        = "clerk_marriage_license_issued"
+	EventMarriageLicenseReturned      = "clerk_marriage_license_returned"
+	EventVehicleTitleTransfer         = "clerk_vehicle_title_transfer"
+	EventVehicleRegistrationRenewed   = "clerk_vehicle_registration_renewed"
+	EventBusinessTaxFiled             = "clerk_business_tax_filed"
+	EventNotaryCommissionIssued       = "clerk_notary_commission_issued"
 	EventPassportApplicationProcessed = "clerk_passport_application_processed"
-	EventRealIDIssued                = "clerk_real_id_issued"
+	EventRealIDIssued                 = "clerk_real_id_issued"
 )
 
 // ─── Court Clerk records-management events ──────────────────────────
@@ -73,7 +73,7 @@ const (
 
 // ─── Office-administration events (apply to every clerk type) ───────
 const (
-	EventDeputyAppointed   = "clerk_deputy_appointed"
+	EventDeputyAppointed        = "clerk_deputy_appointed"
 	EventBranchManagerAppointed = "clerk_branch_manager_appointed"
 )
 

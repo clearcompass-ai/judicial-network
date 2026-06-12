@@ -14,6 +14,7 @@ package verification
 
 import (
 	"context"
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 	"log"
 	"net/http"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"github.com/baseproof/baseproof/attestation"
 	"github.com/baseproof/baseproof/builder"
 	"github.com/baseproof/baseproof/core/smt"
-	"github.com/baseproof/baseproof/crypto/cosign"
 	sdklog "github.com/baseproof/baseproof/log"
 	"github.com/baseproof/baseproof/schema"
 	"github.com/baseproof/baseproof/verifier"
@@ -67,7 +67,7 @@ type ServerConfig struct {
 	LeafReader     smt.LeafReader
 	Extractor      schema.SchemaParameterExtractor
 	SchemaResolver builder.SchemaResolver
-	WitnessSets    map[string]*cosign.WitnessKeySet
+	Eras           eras.SetResolver
 
 	// MultiTrust is the C-3 cross-network LogTrustProvider. When
 	// non-nil it is threaded into handlers.Dependencies.MultiTrust;
@@ -149,7 +149,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		LeafReader:         cfg.LeafReader,
 		Extractor:          cfg.Extractor,
 		SchemaResolver:     cfg.SchemaResolver,
-		WitnessSets:        cfg.WitnessSets,
+		Eras:               cfg.Eras,
 		SignatureVerifier:  cfg.SignatureVerifier,
 		PolicyStage:        cfg.PolicyStage,
 		PolicyStageEnabled: policyStageEnabledFromEnv(),

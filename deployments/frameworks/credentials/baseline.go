@@ -39,9 +39,9 @@ type Baseline struct {
 	ValidatorImpl ValidatorFunc
 }
 
-func (b *Baseline) ID() string                  { return b.CredentialID }
-func (b *Baseline) Category() Category          { return b.Cat }
-func (b *Baseline) Issuer() string              { return b.Iss }
-func (b *Baseline) Jurisdiction() Jurisdiction  { return b.J }
-func (b *Baseline) Validator() ValidatorFunc    { return b.ValidatorImpl }
-func (b *Baseline) Description() string         { return b.Desc }
+func (b *Baseline) ID() string                 { return b.CredentialID }
+func (b *Baseline) Category() Category         { return b.Cat }
+func (b *Baseline) Issuer() string             { return b.Iss }
+func (b *Baseline) Jurisdiction() Jurisdiction { return b.J }
+func (b *Baseline) Validator() ValidatorFunc   { return b.ValidatorImpl }
+func (b *Baseline) Description() string        { return b.Desc }

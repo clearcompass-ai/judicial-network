@@ -55,7 +55,7 @@ func freshRegistry(t *testing.T) *jurisdiction.Registry {
 
 func TestBuildJudicialDeps_NoLedger_StillBoots(t *testing.T) {
 	reg := freshRegistry(t)
-	deps, err := buildJudicialDeps(config.Operational{}, reg, nil)
+	deps, err := buildJudicialDeps(config.Operational{}, reg, nil, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -88,13 +88,15 @@ func TestBuildJudicialDeps_NoLedger_StillBoots(t *testing.T) {
 	}
 }
 
-func TestBuildJudicialDeps_WitnessMapsInitialized(t *testing.T) {
-	deps, err := buildJudicialDeps(config.Operational{}, freshRegistry(t), nil)
+func TestBuildJudicialDeps_EraResolverThreaded(t *testing.T) {
+	// FED-1 #107: the static WitnessSets map is GONE; the resolver the
+	// caller supplies is what deps carry — verbatim, no re-wrapping.
+	deps, err := buildJudicialDeps(config.Operational{}, freshRegistry(t), nil, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
-	if deps.WitnessSets == nil {
-		t.Error("WitnessSets MUST be initialized (empty map, not nil) — v0.3.0 encapsulation")
+	if deps.Eras != nil {
+		t.Error("a nil resolver must thread as nil (handlers fail closed), never be defaulted")
 	}
 }
 
@@ -106,7 +108,7 @@ func TestBuildJudicialDeps_WithLedger_PerDestinationQueries(t *testing.T) {
 	reg := freshRegistry(t)
 	deps, err := buildJudicialDeps(config.Operational{
 		LedgerEndpoint: "https://ledger.example",
-	}, reg, nil)
+	}, reg, nil, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -130,7 +132,7 @@ func TestBuildJudicialDeps_ContentStore_FlipsToHTTP(t *testing.T) {
 	deps, err := buildJudicialDeps(config.Operational{
 		LedgerEndpoint:        "https://ledger.example",
 		ArtifactStoreEndpoint: "https://artifacts.example",
-	}, freshRegistry(t), nil)
+	}, freshRegistry(t), nil, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -146,7 +148,7 @@ func TestBuildJudicialDeps_ContentStore_DefaultsInMemory(t *testing.T) {
 	deps, err := buildJudicialDeps(config.Operational{
 		LedgerEndpoint: "https://ledger.example",
 		// ArtifactStoreEndpoint deliberately empty
-	}, freshRegistry(t), nil)
+	}, freshRegistry(t), nil, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -174,7 +176,7 @@ func TestSchemaResolverShim_DeclinesCleanly(t *testing.T) {
 // AuditorScopeAsOf closure is nil, and the auditor record slices are
 // nil — the legal pre-v1.33 posture.
 func TestBuildJudicialDeps_NoBootstrap_ResolverNil(t *testing.T) {
-	deps, err := buildJudicialDeps(config.Operational{}, freshRegistry(t), nil)
+	deps, err := buildJudicialDeps(config.Operational{}, freshRegistry(t), nil, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -201,7 +203,7 @@ func TestBuildJudicialDeps_LoadsAuditorRegistry(t *testing.T) {
 	regPath := writeJSONFixture(t, records)
 	deps, err := buildJudicialDeps(config.Operational{
 		AuditorScope: config.AuditorScopeConfig{RegistryFile: regPath},
-	}, freshRegistry(t), nil)
+	}, freshRegistry(t), nil, nil)
 	if err != nil {
 		t.Fatalf("buildJudicialDeps: %v", err)
 	}
@@ -218,7 +220,7 @@ func TestBuildJudicialDeps_MalformedRegistry_BootFails(t *testing.T) {
 	}
 	_, err := buildJudicialDeps(config.Operational{
 		AuditorScope: config.AuditorScopeConfig{RegistryFile: path},
-	}, freshRegistry(t), nil)
+	}, freshRegistry(t), nil, nil)
 	if err == nil {
 		t.Fatal("expected boot-fail on malformed registry; got nil")
 	}

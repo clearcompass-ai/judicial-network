@@ -29,9 +29,12 @@ package judicial
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/clearcompass-ai/judicial-network/topology"
+
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -68,16 +71,27 @@ func (h *topologyPublishAnchorHandler) ServeHTTP(w http.ResponseWriter, r *http.
 			"destination and source_log_did required")
 		return
 	}
-	// v0.3.0: NetworkID lives inside the encapsulated WitnessKeySet
-	// (SDK Principle 10). Reading set.NetworkID() guarantees keys+K
-	// stayed in sync for this log DID — it is impossible to read a
-	// different NetworkID than the witness key set was constructed
-	// against.
-	set, ok := h.deps.WitnessSets[req.SourceLogDID]
-	if !ok || set == nil {
-		writeError(w, http.StatusServiceUnavailable,
-			"topology.publish-anchor requires a WitnessSets entry for source_log_did; "+
-				"populate Dependencies.WitnessSets at boot + restart")
+	// FED-1 #107: the anchor publisher is a CURRENT-set consumer (it fetches
+	// and verifies a LIVE horizon — no proof head exists yet), so it resolves
+	// the newest set the journaled chain can prove. NetworkID lives inside
+	// the encapsulated WitnessKeySet (SDK Principle 10), so keys+K+network
+	// stay in sync by construction. If the live log has rotated beyond the
+	// chain we hold, the downstream horizon verification fails closed and
+	// gossip catches the chain up.
+	if h.deps.Eras == nil {
+		writeError(w, http.StatusInternalServerError, "era resolution not configured")
+		return
+	}
+	set, eraErr := h.deps.Eras.CurrentSet(ctx, req.SourceLogDID)
+	if eraErr != nil {
+		if errors.Is(eraErr, eras.ErrNoSuchPeer) {
+			writeError(w, http.StatusServiceUnavailable,
+				"topology.publish-anchor requires a trust root for source_log_did; configure it at boot + restart")
+			return
+		}
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+			"error": eraErr.Error(), "class": "cannot_resolve_era",
+		})
 		return
 	}
 	networkID := set.NetworkID()

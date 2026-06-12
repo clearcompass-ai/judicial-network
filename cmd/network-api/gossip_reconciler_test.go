@@ -123,7 +123,7 @@ func TestBuildGossipIngest_Disabled_NoPipeline(t *testing.T) {
 	cfg := config.Operational{}
 	cfg.GossipIngest.Enabled = false
 
-	pipelines, err := buildGossipIngest(cfg, &did.VerifierRegistry{}, judicial.Dependencies{}, nil)
+	pipelines, err := buildGossipIngest(cfg, &did.VerifierRegistry{}, nil, judicial.Dependencies{}, nil)
 	if err != nil {
 		t.Fatalf("disabled ingest should not error: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestBuildGossipIngest_EnabledNoPeers_NoPipeline(t *testing.T) {
 	cfg.GossipIngest.Enabled = true
 	// No Peers, no PeerLogs.
 
-	pipelines, err := buildGossipIngest(cfg, &did.VerifierRegistry{}, judicial.Dependencies{}, nil)
+	pipelines, err := buildGossipIngest(cfg, &did.VerifierRegistry{}, nil, judicial.Dependencies{}, nil)
 	if err != nil {
 		t.Fatalf("no peers should not error: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestBuildGossipIngest_HomeOnly_OnePipeline(t *testing.T) {
 		t.Fatalf("buildSignatureVerifier: %v", err)
 	}
 
-	pipelines, err := buildGossipIngest(cfg, verifier, judicial.Dependencies{}, nil)
+	pipelines, err := buildGossipIngest(cfg, verifier, nil, judicial.Dependencies{}, nil)
 	if err != nil {
 		t.Fatalf("home-only buildGossipIngest: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestBuildGossipIngest_TwoForeignNetworks_ThreePipelines(t *testing.T) {
 		t.Fatalf("buildSignatureVerifier: %v", err)
 	}
 
-	pipelines, err := buildGossipIngest(cfg, verifier, judicial.Dependencies{}, nil)
+	pipelines, err := buildGossipIngest(cfg, verifier, nil, judicial.Dependencies{}, nil)
 	if err != nil {
 		t.Fatalf("multi-network buildGossipIngest: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestBuildGossipIngest_ForeignOnly_NoHome(t *testing.T) {
 		t.Fatalf("buildSignatureVerifier: %v", err)
 	}
 
-	pipelines, err := buildGossipIngest(cfg, verifier, judicial.Dependencies{}, nil)
+	pipelines, err := buildGossipIngest(cfg, verifier, nil, judicial.Dependencies{}, nil)
 	if err != nil {
 		t.Fatalf("foreign-only buildGossipIngest: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestBuildGossipIngest_MalformedForeignNetworkID_Rejected(t *testing.T) {
 		t.Fatalf("buildSignatureVerifier: %v", err)
 	}
 
-	_, err = buildGossipIngest(cfg, verifier, judicial.Dependencies{}, nil)
+	_, err = buildGossipIngest(cfg, verifier, nil, judicial.Dependencies{}, nil)
 	if err == nil {
 		t.Fatal("malformed (all-zero) NetworkID must fail boot")
 	}
@@ -284,7 +284,7 @@ func TestBuildGossipIngest_EmptyBootstrap_Rejected(t *testing.T) {
 	}
 	// NetworkBootstrapFile intentionally empty
 
-	_, err := buildGossipIngest(cfg, &did.VerifierRegistry{}, judicial.Dependencies{}, nil)
+	_, err := buildGossipIngest(cfg, &did.VerifierRegistry{}, nil, judicial.Dependencies{}, nil)
 	if err == nil {
 		t.Fatal("ingest enabled with no bootstrap MUST error")
 	}
@@ -301,7 +301,7 @@ func TestBuildGossipIngest_NonRegistryVerifier_Rejected(t *testing.T) {
 	t.Parallel()
 	cfg, _ := minimalIngestCfg(t)
 
-	_, err := buildGossipIngest(cfg, fakeVerifier{}, judicial.Dependencies{}, nil)
+	_, err := buildGossipIngest(cfg, fakeVerifier{}, nil, judicial.Dependencies{}, nil)
 	if err == nil {
 		t.Fatal("non-Registry verifier must fail boot")
 	}

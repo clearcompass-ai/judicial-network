@@ -52,6 +52,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 	"io"
 	"log/slog"
 	"net/http"
@@ -111,11 +112,7 @@ import (
 // SDK v1.26.0+ also returns (thing, error) from every HTTP-bearing
 // constructor — config validation moved from "panic at first use" to
 // "fail at boot." Surfaced as judicial.Dependencies build errors.
-func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, ledgerHTTPClient *http.Client) (judicial.Dependencies, error) {
-	witnessSets, err := buildWitnessSets(cfg)
-	if err != nil {
-		return judicial.Dependencies{}, fmt.Errorf("build witness sets: %w", err)
-	}
+func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, ledgerHTTPClient *http.Client, eraResolver eras.SetResolver) (judicial.Dependencies, error) {
 
 	// SDK v1.26.0 made *http.Client required on every HTTP-bearing config.
 	// Default-fill when the caller passed nil (dev / pre-cert deployments,
@@ -158,7 +155,7 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, 
 		// cfg.Witness.Sets against the network's NetworkID. Empty when no
 		// sets are configured → cross-log handlers surface 503 with a clear
 		// "no witness set for source_log_did" error.
-		WitnessSets: witnessSets,
+		Eras: eraResolver,
 		// v1.33.x auditor-scope gate inputs. Both nil when the operator
 		// hasn't provisioned the files; the reconciler then runs without
 		// scope enforcement (legal pre-v1.33 behaviour). cfg.Validate
@@ -197,7 +194,18 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, 
 		return judicial.Dependencies{}, fmt.Errorf("build entry fetcher: %w", err)
 	}
 	deps.Fetcher = fetcher
-	leafReader, err := buildLeafReader(cfg, registry, witnessSets, ledgerHTTPClient)
+	// DOMESTIC-AXIS NOTE (FED-1 #107 rider): the leaf reader bakes per-log
+	// witness sets at boot for verified SMT reads — a static-roster consumer
+	// on the HOME axis, same class as the admission authorizer's anchor
+	// fetch (main.go). Cross-log verification no longer reads this map (it
+	// resolves era-correctly via deps.Eras); these two domestic consumers
+	// move to chain-backed CurrentSet in the home-rotation wave, named here
+	// so the census stays honest rather than silently complete.
+	leafReaderSets, err := buildWitnessSets(cfg)
+	if err != nil {
+		return judicial.Dependencies{}, fmt.Errorf("build witness sets (leaf reader): %w", err)
+	}
+	leafReader, err := buildLeafReader(cfg, registry, leafReaderSets, ledgerHTTPClient)
 	if err != nil {
 		return judicial.Dependencies{}, fmt.Errorf("build leaf reader: %w", err)
 	}

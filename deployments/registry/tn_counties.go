@@ -194,10 +194,11 @@ var knox = county_profile.CountyProfile{
 // × GS = 9 court Specs, each named per its courthouse.
 //
 // DIDs use the courthouse ID as the segment ordinal:
-//   did:web:state:tn:sullivan:circuit:bristol:1
-//   did:web:state:tn:sullivan:circuit:kingsport:1
-//   did:web:state:tn:sullivan:circuit:blountville:1
-//   ... (and similarly for chancery + gen_sessions)
+//
+//	did:web:state:tn:sullivan:circuit:bristol:1
+//	did:web:state:tn:sullivan:circuit:kingsport:1
+//	did:web:state:tn:sullivan:circuit:blountville:1
+//	... (and similarly for chancery + gen_sessions)
 //
 // Sullivan is SizeMedium so state_profile.TN generates 3 clerks
 // (County, Circuit-consolidating-Criminal+GS, Clerk and Master).

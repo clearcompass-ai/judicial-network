@@ -32,28 +32,28 @@ with SigningBytes laid out as:
 Why this matters
 ================
 
-1. EVERY SDK security gate runs against the envelope verbatim —
-   nonce reservation, MaxValidityWindow ceiling (1h), clock-skew
-   bounds, domain match, ASCII/UTF-8 hygiene, ChainID binding for
-   Web3. The JN inherits all of them for free.
+ 1. EVERY SDK security gate runs against the envelope verbatim —
+    nonce reservation, MaxValidityWindow ceiling (1h), clock-skew
+    bounds, domain match, ASCII/UTF-8 hygiene, ChainID binding for
+    Web3. The JN inherits all of them for free.
 
-2. SDK's SignatureVerifier registry now dispatches per DID method.
-   When ledger#152 #4 lands and the registry admits ML-DSA / SLH-DSA,
-   the JN gets PQ admission "free" (algoID is now a wire field, not
-   hardcoded Ed25519).
+ 2. SDK's SignatureVerifier registry now dispatches per DID method.
+    When ledger#152 #4 lands and the registry admits ML-DSA / SLH-DSA,
+    the JN gets PQ admission "free" (algoID is now a wire field, not
+    hardcoded Ed25519).
 
-3. Per-Destination NonceStore routing — the load-bearing
-   multi-tenant property pinned by the pre-v2
-   TestNonceIsolation_AcrossDestinations — is preserved here at the
-   middleware layer (above the envelope). Destination is BOTH a
-   signature-bound field (defeats swap-replay) AND a routing key
-   into the per-tenant NonceStore namespace.
+ 3. Per-Destination NonceStore routing — the load-bearing
+    multi-tenant property pinned by the pre-v2
+    TestNonceIsolation_AcrossDestinations — is preserved here at the
+    middleware layer (above the envelope). Destination is BOTH a
+    signature-bound field (defeats swap-replay) AND a routing key
+    into the per-tenant NonceStore namespace.
 
-4. No bespoke canonical layout to audit. The v2 envelope is the
-   SDK envelope + two length-prefixed strings — a forgery requires
-   either breaking the SDK envelope (covered by the SDK's audit
-   surface) or producing a colliding length-prefixed suffix
-   (structurally impossible).
+ 4. No bespoke canonical layout to audit. The v2 envelope is the
+    SDK envelope + two length-prefixed strings — a forgery requires
+    either breaking the SDK envelope (covered by the SDK's audit
+    surface) or producing a colliding length-prefixed suffix
+    (structurally impossible).
 
 Migration
 =========

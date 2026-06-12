@@ -43,14 +43,14 @@ const (
 
 // Scope tokens the catalog publishes for clerk-office delegations.
 const (
-	ScopeIssueCertification  = "issue:certification"   // issue official certifications
-	ScopeOpenFiling          = "open:filing"           // accept and stamp new filings
-	ScopeIssueLicense        = "issue:license"         // marriage/business/vehicle licenses
-	ScopeIssueIDDocument     = "issue:id_document"     // driver's licenses, Real IDs
-	ScopeCollectFee          = "collect:fee"           // accept payments at the counter
-	ScopeRouteDocument       = "route:document"        // move records between offices
-	ScopeManageBranch        = "manage:branch"         // branch-level operational
-	ScopeInviteDeputy        = "invite:deputy"         // bring on a new deputy
+	ScopeIssueCertification  = "issue:certification" // issue official certifications
+	ScopeOpenFiling          = "open:filing"         // accept and stamp new filings
+	ScopeIssueLicense        = "issue:license"       // marriage/business/vehicle licenses
+	ScopeIssueIDDocument     = "issue:id_document"   // driver's licenses, Real IDs
+	ScopeCollectFee          = "collect:fee"         // accept payments at the counter
+	ScopeRouteDocument       = "route:document"      // move records between offices
+	ScopeManageBranch        = "manage:branch"       // branch-level operational
+	ScopeInviteDeputy        = "invite:deputy"       // bring on a new deputy
 	ScopeInviteSeniorDeputy  = "invite:senior_deputy"
 	ScopeInviteBranchManager = "invite:branch_manager"
 	ScopeInviteChiefDeputy   = "invite:chief_deputy"
@@ -73,18 +73,18 @@ func catalogRoles() []schemas.Role {
 	// revocable; these are upper bounds on how long an
 	// unrevoked delegation may stand.
 	const (
-		execMax      = 8 * 365 * 24 * time.Hour     // 8 years
-		execDefault  = 4 * 365 * 24 * time.Hour     // 4 years
-		chiefMax     = 4 * 365 * 24 * time.Hour     // 4 years
-		chiefDefault = 1 * 365 * 24 * time.Hour     // 1 year
-		mgrMax       = 1 * 365 * 24 * time.Hour     // 1 year
-		mgrDefault   = 90 * 24 * time.Hour          // 90 days
-		seniorMax    = 90 * 24 * time.Hour          // 90 days
-		seniorDef    = 30 * 24 * time.Hour          // 30 days
-		frontMax     = 24 * time.Hour               // 24h
-		frontDef     = 8 * time.Hour                // 8h
-		fileMax      = 24 * time.Hour               // 24h
-		fileDef      = 8 * time.Hour                // 8h
+		execMax      = 8 * 365 * 24 * time.Hour // 8 years
+		execDefault  = 4 * 365 * 24 * time.Hour // 4 years
+		chiefMax     = 4 * 365 * 24 * time.Hour // 4 years
+		chiefDefault = 1 * 365 * 24 * time.Hour // 1 year
+		mgrMax       = 1 * 365 * 24 * time.Hour // 1 year
+		mgrDefault   = 90 * 24 * time.Hour      // 90 days
+		seniorMax    = 90 * 24 * time.Hour      // 90 days
+		seniorDef    = 30 * 24 * time.Hour      // 30 days
+		frontMax     = 24 * time.Hour           // 24h
+		frontDef     = 8 * time.Hour            // 8h
+		fileMax      = 24 * time.Hour           // 24h
+		fileDef      = 8 * time.Hour            // 8h
 	)
 	return []schemas.Role{
 		{

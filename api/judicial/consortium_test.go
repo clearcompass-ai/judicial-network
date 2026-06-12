@@ -11,6 +11,11 @@ package judicial
 
 import (
 	"bytes"
+	"context"
+	"errors"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/baseproof/baseproof/types"
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -123,10 +128,27 @@ func TestConsortiumVerifyCrossCourt_NoCaller_401(t *testing.T) {
 }
 
 // v0.3.0+: the BLS verifier moved inside WitnessKeySet. The
-// 500-on-missing-BLS path no longer exists; the equivalent
-// failure mode is "no WitnessSets entry for source_log_did"
-// which the handler returns as 400.
-func TestConsortiumVerifyCrossCourt_NoWitnessSet_400(t *testing.T) {
+// FED-1 #107: the failure modes are now era-resolution classes —
+// an unknown source log is a config-class 400 (no trust root); an
+// unconfigured resolver is a wiring-class 500, never a panic.
+func TestConsortiumVerifyCrossCourt_NoTrustRoot_400(t *testing.T) {
+	withCaller(t, testJudge)
+	noPeers, err := eras.New(refusingInner{}, emptyChains{}, nil, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newTestHandler(Dependencies{Eras: noPeers})
+	body := []byte(`{"proof":{}, "source_log_did":"did:web:state:tn:williamson:cases"}`)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost,
+		"/v1/judicial/consortium/cross-court-proof/verify", bytes.NewReader(body))
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 (no trust root for source log)", rec.Code)
+	}
+}
+
+func TestConsortiumVerifyCrossCourt_NoResolver_500_NeverPanics(t *testing.T) {
 	withCaller(t, testJudge)
 	h := newTestHandler(Dependencies{})
 	body := []byte(`{"proof":{}, "source_log_did":"did:web:state:tn:williamson:cases"}`)
@@ -134,9 +156,27 @@ func TestConsortiumVerifyCrossCourt_NoWitnessSet_400(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost,
 		"/v1/judicial/consortium/cross-court-proof/verify", bytes.NewReader(body))
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400 (no witness set for source log)", rec.Code)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 (era resolution not configured)", rec.Code)
 	}
+}
+
+// refusingInner / emptyChains: minimal fakes for the class tests.
+type refusingInner struct{}
+
+func (refusingInner) SetForHead(context.Context, string, types.CosignedTreeHead) (*cosign.WitnessKeySet, error) {
+	return nil, errNoChain
+}
+func (refusingInner) CurrentSet(context.Context, string) (*cosign.WitnessKeySet, error) {
+	return nil, errNoChain
+}
+
+var errNoChain = errors.New("no chain")
+
+type emptyChains struct{}
+
+func (emptyChains) RecordsFor(context.Context, string) ([]types.WitnessRotationRecord, error) {
+	return nil, nil
 }
 
 func TestConsortiumVerifyCrossCourt_MissingFields_400(t *testing.T) {
@@ -154,7 +194,11 @@ func TestConsortiumVerifyCrossCourt_MissingFields_400(t *testing.T) {
 
 func TestConsortiumVerifyCrossCourt_NoWitnessKeys_400(t *testing.T) {
 	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{})
+	noPeers, err := eras.New(refusingInner{}, emptyChains{}, nil, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newTestHandler(Dependencies{Eras: noPeers})
 	body := []byte(`{"proof":{}, "source_log_did":"did:web:state:tn:williamson:cases"}`)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost,
