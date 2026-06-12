@@ -12,46 +12,23 @@ import (
 	"github.com/baseproof/baseproof/crypto/signatures"
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/verifier"
+	"github.com/baseproof/baseproof/witness/witnesstest"
 )
 
-// ── fixtures (replicated from baseproof/anchor's package-private test helpers,
-//    using only public SDK APIs) ─────────────────────────────────────────────
+// ── fixtures ─────────────────────────────────────────────────────────────────
+// J5: the witness set + cosigned head come from the SDK's PUBLIC witnesstest
+// helper (NewSet / CosignHead) — the package-private originals this file once
+// replicated are now exported, so JN consumes them instead of reimplementing.
 
-func wsWitnessSet(t *testing.T, n, k int) ([]cosign.WitnessSigner, *cosign.WitnessKeySet, cosign.NetworkID) {
-	t.Helper()
+// courtNID is the fixed test NetworkID each court's witness set binds under
+// (the keys are fresh per court, so a distinct set verifies as a distinct
+// lineage even under the same nid).
+func courtNID() cosign.NetworkID {
 	var nid cosign.NetworkID
 	for i := 0; i < 32; i++ {
 		nid[i] = byte(i + 7)
 	}
-	keys := make([]types.WitnessPublicKey, n)
-	signers := make([]cosign.WitnessSigner, n)
-	for i := 0; i < n; i++ {
-		priv, err := signatures.GenerateKey()
-		if err != nil {
-			t.Fatal(err)
-		}
-		signers[i] = cosign.NewECDSAWitnessSigner(priv)
-		pub := signatures.PubKeyBytes(&priv.PublicKey)
-		keys[i] = types.WitnessPublicKey{ID: sha256.Sum256(pub), PublicKey: pub, SchemeTag: signatures.SchemeECDSA}
-	}
-	set, err := cosign.NewWitnessKeySet(keys, nid, k, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return signers, set, nid
-}
-
-func wsCosignHead(t *testing.T, head types.TreeHead, signers []cosign.WitnessSigner, nid cosign.NetworkID) types.CosignedTreeHead {
-	t.Helper()
-	cth := types.CosignedTreeHead{TreeHead: head}
-	for _, s := range signers {
-		sig, err := s.Sign(context.Background(), cosign.NewTreeHeadPayload(head), nid, cosign.HashAlgoSHA256)
-		if err != nil {
-			t.Fatal(err)
-		}
-		cth.Signatures = append(cth.Signatures, sig)
-	}
-	return cth
+	return nid
 }
 
 func wsCanonicalAnchorBytes(t *testing.T, e *envelope.Entry) []byte {
@@ -78,8 +55,7 @@ type court struct {
 	tree     *smt.StubMerkleTree
 	citedPos uint64
 	citedHex []byte
-	signers  []cosign.WitnessSigner
-	set      *cosign.WitnessKeySet
+	wset     *witnesstest.Set
 	nid      cosign.NetworkID
 }
 
@@ -90,8 +66,9 @@ func newCourt(t *testing.T, logDID string, caseBytes []byte) court {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signers, set, nid := wsWitnessSet(t, 5, 5)
-	return court{logDID: logDID, tree: tree, citedPos: pos, citedHex: caseBytes, signers: signers, set: set, nid: nid}
+	nid := courtNID()
+	wset := witnesstest.NewSet(t, nid, 5, 5)
+	return court{logDID: logDID, tree: tree, citedPos: pos, citedHex: caseBytes, wset: wset, nid: nid}
 }
 
 // appealProofFromSource builds the cross-log proof that the HIGHER court
@@ -106,7 +83,7 @@ func appealProofFromSource(t *testing.T, src court, anchorSignerDID string) type
 	}
 	head.SMTRoot = [32]byte{0xBB}
 	head.ReceiptRoot = [32]byte{0xCC}
-	cth := wsCosignHead(t, head, src.signers, src.nid)
+	cth := src.wset.CosignHead(t, src.nid, head, 5)
 	entry, err := anchor.BuildCosignedAnchorEntry(anchor.CosignedAnchorParams{
 		SignerDID:    anchorSignerDID,
 		Destination:  anchorSignerDID,
@@ -149,9 +126,9 @@ func TestVerifyAppealChain_MultiHop_DistinctWitnessSets(t *testing.T) {
 	}
 
 	witnessSetByLog := map[string]*cosign.WitnessKeySet{
-		trial.logDID: trial.set,
-		coa.logDID:   coa.set,
-		supct.logDID: supct.set,
+		trial.logDID: trial.wset.KeySet,
+		coa.logDID:   coa.wset.KeySet,
+		supct.logDID: supct.wset.KeySet,
 	}
 
 	out, err := VerifyAppealChain(steps, witnessSetByLog, allTrusted(trial.logDID, coa.logDID, supct.logDID))
@@ -191,7 +168,7 @@ func TestVerifyAppealChain_BurnedSource_FailsClosed(t *testing.T) {
 		{Step: 2, LogDID: coa.logDID, CasePos: types.LogPosition{LogDID: coa.logDID, Sequence: coa.citedPos},
 			Proof: ptr(appealProofFromSource(t, trial, coa.logDID))},
 	}
-	wsByLog := map[string]*cosign.WitnessKeySet{trial.logDID: trial.set, coa.logDID: coa.set}
+	wsByLog := map[string]*cosign.WitnessKeySet{trial.logDID: trial.wset.KeySet, coa.logDID: coa.wset.KeySet}
 	// trial is the SOURCE of hop 2's proof; mark it burned.
 	trust := map[string]verifier.TrustStatus{
 		trial.logDID: {Known: true, Burned: true},
@@ -220,9 +197,9 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 	}
 
 	t.Run("substituted witness set fails quorum", func(t *testing.T) {
-		_, wrongSet, _ := wsWitnessSet(t, 5, 5) // not trial's keys
+		wrongSet := witnesstest.NewSet(t, courtNID(), 5, 5).KeySet // not trial's keys
 		_, err := VerifyAppealChain(mkSteps(), map[string]*cosign.WitnessKeySet{
-			trial.logDID: wrongSet, coa.logDID: coa.set,
+			trial.logDID: wrongSet, coa.logDID: coa.wset.KeySet,
 		}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("a head presented under trial's DID but verified against a different set must fail")
@@ -231,7 +208,7 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 
 	t.Run("missing source witness set fails closed", func(t *testing.T) {
 		_, err := VerifyAppealChain(mkSteps(), map[string]*cosign.WitnessKeySet{
-			coa.logDID: coa.set, // trial's set absent
+			coa.logDID: coa.wset.KeySet, // trial's set absent
 		}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("absent source witness set must fail closed")
@@ -242,7 +219,7 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 		steps := mkSteps()
 		steps[0].CasePos = types.LogPosition{LogDID: trial.logDID, Sequence: trial.citedPos + 99} // wrong case
 		_, err := VerifyAppealChain(steps, map[string]*cosign.WitnessKeySet{
-			trial.logDID: trial.set, coa.logDID: coa.set,
+			trial.logDID: trial.wset.KeySet, coa.logDID: coa.wset.KeySet,
 		}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("a proof not bound to the previous step's case must fail (no unrelated-proof chains)")
