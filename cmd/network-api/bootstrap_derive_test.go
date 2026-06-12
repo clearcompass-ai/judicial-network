@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -60,29 +57,6 @@ func TestLedgerEndpointMap_PerLogOverride(t *testing.T) {
 	}
 }
 
-// writeBootstrap writes a minimal bootstrap document. applyBootstrapDerivations
-// reads only exchange_did + genesis_witness_set, so the rest is filler.
-func writeBootstrap(t *testing.T, exchangeDID string, witnesses []string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "network-bootstrap.json")
-	doc := `{"protocol_version":"1","network_name":"test","exchange_did":"` + exchangeDID + `","genesis_witness_set":[`
-	for i, w := range witnesses {
-		if i > 0 {
-			doc += ","
-		}
-		doc += `"` + w + `"`
-	}
-	// rc4+: GenesisQuorumK is required and 2K>N enforced — majority (N/2+1)
-	// always satisfies it. applyBootstrapDerivations reads only exchange_did +
-	// witness set, but doc.IDs() (NetworkID derivation) validates the whole doc.
-	quorumK := len(witnesses)/2 + 1
-	doc += `],"genesis_quorum_k":` + strconv.Itoa(quorumK) + `,"genesis_tree_head":{"root_hash":"00","tree_size":0}}`
-	if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
 // The env-driven / k8s path (pin mode, DiscoverOriginator=false): an operator
 // turns on the auditor with toggles + K, and the witness set + gossip peer
 // derive from the (mounted) bootstrap, keyed by exchange_did verbatim.
@@ -90,8 +64,8 @@ func TestApplyBootstrapDerivations_WitnessSetAndPeer(t *testing.T) {
 	ws := []string{"did:key:w1", "did:key:w2", "did:key:w3", "did:key:w4", "did:key:w5"}
 	cfg := config.Defaults()
 	cfg.LedgerEndpoint = "http://localhost:8080"
-	cfg.NetworkBootstrapFile = writeBootstrap(t, "did:web:state:tn:davidson", ws)
-	cfg.Witness.QuorumK = 5
+	cfg.NetworkBootstrapFile = writeFullBootstrap(t, "did:web:state:tn:davidson", ws)
+	cfg.Witness.QuorumK = 3 // J4: must equal the constitutional majority(5)=3
 	cfg.GossipIngest.Enabled = true
 	cfg.GossipIngest.DiscoverOriginator = false // pin path: key by exchange_did
 
@@ -104,7 +78,7 @@ func TestApplyBootstrapDerivations_WitnessSetAndPeer(t *testing.T) {
 		t.Fatalf("want 1 derived witness set, got %d", len(got.Witness.Sets))
 	}
 	set := got.Witness.Sets[0]
-	if set.LogDID != "did:web:state:tn:davidson" || len(set.WitnessDIDs) != 5 || set.QuorumK != 5 {
+	if set.LogDID != "did:web:state:tn:davidson" || len(set.WitnessDIDs) != 5 || set.QuorumK != 3 {
 		t.Errorf("derived set = %+v", set)
 	}
 	if len(got.GossipIngest.Peers) != 1 ||
@@ -116,7 +90,7 @@ func TestApplyBootstrapDerivations_WitnessSetAndPeer(t *testing.T) {
 
 func TestApplyBootstrapDerivations_ExplicitSetsNotOverridden(t *testing.T) {
 	cfg := config.Defaults()
-	cfg.NetworkBootstrapFile = writeBootstrap(t, "did:web:state:tn:davidson", []string{"did:key:w1", "did:key:w2"})
+	cfg.NetworkBootstrapFile = writeFullBootstrap(t, "did:web:state:tn:davidson", []string{"did:key:w1", "did:key:w2"})
 	cfg.Witness.QuorumK = 1
 	cfg.Witness.Sets = []config.WitnessSetConfig{
 		{LogDID: "did:web:other", WitnessDIDs: []string{"did:key:x"}, QuorumK: 1},
@@ -132,7 +106,7 @@ func TestApplyBootstrapDerivations_ExplicitSetsNotOverridden(t *testing.T) {
 
 func TestApplyBootstrapDerivations_QuorumExceedsN(t *testing.T) {
 	cfg := config.Defaults()
-	cfg.NetworkBootstrapFile = writeBootstrap(t, "did:web:state:tn:davidson", []string{"did:key:w1", "did:key:w2"})
+	cfg.NetworkBootstrapFile = writeFullBootstrap(t, "did:web:state:tn:davidson", []string{"did:key:w1", "did:key:w2"})
 	cfg.Witness.QuorumK = 5 // > N=2
 	if _, err := applyBootstrapDerivations(context.Background(), cfg); err == nil {
 		t.Fatal("expected error when QuorumK > N witnesses")
@@ -172,9 +146,9 @@ func TestApplyBootstrapDerivations_Discovery(t *testing.T) {
 
 	cfg := config.Defaults() // DiscoverOriginator defaults true
 	cfg.LedgerEndpoint = srv.URL
-	cfg.NetworkBootstrapFile = writeBootstrap(t, "did:web:state:tn:davidson",
+	cfg.NetworkBootstrapFile = writeFullBootstrap(t, "did:web:state:tn:davidson",
 		[]string{"did:key:w1", "did:key:w2", "did:key:w3"})
-	cfg.Witness.QuorumK = 3
+	cfg.Witness.QuorumK = 2 // J4: constitutional majority(3)=2
 	cfg.GossipIngest.Enabled = true
 
 	got, err := applyBootstrapDerivations(context.Background(), cfg)
@@ -194,7 +168,7 @@ func TestApplyBootstrapDerivations_Discovery(t *testing.T) {
 func TestApplyBootstrapDerivations_DiscoveryUnreachable(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.LedgerEndpoint = "http://127.0.0.1:0"
-	cfg.NetworkBootstrapFile = writeBootstrap(t, "did:web:state:tn:davidson",
+	cfg.NetworkBootstrapFile = writeFullBootstrap(t, "did:web:state:tn:davidson",
 		[]string{"did:key:w1", "did:key:w2"})
 	cfg.Witness.QuorumK = 2
 	cfg.GossipIngest.Enabled = true

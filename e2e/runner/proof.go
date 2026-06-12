@@ -119,7 +119,7 @@ func proveEntry(ctx context.Context, name string, t stack.Target, leafKeyHex str
 	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
-	trustRoots, err := genesisTrustRoots(doc, t.QuorumK)
+	trustRoots, err := genesisTrustRoots(doc)
 	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
@@ -209,16 +209,17 @@ func readBootstrapDoc(t stack.Target) (*network.BootstrapDocument, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read bootstrap: %w", err)
 	}
-	var doc network.BootstrapDocument
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return nil, fmt.Errorf("decode bootstrap: %w", err)
+	// J3: self-pin door — verify the constitution at first contact.
+	doc, err := network.LoadSelfVerifiedBootstrap(raw)
+	if err != nil {
+		return nil, fmt.Errorf("verify bootstrap: %w", err)
 	}
-	return &doc, nil
+	return doc, nil
 }
 
 // genesisTrustRoots derives the single-network trust root from the bootstrap
 // document — exactly the external input VerifyStandalone binds against (D1).
-func genesisTrustRoots(doc *network.BootstrapDocument, quorumK int) (map[cosign.NetworkID]protocol.GenesisTrustRoot, error) {
+func genesisTrustRoots(doc *network.BootstrapDocument) (map[cosign.NetworkID]protocol.GenesisTrustRoot, error) {
 	ids, err := doc.IDs()
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap IDs: %w", err)
@@ -232,7 +233,7 @@ func genesisTrustRoots(doc *network.BootstrapDocument, quorumK int) (map[cosign.
 		nid: {
 			NetworkID:             nid,
 			GenesisWitnessDIDs:    append([]string(nil), doc.GenesisWitnessSet...),
-			QuorumK:               quorumK,
+			QuorumK:               doc.GenesisQuorumK, // J4: constitutional, never caller-supplied
 			BootstrapDocumentHash: sha256.Sum256(canonical),
 		},
 	}, nil

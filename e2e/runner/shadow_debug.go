@@ -133,7 +133,7 @@ func instrumentedProve(ctx context.Context, label string, t stack.Target, port i
 		say("✗ bootstrap doc: %v", err)
 		return err
 	}
-	trustRoots, err := genesisTrustRoots(doc, t.QuorumK)
+	trustRoots, err := genesisTrustRoots(doc)
 	if err != nil {
 		say("✗ genesis trust roots: %v", err)
 		return err

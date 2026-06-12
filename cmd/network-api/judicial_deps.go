@@ -407,11 +407,16 @@ func loadBootstrapDoc(path string) (*sdknetwork.BootstrapDocument, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	var doc sdknetwork.BootstrapDocument
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+	// J3: first contact through the SELF-PIN door (baseproof#52). The
+	// NetworkID derives from the constitution's own canonical bytes and, under
+	// a require policy, the N-of-N genesis ceremony is verified — a stripped or
+	// forged constitution is refused here, the same chokepoint the
+	// ledger/witness/auditor mount.
+	doc, err := sdknetwork.LoadSelfVerifiedBootstrap(raw)
+	if err != nil {
+		return nil, fmt.Errorf("verify %s: %w", path, err)
 	}
-	return &doc, nil
+	return doc, nil
 }
 
 // loadNetworkID derives the 32-byte cosign NetworkID from the bootstrap.
@@ -461,9 +466,15 @@ func applyBootstrapDerivations(ctx context.Context, cfg config.Operational) (con
 		if len(doc.GenesisWitnessSet) == 0 {
 			return cfg, fmt.Errorf("bootstrap %s has no genesis_witness_set to derive a witness set from", cfg.NetworkBootstrapFile)
 		}
-		if cfg.Witness.QuorumK > len(doc.GenesisWitnessSet) {
-			return cfg, fmt.Errorf("API_WITNESS_QUORUM_K=%d exceeds N=%d witnesses in bootstrap",
-				cfg.Witness.QuorumK, len(doc.GenesisWitnessSet))
+		// J4: K is constitutional — doc.GenesisQuorumK is the NetworkID-bound
+		// value the network was minted with (the SDK's validate() already
+		// enforces 1<=K<=N and 2K>N). Demote API_WITNESS_QUORUM_K to a
+		// cross-check: a config K that disagrees with the constitution would
+		// build a witness set desynced from the network's identity, so a
+		// mismatch refuses boot — the reconcile the ledger/auditor already run.
+		if cfg.Witness.QuorumK != doc.GenesisQuorumK {
+			return cfg, fmt.Errorf("API_WITNESS_QUORUM_K=%d disagrees with the constitutional GenesisQuorumK=%d (NetworkID-bound) — fix or unset the env",
+				cfg.Witness.QuorumK, doc.GenesisQuorumK)
 		}
 	}
 	// Key both the witness set and the peer on the source log's GOSSIP-ORIGINATOR
@@ -489,7 +500,7 @@ func applyBootstrapDerivations(ctx context.Context, cfg config.Operational) (con
 		cfg.Witness.Sets = []config.WitnessSetConfig{{
 			LogDID:      logDID,
 			WitnessDIDs: append([]string(nil), doc.GenesisWitnessSet...),
-			QuorumK:     cfg.Witness.QuorumK,
+			QuorumK:     doc.GenesisQuorumK, // J4: constitutional K, cross-checked above
 		}}
 	}
 	if needPeer {
