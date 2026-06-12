@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -71,7 +72,11 @@ func writeBootstrap(t *testing.T, exchangeDID string, witnesses []string) string
 		}
 		doc += `"` + w + `"`
 	}
-	doc += `],"genesis_tree_head":{"root_hash":"00","tree_size":0}}`
+	// rc4+: GenesisQuorumK is required and 2K>N enforced — majority (N/2+1)
+	// always satisfies it. applyBootstrapDerivations reads only exchange_did +
+	// witness set, but doc.IDs() (NetworkID derivation) validates the whole doc.
+	quorumK := len(witnesses)/2 + 1
+	doc += `],"genesis_quorum_k":` + strconv.Itoa(quorumK) + `,"genesis_tree_head":{"root_hash":"00","tree_size":0}}`
 	if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
 		t.Fatal(err)
 	}

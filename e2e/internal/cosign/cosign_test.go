@@ -42,6 +42,7 @@ func TestVerify_RealCosignedHead(t *testing.T) {
 		ExchangeDID:       "did:web:cosign.test",
 		NetworkName:       "cosign-test",
 		GenesisWitnessSet: dids,
+		GenesisQuorumK:    k, // rc4+: K required and 2K>N enforced (N=4 → K=3)
 		GenesisTreeHead:   sdknetwork.GenesisTreeHead{RootHash: strings.Repeat("0", 64), TreeSize: 0},
 		// A valid (gating-off) genesis policy so the doc canonicalizes; the
 		// admission config doesn't affect the witness NetworkID derivation.
