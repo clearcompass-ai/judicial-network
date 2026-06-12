@@ -134,11 +134,13 @@ type consortiumVerifyCrossCourtHandler struct{ deps *Dependencies }
 // the boot-time WitnessSets[did] entry and admitted the class of bug
 // where the per-request K/keys drifted from the deployment topology.
 //
-// New (v0.3.0): the request supplies only source_log_did. The deps'
-// WitnessSets[did] is the single source of truth for K, keys, and
-// NetworkID (SDK Principle 10, Two-Tier Quorum Encapsulation). If the
-// source log is unknown to the deployment, the request fails fast
-// with 400 — no opportunity for inconsistent overrides.
+// New (FED-1 #107): the request supplies only source_log_did, and the
+// deps' ERA RESOLVER is the single source of truth — the witness set is
+// resolved era-correctly for THIS proof's cosigned head from the
+// genesis-rooted, journaled rotation chain (K, keys, and NetworkID ride
+// inside the resolved *cosign.WitnessKeySet — SDK Principle 10). An
+// unknown source log fails fast with 400; a warming journal is a
+// retryable 503; a head no chain set explains is the named 422 class.
 func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if requireCaller(w, r) == "" {
 		return

@@ -26,7 +26,9 @@ import (
 // Dependencies shared across all verification handlers.
 // Uses real SDK interfaces — no invented abstractions.
 //
-// v0.3.0 (Phase 3 of the upgrade): WitnessSets replaces the legacy
+// History: v0.3.0 collapsed the legacy trio into a per-log WitnessSets
+// map; FED-1 #107 then replaced the map with the era resolver below.
+// Original v0.3.0 note: WitnessSets replaced the legacy
 // trio of WitnessKeys / WitnessQuorum / WitnessNetwork. SDK Principle
 // 10 (Two-Tier Quorum Encapsulation): keys + K + NetworkID + BLS
 // verifier are bound together at construction time inside one
