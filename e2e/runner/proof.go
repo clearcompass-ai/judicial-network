@@ -23,8 +23,8 @@ import (
 	libsbundle "github.com/baseproof/tooling/libs/bundle"
 	"github.com/baseproof/tooling/libs/clitools"
 
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"github.com/clearcompass-ai/judicial-network/e2e/stack"
-	"github.com/clearcompass-ai/judicial-network/networkbundle"
 )
 
 func init() {
@@ -157,7 +157,7 @@ func proveEntry(ctx context.Context, name string, t stack.Target, leafKeyHex str
 		time.Sleep(2 * time.Second)
 	}
 
-	nb, err := networkbundle.Build(doc, baseURL, t.QuorumK, networkbundle.Vocabulary{CitedMemberKey: key})
+	nb, err := networkbundle.Build(doc, baseURL, networkbundle.Vocabulary{CitedMemberKey: key})
 	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
