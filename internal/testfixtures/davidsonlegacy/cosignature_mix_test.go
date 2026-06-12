@@ -12,7 +12,7 @@ package davidsonlegacy
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

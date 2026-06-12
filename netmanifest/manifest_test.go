@@ -1,170 +1,130 @@
-package netmanifest_test
+/*
+FILE PATH: netmanifest/manifest_test.go
 
-// manifest_test.go — the describe projection over the REAL Davidson bundle
-// (the same compiled policy the SubmitGate enforces), so the test proves the
-// served contract on production rules, not a fixture. Black-box package: the
-// trial framework imports netmanifest for its overlay, so an internal test
-// importing davidson would cycle.
+DESCRIPTION:
+
+	Pins the jurisdiction PROJECTOR (the judicial half — the wire schema's
+	own mechanics are pinned in libs/networkbundle):
+
+	  - Build over the compiled Davidson bundle serializes the ENFORCED
+	    policy verbatim: every cosignature event appears as an operation
+	    whose Signing is the gate's own rule; hard-ancestor events project
+	    as "dependent"; the document round-trips the platform's strict
+	    decoder (the served contract IS the schema).
+	  - JN2: overlay-named datatypes always get a declared row — supplied
+	    (anchored) rows pass through untouched; missing ones synthesize
+	    Name-only, so Build's own Validate holds and the consumer door's
+	    anchor refusal is the planned publication alarm, not a structural
+	    failure.
+*/
+package netmanifest
 
 import (
 	"testing"
 
+	"github.com/baseproof/tooling/libs/networkbundle"
+
 	davidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
-
-	. "github.com/clearcompass-ai/judicial-network/netmanifest"
 )
 
-func davidsonManifest(t *testing.T) *Manifest {
-	t.Helper()
-	m, err := Build(davidson.MustBundle(), BuildInput{
-		Network: NetworkRef{Name: "tn-davidson", QuorumK: 2},
+func davidsonInput() networkbundle.BuildInput {
+	return networkbundle.BuildInput{
+		Network: networkbundle.NetworkRef{Name: "jn-test"},
 		Overlay: trial.ManifestOverlay(),
-		Endpoints: []Endpoint{
-			{ID: "ledger", URL: "https://ledger.test:8443", Transport: Transport{TLS: "server-verify"}, Status: "/healthz"},
-			{ID: "gate", URL: "https://gate.test:9443", Transport: Transport{TLS: "mtls"}, Status: "/readyz", DependsOn: []string{"ledger"}},
-		},
-		Admission: Admission{Payment: []string{"credit", "pow"}, Gating: "write-authorization", WriteVia: "gate"},
-		Submit:    Submit{Endpoint: "gate", Path: "/v1/entries/submit"},
-		Status: StatusProbes{
+		Status: networkbundle.StatusProbes{
 			Protocol: "ledger:/v1/entries-hash/{hash}",
 			Finality: "ledger:/v1/tree/horizon",
 			Domain:   "terminal entry of the instance's closed_by/amended_by chain",
 		},
-	})
-	if err != nil {
-		t.Fatalf("Build(davidson): %v", err)
 	}
-	return m
-}
-
-func opByType(m *Manifest, evt string) *Operation {
-	for i := range m.Operations {
-		if m.Operations[i].EventType == evt {
-			return &m.Operations[i]
-		}
-	}
-	return nil
 }
 
 func TestBuild_Davidson_ProjectsEnforcedPolicy(t *testing.T) {
-	m := davidsonManifest(t)
-
+	b := davidson.MustBundle()
+	m, err := Build(b, davidsonInput())
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
 	if m.Exchange != davidson.ExchangeDID {
-		t.Fatalf("exchange = %q, want %q", m.Exchange, davidson.ExchangeDID)
-	}
-	if len(m.Operations) == 0 || len(m.Roles) == 0 {
-		t.Fatalf("empty projection: ops=%d roles=%d", len(m.Operations), len(m.Roles))
+		t.Fatalf("exchange = %q", m.Exchange)
 	}
 
-	// case_initiation: an ORIGIN whose signing block is the enforced rule
-	// (court_clerk cosigner, intra-exchange) — projected verbatim.
-	ci := opByType(m, "case_initiation")
-	if ci == nil {
-		t.Fatal("case_initiation missing from the projection")
+	// Every cosignature rule the gate enforces appears verbatim.
+	cosig := b.CosignaturePolicy()
+	byEvt := map[string]*networkbundle.Operation{}
+	for i := range m.Operations {
+		byEvt[m.Operations[i].EventType] = &m.Operations[i]
 	}
-	if ci.Kind != "origin" {
-		t.Errorf("case_initiation kind = %q, want origin", ci.Kind)
-	}
-	if ci.Signing == nil || !ci.Signing.IntraExchangeOnly {
-		t.Errorf("case_initiation signing not projected verbatim: %+v", ci.Signing)
-	}
-
-	// counsel_appearance: DEPENDENT (hard case_initiation ancestor) with the
-	// enforced filer + credential requirements visible on the wire.
-	ca := opByType(m, "counsel_appearance")
-	if ca == nil {
-		t.Fatal("counsel_appearance missing")
-	}
-	if ca.Kind != "dependent" {
-		t.Errorf("counsel_appearance kind = %q, want dependent", ca.Kind)
-	}
-	if ca.Signing == nil || len(ca.Signing.RequiredCredentials) == 0 {
-		t.Errorf("counsel_appearance lost its credential requirement: %+v", ca.Signing)
-	}
-	foundHardCaseInit := false
-	for _, r := range ca.Requires {
-		for _, anc := range r.RequiredAncestor {
-			if anc == "case_initiation" {
-				foundHardCaseInit = true
-			}
+	for _, rule := range cosig.List() {
+		op := byEvt[rule.EventType]
+		if op == nil {
+			t.Fatalf("enforced event %q missing from the projection", rule.EventType)
+		}
+		if op.Signing == nil || op.Signing.EventType != rule.EventType {
+			t.Fatalf("operation %q does not embed the enforced rule", rule.EventType)
+		}
+		if op.Signing.EffectiveMinCosigners() != rule.EffectiveMinCosigners() {
+			t.Fatalf("operation %q threshold drifted from the gate's", rule.EventType)
 		}
 	}
-	if !foundHardCaseInit {
-		t.Error("counsel_appearance requires-edge to case_initiation not projected")
-	}
-}
 
-func TestManifest_DAGAndOrder(t *testing.T) {
-	m := davidsonManifest(t)
-
-	order := m.TopoOrder()
-	if len(order) != len(m.Operations) {
-		t.Fatalf("topo order covers %d of %d operations", len(order), len(m.Operations))
-	}
-	pos := make(map[string]int, len(order))
-	for i, evt := range order {
-		pos[evt] = i
-	}
-	// A scenario driver submits case_initiation before its dependents.
-	if pos["case_initiation"] > pos["counsel_appearance"] {
-		t.Errorf("topo order puts counsel_appearance (%d) before case_initiation (%d)",
-			pos["counsel_appearance"], pos["case_initiation"])
-	}
-
-	// Reverse-dependency walk: the monitoring cascade for case_initiation must
-	// reach its hard dependents.
-	deps := m.DependentsOf("case_initiation")
-	want := map[string]bool{}
-	for _, d := range deps {
-		want[d] = true
-	}
-	if !want["counsel_appearance"] || !want["responsive_pleading"] {
-		t.Errorf("DependentsOf(case_initiation) missing direct hard dependents: %v", deps)
-	}
-}
-
-func TestManifest_WireRoundTripAndHashStability(t *testing.T) {
-	m := davidsonManifest(t)
-
-	b1, err := m.CanonicalBytes()
+	// The projection round-trips the platform's strict decoder byte-stably.
+	raw, err := m.CanonicalBytes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	h1, err := m.ContentHash()
+	back, err := networkbundle.DecodeManifest(raw)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("the projection must satisfy the platform schema: %v", err)
 	}
-
-	got, err := Decode(b1)
-	if err != nil {
-		t.Fatalf("Decode(CanonicalBytes): %v", err)
-	}
-	h2, err := got.ContentHash()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if h1 != h2 {
-		t.Fatal("content hash not stable across encode/decode — the on-log pin would not verify")
-	}
-	if got.Exchange != m.Exchange || len(got.Operations) != len(m.Operations) {
-		t.Fatalf("round-trip lost content: exchange=%q ops=%d", got.Exchange, len(got.Operations))
+	raw2, _ := back.CanonicalBytes()
+	if string(raw) != string(raw2) {
+		t.Fatal("projection is not a canonical fixed point")
 	}
 }
 
-func TestValidate_RejectsStructuralBreaks(t *testing.T) {
-	m := davidsonManifest(t)
+func TestBuild_JN2_SynthesizesDeclaredDatatypes(t *testing.T) {
+	b := davidson.MustBundle()
+	in := davidsonInput()
 
-	// A lifecycle edge to an unknown operation is authoring drift.
-	m.Operations[0].ClosedBy = []string{"not_a_real_event"}
-	if err := m.Validate(); err == nil {
-		t.Error("Validate accepted closed_by → unknown operation")
+	// One overlay datatype supplied WITH an anchor: passes through untouched.
+	anchored := networkbundle.Datatype{
+		Name: firstOverlayDatatype(t, in), LogDID: "did:web:log", Sequence: 9,
+		ContentHash: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
 	}
-	m.Operations[0].ClosedBy = nil
+	in.Datatypes = []networkbundle.Datatype{anchored}
 
-	// Submit must target a declared endpoint.
-	m.Submit.Endpoint = "nope"
-	if err := m.Validate(); err == nil {
-		t.Error("Validate accepted submit.endpoint → unknown endpoint")
+	m, err := Build(b, in)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
 	}
+	rows := map[string]networkbundle.Datatype{}
+	for _, d := range m.Datatypes {
+		rows[d.Name] = d
+	}
+	if got := rows[anchored.Name]; got.Sequence != 9 || got.ContentHash == "" {
+		t.Fatalf("supplied anchored row must pass through untouched: %+v", got)
+	}
+	// EVERY overlay-named datatype is declared (the structural rule holds at
+	// Build time), even where no row was supplied.
+	for evt, ov := range in.Overlay {
+		if ov.Datatype == "" {
+			continue
+		}
+		if _, ok := rows[ov.Datatype]; !ok {
+			t.Fatalf("overlay %q names datatype %q but the projection did not declare it", evt, ov.Datatype)
+		}
+	}
+}
+
+func firstOverlayDatatype(t *testing.T, in networkbundle.BuildInput) string {
+	t.Helper()
+	for _, ov := range in.Overlay {
+		if ov.Datatype != "" {
+			return ov.Datatype
+		}
+	}
+	t.Skip("overlay carries no datatypes")
+	return ""
 }

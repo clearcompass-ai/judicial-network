@@ -19,6 +19,7 @@ DESCRIPTION:
 package verification
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -199,8 +200,8 @@ func TestVerifyAppealChain_UnknownLogDIDFailsClosed(t *testing.T) {
 			Proof:   &types.CrossLogProof{},
 		},
 	}
-	result, err := VerifyAppealChain(steps,
-		map[string]*cosign.WitnessKeySet{}, nil)
+	result, err := VerifyAppealChain(context.Background(), steps,
+		staticEraResolver{map[string]*cosign.WitnessKeySet{}}, nil)
 	if err == nil {
 		t.Error("unknown LogDID must break the chain")
 	}

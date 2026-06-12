@@ -32,6 +32,8 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/verification"
 	jntrust "github.com/clearcompass-ai/judicial-network/verification/trust"
+
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 )
 
 // ─────────────────────────────────────────────────────────────────────
@@ -39,8 +41,9 @@ import (
 // ─────────────────────────────────────────────────────────────────────
 
 // Request payload carries the pre-walked AppealStep slice; this
-// handler runs the cryptographic verification using deps.WitnessSets
-// (the source of truth for per-log K, keys, and NetworkID).
+// handler runs the cryptographic verification using deps.Eras — every
+// hop's witness set resolved ERA-CORRECTLY for that hop's own cosigned
+// head (FED-1 #107: an appeal chain spans eras by construction).
 type verifyAppealChainRequest struct {
 	Steps json.RawMessage `json:"steps"` // []verification.AppealStep — opaque to keep package clean
 }
@@ -52,9 +55,9 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	if requireCaller(w, r) == "" {
 		return
 	}
-	if len(h.deps.WitnessSets) == 0 {
+	if h.deps.Eras == nil {
 		writeError(w, http.StatusInternalServerError,
-			"WitnessSets must be configured for appeal-chain verification")
+			"era resolution must be configured for appeal-chain verification")
 		return
 	}
 	var req verifyAppealChainRequest
@@ -84,8 +87,16 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 			trustByLog[src] = jntrust.StatusFor(r.Context(), h.deps.HeadsJournal, src)
 		}
 	}
-	verified, err := verification.VerifyAppealChain(steps, h.deps.WitnessSets, trustByLog)
+	verified, err := verification.VerifyAppealChain(r.Context(), steps, h.deps.Eras, trustByLog)
 	if err != nil {
+		// A warming hop is a RETRYABLE startup state, never a broken chain.
+		if errors.Is(err, eras.ErrWarming) {
+			w.Header().Set("Retry-After", "5")
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error": err.Error(), "class": "warming",
+			})
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -129,10 +140,26 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		writeError(w, http.StatusBadRequest, "proof must be a valid CrossLogProof JSON")
 		return
 	}
-	set, ok := h.deps.WitnessSets[req.SourceLogDID]
-	if !ok || set == nil {
-		writeError(w, http.StatusBadRequest,
-			"no witness set for source_log_did (pre-configure via WitnessSets at boot)")
+	if h.deps.Eras == nil {
+		writeError(w, http.StatusInternalServerError, "era resolution not configured")
+		return
+	}
+	// FED-1 #107: era-correct resolution against THIS proof's cosigned head.
+	set, eraErr := h.deps.Eras.SetForHead(r.Context(), req.SourceLogDID, proof.SourceTreeHead)
+	if eraErr != nil {
+		switch {
+		case errors.Is(eraErr, eras.ErrNoSuchPeer):
+			writeError(w, http.StatusBadRequest, "no trust root configured for source_log_did")
+		case errors.Is(eraErr, eras.ErrWarming):
+			w.Header().Set("Retry-After", "5")
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error": "rotation journal warming up for source_log_did — retry", "class": "warming",
+			})
+		default:
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error": eraErr.Error(), "class": "cannot_resolve_era",
+			})
+		}
 		return
 	}
 	// Self-contained model: the anchor entry embeds the source head + its

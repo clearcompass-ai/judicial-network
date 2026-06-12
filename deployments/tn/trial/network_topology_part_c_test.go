@@ -1,17 +1,17 @@
 // Issue #67 Part C — §16 Network Topology deployment-level tests.
 //
 // Pins:
-//   1. All 5 §16 events have CosignatureRules with judge-only signing.
-//   2. network_fork is the strictest event: MinSignerCosigners=3.
-//   3. mirror_* events are cross-exchange (they target external
-//      networks); anchor_registration + scope_division_creation
-//      are intra-exchange.
-//   4. anchor_registration / network_fork / scope_division_creation
-//      are origin events (no prereqs).
-//   5. mirror_creation requires Hard prior delegation or schema_
-//      publication; mirror_revocation requires Hard prior
-//      mirror_creation.
-//   6. End-to-end walks for each event admit/reject correctly.
+//  1. All 5 §16 events have CosignatureRules with judge-only signing.
+//  2. network_fork is the strictest event: MinSignerCosigners=3.
+//  3. mirror_* events are cross-exchange (they target external
+//     networks); anchor_registration + scope_division_creation
+//     are intra-exchange.
+//  4. anchor_registration / network_fork / scope_division_creation
+//     are origin events (no prereqs).
+//  5. mirror_creation requires Hard prior delegation or schema_
+//     publication; mirror_revocation requires Hard prior
+//     mirror_creation.
+//  6. End-to-end walks for each event admit/reject correctly.
 package trial
 
 import (
@@ -19,7 +19,7 @@ import (
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 )
 
 func findRulePartC(rules []policy.CosignatureRule, eventType string) *policy.CosignatureRule {
@@ -103,13 +103,13 @@ func TestPartC_MirrorCreation_RequiresEntryBeingMirrored(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	// No delegation or schema_publication on chain → reject.
-	v := w.Check("mirror_creation", prerequisites.CaseContext{})
+	v := w.Check("mirror_creation", prerequisites.EvalContext{})
 	if v.OK {
 		t.Error("mirror_creation without delegation/schema_publication must reject")
 	}
 
 	// With a delegation on chain → admit.
-	v = w.Check("mirror_creation", prerequisites.CaseContext{
+	v = w.Check("mirror_creation", prerequisites.EvalContext{
 		ObservedEvents: []string{"judicial_delegation"},
 	})
 	if !v.OK {
@@ -117,7 +117,7 @@ func TestPartC_MirrorCreation_RequiresEntryBeingMirrored(t *testing.T) {
 	}
 
 	// With a schema_publication on chain → admit (per dictionary §16).
-	v = w.Check("mirror_creation", prerequisites.CaseContext{
+	v = w.Check("mirror_creation", prerequisites.EvalContext{
 		ObservedEvents: []string{"schema_publication"},
 	})
 	if !v.OK {
@@ -127,11 +127,11 @@ func TestPartC_MirrorCreation_RequiresEntryBeingMirrored(t *testing.T) {
 
 func TestPartC_MirrorRevocation_RequiresMirrorCreation(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("mirror_revocation", prerequisites.CaseContext{})
+	v := w.Check("mirror_revocation", prerequisites.EvalContext{})
 	if v.OK {
 		t.Error("mirror_revocation without mirror_creation must reject")
 	}
-	v = w.Check("mirror_revocation", prerequisites.CaseContext{
+	v = w.Check("mirror_revocation", prerequisites.EvalContext{
 		ObservedEvents: []string{"mirror_creation"},
 	})
 	if !v.OK {
@@ -142,27 +142,27 @@ func TestPartC_MirrorRevocation_RequiresMirrorCreation(t *testing.T) {
 func TestPartC_FullFederationLifecycleWalk(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	// Goodlettsville onboards (anchor_registration is origin).
-	if v := w.Check("anchor_registration", prerequisites.CaseContext{}); !v.OK {
+	if v := w.Check("anchor_registration", prerequisites.EvalContext{}); !v.OK {
 		t.Errorf("anchor_registration: %+v", v)
 	}
 	// COA creates a mirror after Davidson published a delegation.
-	if v := w.Check("mirror_creation", prerequisites.CaseContext{
+	if v := w.Check("mirror_creation", prerequisites.EvalContext{
 		ObservedEvents: []string{"judicial_delegation"},
 	}); !v.OK {
 		t.Errorf("mirror_creation: %+v", v)
 	}
 	// Williamson is later revoked.
-	if v := w.Check("mirror_revocation", prerequisites.CaseContext{
+	if v := w.Check("mirror_revocation", prerequisites.EvalContext{
 		ObservedEvents: []string{"mirror_creation"},
 	}); !v.OK {
 		t.Errorf("mirror_revocation: %+v", v)
 	}
 	// Hypothetical fork (origin).
-	if v := w.Check("network_fork", prerequisites.CaseContext{}); !v.OK {
+	if v := w.Check("network_fork", prerequisites.EvalContext{}); !v.OK {
 		t.Errorf("network_fork: %+v", v)
 	}
 	// Davidson creates drug-court division (origin in this v).
-	if v := w.Check("scope_division_creation", prerequisites.CaseContext{}); !v.OK {
+	if v := w.Check("scope_division_creation", prerequisites.EvalContext{}); !v.OK {
 		t.Errorf("scope_division_creation: %+v", v)
 	}
 }

@@ -251,7 +251,16 @@ func run(argv []string, d deps) error {
 	// actually fulfil their work vs. surface a clean 500 / 501. The
 	// mTLS client (when configured) is threaded into every SDK call
 	// that touches the ledger.
-	judicialDeps, err := buildJudicialDeps(cfg, registry, ledgerSubmitClient)
+	// FED-1 #107: era-correct witness-set resolution — the shared rotation
+	// journal (fed by the gossip reconcilers below) + the resolver every
+	// cross-log verify path consumes. Built BEFORE deps so both servers and
+	// the ingest pipelines share one journal and one resolver.
+	eraResolver, rotJournal, err := buildEraResolution(cfg, slog.Default())
+	if err != nil {
+		return fmt.Errorf("era resolution: %w", err)
+	}
+
+	judicialDeps, err := buildJudicialDeps(cfg, registry, ledgerSubmitClient, eraResolver)
 	if err != nil {
 		return fmt.Errorf("judicial deps: %w", err)
 	}
@@ -304,7 +313,7 @@ func run(argv []string, d deps) error {
 	// cfg.GossipIngest.PeerLogs entry. All pipelines share the same
 	// TrustedHeadStore + HeadsJournal so cross-log reads see a unified
 	// worldview (LogDID-keyed, globally unique).
-	gossipPipelines, err := buildGossipIngest(cfg, sigVerifier, judicialDeps, slog.Default())
+	gossipPipelines, err := buildGossipIngest(cfg, sigVerifier, rotJournal, judicialDeps, slog.Default())
 	if err != nil {
 		return fmt.Errorf("gossip ingest: %w", err)
 	}
@@ -502,6 +511,8 @@ func run(argv []string, d deps) error {
 			LedgerCreditToken: os.Getenv("API_LEDGER_CREDIT_TOKEN"),
 		},
 		Verification: verification.ServerConfig{
+			// FED-1 #107: era-correct source-set resolution for cross-log verify.
+			Eras: eraResolver,
 			// SignatureVerifier is the native v1.7.1 receipt-aware
 			// verifier (did:key + did:pkh-EOA + did:web always live;
 			// EIP-1271 K-of-N when SmartContractWallet.Enabled). It

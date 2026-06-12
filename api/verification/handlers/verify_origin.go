@@ -10,7 +10,6 @@ import (
 	"github.com/baseproof/baseproof/attestation"
 	"github.com/baseproof/baseproof/builder"
 	"github.com/baseproof/baseproof/core/smt"
-	"github.com/baseproof/baseproof/crypto/cosign"
 	sdklog "github.com/baseproof/baseproof/log"
 	"github.com/baseproof/baseproof/schema"
 	"github.com/baseproof/baseproof/types"
@@ -20,6 +19,8 @@ import (
 
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/verification/trust"
+
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 )
 
 // Dependencies shared across all verification handlers.
@@ -62,12 +63,13 @@ type Dependencies struct {
 	// each handler embedded directly.
 	MultiTrust verifier.LogTrustProvider
 
-	// WitnessSets is the source of truth for per-log witness topology.
-	// One entry per log DID; the *cosign.WitnessKeySet inside carries
-	// keys, K, NetworkID, and the BLSAggregateVerifier together.
-	// Constructor failure (zero NetworkID, duplicate IDs, K outside
-	// [1, len(keys)]) is caught at boot, not at HTTP-request time.
-	WitnessSets map[string]*cosign.WitnessKeySet
+	// Eras resolves the source log's witness set ERA-CORRECTLY for a
+	// specific cosigned head (FED-1 #107): genesis trust root + the
+	// journaled verified-rotation chain, era anchored by which chain
+	// set's K-of-N the head's cosignatures satisfy. Replaces the static
+	// per-log map (era-blind AND rotation-blind). Failures carry the
+	// eras class sentinels (no-such-peer / warming / cannot-resolve-era).
+	Eras eras.SetResolver
 
 	// SignatureVerifier resolves DID method → SignatureVerifier for
 	// the Path C admission gate (/v1/verify/complete). Production:

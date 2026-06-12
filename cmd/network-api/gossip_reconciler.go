@@ -66,6 +66,7 @@ import (
 	"github.com/baseproof/tooling/libs/auditing/peers"
 	"github.com/baseproof/tooling/libs/crosslog"
 	"github.com/baseproof/tooling/libs/monitoring"
+	"github.com/baseproof/tooling/libs/witnessrotation"
 
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/api/judicial"
@@ -95,6 +96,15 @@ type gossipIngestPipelines struct {
 	// nil ⇒ pipelines were not built (no ingest).
 	Journal monitoring.HeadsJournal
 
+	// RotationJournal is the shared in-memory witness-rotation chain
+	// (FED-1 #107): every Tier-2-verified WitnessRotationFinding — home OR
+	// foreign — is journaled here as a position-bearing record, keyed by
+	// LogDID, so the era resolver replays genesis → chain per log. An
+	// ENFORCER'S CACHE, not custody: pull cursors are in-memory, so a
+	// restart re-ingests every peer feed from Lamport 0 and the chain
+	// rebuilds (the auditor's PG journal owns year-15 durability).
+	RotationJournal *witnessrotation.MemoryRotationJournal
+
 	// HomeReconciler is the home-network reconciler. Returned so a SIGHUP
 	// handler (D13, optional) can call RefreshRegistry()/RefreshAmendments()
 	// to hot-reload the gate inputs. The PER-FOREIGN reconcilers are not
@@ -121,6 +131,7 @@ type gossipIngestPipelines struct {
 func buildGossipIngest(
 	cfg config.Operational,
 	sigVerifier attestation.SignatureVerifier,
+	rotJournal *witnessrotation.MemoryRotationJournal,
 	judicialDeps judicial.Dependencies,
 	logger *slog.Logger,
 ) (gossipIngestPipelines, error) {
@@ -158,16 +169,23 @@ func buildGossipIngest(
 	// cross-network writes do not collide.
 	sharedHeads := monitoring.NewTrustedHeadStore(logger)
 	sharedJournal := monitoring.NewMemoryHeadsJournal()
+	if rotJournal == nil {
+		// Era resolution not wired by the caller (tests): chains are still
+		// journaled so the pipelines behave identically; they are simply
+		// unobserved.
+		rotJournal = witnessrotation.NewMemoryRotationJournal()
+	}
 
 	pipelines := gossipIngestPipelines{
-		Heads:   sharedHeads,
-		Journal: sharedJournal,
+		Heads:           sharedHeads,
+		Journal:         sharedJournal,
+		RotationJournal: rotJournal,
 	}
 
 	// ── HOME pipeline ─────────────────────────────────────────────────
 	if len(cfg.GossipIngest.Peers) > 0 {
 		homePuller, homeReconciler, err := buildHomePipeline(
-			cfg, originator, registry, sharedHeads, sharedJournal, judicialDeps, logger)
+			cfg, originator, registry, sharedHeads, sharedJournal, rotJournal, judicialDeps, logger)
 		if err != nil {
 			return gossipIngestPipelines{}, fmt.Errorf("home pipeline: %w", err)
 		}
@@ -181,7 +199,7 @@ func buildGossipIngest(
 	// the home pipeline so the C-3 LogTrustProvider gets a unified worldview.
 	for i, peerLog := range cfg.GossipIngest.PeerLogs {
 		foreignPuller, err := buildForeignPipeline(
-			peerLog, cfg.GossipIngest, originator, registry, sharedHeads, sharedJournal, logger)
+			peerLog, cfg.GossipIngest, originator, registry, sharedHeads, sharedJournal, rotJournal, logger)
 		if err != nil {
 			return gossipIngestPipelines{}, fmt.Errorf("foreign pipeline %d (%s): %w", i, peerLog.LogDID, err)
 		}
@@ -201,6 +219,7 @@ func buildHomePipeline(
 	registry *did.VerifierRegistry,
 	heads *monitoring.TrustedHeadStore,
 	journal monitoring.HeadsJournal,
+	rotJournal monitoring.RotationJournal,
 	judicialDeps judicial.Dependencies,
 	logger *slog.Logger,
 ) (*peers.PeerPuller, *monitoring.Reconciler, error) {
@@ -257,7 +276,10 @@ func buildHomePipeline(
 		// The witness-set registry IS the rotator: a Tier-2-verified
 		// WitnessRotationFinding advances the live trust root (verify-before-
 		// swap, standing quorum).
-		Rotator:           witnessRegistry,
+		Rotator: witnessRegistry,
+		// FED-1 #107: journal every verified home rotation as a
+		// position-bearing chain record (independent of the live swap).
+		RotationJournal:   rotJournal,
 		Logger:            logger,
 		AuditorRegistry:   judicialDeps.AuditorRegistry,
 		AuditorAmendments: judicialDeps.AuditorAmendments,
@@ -319,6 +341,7 @@ func buildForeignPipeline(
 	registry *did.VerifierRegistry,
 	heads *monitoring.TrustedHeadStore,
 	journal monitoring.HeadsJournal,
+	rotJournal monitoring.RotationJournal,
 	logger *slog.Logger,
 ) (*peers.PeerPuller, error) {
 	// Foreign NetworkID — 32 bytes / 64 hex chars (cfg.validate
@@ -374,7 +397,12 @@ func buildForeignPipeline(
 		Heads:    heads,
 		Journal:  journal,
 		Rotator:  foreignRegistry,
-		Logger:   logger,
+		// FED-1 #107: every Tier-2-verified FOREIGN rotation is journaled
+		// as a position-bearing chain record — the per-peer era history the
+		// cross-log verify path resolves against. Independent of the live
+		// swap above; keyed by the peer's canonical LogDID.
+		RotationJournal: rotJournal,
+		Logger:          logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("foreign reconciler: %w", err)

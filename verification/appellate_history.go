@@ -38,12 +38,16 @@ OVERVIEW:
 package verification
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/baseproof/baseproof/anchor"
 	"github.com/baseproof/baseproof/crypto/cosign"
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/verifier"
+
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 )
 
 // AppealStep is one hop in an appeal chain. The chain is
@@ -119,15 +123,21 @@ func WalkAppealChain(origin AppealStep, next NextProofFn) ([]AppealStep, error) 
 	}
 }
 
+// EraSetResolver is the consumer-owned seam VerifyAppealChain resolves
+// per-hop witness sets through — satisfied by verification/eras.Resolver.
+type EraSetResolver interface {
+	SetForHead(ctx context.Context, logDID string, head types.CosignedTreeHead) (*cosign.WitnessKeySet, error)
+}
+
 // VerifyAppealChain verifies a sequence of cross-log appeal
 // references. Each step's cross-log proof is verified against
 // the source-log witness key set. Returns the chain with
 // ProofVerified set per step; halts on the first broken link.
 //
-// v0.3.0: witnessSetByLog replaces the v0.1.0 three-map
-// (keys/quorum/networkID) shape. K and NetworkID are encapsulated
-// inside *cosign.WitnessKeySet at construction time so this
-// function cannot read the wrong K for a given source log.
+// FED-1 #107: eraSets replaces the v0.3.0 static map — each hop's
+// *cosign.WitnessKeySet (keys + K + NetworkID encapsulated, SDK
+// Principle 10) is resolved era-correctly for that hop's OWN cosigned
+// head from the genesis-rooted journaled rotation chain.
 //
 // SDK-4 (baseproof v1.43.0): trustByLog carries each SOURCE log's pinned
 // burn/equivocation status, keyed by the SAME source-log DID as
@@ -136,10 +146,14 @@ func WalkAppealChain(origin AppealStep, next NextProofFn) ([]AppealStep, error) 
 // unconsulted burn source never trusts by default. Callers build it
 // from the heads journal via trust.StatusFor.
 func VerifyAppealChain(
+	ctx context.Context,
 	steps []AppealStep,
-	witnessSetByLog map[string]*cosign.WitnessKeySet,
+	eraSets EraSetResolver,
 	trustByLog map[string]verifier.TrustStatus,
 ) ([]AppealStep, error) {
+	if eraSets == nil {
+		return steps, fmt.Errorf("verification/appellate_history: nil era resolver")
+	}
 	for i := range steps {
 		if steps[i].Proof == nil {
 			continue
@@ -153,8 +167,16 @@ func VerifyAppealChain(
 		// only a lookup key: a forged Source.LogDID resolves to the wrong (or no)
 		// set and fails the quorum check below — it can never trust itself.
 		sourceLogDID := proof.SourceEntry.LogDID
-		set, ok := witnessSetByLog[sourceLogDID]
-		if !ok || set == nil {
+		// FED-1 #107: THIS hop's set, era-anchored by THIS hop's cosigned
+		// head — an appellate chain crosses eras by construction. A warming
+		// journal aborts the whole verification as RETRYABLE (the caller
+		// maps it to 503), never as a broken chain; an unknown log or an
+		// unexplainable head fails the hop closed, as the map miss did.
+		set, eraErr := eraSets.SetForHead(ctx, sourceLogDID, proof.SourceTreeHead)
+		if eraErr != nil {
+			if errors.Is(eraErr, eras.ErrWarming) {
+				return steps, fmt.Errorf("verification/appellate_history: hop %d: %w", i, eraErr)
+			}
 			steps[i].ProofVerified = false
 			continue
 		}

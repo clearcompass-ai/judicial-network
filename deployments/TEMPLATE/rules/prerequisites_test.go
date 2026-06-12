@@ -46,7 +46,7 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 
 func TestWalk_CaseInitiation_NoPrereqs(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("case_initiation", prerequisites.CaseContext{})
+	v := w.Check("case_initiation", prerequisites.EvalContext{})
 	if !v.OK {
 		t.Errorf("case_initiation must be OK at the bootstrap: %+v", v)
 	}
@@ -54,7 +54,7 @@ func TestWalk_CaseInitiation_NoPrereqs(t *testing.T) {
 
 func TestWalk_UnknownEvent_Rejected(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("wizard_motion", prerequisites.CaseContext{})
+	v := w.Check("wizard_motion", prerequisites.EvalContext{})
 	if v.Rejection != prerequisites.WalkRejectUnknownEvent {
 		t.Errorf("unknown event_type Rejection=%s", v.Rejection)
 	}

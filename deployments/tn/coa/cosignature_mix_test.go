@@ -21,7 +21,7 @@ package coa
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 )
 
 // ─── basic invariants ──────────────────────────────────────────────

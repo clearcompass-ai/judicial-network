@@ -362,6 +362,13 @@ type GossipIngestConfig struct {
 	// AUDITOR_PEERS did:web form). An http(s) value is used verbatim.
 	PeerURL string `json:"peer_url,omitempty"`
 
+	// EraWarmupGrace bounds the era-resolution warming window after boot
+	// (FED-1 #107): the per-peer rotation journal is an in-memory cache
+	// rebuilt by re-ingesting peer feeds, and until a peer is warm an
+	// unexplainable head is a named retryable startup state, never folded
+	// into genuine staleness. Zero applies the eras package default (30s).
+	EraWarmupGrace time.Duration `json:"era_warmup_grace,omitempty"`
+
 	// PeerResolveTTL caps how long a resolved did:web peer base is cached (the
 	// TTL on the WebDIDResolver behind did:web peer-base resolution). Zero
 	// applies a 5-minute default. Env: API_GOSSIP_INGEST_DIDWEB_TTL (the env

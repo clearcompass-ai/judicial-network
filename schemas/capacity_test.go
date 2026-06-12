@@ -41,12 +41,12 @@ func TestFilerRole_IsValid(t *testing.T) {
 		FilerRoleCivilAttorney, FilerRoleFiduciary,
 		FilerRoleGuardianAdLitem,
 	} {
-		if !r.IsValid() {
+		if !ValidFilerRole(r) {
 			t.Errorf("%q must be valid", r)
 		}
 	}
 	for _, r := range []FilerRole{"", "wizard", "lawyer", "judge"} {
-		if r.IsValid() {
+		if ValidFilerRole(r) {
 			t.Errorf("%q must NOT be valid", r)
 		}
 	}

@@ -23,7 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // -------------------------------------------------------------------------

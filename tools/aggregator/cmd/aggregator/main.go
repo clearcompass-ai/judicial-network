@@ -44,9 +44,9 @@ import (
 
 	sdklog "github.com/baseproof/baseproof/log"
 	libagg "github.com/baseproof/tooling/libs/aggregator"
-	common "github.com/baseproof/tooling/libs/clitools"
 	"github.com/baseproof/tooling/libs/tracing"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // deps abstracts the boot-time wiring so main_test.go can stub each

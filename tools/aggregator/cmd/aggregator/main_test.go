@@ -30,7 +30,7 @@ import (
 	"time"
 
 	libagg "github.com/baseproof/tooling/libs/aggregator"
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // ─────────────────────────────────────────────────────────────────────

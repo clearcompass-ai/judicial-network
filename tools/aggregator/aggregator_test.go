@@ -28,8 +28,8 @@ import (
 	"github.com/baseproof/baseproof/types"
 
 	libagg "github.com/baseproof/tooling/libs/aggregator"
-	common "github.com/baseproof/tooling/libs/clitools"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // -------------------------------------------------------------------------

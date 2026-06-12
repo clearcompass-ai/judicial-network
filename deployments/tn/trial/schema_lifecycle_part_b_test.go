@@ -2,20 +2,20 @@
 //
 // Pins the governance contract:
 //
-//   1. CosignaturePolicy has a rule for each of the 4 §15 events.
-//   2. Each rule requires MinSignerCosigners=2 — schema-level
-//      governance is a two-judge minimum (symmetric with
-//      judicial_appointment / clerk_appointment).
-//   3. Publication / amendment / deprecation are intra-exchange;
-//      adoption is cross-exchange-permitted (referencing another
-//      network's published schema).
-//   4. Prerequisite policy: publication has no prereqs (origin);
-//      adoption / amendment / deprecation all require Hard prior
-//      schema_publication ancestry on the log.
-//   5. Walker scenarios that mirror the four use cases in the
-//      docstring (TN SC publishes → Davidson adopts → SC amends
-//      → SC deprecates) all admit cleanly given the right
-//      ObservedEvents history.
+//  1. CosignaturePolicy has a rule for each of the 4 §15 events.
+//  2. Each rule requires MinSignerCosigners=2 — schema-level
+//     governance is a two-judge minimum (symmetric with
+//     judicial_appointment / clerk_appointment).
+//  3. Publication / amendment / deprecation are intra-exchange;
+//     adoption is cross-exchange-permitted (referencing another
+//     network's published schema).
+//  4. Prerequisite policy: publication has no prereqs (origin);
+//     adoption / amendment / deprecation all require Hard prior
+//     schema_publication ancestry on the log.
+//  5. Walker scenarios that mirror the four use cases in the
+//     docstring (TN SC publishes → Davidson adopts → SC amends
+//     → SC deprecates) all admit cleanly given the right
+//     ObservedEvents history.
 package trial
 
 import (
@@ -23,7 +23,7 @@ import (
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 )
 
 // findRulePartB is the local lookup helper. Named "PartB" to
@@ -76,7 +76,7 @@ func TestPartB_SchemaLifecycle_CosignatureRulesWired(t *testing.T) {
 func TestPartB_SchemaLifecycle_AdoptionCrossExchange(t *testing.T) {
 	rules := CosignatureRules()
 	cases := []struct {
-		evt          string
+		evt           string
 		wantIntraOnly bool
 	}{
 		{"schema_publication", true},
@@ -133,13 +133,13 @@ func TestPartB_AdoptionRequiresPublication(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	// No publication on the chain → reject.
-	v := w.Check("schema_adoption", prerequisites.CaseContext{})
+	v := w.Check("schema_adoption", prerequisites.EvalContext{})
 	if v.OK {
 		t.Error("schema_adoption with no prior publication must reject")
 	}
 
 	// Publication on the chain → admit.
-	v = w.Check("schema_adoption", prerequisites.CaseContext{
+	v = w.Check("schema_adoption", prerequisites.EvalContext{
 		ObservedEvents: []string{"schema_publication"},
 	})
 	if !v.OK {
@@ -152,11 +152,11 @@ func TestPartB_AdoptionRequiresPublication(t *testing.T) {
 // prior schema_publication of the predecessor is rejected.
 func TestPartB_AmendmentRequiresPublication(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("schema_amendment", prerequisites.CaseContext{})
+	v := w.Check("schema_amendment", prerequisites.EvalContext{})
 	if v.OK {
 		t.Error("schema_amendment with no prior publication must reject")
 	}
-	v = w.Check("schema_amendment", prerequisites.CaseContext{
+	v = w.Check("schema_amendment", prerequisites.EvalContext{
 		ObservedEvents: []string{"schema_publication"},
 	})
 	if !v.OK {
@@ -168,11 +168,11 @@ func TestPartB_AmendmentRequiresPublication(t *testing.T) {
 // invariant for deprecations.
 func TestPartB_DeprecationRequiresPublication(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("schema_deprecation", prerequisites.CaseContext{})
+	v := w.Check("schema_deprecation", prerequisites.EvalContext{})
 	if v.OK {
 		t.Error("schema_deprecation with no prior publication must reject")
 	}
-	v = w.Check("schema_deprecation", prerequisites.CaseContext{
+	v = w.Check("schema_deprecation", prerequisites.EvalContext{
 		ObservedEvents: []string{"schema_publication"},
 	})
 	if !v.OK {
@@ -182,30 +182,32 @@ func TestPartB_DeprecationRequiresPublication(t *testing.T) {
 
 // TestPartB_FullLifecycleWalk pins the end-to-end governance
 // scenario: a network history with
-//   publication → adoption → amendment → deprecation
+//
+//	publication → adoption → amendment → deprecation
+//
 // all admit cleanly because each later event sees the
 // publication on the chain.
 func TestPartB_FullLifecycleWalk(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	// Publication admits at network genesis.
-	if v := w.Check("schema_publication", prerequisites.CaseContext{}); !v.OK {
+	if v := w.Check("schema_publication", prerequisites.EvalContext{}); !v.OK {
 		t.Errorf("publication admit: %+v", v)
 	}
 	// Adoption admits with publication on chain.
-	if v := w.Check("schema_adoption", prerequisites.CaseContext{
+	if v := w.Check("schema_adoption", prerequisites.EvalContext{
 		ObservedEvents: []string{"schema_publication"},
 	}); !v.OK {
 		t.Errorf("adoption admit: %+v", v)
 	}
 	// Amendment admits with publication on chain.
-	if v := w.Check("schema_amendment", prerequisites.CaseContext{
+	if v := w.Check("schema_amendment", prerequisites.EvalContext{
 		ObservedEvents: []string{"schema_publication"},
 	}); !v.OK {
 		t.Errorf("amendment admit: %+v", v)
 	}
 	// Deprecation admits with publication on chain.
-	if v := w.Check("schema_deprecation", prerequisites.CaseContext{
+	if v := w.Check("schema_deprecation", prerequisites.EvalContext{
 		ObservedEvents: []string{"schema_publication"},
 	}); !v.OK {
 		t.Errorf("deprecation admit: %+v", v)

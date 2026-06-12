@@ -39,8 +39,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	common "github.com/baseproof/tooling/libs/clitools"
 	"github.com/baseproof/tooling/libs/httpmw/observability"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // errMissingDB / errMissingLedger are surfaced from run() when

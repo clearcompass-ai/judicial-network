@@ -132,7 +132,7 @@ func TestFunctional_JudgmentOnPleadings_RequiresResponsive(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	// case_initiation only → reject (responsive_pleading missing).
-	v := w.Check("motion_judgment_on_pleadings", prerequisites.CaseContext{
+	v := w.Check("motion_judgment_on_pleadings", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
@@ -140,7 +140,7 @@ func TestFunctional_JudgmentOnPleadings_RequiresResponsive(t *testing.T) {
 	}
 
 	// case_initiation + responsive_pleading → accept.
-	v = w.Check("motion_judgment_on_pleadings", prerequisites.CaseContext{
+	v = w.Check("motion_judgment_on_pleadings", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "responsive_pleading"},
 	})
 	if !v.OK {
@@ -151,14 +151,14 @@ func TestFunctional_JudgmentOnPleadings_RequiresResponsive(t *testing.T) {
 func TestFunctional_DefaultJudgment_RequiresPartyBinding(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_default_judgment", prerequisites.CaseContext{
+	v := w.Check("motion_default_judgment", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without party_binding")
 	}
 
-	v = w.Check("motion_default_judgment", prerequisites.CaseContext{
+	v = w.Check("motion_default_judgment", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "party_binding"},
 	})
 	if !v.OK {

@@ -31,6 +31,8 @@ import (
 	"github.com/clearcompass-ai/judicial-network/topology"
 	"github.com/clearcompass-ai/judicial-network/verification"
 	"github.com/clearcompass-ai/judicial-network/verification/trust"
+
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 )
 
 // ──────────────────────────────────────────────────────────────────
@@ -83,7 +85,9 @@ type Dependencies struct {
 	// (plus BLSVerifier). Each *cosign.WitnessKeySet binds keys + K
 	// + NetworkID + BLSAggregateVerifier together at construction
 	// time. SDK Principle 10 (Two-Tier Quorum Encapsulation).
-	WitnessSets map[string]*cosign.WitnessKeySet
+	// Eras resolves a source log's witness set era-correctly for a specific
+	// cosigned head (FED-1 #107) — replaces the static per-log map.
+	Eras eras.SetResolver
 
 	// NetworkID is the deployment's 32-byte cosign-domain identifier
 	// derived from the network bootstrap document. Threaded into

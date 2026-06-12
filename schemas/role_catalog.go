@@ -58,67 +58,19 @@ package schemas
 
 import (
 	"fmt"
+
+	libpolicy "github.com/baseproof/tooling/libs/policy"
 	"sort"
 	"sync"
 	"time"
 )
 
-// Role is the typed description of one role in the catalog. Field
-// JSON tags allow a single struct to be loaded from either a JSON
-// catalog file or a YAML loader (mapped through json tags).
-type Role struct {
-	// Name is the catalog key. Required, must equal map key.
-	Name string `json:"name"`
-
-	// Actor classifies the role per the v1.4 Event Dictionary. The
-	// catalog only lists ActorSigner (key-holding) roles by design —
-	// ActorFiler attestations live in the payload's
-	// `filed_by_capacity` block; ActorParty subjects in
-	// party_binding entries. validateRole rejects roles whose
-	// Actor is not ActorSigner.
-	//
-	// Stored as an int via the schemas.Actor alias so the JSON
-	// loader accepts plain numbers ({"actor": 1}) without a custom
-	// unmarshaller.
-	Actor Actor `json:"actor"`
-
-	// Description is human-readable; recorded only in the catalog,
-	// not on-log.
-	Description string `json:"description,omitempty"`
-
-	// MaxDuration is the upper bound on (ExpiresAt - IssuedAt) for
-	// any delegation in this role. Required (>0).
-	MaxDuration time.Duration `json:"max_duration"`
-
-	// DefaultDuration is what IssueDelegation uses when the caller
-	// does not specify ExpiresAt. Must be <= MaxDuration. Required.
-	DefaultDuration time.Duration `json:"default_duration"`
-
-	// AllowedScope is the universe of scope tokens a holder of this
-	// role *may* be granted. Issued delegations' Scope must be a
-	// subset. Required (non-empty).
-	AllowedScope []string `json:"allowed_scope"`
-
-	// DefaultScope is the scope tokens granted when the caller
-	// passes no Scope. Must be a subset of AllowedScope. Required
-	// (non-empty).
-	DefaultScope []string `json:"default_scope"`
-
-	// DelegableBy lists the role names that may *grant* this role.
-	// "*" means any role whose own scope includes the matching
-	// invite:* token. Empty means no role may grant — the role is
-	// instituted directly by the institutional DID at depth 0
-	// (typical for chief_justice).
-	DelegableBy []string `json:"delegable_by,omitempty"`
-
-	// DelegableScope is the slice of AllowedScope a holder of this
-	// role may pass downstream when granting another role. If empty
-	// and DelegableBy is non-empty, holders may pass through any
-	// subset of their own current scope. The SDK
-	// scope_enforcement.go intersection rule narrower-cannot-be-widened
-	// always applies on top of this.
-	DelegableScope []string `json:"delegable_scope,omitempty"`
-}
+// Role is the platform catalog-row shape (libs/libpolicy.Role) — the
+// MECHANISM (name, actor class, delegation durations, scope bounds, grant
+// edges). The judicial CONTENT — which roles exist, their names, scopes and
+// delegation rules — lives in this package's catalogs and the deployments.
+// JSON tags ride the platform type, so catalogs load from the same files.
+type Role = libpolicy.Role
 
 // RoleCatalog is the read-side interface used by AuthorityResolver,
 // IssueDelegation, and the validator. Implementations are expected to

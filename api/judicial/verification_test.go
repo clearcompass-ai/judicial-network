@@ -10,6 +10,7 @@ package judicial
 
 import (
 	"bytes"
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -299,7 +300,11 @@ func TestVerifyCrossLogProof_MissingFields_400(t *testing.T) {
 // source_log_did — the test below pins that contract.
 func TestVerifyCrossLogProof_UnknownSourceLog_400(t *testing.T) {
 	withCaller(t, testJudge)
-	h := newTestHandler(Dependencies{})
+	noPeers, err := eras.New(refusingInner{}, emptyChains{}, nil, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newTestHandler(Dependencies{Eras: noPeers})
 	proofJSON := mustJSON(t, types.CrossLogProof{})
 	body := mustJSON(t, crossLogProofRequest{
 		Proof:        proofJSON,

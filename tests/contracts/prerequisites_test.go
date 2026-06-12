@@ -107,8 +107,8 @@ func TestPrereqs_RoundTrip_GatesEntry(t *testing.T) {
 
 	// Prereq gate.
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	pv := w.Check("motion_continuance", prerequisites.CaseContext{
-		CaseRef:        "2027-CV-1234",
+	pv := w.Check("motion_continuance", prerequisites.EvalContext{
+		RootRef:        "2027-CV-1234",
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if !pv.OK {
@@ -120,7 +120,7 @@ func TestPrereqs_RoundTrip_GatesEntry(t *testing.T) {
 
 func TestPrereqs_VocabularyGate_RejectsUnknownEvent(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	v := w.Check("wizard_motion", prerequisites.CaseContext{
+	v := w.Check("wizard_motion", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"}, // doesn't matter
 	})
 	if v.OK {
@@ -135,8 +135,8 @@ func TestPrereqs_VocabularyGate_RejectsUnknownEvent(t *testing.T) {
 
 func TestPrereqs_AncestorGate_RejectsMissingCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	v := w.Check("motion_continuance", prerequisites.CaseContext{
-		CaseRef:        "2027-CV-9999",
+	v := w.Check("motion_continuance", prerequisites.EvalContext{
+		RootRef:        "2027-CV-9999",
 		ObservedEvents: []string{}, // case_initiation missing
 	})
 	if v.OK {
@@ -154,7 +154,7 @@ func TestPrereqs_AncestorGate_RejectsMissingCaseInit(t *testing.T) {
 
 func TestPrereqs_AuthorityGate_RejectsWithoutScope(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	v := w.Check("judicial_appointment", prerequisites.CaseContext{
+	v := w.Check("judicial_appointment", prerequisites.EvalContext{
 		PrimaryAuthorityScopes: []string{"unrelated_scope"},
 	})
 	if v.OK {
@@ -167,7 +167,7 @@ func TestPrereqs_AuthorityGate_RejectsWithoutScope(t *testing.T) {
 
 func TestPrereqs_AuthorityGate_AcceptsWithScope(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	v := w.Check("judicial_appointment", prerequisites.CaseContext{
+	v := w.Check("judicial_appointment", prerequisites.EvalContext{
 		PrimaryAuthorityScopes: []string{"judicial_appointment_authority"},
 	})
 	if !v.OK {
@@ -179,7 +179,7 @@ func TestPrereqs_AuthorityGate_AcceptsWithScope(t *testing.T) {
 
 func TestPrereqs_AdvisoryRule_DoesNotBlock(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	v := w.Check("transcript_publication", prerequisites.CaseContext{
+	v := w.Check("transcript_publication", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"}, // hearing absent
 	})
 	if !v.OK {
@@ -199,7 +199,7 @@ func TestPrereqs_AdvisoryRule_DoesNotBlock(t *testing.T) {
 // requires a merits-posture event in the subtree.
 func TestPrereqs_Verdict_RejectsWithoutMeritsPosture(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	v := w.Check("verdict", prerequisites.CaseContext{
+	v := w.Check("verdict", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
@@ -212,7 +212,7 @@ func TestPrereqs_Verdict_RejectsWithoutMeritsPosture(t *testing.T) {
 
 func TestPrereqs_Verdict_AcceptsWithMeritsPosture(t *testing.T) {
 	w := &prerequisites.Walker{Policy: davidson.MustPrerequisitePolicy()}
-	v := w.Check("verdict", prerequisites.CaseContext{
+	v := w.Check("verdict", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "responsive_pleading"},
 	})
 	if !v.OK {
@@ -232,7 +232,7 @@ func TestPrereqs_CrossExchangeEvents_NoPrereqs(t *testing.T) {
 		"case_transfer_inbound",
 		"relay_attestation",
 	} {
-		v := w.Check(evt, prerequisites.CaseContext{})
+		v := w.Check(evt, prerequisites.EvalContext{})
 		if !v.OK {
 			t.Errorf("%s must pass with no prereqs: %+v", evt, v)
 		}

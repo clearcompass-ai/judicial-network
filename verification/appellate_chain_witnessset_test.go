@@ -3,6 +3,7 @@ package verification
 import (
 	"context"
 	"crypto/sha256"
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 	"testing"
 
 	"github.com/baseproof/baseproof/anchor"
@@ -131,7 +132,7 @@ func TestVerifyAppealChain_MultiHop_DistinctWitnessSets(t *testing.T) {
 		supct.logDID: supct.wset.KeySet,
 	}
 
-	out, err := VerifyAppealChain(steps, witnessSetByLog, allTrusted(trial.logDID, coa.logDID, supct.logDID))
+	out, err := VerifyAppealChain(context.Background(), steps, staticEraResolver{witnessSetByLog}, allTrusted(trial.logDID, coa.logDID, supct.logDID))
 	if err != nil {
 		t.Fatalf("VALID 3-hop chain rejected: %v\n"+
 			"  → each hop's proof source is the LOWER court; verifying it against the\n"+
@@ -174,7 +175,7 @@ func TestVerifyAppealChain_BurnedSource_FailsClosed(t *testing.T) {
 		trial.logDID: {Known: true, Burned: true},
 		coa.logDID:   {Known: true},
 	}
-	out, err := VerifyAppealChain(steps, wsByLog, trust)
+	out, err := VerifyAppealChain(context.Background(), steps, staticEraResolver{wsByLog}, trust)
 	if err == nil {
 		t.Fatal("a chain whose source log is burned must fail closed (SDK-4)")
 	}
@@ -198,18 +199,18 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 
 	t.Run("substituted witness set fails quorum", func(t *testing.T) {
 		wrongSet := witnesstest.NewSet(t, courtNID(), 5, 5).KeySet // not trial's keys
-		_, err := VerifyAppealChain(mkSteps(), map[string]*cosign.WitnessKeySet{
+		_, err := VerifyAppealChain(context.Background(), mkSteps(), staticEraResolver{map[string]*cosign.WitnessKeySet{
 			trial.logDID: wrongSet, coa.logDID: coa.wset.KeySet,
-		}, allTrusted(trial.logDID, coa.logDID))
+		}}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("a head presented under trial's DID but verified against a different set must fail")
 		}
 	})
 
 	t.Run("missing source witness set fails closed", func(t *testing.T) {
-		_, err := VerifyAppealChain(mkSteps(), map[string]*cosign.WitnessKeySet{
+		_, err := VerifyAppealChain(context.Background(), mkSteps(), staticEraResolver{map[string]*cosign.WitnessKeySet{
 			coa.logDID: coa.wset.KeySet, // trial's set absent
-		}, allTrusted(trial.logDID, coa.logDID))
+		}}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("absent source witness set must fail closed")
 		}
@@ -218,9 +219,9 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 	t.Run("unlinked hop (proof source != prior case) fails", func(t *testing.T) {
 		steps := mkSteps()
 		steps[0].CasePos = types.LogPosition{LogDID: trial.logDID, Sequence: trial.citedPos + 99} // wrong case
-		_, err := VerifyAppealChain(steps, map[string]*cosign.WitnessKeySet{
+		_, err := VerifyAppealChain(context.Background(), steps, staticEraResolver{map[string]*cosign.WitnessKeySet{
 			trial.logDID: trial.wset.KeySet, coa.logDID: coa.wset.KeySet,
-		}, allTrusted(trial.logDID, coa.logDID))
+		}}, allTrusted(trial.logDID, coa.logDID))
 		if err == nil {
 			t.Fatal("a proof not bound to the previous step's case must fail (no unrelated-proof chains)")
 		}
@@ -228,3 +229,18 @@ func TestVerifyAppealChain_ZeroTrust_Negatives(t *testing.T) {
 }
 
 func ptr(p types.CrossLogProof) *types.CrossLogProof { return &p }
+
+// staticEraResolver adapts the legacy per-log map to the EraSetResolver seam
+// for tests whose subject is chain linkage / trust gating, not era flips
+// (the era-flip behavior has its own dedicated tests).
+type staticEraResolver struct {
+	m map[string]*cosign.WitnessKeySet
+}
+
+func (s staticEraResolver) SetForHead(_ context.Context, logDID string, _ types.CosignedTreeHead) (*cosign.WitnessKeySet, error) {
+	set, ok := s.m[logDID]
+	if !ok || set == nil {
+		return nil, eras.ErrCannotResolveEra
+	}
+	return set, nil
+}

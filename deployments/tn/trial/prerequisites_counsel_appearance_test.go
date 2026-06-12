@@ -34,7 +34,7 @@ func TestWalk_CounselAppearance_RequiresCaseInit(t *testing.T) {
 
 	// Without case_initiation → reject.
 	v := w.Check("counsel_appearance",
-		prerequisites.CaseContext{ObservedEvents: nil})
+		prerequisites.EvalContext{ObservedEvents: nil})
 	if v.OK {
 		t.Error("counsel_appearance without case_initiation must reject")
 	}
@@ -44,7 +44,7 @@ func TestWalk_CounselAppearance_RequiresCaseInit(t *testing.T) {
 	}
 
 	// With case_initiation → accept.
-	v = w.Check("counsel_appearance", prerequisites.CaseContext{
+	v = w.Check("counsel_appearance", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
@@ -61,7 +61,7 @@ func TestWalk_CounselAppearance_RequiresCaseInit(t *testing.T) {
 // elsewhere.
 func TestFunctional_CounselAppearance_AfterPartyBinding(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("counsel_appearance", prerequisites.CaseContext{
+	v := w.Check("counsel_appearance", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "party_binding"},
 	})
 	if !v.OK {
@@ -77,7 +77,7 @@ func TestFunctional_CounselAppearance_AfterPartyBinding(t *testing.T) {
 // binding check is Advisory at the verifier layer).
 func TestFunctional_CounselAppearance_BeforePartyBindingIsAccepted(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("counsel_appearance", prerequisites.CaseContext{
+	v := w.Check("counsel_appearance", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {

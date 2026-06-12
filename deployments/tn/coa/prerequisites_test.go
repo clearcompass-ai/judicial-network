@@ -92,7 +92,7 @@ func TestWalk_AppellateCaseInitiation_AdvisoryNoticeOfAppeal(t *testing.T) {
 	// Without notice_of_appeal in the subtree, the walker must
 	// still accept (Advisory only — v1.8 §7B.1).
 	v := w.Check("appellate_case_initiation",
-		prerequisites.CaseContext{ObservedEvents: nil})
+		prerequisites.EvalContext{ObservedEvents: nil})
 	if !v.OK {
 		t.Errorf("Advisory must NOT block: %+v", v)
 	}
@@ -101,7 +101,7 @@ func TestWalk_AppellateCaseInitiation_AdvisoryNoticeOfAppeal(t *testing.T) {
 	}
 
 	// With notice_of_appeal, no Advisory.
-	v = w.Check("appellate_case_initiation", prerequisites.CaseContext{
+	v = w.Check("appellate_case_initiation", prerequisites.EvalContext{
 		ObservedEvents: []string{"notice_of_appeal"},
 	})
 	if !v.OK {
@@ -117,7 +117,7 @@ func TestWalk_OpinionPublication_RequiresAppellateRoot(t *testing.T) {
 
 	// Without appellate_case_initiation: Hard rejection.
 	v := w.Check("appellate_opinion_publication",
-		prerequisites.CaseContext{ObservedEvents: nil})
+		prerequisites.EvalContext{ObservedEvents: nil})
 	if v.OK {
 		t.Error("publication without appellate root must reject")
 	}
@@ -126,7 +126,7 @@ func TestWalk_OpinionPublication_RequiresAppellateRoot(t *testing.T) {
 	}
 
 	// With appellate_case_initiation: OK.
-	v = w.Check("appellate_opinion_publication", prerequisites.CaseContext{
+	v = w.Check("appellate_opinion_publication", prerequisites.EvalContext{
 		ObservedEvents: []string{"appellate_case_initiation"},
 	})
 	if !v.OK {
@@ -138,12 +138,12 @@ func TestWalk_OpinionParticipation_RequiresAppellateRoot(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("appellate_opinion_participation",
-		prerequisites.CaseContext{ObservedEvents: nil})
+		prerequisites.EvalContext{ObservedEvents: nil})
 	if v.OK {
 		t.Error("participation without appellate root must reject")
 	}
 
-	v = w.Check("appellate_opinion_participation", prerequisites.CaseContext{
+	v = w.Check("appellate_opinion_participation", prerequisites.EvalContext{
 		ObservedEvents: []string{"appellate_case_initiation"},
 	})
 	if !v.OK {
@@ -155,7 +155,7 @@ func TestWalk_Disposition_RequiresMeritsOpinion(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	// Without merits opinion: rejected (Hard).
-	v := w.Check("appellate_disposition", prerequisites.CaseContext{
+	v := w.Check("appellate_disposition", prerequisites.EvalContext{
 		ObservedEvents: []string{"appellate_case_initiation"},
 	})
 	if v.OK {
@@ -163,7 +163,7 @@ func TestWalk_Disposition_RequiresMeritsOpinion(t *testing.T) {
 	}
 
 	// With merits opinion: OK.
-	v = w.Check("appellate_disposition", prerequisites.CaseContext{
+	v = w.Check("appellate_disposition", prerequisites.EvalContext{
 		ObservedEvents: []string{
 			"appellate_case_initiation",
 			"appellate_opinion_publication",
@@ -177,7 +177,7 @@ func TestWalk_Disposition_RequiresMeritsOpinion(t *testing.T) {
 func TestWalk_RemandAffirmance_AdvisoryNoticeOfAppeal(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("remand_affirmance", prerequisites.CaseContext{})
+	v := w.Check("remand_affirmance", prerequisites.EvalContext{})
 	if !v.OK {
 		t.Errorf("Advisory must NOT block: %+v", v)
 	}
@@ -189,14 +189,14 @@ func TestWalk_RemandAffirmance_AdvisoryNoticeOfAppeal(t *testing.T) {
 func TestWalk_JudicialAppointment_RequiresAuthority(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("judicial_appointment", prerequisites.CaseContext{
+	v := w.Check("judicial_appointment", prerequisites.EvalContext{
 		PrimaryAuthorityScopes: []string{"judicial_appointment_authority"},
 	})
 	if !v.OK {
 		t.Errorf("with authority must be OK: %+v", v)
 	}
 
-	v = w.Check("judicial_appointment", prerequisites.CaseContext{
+	v = w.Check("judicial_appointment", prerequisites.EvalContext{
 		PrimaryAuthorityScopes: []string{"some_other_authority"},
 	})
 	if v.OK {
@@ -214,7 +214,7 @@ func TestWalk_TopologyEvents_NoPrereqs(t *testing.T) {
 		"case_transfer_outbound",
 		"relay_attestation",
 	} {
-		v := w.Check(evt, prerequisites.CaseContext{})
+		v := w.Check(evt, prerequisites.EvalContext{})
 		if !v.OK {
 			t.Errorf("%s must be OK with no prereqs: %+v", evt, v)
 		}
@@ -223,7 +223,7 @@ func TestWalk_TopologyEvents_NoPrereqs(t *testing.T) {
 
 func TestWalk_UnknownEvent_Rejected(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("wizard_motion", prerequisites.CaseContext{})
+	v := w.Check("wizard_motion", prerequisites.EvalContext{})
 	if v.Rejection != prerequisites.WalkRejectUnknownEvent {
 		t.Errorf("unknown event_type Rejection=%s", v.Rejection)
 	}

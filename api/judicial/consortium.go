@@ -22,6 +22,7 @@ package judicial
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/baseproof/baseproof/anchor"
@@ -29,6 +30,8 @@ import (
 	"github.com/baseproof/tooling/libs/federation"
 
 	jntrust "github.com/clearcompass-ai/judicial-network/verification/trust"
+
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 )
 
 func registerConsortiumRoutes(mux *http.ServeMux, deps *Dependencies) {
@@ -157,10 +160,26 @@ func (h *consortiumVerifyCrossCourtHandler) ServeHTTP(w http.ResponseWriter, r *
 		writeError(w, http.StatusBadRequest, "proof must be a valid CrossLogProof JSON")
 		return
 	}
-	set, ok := h.deps.WitnessSets[req.SourceLogDID]
-	if !ok || set == nil {
-		writeError(w, http.StatusBadRequest,
-			"no witness set for source_log_did (pre-configure via WitnessSets at boot)")
+	// FED-1 #107: era-correct resolution against THIS proof's cosigned head.
+	if h.deps.Eras == nil {
+		writeError(w, http.StatusInternalServerError, "era resolution not configured")
+		return
+	}
+	set, eraErr := h.deps.Eras.SetForHead(r.Context(), req.SourceLogDID, proof.SourceTreeHead)
+	if eraErr != nil {
+		switch {
+		case errors.Is(eraErr, eras.ErrNoSuchPeer):
+			writeError(w, http.StatusBadRequest, "no trust root configured for source_log_did")
+		case errors.Is(eraErr, eras.ErrWarming):
+			w.Header().Set("Retry-After", "5")
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error": "rotation journal warming up for source_log_did — retry", "class": "warming",
+			})
+		default:
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error": eraErr.Error(), "class": "cannot_resolve_era",
+			})
+		}
 		return
 	}
 	// SDK-4: pin the SOURCE log's burn status from the heads journal and

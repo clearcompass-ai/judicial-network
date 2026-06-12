@@ -3,7 +3,7 @@ package courts
 import (
 	"net/http"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // SealCase handles POST /v1/cases/{docket}/seal.

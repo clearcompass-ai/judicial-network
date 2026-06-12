@@ -117,21 +117,21 @@ func TestMotions3H_CatchAllFlag(t *testing.T) {
 func TestFunctional_NewTrial_RequiresVerdictOrFJ(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_new_trial", prerequisites.CaseContext{
+	v := w.Check("motion_new_trial", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without verdict/final_judgment")
 	}
 
-	v = w.Check("motion_new_trial", prerequisites.CaseContext{
+	v = w.Check("motion_new_trial", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "verdict"},
 	})
 	if !v.OK {
 		t.Errorf("must accept with verdict: %s", v.Reason)
 	}
 
-	v = w.Check("motion_new_trial", prerequisites.CaseContext{
+	v = w.Check("motion_new_trial", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "final_judgment"},
 	})
 	if !v.OK {
@@ -144,7 +144,7 @@ func TestFunctional_JNOV_RequiresVerdictExclusively(t *testing.T) {
 
 	// final_judgment alone is not enough — JNOV is post-VERDICT.
 	v := w.Check("motion_renewed_directed_verdict_jnov",
-		prerequisites.CaseContext{
+		prerequisites.EvalContext{
 			ObservedEvents: []string{"case_initiation", "final_judgment"},
 		})
 	if v.OK {
@@ -152,7 +152,7 @@ func TestFunctional_JNOV_RequiresVerdictExclusively(t *testing.T) {
 	}
 
 	v = w.Check("motion_renewed_directed_verdict_jnov",
-		prerequisites.CaseContext{
+		prerequisites.EvalContext{
 			ObservedEvents: []string{"case_initiation", "verdict"},
 		})
 	if !v.OK {

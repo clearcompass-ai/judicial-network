@@ -147,14 +147,14 @@ func TestCosignatureRules_MotionContinuanceMultipleFilers(t *testing.T) {
 func TestFunctional_WithdrawCounsel_RequiresAppearance(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_withdraw_counsel", prerequisites.CaseContext{
+	v := w.Check("motion_withdraw_counsel", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without counsel_appearance")
 	}
 
-	v = w.Check("motion_withdraw_counsel", prerequisites.CaseContext{
+	v = w.Check("motion_withdraw_counsel", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "counsel_appearance"},
 	})
 	if !v.OK {
@@ -165,14 +165,14 @@ func TestFunctional_WithdrawCounsel_RequiresAppearance(t *testing.T) {
 func TestFunctional_RecusalRequiresAssignment(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_disqualification_recusal", prerequisites.CaseContext{
+	v := w.Check("motion_disqualification_recusal", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without judicial_assignment")
 	}
 
-	v = w.Check("motion_disqualification_recusal", prerequisites.CaseContext{
+	v = w.Check("motion_disqualification_recusal", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "judicial_assignment"},
 	})
 	if !v.OK {
@@ -184,14 +184,14 @@ func TestFunctional_RecusalRequiresAssignment(t *testing.T) {
 func TestWalk_MotionContinuance_RequiresCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_continuance", prerequisites.CaseContext{
+	v := w.Check("motion_continuance", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
 		t.Errorf("with case_initiation must be OK: %+v", v)
 	}
 
-	v = w.Check("motion_continuance", prerequisites.CaseContext{
+	v = w.Check("motion_continuance", prerequisites.EvalContext{
 		ObservedEvents: nil,
 	})
 	if v.OK {

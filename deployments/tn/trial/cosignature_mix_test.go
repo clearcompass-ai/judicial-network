@@ -19,7 +19,7 @@ package trial
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
@@ -255,22 +255,22 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 
 // TestCosignatureRules_ExpectedCount pins the rule count so an
 // accidental addition / deletion shows up in CI. Total = 19 base
-// + every §3 motion declared. History:
-//   17 → 14: motion_continuance / motion_summary_judgment /
-//            motion_state_dismissal moved into §3 helpers.
-//   14 → 15: §0 case_initiation genesis rule added.
-//   15 → 19: Issue #67 Part A added §6 Court Orders 4 rules
-//            (scheduling_order, interlocutory_order,
-//             protective_restraining_order, warrant_issuance_return).
-//   19 → 23: Issue #67 Part B added §15 Schema Lifecycle 4 events
-//            (schema_publication, schema_adoption, schema_amendment,
-//             schema_deprecation).
-//   23 → 28: Issue #67 Part C added §16 Network Topology 5 events
-//            (anchor_registration, mirror_creation, mirror_revocation,
-//             network_fork, scope_division_creation).
-//   28 → 30: Issue #67 Part D added §14 Crypto & Key Maintenance 2
-//            events (institutional_key_rotation,
-//             mofn_escrow_recovery_execution).
+//   - every §3 motion declared. History:
+//     17 → 14: motion_continuance / motion_summary_judgment /
+//     motion_state_dismissal moved into §3 helpers.
+//     14 → 15: §0 case_initiation genesis rule added.
+//     15 → 19: Issue #67 Part A added §6 Court Orders 4 rules
+//     (scheduling_order, interlocutory_order,
+//     protective_restraining_order, warrant_issuance_return).
+//     19 → 23: Issue #67 Part B added §15 Schema Lifecycle 4 events
+//     (schema_publication, schema_adoption, schema_amendment,
+//     schema_deprecation).
+//     23 → 28: Issue #67 Part C added §16 Network Topology 5 events
+//     (anchor_registration, mirror_creation, mirror_revocation,
+//     network_fork, scope_division_creation).
+//     28 → 30: Issue #67 Part D added §14 Crypto & Key Maintenance 2
+//     events (institutional_key_rotation,
+//     mofn_escrow_recovery_execution).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
 	const baseRules = 30
 	want := baseRules + len(motionCosignatureRules())

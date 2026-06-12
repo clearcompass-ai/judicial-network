@@ -45,7 +45,7 @@ package davidsonlegacy
 import (
 	"fmt"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
@@ -199,7 +199,7 @@ func CosignatureRules() []policy.CosignatureRule {
 // MustCosignaturePolicy returns a policy populated with
 // CosignatureRules or panics.
 func MustCosignaturePolicy() *policy.InMemoryPolicy {
-	p, err := policy.NewInMemoryPolicy(CosignatureRules())
+	p, err := policy.NewInMemoryPolicy(CosignatureRules(), policy.WithKnownFilerRoles(schemas.KnownFilerRoles()...))
 	if err != nil {
 		panic(fmt.Sprintf("internal/testfixtures/davidsonlegacy: cosignature policy invalid: %v", err))
 	}

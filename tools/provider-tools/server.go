@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/baseproof/baseproof/storage"
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // Server is the data provider tools HTTP server. Read-only — never touches exchange.

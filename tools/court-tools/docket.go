@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // PublishDocket handles POST /v1/docket.

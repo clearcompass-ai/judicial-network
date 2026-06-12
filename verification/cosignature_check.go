@@ -104,7 +104,7 @@ import (
 
 	"github.com/baseproof/baseproof/attestation"
 	"github.com/baseproof/baseproof/core/envelope"
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

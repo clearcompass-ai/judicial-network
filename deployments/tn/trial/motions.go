@@ -39,8 +39,8 @@ KEY DEPENDENCIES:
 package trial
 
 import (
+	"github.com/baseproof/tooling/libs/policy"
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
-	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

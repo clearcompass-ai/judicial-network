@@ -81,7 +81,7 @@ func TestFunctional_StayPendingAppeal_RequiresNoticeOfAppeal(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
 	v := w.Check("motion_stay_of_execution_pending_appeal",
-		prerequisites.CaseContext{
+		prerequisites.EvalContext{
 			ObservedEvents: []string{"case_initiation"},
 		})
 	if v.OK {
@@ -89,7 +89,7 @@ func TestFunctional_StayPendingAppeal_RequiresNoticeOfAppeal(t *testing.T) {
 	}
 
 	v = w.Check("motion_stay_of_execution_pending_appeal",
-		prerequisites.CaseContext{
+		prerequisites.EvalContext{
 			ObservedEvents: []string{"case_initiation", "notice_of_appeal"},
 		})
 	if !v.OK {
@@ -100,14 +100,14 @@ func TestFunctional_StayPendingAppeal_RequiresNoticeOfAppeal(t *testing.T) {
 func TestFunctional_InterlocutoryAppeal_RequiresInterlocutoryOrder(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_interlocutory_appeal", prerequisites.CaseContext{
+	v := w.Check("motion_interlocutory_appeal", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without interlocutory_order")
 	}
 
-	v = w.Check("motion_interlocutory_appeal", prerequisites.CaseContext{
+	v = w.Check("motion_interlocutory_appeal", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "interlocutory_order"},
 	})
 	if !v.OK {

@@ -153,7 +153,7 @@ func (g *BundleSubmitGate) Admit(entryBytes []byte) *Rejection {
 	// ancestor / authority requirements reject — which is the
 	// closed-by-default safety property we want at submission.
 	walker := &prerequisites.Walker{Policy: bundle.PrerequisitePolicy()}
-	wv := walker.Check(verdict.EventType, prerequisites.CaseContext{})
+	wv := walker.Check(verdict.EventType, prerequisites.EvalContext{})
 	if !wv.OK {
 		return &Rejection{
 			Code:   string(wv.Rejection),

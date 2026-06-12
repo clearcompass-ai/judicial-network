@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/baseproof/baseproof/crypto/cosign"
+	"github.com/clearcompass-ai/judicial-network/verification/eras"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -142,6 +145,37 @@ func TestVerifyOrigin_InvalidPosition(t *testing.T) {
 	}
 }
 
+func TestVerifyCrossLog_NoResolver_500_NeverPanics(t *testing.T) {
+	handler := NewVerifyCrossLogHandler(&Dependencies{})
+	body, _ := json.Marshal(map[string]any{
+		"source_log_did": "did:web:unknown", "proof": map[string]any{},
+	})
+	req := httptest.NewRequest("POST", "/v1/verify/cross-log", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 (era resolution not configured)", w.Code)
+	}
+}
+
+// Minimal era fakes for the class tests.
+type refusingEraInner struct{}
+
+func (refusingEraInner) SetForHead(context.Context, string, types.CosignedTreeHead) (*cosign.WitnessKeySet, error) {
+	return nil, errNoEraChain
+}
+func (refusingEraInner) CurrentSet(context.Context, string) (*cosign.WitnessKeySet, error) {
+	return nil, errNoEraChain
+}
+
+var errNoEraChain = errors.New("no chain")
+
+type emptyEraChains struct{}
+
+func (emptyEraChains) RecordsFor(context.Context, string) ([]types.WitnessRotationRecord, error) {
+	return nil, nil
+}
+
 func TestVerifyOrigin_UnknownLog(t *testing.T) {
 	handler := NewVerifyOriginHandler(emptyDeps())
 
@@ -225,7 +259,13 @@ func TestVerifyDelegation_UnknownLog(t *testing.T) {
 // ══════════════════════════════════════════════════════════════════════
 
 func TestVerifyCrossLog_MissingWitnessKeys(t *testing.T) {
-	deps := &Dependencies{}
+	// FED-1 #107: an unknown source log is the no-such-peer class (400);
+	// a nil resolver is the wiring-class 500 — pinned separately below.
+	noPeers, err := eras.New(refusingEraInner{}, emptyEraChains{}, nil, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := &Dependencies{Eras: noPeers}
 	handler := NewVerifyCrossLogHandler(deps)
 
 	body, _ := json.Marshal(map[string]any{

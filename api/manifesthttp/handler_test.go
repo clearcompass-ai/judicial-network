@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -41,11 +42,11 @@ func registry(t *testing.T) *jurisdiction.Registry {
 	return r
 }
 
-func buildInput(string) netmanifest.BuildInput {
-	return netmanifest.BuildInput{
-		Network: netmanifest.NetworkRef{Name: "tn-davidson"},
+func buildInput(string) networkbundle.BuildInput {
+	return networkbundle.BuildInput{
+		Network: networkbundle.NetworkRef{Name: "tn-davidson"},
 		Overlay: trial.ManifestOverlay(),
-		Status: netmanifest.StatusProbes{
+		Status: networkbundle.StatusProbes{
 			Protocol: "ledger:/v1/entries-hash/{hash}",
 			Finality: "ledger:/v1/tree/horizon",
 			Domain:   "terminal entry of the instance's closed_by/amended_by chain",
@@ -196,8 +197,8 @@ func TestServe_PublishedMatchesEnforced(t *testing.T) {
 
 func TestServe_DriftFlaggedLoudly(t *testing.T) {
 	// Publish a manifest built from DIFFERENT input — declared ≠ enforced.
-	drifted, err := netmanifest.Build(davidson.MustBundle(), netmanifest.BuildInput{
-		Network: netmanifest.NetworkRef{Name: "renamed-network"},
+	drifted, err := netmanifest.Build(davidson.MustBundle(), networkbundle.BuildInput{
+		Network: networkbundle.NetworkRef{Name: "renamed-network"},
 		Overlay: trial.ManifestOverlay(),
 		Status:  buildInput("").Status,
 	})
@@ -246,7 +247,7 @@ func TestServe_Envelope(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
 		t.Fatal(err)
 	}
-	if env.Format != netmanifest.Format {
+	if env.Format != networkbundle.ManifestFormat {
 		t.Errorf("format = %q", env.Format)
 	}
 	if len(env.Exchanges) != 1 || env.Exchanges[0] != davidson.ExchangeDID {

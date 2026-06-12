@@ -35,13 +35,15 @@ DESCRIPTION:
 package clerk_base
 
 import (
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
+
+	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // MustCosignaturePolicy returns the clerk-event cosignature mix.
 // Panics on duplicate or invalid rules.
 func MustCosignaturePolicy() policy.CosignatureMixPolicy {
-	p, err := policy.NewInMemoryPolicy(allClerkRules())
+	p, err := policy.NewInMemoryPolicy(allClerkRules(), policy.WithKnownFilerRoles(schemas.KnownFilerRoles()...))
 	if err != nil {
 		panic("clerk_base: cosignature policy: " + err.Error())
 	}

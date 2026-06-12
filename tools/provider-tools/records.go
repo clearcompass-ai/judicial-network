@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // GetRecord handles GET /v1/records/{docket}.

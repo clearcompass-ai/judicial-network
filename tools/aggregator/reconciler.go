@@ -6,7 +6,7 @@ import (
 	"log"
 
 	libagg "github.com/baseproof/tooling/libs/aggregator"
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // Reconciler periodically verifies that Postgres matches the log.
