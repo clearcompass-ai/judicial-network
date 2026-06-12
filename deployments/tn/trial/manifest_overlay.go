@@ -20,14 +20,14 @@ DESCRIPTION:
 package trial
 
 import (
-	"github.com/clearcompass-ai/judicial-network/netmanifest"
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // ManifestOverlay is the trial framework's per-event authoring overlay,
 // applied by netmanifest.Build on top of the enforced policy projection.
-func ManifestOverlay() map[string]netmanifest.OpOverlay {
-	return map[string]netmanifest.OpOverlay{
+func ManifestOverlay() map[string]networkbundle.OpOverlay {
+	return map[string]networkbundle.OpOverlay{
 		// Genesis: the filer files, the clerk cosigns (cosignature_mix.go §0);
 		// the case root anchors every later case_ref (prerequisites.go
 		// caseInitAncestor).

@@ -117,14 +117,14 @@ func TestMotions3D_InCosignatureRules(t *testing.T) {
 func TestFunctional_DiscoverySanctions_RequiresOrder(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_discovery_sanctions", prerequisites.CaseContext{
+	v := w.Check("motion_discovery_sanctions", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without interlocutory_order")
 	}
 
-	v = w.Check("motion_discovery_sanctions", prerequisites.CaseContext{
+	v = w.Check("motion_discovery_sanctions", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "interlocutory_order"},
 	})
 	if !v.OK {
@@ -139,7 +139,7 @@ func TestFunctional_DiscoverySanctions_RequiresOrder(t *testing.T) {
 func TestFunctional_CompelDiscovery_AdvisoryPassThroughs(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("motion_compel_discovery", prerequisites.CaseContext{
+	v := w.Check("motion_compel_discovery", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {

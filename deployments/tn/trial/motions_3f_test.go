@@ -103,7 +103,7 @@ func TestMotions3F_InCosignatureRules(t *testing.T) {
 // (Advisory race tolerance).
 func TestFunctional_Mistrial_AdvisoryPasses(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("motion_mistrial", prerequisites.CaseContext{
+	v := w.Check("motion_mistrial", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {

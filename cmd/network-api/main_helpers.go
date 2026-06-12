@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"net/http"
 	"os"
 	"strings"
@@ -43,7 +44,6 @@ import (
 	tncoa "github.com/clearcompass-ai/judicial-network/deployments/tn/coa"
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
-	"github.com/clearcompass-ai/judicial-network/netmanifest"
 )
 
 // registerProductionBundles loads every JN deployment Bundle from the
@@ -355,18 +355,18 @@ func buildManifestHandler(reg *jurisdiction.Registry, ledgerEndpoint string, led
 	creditToken := os.Getenv("API_LEDGER_CREDIT_TOKEN")
 	publicURL := os.Getenv("API_PUBLIC_URL") // this gate's own public base URL (optional)
 
-	input := func(destination string) netmanifest.BuildInput {
-		in := netmanifest.BuildInput{
-			Status: netmanifest.StatusProbes{
+	input := func(destination string) networkbundle.BuildInput {
+		in := networkbundle.BuildInput{
+			Status: networkbundle.StatusProbes{
 				Protocol: "ledger:/v1/entries-hash/{hash}",
 				Finality: "ledger:/v1/tree/horizon",
 				Domain:   "terminal entry of the instance's closed_by/amended_by chain",
 			},
 		}
 		if ledgerEndpoint != "" {
-			in.Endpoints = append(in.Endpoints, netmanifest.Endpoint{
+			in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
 				ID: "ledger", URL: ledgerEndpoint, Protocol: "baseproof-ledger/v1",
-				Transport: netmanifest.Transport{TLS: "server-verify"}, Status: "/healthz",
+				Transport: networkbundle.Transport{TLS: "server-verify"}, Status: "/healthz",
 			})
 		}
 		gating := "open"
@@ -379,16 +379,16 @@ func buildManifestHandler(reg *jurisdiction.Registry, ledgerEndpoint string, led
 		}
 		switch {
 		case publicURL != "":
-			in.Endpoints = append(in.Endpoints, netmanifest.Endpoint{
+			in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
 				ID: "gate", URL: publicURL, Protocol: "baseproof-exchange/v1",
-				Transport: netmanifest.Transport{TLS: "mtls"}, Status: "/readyz",
+				Transport: networkbundle.Transport{TLS: "mtls"}, Status: "/readyz",
 				DependsOn: dependsOnLedger(ledgerEndpoint),
 			})
-			in.Submit = netmanifest.Submit{Endpoint: "gate", Path: "/v1/entries/submit"}
+			in.Submit = networkbundle.Submit{Endpoint: "gate", Path: "/v1/entries/submit"}
 		case ledgerEndpoint != "":
-			in.Submit = netmanifest.Submit{Endpoint: "ledger", Path: "/v1/entries"}
+			in.Submit = networkbundle.Submit{Endpoint: "ledger", Path: "/v1/entries"}
 		}
-		in.Admission = netmanifest.Admission{
+		in.Admission = networkbundle.Admission{
 			Payment: payment, Gating: gating, WriteVia: in.Submit.Endpoint,
 			PolicyProbe: "ledger:/v1/admission/policy",
 		}

@@ -12,7 +12,7 @@ package sup_ct
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 )
 
 func TestCosignatureRules_AllValid(t *testing.T) {

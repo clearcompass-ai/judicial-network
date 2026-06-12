@@ -27,10 +27,10 @@ DESCRIPTION:
 package supreme_base
 
 import (
+	"github.com/baseproof/tooling/libs/policy"
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 	tnsupct "github.com/clearcompass-ai/judicial-network/deployments/tn/sup_ct"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
-	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

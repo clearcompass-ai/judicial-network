@@ -17,11 +17,11 @@ package composer
 import (
 	"fmt"
 
+	"github.com/baseproof/tooling/libs/policy"
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 	"github.com/clearcompass-ai/judicial-network/deployments/frameworks/clerk_base"
 	"github.com/clearcompass-ai/judicial-network/deployments/frameworks/credentials"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
-	"github.com/clearcompass-ai/judicial-network/policy"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

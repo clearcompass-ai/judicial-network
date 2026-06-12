@@ -4,23 +4,23 @@
 // (scheduling_order, interlocutory_order, protective_restraining_
 // order, warrant_issuance_return):
 //
-//   1. CosignaturePolicy has a rule for each event.
-//   2. Each rule's RequiredSignerRoles is [judge] (these are
-//      pure Adjudicator-only judicial acts).
-//   3. Each rule has IntraExchangeOnly=true (a judge cannot
-//      issue an order in another court's case).
-//   4. PrerequisitePolicy has a rule for each event.
-//   5. scheduling_order, protective_restraining_order, and
-//      warrant_issuance_return all require Hard case_initiation
-//      ancestor (a judge cannot issue these on a non-existent
-//      case).
-//   6. interlocutory_order requires a Hard prior motion_* event
-//      — the "rules on a prior motion" contract from dictionary
-//      §6. Includes regression coverage that the prereq list
-//      is non-empty (a future motion-catalog reshuffle that
-//      empties motionEventNames() would otherwise silently
-//      open admission to interlocutory_order entries without
-//      any motion prereq).
+//  1. CosignaturePolicy has a rule for each event.
+//  2. Each rule's RequiredSignerRoles is [judge] (these are
+//     pure Adjudicator-only judicial acts).
+//  3. Each rule has IntraExchangeOnly=true (a judge cannot
+//     issue an order in another court's case).
+//  4. PrerequisitePolicy has a rule for each event.
+//  5. scheduling_order, protective_restraining_order, and
+//     warrant_issuance_return all require Hard case_initiation
+//     ancestor (a judge cannot issue these on a non-existent
+//     case).
+//  6. interlocutory_order requires a Hard prior motion_* event
+//     — the "rules on a prior motion" contract from dictionary
+//     §6. Includes regression coverage that the prereq list
+//     is non-empty (a future motion-catalog reshuffle that
+//     empties motionEventNames() would otherwise silently
+//     open admission to interlocutory_order entries without
+//     any motion prereq).
 package trial
 
 import (
@@ -28,7 +28,7 @@ import (
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 )
 
 // hasPrefix is a small helper to avoid pulling in strings for

@@ -13,7 +13,7 @@ package rules
 import (
 	"testing"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 )
 
 func TestCosignatureRules_Validates(t *testing.T) {

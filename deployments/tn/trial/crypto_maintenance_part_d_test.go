@@ -6,7 +6,7 @@ import (
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 
-	"github.com/clearcompass-ai/judicial-network/policy"
+	"github.com/baseproof/tooling/libs/policy"
 )
 
 func findRulePartD(rules []policy.CosignatureRule, eventType string) *policy.CosignatureRule {
@@ -52,12 +52,12 @@ func TestPartD_EscrowRecoveryStrictestCosigners(t *testing.T) {
 func TestPartD_KeyRotation_RequiresPriorAppointment(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("institutional_key_rotation", prerequisites.CaseContext{})
+	v := w.Check("institutional_key_rotation", prerequisites.EvalContext{})
 	if v.OK {
 		t.Error("rotation without appointment must reject")
 	}
 
-	v = w.Check("institutional_key_rotation", prerequisites.CaseContext{
+	v = w.Check("institutional_key_rotation", prerequisites.EvalContext{
 		ObservedEvents: []string{"judicial_appointment"},
 	})
 	if !v.OK {
@@ -68,12 +68,12 @@ func TestPartD_KeyRotation_RequiresPriorAppointment(t *testing.T) {
 func TestPartD_EscrowRecovery_RequiresPriorAppointment(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("mofn_escrow_recovery_execution", prerequisites.CaseContext{})
+	v := w.Check("mofn_escrow_recovery_execution", prerequisites.EvalContext{})
 	if v.OK {
 		t.Error("recovery without prior appointment must reject")
 	}
 
-	v = w.Check("mofn_escrow_recovery_execution", prerequisites.CaseContext{
+	v = w.Check("mofn_escrow_recovery_execution", prerequisites.EvalContext{
 		ObservedEvents: []string{"judicial_appointment"},
 	})
 	if !v.OK {

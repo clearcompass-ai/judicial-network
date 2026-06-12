@@ -92,7 +92,7 @@ func TestMotions3C_InPrerequisiteRules(t *testing.T) {
 func TestFunctional_AllMotions3C_AcceptedAfterCaseInit(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 	for _, m := range motions3C() {
-		v := w.Check(m.EventType, prerequisites.CaseContext{
+		v := w.Check(m.EventType, prerequisites.EvalContext{
 			ObservedEvents: []string{"case_initiation"},
 		})
 		if !v.OK {

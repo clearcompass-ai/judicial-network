@@ -39,12 +39,16 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	libpolicy "github.com/baseproof/tooling/libs/policy"
 )
 
-// FilerRole enumerates the closed-set Tier 2 (ActorFiler) roles per
-// the v1.4 Event Dictionary, Part 1. Stable identifiers; never
-// renumber. The  cosignature-mix policy keys on these.
-type FilerRole string
+// FilerRole is the platform's opaque filer-capacity token (libs/policy);
+// THIS package owns the judicial closed set — the values below are the
+// content the mechanism is configured with (policy.WithKnownFilerRoles).
+// Stable identifiers; never renumber. The cosignature-mix policy keys on
+// these.
+type FilerRole = libpolicy.FilerRole
 
 const (
 	// FilerRoleProsecutor — District Attorney, prosecutor.
@@ -69,8 +73,9 @@ const (
 	FilerRoleGuardianAdLitem FilerRole = "guardian_ad_litem"
 )
 
-// IsValid reports whether r is a defined filer role.
-func (r FilerRole) IsValid() bool {
+// ValidFilerRole reports whether r is in the judicial closed set.
+// (FilerRole is a libs/policy alias, so this is a function, not a method.)
+func ValidFilerRole(r FilerRole) bool {
 	switch r {
 	case FilerRoleProsecutor, FilerRoleDefenseCounsel,
 		FilerRoleCivilAttorney, FilerRoleFiduciary,
@@ -78,6 +83,16 @@ func (r FilerRole) IsValid() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// KnownFilerRoles returns the judicial closed set — the content injected
+// into the libs cosignature-mix mechanism via policy.WithKnownFilerRoles.
+func KnownFilerRoles() []FilerRole {
+	return []FilerRole{
+		FilerRoleProsecutor, FilerRoleDefenseCounsel,
+		FilerRoleCivilAttorney, FilerRoleFiduciary,
+		FilerRoleGuardianAdLitem,
 	}
 }
 
@@ -129,7 +144,7 @@ var (
 
 // Validate runs structural sanity. Returns nil iff:
 //   - Actor == ActorFiler
-//   - Role.IsValid()
+//   - ValidFilerRole(Role)
 //   - DID != ""
 //   - SwornAt parses as RFC-3339Nano
 func (c *FiledByCapacity) Validate() error {
@@ -140,7 +155,7 @@ func (c *FiledByCapacity) Validate() error {
 		return fmt.Errorf("%w: got actor=%s (%d)",
 			ErrCapacityWrongActor, c.Actor.String(), int(c.Actor))
 	}
-	if !c.Role.IsValid() {
+	if !ValidFilerRole(c.Role) {
 		return fmt.Errorf("%w: got role=%q", ErrCapacityUnknownRole, string(c.Role))
 	}
 	if c.DID == "" {

@@ -4,7 +4,7 @@ FILE PATH: cmd/judicial-cli/manifest.go
 DESCRIPTION:
 
 	`publish-manifest` — on-log publication of the network consumption
-	manifest (netmanifest.Manifest). The manifest is projected from the SAME
+	manifest (networkbundle.Manifest). The manifest is projected from the SAME
 	compiled jurisdiction.Bundle the SubmitGate enforces, serialized to its
 	canonical bytes, and published as an entry whose Header.SchemaRef cites
 	the manifest ANCHOR schema position — the exact pattern the admission
@@ -26,6 +26,7 @@ DESCRIPTION:
 package main
 
 import (
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
@@ -52,7 +53,7 @@ import (
 // compiledBundle resolves the compiled-in Bundle + authoring overlay for a
 // destination — the same factories cmd/network-api registers, so what is
 // published is exactly what the gate enforces.
-func compiledBundle(destination string) (jurisdiction.Bundle, map[string]netmanifest.OpOverlay, error) {
+func compiledBundle(destination string) (jurisdiction.Bundle, map[string]networkbundle.OpOverlay, error) {
 	switch destination {
 	case tndavidson.ExchangeDID:
 		return tndavidson.MustBundle(), trial.ManifestOverlay(), nil
@@ -120,34 +121,34 @@ func runPublishManifest(args []string) error {
 	if err != nil {
 		return argsErr("%v", err)
 	}
-	in := netmanifest.BuildInput{
-		Network: netmanifest.NetworkRef{Name: *networkName},
+	in := networkbundle.BuildInput{
+		Network: networkbundle.NetworkRef{Name: *networkName},
 		Overlay: overlay,
-		Status: netmanifest.StatusProbes{
+		Status: networkbundle.StatusProbes{
 			Protocol: "ledger:/v1/entries-hash/{hash}",
 			Finality: "ledger:/v1/tree/horizon",
 			Domain:   "terminal entry of the instance's closed_by/amended_by chain",
 		},
 	}
 	if *ledgerURL != "" {
-		in.Endpoints = append(in.Endpoints, netmanifest.Endpoint{
+		in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
 			ID: "ledger", URL: *ledgerURL, Protocol: "baseproof-ledger/v1",
-			Transport: netmanifest.Transport{TLS: "server-verify"}, Status: "/healthz",
+			Transport: networkbundle.Transport{TLS: "server-verify"}, Status: "/healthz",
 		})
 	}
 	if *gateURL != "" {
-		in.Endpoints = append(in.Endpoints, netmanifest.Endpoint{
+		in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
 			ID: "gate", URL: *gateURL, Protocol: "baseproof-exchange/v1",
-			Transport: netmanifest.Transport{TLS: "mtls"}, Status: "/readyz",
+			Transport: networkbundle.Transport{TLS: "mtls"}, Status: "/readyz",
 			DependsOn: []string{"ledger"},
 		})
-		in.Admission = netmanifest.Admission{
+		in.Admission = networkbundle.Admission{
 			Payment: []string{"credit", "pow"}, Gating: "write-authorization", WriteVia: "gate",
 		}
-		in.Submit = netmanifest.Submit{Endpoint: "gate", Path: "/v1/entries/submit"}
+		in.Submit = networkbundle.Submit{Endpoint: "gate", Path: "/v1/entries/submit"}
 	} else if *ledgerURL != "" {
-		in.Admission = netmanifest.Admission{Payment: []string{"credit", "pow"}, WriteVia: "ledger"}
-		in.Submit = netmanifest.Submit{Endpoint: "ledger", Path: "/v1/entries"}
+		in.Admission = networkbundle.Admission{Payment: []string{"credit", "pow"}, WriteVia: "ledger"}
+		in.Submit = networkbundle.Submit{Endpoint: "ledger", Path: "/v1/entries"}
 	}
 	m, err := netmanifest.Build(b, in)
 	if err != nil {

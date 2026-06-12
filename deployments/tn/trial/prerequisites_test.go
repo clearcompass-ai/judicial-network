@@ -133,14 +133,14 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 func TestWalk_Verdict_RequiresMeritsPosture(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("verdict", prerequisites.CaseContext{
+	v := w.Check("verdict", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if v.OK {
 		t.Error("verdict without merits posture must reject")
 	}
 
-	v = w.Check("verdict", prerequisites.CaseContext{
+	v = w.Check("verdict", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "responsive_pleading"},
 	})
 	if !v.OK {
@@ -151,14 +151,14 @@ func TestWalk_Verdict_RequiresMeritsPosture(t *testing.T) {
 func TestWalk_JudicialAppointment_RequiresAuthority(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("judicial_appointment", prerequisites.CaseContext{
+	v := w.Check("judicial_appointment", prerequisites.EvalContext{
 		PrimaryAuthorityScopes: []string{"judicial_appointment_authority"},
 	})
 	if !v.OK {
 		t.Errorf("with authority must be OK: %+v", v)
 	}
 
-	v = w.Check("judicial_appointment", prerequisites.CaseContext{
+	v = w.Check("judicial_appointment", prerequisites.EvalContext{
 		PrimaryAuthorityScopes: []string{"some_other_authority"},
 	})
 	if v.OK {
@@ -176,7 +176,7 @@ func TestWalk_CrossExchange_NoPrereqs(t *testing.T) {
 		"case_transfer_inbound",
 		"relay_attestation",
 	} {
-		v := w.Check(evt, prerequisites.CaseContext{})
+		v := w.Check(evt, prerequisites.EvalContext{})
 		if !v.OK {
 			t.Errorf("%s must be OK with no prereqs: %+v", evt, v)
 		}
@@ -185,7 +185,7 @@ func TestWalk_CrossExchange_NoPrereqs(t *testing.T) {
 
 func TestWalk_CaseInitiation_NoPrereqs(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("case_initiation", prerequisites.CaseContext{})
+	v := w.Check("case_initiation", prerequisites.EvalContext{})
 	if !v.OK {
 		t.Errorf("case_initiation must be OK at the bootstrap: %+v", v)
 	}
@@ -194,7 +194,7 @@ func TestWalk_CaseInitiation_NoPrereqs(t *testing.T) {
 func TestWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("transcript_publication", prerequisites.CaseContext{
+	v := w.Check("transcript_publication", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation"},
 	})
 	if !v.OK {
@@ -204,7 +204,7 @@ func TestWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
 		t.Errorf("expected 1 Advisory violation, got %d", len(v.Advisory))
 	}
 
-	v = w.Check("transcript_publication", prerequisites.CaseContext{
+	v = w.Check("transcript_publication", prerequisites.EvalContext{
 		ObservedEvents: []string{"case_initiation", "hearing_convened_concluded"},
 	})
 	if !v.OK {
@@ -217,7 +217,7 @@ func TestWalk_TranscriptPublication_AdvisoryHearing(t *testing.T) {
 
 func TestWalk_UnknownEvent_Rejected(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
-	v := w.Check("wizard_motion", prerequisites.CaseContext{})
+	v := w.Check("wizard_motion", prerequisites.EvalContext{})
 	if v.Rejection != prerequisites.WalkRejectUnknownEvent {
 		t.Errorf("unknown event_type Rejection=%s", v.Rejection)
 	}

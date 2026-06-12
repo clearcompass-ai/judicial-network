@@ -57,14 +57,14 @@ func TestWalk_Revocation_RequiresAppointmentAncestor(t *testing.T) {
 
 	// Without prior appointment → reject.
 	v := w.Check("authority_revocation_disciplinary",
-		prerequisites.CaseContext{ObservedEvents: nil})
+		prerequisites.EvalContext{ObservedEvents: nil})
 	if v.OK {
 		t.Error("revocation without judicial_appointment must reject")
 	}
 
 	// With prior appointment → accept.
 	v = w.Check("authority_revocation_disciplinary",
-		prerequisites.CaseContext{
+		prerequisites.EvalContext{
 			ObservedEvents: []string{"judicial_appointment"},
 		})
 	if !v.OK {
@@ -78,14 +78,14 @@ func TestWalk_Revocation_RequiresAppointmentAncestor(t *testing.T) {
 func TestWalk_Disposition_RequiresAppellateRootAndMeritsOpinion(t *testing.T) {
 	w := &prerequisites.Walker{Policy: MustPrerequisitePolicy()}
 
-	v := w.Check("appellate_disposition", prerequisites.CaseContext{
+	v := w.Check("appellate_disposition", prerequisites.EvalContext{
 		ObservedEvents: []string{"appellate_case_initiation"},
 	})
 	if v.OK {
 		t.Error("must reject without merits opinion")
 	}
 
-	v = w.Check("appellate_disposition", prerequisites.CaseContext{
+	v = w.Check("appellate_disposition", prerequisites.EvalContext{
 		ObservedEvents: []string{
 			"appellate_case_initiation",
 			"appellate_opinion_publication",
@@ -105,7 +105,7 @@ func TestWalk_TopologyEvents_NoPrereqs(t *testing.T) {
 		"case_transfer_outbound",
 		"relay_attestation",
 	} {
-		v := w.Check(evt, prerequisites.CaseContext{})
+		v := w.Check(evt, prerequisites.EvalContext{})
 		if !v.OK {
 			t.Errorf("%s must be OK with no prereqs: %+v", evt, v)
 		}
