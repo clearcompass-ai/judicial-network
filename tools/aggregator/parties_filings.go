@@ -25,7 +25,7 @@ import (
 	"context"
 	"encoding/json"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // PartiesFilingRow is the in-memory shape one row produces. The

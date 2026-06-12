@@ -8,11 +8,11 @@ package manifesthttp_test
 // unknown-destination 404, the bare envelope, and ETag/304.
 
 import (
-	"github.com/baseproof/tooling/libs/networkbundle"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"net/http"
 	"net/http/httptest"
 	"strings"

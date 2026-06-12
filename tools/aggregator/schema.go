@@ -3,7 +3,7 @@ package aggregator
 import (
 	_ "embed"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // embeddedSchema is the projection schema, embedded so the aggregator binary is

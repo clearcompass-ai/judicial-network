@@ -4,8 +4,8 @@ github.com/alicebob/miniredis/v2 v2.33.0 h1:uvTF0EDeu9RLnUEG27Db5I68ESoIxTiXbNUi
 github.com/alicebob/miniredis/v2 v2.33.0/go.mod h1:MhP4a3EU7aENRi9aO+tHfTBZicLqQevyi/DJpoj6mi0=
 github.com/baseproof/baseproof v0.0.4-rc9 h1:EeKCeKkViw7rxhXNTvhkaNOOVDrY3ehW1TedIDUpvLA=
 github.com/baseproof/baseproof v0.0.4-rc9/go.mod h1:kRniiqlQwAMHq22wPPYQ06CrvNbrSJgY4MpuqlV7hfs=
-github.com/baseproof/tooling/libs v0.1.11 h1:aAToPZdjDSTrWjxbZZ5bsENLV2rD5Ilqxl/ug9kpL9I=
-github.com/baseproof/tooling/libs v0.1.11/go.mod h1:DbmFWv7ohXlmYLslS3PEMwp6SaCnSZuVe8/CQn73yZk=
+github.com/baseproof/tooling/libs v0.1.14 h1:MJ5o7oepKSBCAdabe+Fs30p8Jaqs03bZ44X5bH+iIOY=
+github.com/baseproof/tooling/libs v0.1.14/go.mod h1:3k+sCWGTZh2/w3y5eWOOtLO84cj1+TBE3p89zuBWbx4=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bits-and-blooms/bitset v1.24.4 h1:95H15Og1clikBrKr/DuzMXkQzECs1M6hhoGXLwLQOZE=

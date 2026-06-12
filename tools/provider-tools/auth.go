@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // APIKeyMiddleware validates the API key from the configured header.

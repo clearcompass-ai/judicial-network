@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	common "github.com/baseproof/tooling/libs/clitools"
+	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
 
 // SealedFilterMiddleware checks whether the requested case is sealed or expunged.
