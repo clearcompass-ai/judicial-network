@@ -623,10 +623,17 @@ func jnEnv(nc NetConfig) map[string]string {
 // UpJN brings up this network's JN enforcer (mTLS, verify-only ingest from
 // auditor-1) and gates on its mTLS /readyz.
 func UpJN(nc NetConfig, certsDir, fixturesDir, jnImage string) error {
+	// FED-1 #107: when the builder rendered foreign peer_logs for this JN,
+	// the binary loads them via --config (env overrides still apply on top).
+	var jnArgs []string
+	if _, statErr := os.Stat(filepath.Join(fixturesDir, jnPeerConfigFile)); statErr == nil {
+		jnArgs = []string{"--config", mntFixtures + "/" + jnPeerConfigFile}
+	}
 	if r := dockerx.Run(dockerx.RunSpec{
 		Name: nc.Name("jn"), Network: nc.Network, Image: jnImage, Detached: true,
-		Env:   jnEnv(nc),
-		Ports: []dockerx.Port{{Host: nc.JNPort, Container: 8443}},
+		Env:       jnEnv(nc),
+		ImageArgs: jnArgs,
+		Ports:     []dockerx.Port{{Host: nc.JNPort, Container: 8443}},
 		Mounts: []dockerx.Mount{
 			{Host: fixturesDir, Container: mntFixtures + ":ro"},
 			{Host: certsDir, Container: mntCerts + ":ro"},
