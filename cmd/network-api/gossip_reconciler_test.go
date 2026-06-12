@@ -13,6 +13,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -59,6 +60,8 @@ func writeFullBootstrap(t *testing.T, exchangeDID string, witnesses []string) st
 		doc += `"` + w + `"`
 	}
 	doc += `],` +
+		// rc4+: GenesisQuorumK is required and 2K>N enforced — majority (N/2+1).
+		`"genesis_quorum_k":` + strconv.Itoa(len(witnesses)/2+1) + `,` +
 		`"genesis_tree_head":{"root_hash":"` + strings.Repeat("0", 64) + `","tree_size":0},` +
 		`"genesis_admission_authorities":["0x00000000000000000000000000000000000000a1"],` +
 		`"genesis_admission_policy":{"gating_required":true,"cost_mode":"uncharged"},` +

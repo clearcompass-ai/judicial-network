@@ -51,10 +51,12 @@ func RotateFrom(old, next *equivocation.WitnessSet, sigCount int) (types.Witness
 	if err != nil {
 		return types.WitnessRotation{}, fmt.Errorf("rotation: current-set sign: %w", err)
 	}
-	// New-set acknowledgement: the NEW authority signs the same payload, attesting
-	// it accepts the role. Required by the on-log encoder; for a same-scheme
-	// rotation VerifyRotation does not re-check it (the dual-sign path is skipped).
-	newSigs, err := signRotation(payload, next, sigCount)
+	// New-set acknowledgement: EVERY joining witness must countersign (the
+	// rc-era per-joiner consent rule — VerifyRotation now names an
+	// uncountersigned joiner and refuses). Signing all of the new set
+	// guarantees every joining witness consents; a carried-over witness
+	// re-signing is harmless.
+	newSigs, err := signRotation(payload, next, next.N)
 	if err != nil {
 		return types.WitnessRotation{}, fmt.Errorf("rotation: new-set sign: %w", err)
 	}
