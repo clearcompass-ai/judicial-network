@@ -43,13 +43,11 @@ SPEC JSON SHAPE:
 package main
 
 import (
-	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"time"
@@ -57,6 +55,8 @@ import (
 	sdkenv "github.com/baseproof/baseproof/core/envelope"
 	sdksigs "github.com/baseproof/baseproof/crypto/signatures"
 	sdktypes "github.com/baseproof/baseproof/types"
+
+	"github.com/baseproof/tooling/libs/cli"
 )
 
 // SubmitSpec is the on-disk JSON shape that drives `submit`.
@@ -94,24 +94,21 @@ func runSubmit(args []string) error {
 		return argsErr("%v", err)
 	}
 
-	wire, canonicalHash, err := buildAndSign(spec)
+	wire, _, err := buildAndSign(spec)
 	if err != nil {
 		return wireErr("%v", err)
 	}
 
-	resp, status, err := postEntry(*endpoint, *authToken, wire)
+	// J7: the POST half of the agnostic dumb-write transport (libs/cli). The
+	// domain half — SubmitSpec -> envelope -> signByMethod — stays here; only
+	// the protocol mechanics are consumed.
+	hash, err := cli.SubmitWire(context.Background(), &http.Client{Timeout: 10 * time.Second}, *endpoint, *authToken, wire)
 	if err != nil {
 		return transportErr("%v", err)
 	}
-	if status != http.StatusAccepted {
-		return remoteErr("ledger returned HTTP %d: %s", status, string(resp))
-	}
-
-	// Echo SCT JSON to stdout, plus a one-liner with the
-	// canonical hash a developer can plug into `judicial-cli wait`.
-	fmt.Printf("canonical_hash=%s\n", hex.EncodeToString(canonicalHash[:]))
+	fmt.Printf("canonical_hash=%s\n", hash)
 	fmt.Printf("status=accepted (HTTP 202)\n")
-	fmt.Printf("sct=%s\n", string(resp))
+	fmt.Println("  (poll with: judicial-cli wait --endpoint", *endpoint, "--hash", hash+")")
 	return nil
 }
 
@@ -247,30 +244,6 @@ func resolveEventTime(spec int64) int64 {
 		return spec
 	}
 	return time.Now().UnixMicro()
-}
-
-// postEntry POSTs canonical bytes to ledger's /v1/entries.
-func postEntry(endpoint, token string, wire []byte) ([]byte, int, error) {
-	url := endpoint + "/v1/entries"
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(wire))
-	if err != nil {
-		return nil, 0, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, 0, fmt.Errorf("POST %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("read response: %w", err)
-	}
-	return body, resp.StatusCode, nil
 }
 
 // signByMethod dispatches signing to the correct primitive based on
