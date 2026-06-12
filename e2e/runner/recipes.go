@@ -59,7 +59,7 @@ func auditTiles(s *Session) error {
 	fmt.Printf("  backfill: %d roots + %d amendments → %d SMT leaves\n", st.Roots, st.Amendments, len(st.Leaves))
 
 	drainTimeout := time.Duration(intEnv("E2E_DRAIN_TIMEOUT_MIN", 30)) * time.Minute // raise for large -n (e.g. 300K)
-	if !stack.WaitDrained(t.CertsDir, t.LedgerPort, n+1, drainTimeout) {              // +1 for the genesis seed
+	if !stack.WaitDrained(t.CertsDir, t.LedgerPort, n+1, drainTimeout) {             // +1 for the genesis seed
 		sz, _ := stack.HeadStatus(t.CertsDir, t.LedgerPort)
 		return fmt.Errorf("builder did not drain to tree_size>=%d in %s (stuck at %d) — raise E2E_DRAIN_TIMEOUT_MIN", n+1, drainTimeout, sz)
 	}

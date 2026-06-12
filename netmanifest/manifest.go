@@ -64,12 +64,16 @@ type Manifest struct {
 
 // NetworkRef names the network by REFERENCE — identity + the genesis pin.
 // Trust material is NOT embedded: a consumer fetches the bootstrap from
-// BootstrapEndpoint and verifies it against BootstrapHash (the established
+// BootstrapEndpoint and verifies it against NetworkID (the established
 // content-address + TOFU pattern).
+//
+// J6: there is no bootstrap_hash sibling. NetworkID IS the canonical-bytes
+// hash (NetworkID = SHA-256(canonical bootstrap) = the old BootstrapHash) —
+// rc7 collapsed that duplication SDK-side because the two are byte-identical,
+// and the manifest must not re-mint it.
 type NetworkRef struct {
-	NetworkID         string `json:"network_id,omitempty"` // 64-hex
+	NetworkID         string `json:"network_id,omitempty"` // 64-hex = SHA-256(canonical bootstrap)
 	Name              string `json:"name,omitempty"`
-	BootstrapHash     string `json:"bootstrap_hash,omitempty"` // 64-hex sha256 of canonical bootstrap
 	BootstrapEndpoint string `json:"bootstrap_endpoint,omitempty"`
 	QuorumK           int    `json:"quorum_k,omitempty"`
 }

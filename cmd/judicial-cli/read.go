@@ -19,6 +19,7 @@ ENDPOINTS WRAPPED (all under ledger/api/server.go:19-49):
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/baseproof/tooling/libs/cli"
 )
 
 // ─── get ───────────────────────────────────────────────────────
@@ -107,7 +110,6 @@ func runWait(args []string) error {
 	endpoint := fs.String("endpoint", "", "ledger base URL")
 	hash := fs.String("hash", "", "canonical hash hex (64 chars) from `submit`")
 	timeout := fs.Duration("timeout", 30*time.Second, "give up after this long")
-	pollEvery := fs.Duration("poll", 250*time.Millisecond, "poll interval")
 	if err := fs.Parse(args); err != nil {
 		return argsErr("parsing flags: %w", err)
 	}
@@ -118,37 +120,16 @@ func runWait(args []string) error {
 		return argsErr("--hash must be 64 hex chars (got %d)", len(*hash))
 	}
 
-	deadline := time.Now().Add(*timeout)
-	url := fmt.Sprintf("%s/v1/entries-hash/%s", *endpoint, *hash)
-	for {
-		body, status, err := httpGet(url)
-		if err != nil {
-			return transportErr("%v", err)
-		}
-		if status == http.StatusOK {
-			// Body is JSON with at least {"state": "..."}.
-			var probe struct {
-				State    string `json:"state"`
-				Sequence uint64 `json:"sequence,omitempty"`
-			}
-			if err := json.Unmarshal(body, &probe); err != nil {
-				return wireErr("parse hash-lookup response: %w", err)
-			}
-			if probe.State == "sequenced" || probe.State == "shipped" {
-				fmt.Printf("state=%s sequence=%d\n", probe.State, probe.Sequence)
-				fmt.Println(string(body))
-				return nil
-			}
-			// state=pending → keep polling.
-		} else if status != http.StatusNotFound {
-			return remoteErr("HTTP %d: %s", status, string(body))
-		}
-		if time.Now().After(deadline) {
-			return remoteErr("timeout after %s; entry not yet sequenced (last status %d)",
-				timeout, status)
-		}
-		time.Sleep(*pollEvery)
+	// J7: the poll half of the agnostic transport (libs/cli). This also fixes
+	// the terminal-shape bug — the sequenced response carries sequence_number
+	// (the entry record), not {state,sequence} — which the SDK primitive reads
+	// correctly.
+	seq, err := cli.WaitForSequence(context.Background(), &http.Client{Timeout: 10 * time.Second}, *endpoint, *hash, *timeout)
+	if err != nil {
+		return remoteErr("%v", err)
 	}
+	fmt.Printf("sequence=%d\n", seq)
+	return nil
 }
 
 // ─── shared helpers ────────────────────────────────────────────

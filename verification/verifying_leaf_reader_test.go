@@ -2,8 +2,6 @@ package verification
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -15,63 +13,30 @@ import (
 
 	"github.com/baseproof/baseproof/core/smt"
 	"github.com/baseproof/baseproof/crypto/cosign"
-	"github.com/baseproof/baseproof/crypto/signatures"
 	sdklog "github.com/baseproof/baseproof/log"
 	"github.com/baseproof/baseproof/types"
+	"github.com/baseproof/baseproof/witness/witnesstest"
 )
 
 // ─────────────────────────────────────────────────────────────────────
 // Fixtures (mirror the SDK log package's own horizon test fixtures)
 // ─────────────────────────────────────────────────────────────────────
 
-type testWitness struct {
-	priv *ecdsa.PrivateKey
-	key  types.WitnessPublicKey
-}
-
-// mintWitnesses creates n ECDSA witnesses + a *cosign.WitnessKeySet at the
-// given quorum, bound to a fixed non-zero NetworkID (the cosign canonical
-// message rejects the zero NetworkID).
-func mintWitnesses(t *testing.T, n, quorum int) ([]testWitness, *cosign.WitnessKeySet, cosign.NetworkID) {
+// mintWitnesses mints an n-member, K-of-N ECDSA witness set via the SDK's
+// public witnesstest helper (J5: consume, don't reimplement). Returns the Set,
+// its keyset, and the bound NetworkID.
+func mintWitnesses(t *testing.T, n, quorum int) (*witnesstest.Set, *cosign.WitnessKeySet, cosign.NetworkID) {
 	t.Helper()
 	var nid cosign.NetworkID
 	nid[0] = 0x11
-	wits := make([]testWitness, n)
-	keys := make([]types.WitnessPublicKey, n)
-	for i := 0; i < n; i++ {
-		priv, err := signatures.GenerateKey()
-		if err != nil {
-			t.Fatalf("GenerateKey: %v", err)
-		}
-		pub := signatures.PubKeyBytes(&priv.PublicKey)
-		k := types.WitnessPublicKey{ID: sha256.Sum256(pub), PublicKey: pub, SchemeTag: signatures.SchemeECDSA}
-		wits[i] = testWitness{priv: priv, key: k}
-		keys[i] = k
-	}
-	set, err := cosign.NewECDSAWitnessKeySet(keys, nid, quorum)
-	if err != nil {
-		t.Fatalf("NewECDSAWitnessKeySet: %v", err)
-	}
-	return wits, set, nid
+	wset := witnesstest.NewSet(t, nid, n, quorum)
+	return wset, wset.KeySet, nid
 }
 
-// signHead has the first `signers` witnesses cosign head.
-func signHead(t *testing.T, head types.TreeHead, wits []testWitness, signers int, nid cosign.NetworkID) types.CosignedTreeHead {
+// signHead has the first `signers` members of wset cosign head.
+func signHead(t *testing.T, head types.TreeHead, wset *witnesstest.Set, signers int, nid cosign.NetworkID) types.CosignedTreeHead {
 	t.Helper()
-	out := types.CosignedTreeHead{TreeHead: head}
-	payload := cosign.NewTreeHeadPayload(head)
-	for i := 0; i < signers; i++ {
-		sig, err := cosign.SignECDSA(payload, nid, cosign.HashAlgoSHA256, wits[i].priv)
-		if err != nil {
-			t.Fatalf("SignECDSA[%d]: %v", i, err)
-		}
-		out.Signatures = append(out.Signatures, types.WitnessSignature{
-			PubKeyID:  wits[i].key.ID,
-			SchemeTag: signatures.SchemeECDSA,
-			SigBytes:  sig,
-		})
-	}
-	return out
+	return wset.CosignHead(t, nid, head, signers)
 }
 
 // treeFixture builds a one-leaf SMT, returning its root, the member key +

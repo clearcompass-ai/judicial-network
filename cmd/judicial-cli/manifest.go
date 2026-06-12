@@ -26,6 +26,7 @@ DESCRIPTION:
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
@@ -44,6 +45,8 @@ import (
 	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/netmanifest"
+
+	"github.com/baseproof/tooling/libs/cli"
 )
 
 // compiledBundle resolves the compiled-in Bundle + authoring overlay for a
@@ -209,15 +212,11 @@ func signAndPostEntry(endpoint, token string, u *sdkenv.Entry, signerDID, method
 	if err != nil {
 		return "", wireErr("serialize: %v", err)
 	}
-	resp, status, err := postEntry(endpoint, token, wire)
+	hash, err := cli.SubmitWire(context.Background(), &http.Client{Timeout: 10 * time.Second}, endpoint, token, wire)
 	if err != nil {
 		return "", transportErr("%v", err)
 	}
-	if status != http.StatusAccepted {
-		return "", remoteErr("ledger returned HTTP %d: %s", status, string(resp))
-	}
-	h := sha256.Sum256(wire)
-	return hex.EncodeToString(h[:]), nil
+	return hash, nil
 }
 
 // parseAnchorPos parses <log-did>@<seq>; a bare @<seq> defaults to the

@@ -265,10 +265,10 @@ func TestBuildAuthoritativeResolver_BadBootstrap_Errors(t *testing.T) {
 // DID at sequence 0 (the conservative as-of for an audit run that
 // pre-dates the JN's on-log walker).
 func TestBuildAuditorScopeAsOf_BootstrapPresent_ReturnsClosure(t *testing.T) {
-	bsPath := writeJSONFixture(t, map[string]any{
-		"exchange_did":        "did:web:state:tn:network",
-		"genesis_witness_set": []string{"did:key:zQ3sample1234567890abcdefghijklmnopqr"},
-	})
+	// J3: the door validates the whole constitution — the fixture must be a
+	// complete, valid doc, not a two-field stub.
+	bsPath := writeFullBootstrap(t, "did:web:state:tn:network",
+		[]string{"did:key:zQ3sample1234567890abcdefghijklmnopqr"})
 	cfg := config.Operational{NetworkBootstrapFile: bsPath}
 	closure := buildAuditorScopeAsOf(cfg)
 	if closure == nil {

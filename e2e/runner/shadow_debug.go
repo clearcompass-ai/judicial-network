@@ -18,8 +18,8 @@ import (
 	libsbundle "github.com/baseproof/tooling/libs/bundle"
 	"github.com/baseproof/tooling/libs/clitools"
 
+	"github.com/baseproof/tooling/libs/networkbundle"
 	"github.com/clearcompass-ai/judicial-network/e2e/stack"
-	"github.com/clearcompass-ai/judicial-network/networkbundle"
 )
 
 func init() {
@@ -133,7 +133,7 @@ func instrumentedProve(ctx context.Context, label string, t stack.Target, port i
 		say("✗ bootstrap doc: %v", err)
 		return err
 	}
-	trustRoots, err := genesisTrustRoots(doc, t.QuorumK)
+	trustRoots, err := genesisTrustRoots(doc)
 	if err != nil {
 		say("✗ genesis trust roots: %v", err)
 		return err
@@ -215,7 +215,7 @@ func instrumentedProve(ctx context.Context, label string, t stack.Target, port i
 	}
 
 	// ── the real gather → BuildStandalone → VerifyStandalone ──────────────────
-	nb, err := networkbundle.Build(doc, baseURL, t.QuorumK, networkbundle.Vocabulary{CitedMemberKey: key})
+	nb, err := networkbundle.Build(doc, baseURL, networkbundle.Vocabulary{CitedMemberKey: key})
 	if err != nil {
 		say("✗ networkbundle.Build: %v", err)
 		return err
