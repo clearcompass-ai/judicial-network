@@ -72,6 +72,7 @@ type Config struct {
 // NetworkConfig is one network's externally-addressable surface.
 type NetworkConfig struct {
 	Name          string
+	LogDID        string
 	LedgerURL     string
 	JNURL         string
 	AggregatorURL string
@@ -146,6 +147,7 @@ func network(envPrefix string, nm runstore.NetworkManifest, fixtures string) Net
 	}
 	nc := NetworkConfig{
 		Name:          name,
+		LogDID:        nm.LogDID,
 		LedgerURL:     hostURL("https", nm.LedgerPort),
 		JNURL:         hostURL("https", nm.JNPort),
 		AggregatorURL: hostURL("http", nm.AggregatorPort),

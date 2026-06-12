@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"github.com/clearcompass-ai/judicial-network/e2e/internal/bootstrap"
 	"path/filepath"
 
 	"github.com/clearcompass-ai/judicial-network/e2e/dockerx"
@@ -58,6 +59,10 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		ID: runID, Preset: spec.Name, Network: network, Admission: spec.Tuning.Admission,
 		WALRetentionBuffer: ncs[0].Tuning.WALRetentionBuffer, // env-overridden in DeriveNetConfigs; gates verify.walgc
 	}
+	// ── PASS 1: fixtures for EVERY network ─────────────────────────────
+	// All bootstraps must exist before any JN starts: in a multi-network run
+	// each JN's foreign peer_logs (FED-1 #107) are rendered from the SIBLING
+	// networks' minted constitutions.
 	for i := range ncs {
 		nc := &ncs[i]
 		fixturesDir := lay.Fixtures
@@ -91,6 +96,15 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		}
 		nc.LogDID = did
 		okf("bootstrap log DID: %s (genesis auditors: ledger + auditor)", did)
+	}
+
+	// ── PASS 2: services per network ────────────────────────────────────
+	for i := range ncs {
+		nc := &ncs[i]
+		fixturesDir := lay.Fixtures
+		if !nc.Single {
+			fixturesDir = filepath.Join(lay.Fixtures, nc.Spec.Name)
+		}
 
 		if nc.DB != pgDBDefault {
 			if err := in.EnsureDB(nc.DB); err != nil {
@@ -149,6 +163,34 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 
 		jnPort := 0
 		if nc.Spec.HasJN {
+			// FED-1 #107: this JN's foreign trust roots = every sibling
+			// network's minted constitution (chain ROOT only; eras arrive as
+			// verified rotation findings over the peer auditor's feed).
+			var peerSeeds []PeerSeed
+			for j := range ncs {
+				if j == i {
+					continue
+				}
+				peerFx := lay.Fixtures
+				if !ncs[j].Single {
+					peerFx = filepath.Join(lay.Fixtures, ncs[j].Spec.Name)
+				}
+				peerBoot, perr := bootstrap.Load(filepath.Join(peerFx, "network-bootstrap.json"))
+				if perr != nil {
+					return nil, fmt.Errorf("network %s: load peer %s bootstrap: %w", nc.Spec.Name, ncs[j].Spec.Name, perr)
+				}
+				seed, perr := PeerSeedFor(ncs[j], peerFx, fmt.Sprintf("%x", peerBoot.NetworkID))
+				if perr != nil {
+					return nil, fmt.Errorf("network %s: peer seed for %s: %w", nc.Spec.Name, ncs[j].Spec.Name, perr)
+				}
+				peerSeeds = append(peerSeeds, seed)
+			}
+			if len(peerSeeds) > 0 {
+				if err := WriteJNPeerConfig(fixturesDir, peerSeeds); err != nil {
+					return nil, fmt.Errorf("network %s: write jn peer config: %w", nc.Spec.Name, err)
+				}
+				okf("FED-1 peer_logs rendered: %d foreign trust roots", len(peerSeeds))
+			}
 			stage("network %q — JN enforcer on :%d", nc.Spec.Name, nc.JNPort)
 			if err := UpJN(*nc, lay.Certs, fixturesDir, images.JN); err != nil {
 				if !jnBestEffort() {
@@ -183,7 +225,7 @@ func Build(spec topology.StackSpec, runID string) (*runstore.Manifest, error) {
 		}
 
 		manifest.Networks = append(manifest.Networks, runstore.NetworkManifest{
-			Name: nc.Spec.Name, LogDID: did, QuorumK: nc.Spec.QuorumK,
+			Name: nc.Spec.Name, LogDID: nc.LogDID, QuorumK: nc.Spec.QuorumK,
 			LedgerName: nc.Name("ledger"), LedgerPort: nc.LedgerPort, ReaderPort: readerPort, JNPort: jnPort,
 			DB: nc.DB, Bucket: nc.Bucket,
 			AggregatorPort: aggPort, AuditorPorts: nc.AuditorPorts,
