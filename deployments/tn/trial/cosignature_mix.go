@@ -46,6 +46,8 @@ import (
 	"fmt"
 
 	"github.com/baseproof/tooling/libs/policy"
+
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
@@ -337,6 +339,10 @@ func CosignatureRules() []policy.CosignatureRule {
 	// returns motionSpecs; motions.go converts them to the
 	// canonical "filer + court_clerk cosign + bpr_number" shape.
 	rules = append(rules, motionCosignatureRules()...)
+
+	// ── PLATFORM REGISTRY KINDS (rc10) — shared TN mixes ─────────
+	rules = append(rules, platformkinds.CosignatureRules()...)
+
 	return rules
 }
 

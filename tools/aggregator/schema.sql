@@ -157,3 +157,17 @@ CREATE INDEX IF NOT EXISTS idx_parties_filings_event ON parties_filings(event_ty
 CREATE INDEX IF NOT EXISTS idx_parties_filings_binding
     ON parties_filings(capacity_binding_id)
     WHERE capacity_binding_id IS NOT NULL;
+
+-- rc10 destinations directory: a rebuildable projection of the on-log
+-- destination lifecycle kinds (provision -> amend* -> retire), W2-judged
+-- at replay. Drop and re-scan from watermark 0 to rebuild byte-identical.
+CREATE TABLE IF NOT EXISTS destinations (
+    destination_ref TEXT PRIMARY KEY,
+    exchange_did    TEXT NOT NULL,
+    endpoints       TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'active',  -- active | retired
+    log_did         TEXT NOT NULL,
+    provisioned_at  BIGINT NOT NULL,                 -- log sequence
+    updated_at      BIGINT NOT NULL                  -- log sequence of last mutation
+);
+CREATE INDEX IF NOT EXISTS destinations_exchange ON destinations (exchange_did);

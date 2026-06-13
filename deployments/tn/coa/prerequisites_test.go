@@ -56,16 +56,21 @@ func TestMustPrerequisitePolicy_IndependentCalls(t *testing.T) {
 func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
 	want := map[string]bool{
-		"appellate_case_initiation":       true,
-		"appellate_opinion_publication":   true,
-		"appellate_opinion_participation": true,
-		"appellate_disposition":           true,
-		"remand_affirmance":               true,
-		"judicial_appointment":            true,
-		"clerk_appointment":               true,
-		"case_transfer_inbound":           true,
-		"case_transfer_outbound":          true,
-		"relay_attestation":               true,
+		// rc10 platform registry kinds (platformkinds package)
+		"BP-ENTRY-DESTINATION-AMEND-V1":     true,
+		"BP-ENTRY-DESTINATION-PROVISION-V1": true,
+		"BP-ENTRY-DESTINATION-RETIRE-V1":    true,
+		"BP-ENTRY-EXCHANGE-GENESIS-V1":      true,
+		"appellate_case_initiation":         true,
+		"appellate_opinion_publication":     true,
+		"appellate_opinion_participation":   true,
+		"appellate_disposition":             true,
+		"remand_affirmance":                 true,
+		"judicial_appointment":              true,
+		"clerk_appointment":                 true,
+		"case_transfer_inbound":             true,
+		"case_transfer_outbound":            true,
+		"relay_attestation":                 true,
 	}
 	got := p.EventTypes()
 	if len(got) != len(want) {

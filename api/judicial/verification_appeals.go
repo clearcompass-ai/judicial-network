@@ -108,12 +108,14 @@ func (h *verifyAppealChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 // ─────────────────────────────────────────────────────────────────────
 
 // crossLogProofRequest accepts a serialized SDK CrossLogProof + the
-// source-log DID. The handler looks up the source log's witness
-// topology via deps.WitnessSets — one lookup, no three-way drift
-// possible. The legacy override fields (source_witness_keys_b64,
-// source_witness_quorum, source_network_id_hex) are removed in
-// v0.3.0; per-request overrides would defeat the encapsulation
-// guarantee.
+// source-log DID. The handler resolves the source log's witness
+// topology ERA-CORRECTLY through the deps' era resolver (FED-1 #107
+// PR-2: the genesis-rooted, journaled rotation chain — the static
+// deps.WitnessSets map this comment once named is DELETED; it survives
+// only as a boot canary cross-check). The legacy override fields
+// (source_witness_keys_b64, source_witness_quorum,
+// source_network_id_hex) are removed in v0.3.0; per-request overrides
+// would defeat the encapsulation guarantee.
 type crossLogProofRequest struct {
 	Proof        json.RawMessage `json:"proof"`
 	SourceLogDID string          `json:"source_log_did"`
@@ -179,8 +181,9 @@ func (h *verifyCrossLogProofHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 // decodeWitnessKeys is retained for ergonomic test-side construction
 // of in-memory WitnessKeySets from base64-encoded BLS pubkeys.
-// Production wiring builds WitnessSets at boot from operational
-// config; the request path no longer accepts inline keys.
+// Production resolves witness sets era-correctly from the journaled
+// rotation chain (FED-1 #107 PR-2); the request path no longer accepts
+// inline keys.
 func decodeWitnessKeys(b64Keys []string) ([]types.WitnessPublicKey, error) {
 	out := make([]types.WitnessPublicKey, 0, len(b64Keys))
 	for _, s := range b64Keys {

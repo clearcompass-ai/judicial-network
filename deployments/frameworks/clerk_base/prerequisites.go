@@ -19,6 +19,8 @@ package clerk_base
 
 import (
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
+
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 )
 
 // MustPrerequisitePolicy returns the clerk-event prerequisite policy.
@@ -36,6 +38,11 @@ func MustPrerequisitePolicy() prerequisites.Policy {
 	rulesByEvent := make(map[string][]prerequisites.Prereq, len(AllEventTypes()))
 	for _, evt := range AllEventTypes() {
 		rulesByEvent[evt] = nil
+	}
+	// PLATFORM REGISTRY KINDS (rc10) — advisory lifecycle edges; every
+	// bundle's cosignature vocabulary must be ⊆ its prereq vocabulary.
+	for k, v := range platformkinds.PrerequisiteRules() {
+		rulesByEvent[k] = v
 	}
 	p, err := prerequisites.NewInMemoryPolicy(rulesByEvent)
 	if err != nil {

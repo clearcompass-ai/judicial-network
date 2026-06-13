@@ -26,6 +26,8 @@ import (
 
 	"github.com/baseproof/tooling/libs/policy"
 
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
+
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
@@ -33,7 +35,7 @@ import (
 // for the universally required `case_initiation` event; replace
 // with your jurisdiction's actual policy.
 func CosignatureRules() []policy.CosignatureRule {
-	return []policy.CosignatureRule{
+	rules := []policy.CosignatureRule{
 		{
 			EventType:           "case_initiation",
 			RequiredSignerRoles: []string{"judge"},
@@ -41,6 +43,10 @@ func CosignatureRules() []policy.CosignatureRule {
 			IntraExchangeOnly:   true,
 		},
 	}
+
+	// ── PLATFORM REGISTRY KINDS (rc10) — shared mixes ─────────────
+	rules = append(rules, platformkinds.CosignatureRules()...)
+	return rules
 }
 
 // MustCosignaturePolicy returns a policy populated with

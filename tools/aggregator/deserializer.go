@@ -46,6 +46,14 @@ func classify(d *libagg.DecodedEntry) *ClassifiedEntry {
 }
 
 func classifyType(d *libagg.DecodedEntry) string {
+	// PLATFORM REGISTRY KINDS (rc10): a payload carrying a registry `kind`
+	// discriminator is classified by it, never by header shape — the kind
+	// IS the type. The projector owns the per-kind dispatch (destination
+	// lifecycle projects; delegation/credential/burn/genesis are
+	// deliberately inert here until their consumer waves).
+	if k, _ := d.Payload["kind"].(string); k != "" && isPlatformRegistryKind(k) {
+		return "platform_kind"
+	}
 	h := &d.Entry.Header
 	hasTarget := h.TargetRoot != nil
 	hasAuthority := h.AuthorityPath != nil

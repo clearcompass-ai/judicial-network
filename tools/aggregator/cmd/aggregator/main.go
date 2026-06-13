@@ -42,9 +42,14 @@ import (
 
 	_ "github.com/lib/pq" // postgres driver for the projection store (clitools.NewDB)
 
+	"github.com/baseproof/baseproof/core/envelope"
 	sdklog "github.com/baseproof/baseproof/log"
 	libagg "github.com/baseproof/tooling/libs/aggregator"
 	"github.com/baseproof/tooling/libs/tracing"
+
+	"github.com/clearcompass-ai/judicial-network/api/exchange/handlers"
+	deployregistry "github.com/clearcompass-ai/judicial-network/deployments/registry"
+	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 	"github.com/clearcompass-ai/judicial-network/tools/common"
 )
@@ -202,6 +207,17 @@ func run(argv []string, d deps) error {
 	// The agnostic engine (libs/aggregator) polls/decodes/advances the
 	// watermark; the judicial projector classifies + indexes each entry.
 	projector := aggregator.NewJudicialProjector(aggregator.NewIndexer(db))
+	// rc10 W2: the SAME gate the write door runs re-judges every
+	// destination entry at replay. Compiled-in deployment bundles —
+	// identical inputs to the api binary's gate; nil-gate would refuse
+	// (fail-closed) and the directory would never move.
+	registry := jurisdiction.NewRegistry()
+	for _, b := range deployregistry.LoadAll() {
+		if err := registry.Register(b); err != nil {
+			return fmt.Errorf("aggregator: register bundle: %w", err)
+		}
+	}
+	projector.Gate = gateAdapter{gate: &handlers.BundleSubmitGate{Registry: registry}}
 	scanner := libagg.NewScanner(libagg.ScannerConfig{
 		LogDIDs:      cfg.LogDIDs(),
 		BatchSize:    cfg.AggregatorBatchSize,
@@ -213,6 +229,8 @@ func run(argv []string, d deps) error {
 	}
 	probeClient.Transport = sdklog.WithOTel(probeClient.Transport) // trace + inject on probe calls
 	probes := newProbeHandlers(db, cfg.LedgerURL, probeClient)
+	probes.destinationsDB = db
+	probes.refusals = projector.Refusals
 
 	srv := &http.Server{
 		Addr: args.listenAddr,
@@ -264,6 +282,25 @@ func run(argv []string, d deps) error {
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("aggregator: probe shutdown: %v", err)
+	}
+	return nil
+}
+
+// gateAdapter bridges the api gate's Rejection type to the aggregator's
+// import-cycle-free SubmitGater seam. Same judge, same verdict.
+type gateAdapter struct{ gate *handlers.BundleSubmitGate }
+
+func (a gateAdapter) Admit(e *envelope.Entry) *aggregator.GateRejection {
+	// The door's gate takes canonical bytes (it owns deserialization);
+	// a ledger-decoded entry re-serializes canonically by the envelope
+	// contract. A serialize failure is a gate rejection like any other —
+	// counted, never applied, never an engine error.
+	raw, err := envelope.Serialize(e)
+	if err != nil {
+		return &aggregator.GateRejection{Code: "serialize_failed", Reason: err.Error()}
+	}
+	if rej := a.gate.Admit(raw); rej != nil {
+		return &aggregator.GateRejection{Code: rej.Code, Reason: rej.Reason}
 	}
 	return nil
 }

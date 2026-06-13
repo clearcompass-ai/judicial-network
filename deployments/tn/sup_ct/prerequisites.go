@@ -26,6 +26,8 @@ import (
 	"fmt"
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
+
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 )
 
 // PrerequisiteRules returns the closed-set TN Sup Ct
@@ -52,7 +54,7 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		Reason:           "authority_revocation_disciplinary requires a prior appointment for the Signer being revoked (v1.8 §12C)",
 	}
 
-	return map[string][]prerequisites.Prereq{
+	rules := map[string][]prerequisites.Prereq{
 		"appellate_case_initiation":       {noticeOfAppealAdvisory},
 		"appellate_opinion_publication":   {appellateRootHard},
 		"appellate_opinion_participation": {appellateRootHard},
@@ -85,6 +87,12 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		"case_transfer_outbound": {},
 		"relay_attestation":      {},
 	}
+
+	// ── PLATFORM REGISTRY KINDS (rc10) — advisory lifecycle edges ─
+	for k, v := range platformkinds.PrerequisiteRules() {
+		rules[k] = v
+	}
+	return rules
 }
 
 // MustPrerequisitePolicy returns a policy populated with

@@ -37,6 +37,8 @@ import (
 	"fmt"
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
+
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 )
 
 // PrerequisiteRules returns the closed-set TN COA prerequisite
@@ -64,7 +66,7 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		Reason:           "appellate_disposition requires a merits-level appellate_opinion_publication on this case root",
 	}
 
-	return map[string][]prerequisites.Prereq{
+	rules := map[string][]prerequisites.Prereq{
 		// ── appellate root bootstrap ────────────────────────────
 		"appellate_case_initiation": {noticeOfAppealAdvisory},
 
@@ -102,6 +104,12 @@ func PrerequisiteRules() map[string][]prerequisites.Prereq {
 		"case_transfer_outbound": {},
 		"relay_attestation":      {},
 	}
+
+	// ── PLATFORM REGISTRY KINDS (rc10) — advisory lifecycle edges ─
+	for k, v := range platformkinds.PrerequisiteRules() {
+		rules[k] = v
+	}
+	return rules
 }
 
 // MustPrerequisitePolicy returns a policy populated with

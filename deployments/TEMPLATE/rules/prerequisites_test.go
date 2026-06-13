@@ -38,9 +38,23 @@ func TestMustPrerequisitePolicy_DoesNotPanic(t *testing.T) {
 func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 	p := MustPrerequisitePolicy()
 	got := p.EventTypes()
-	if len(got) != 1 || got[0] != "case_initiation" {
-		t.Errorf("TEMPLATE skeleton vocabulary drift: want [case_initiation], got %v",
-			got)
+	// The skeleton vocabulary = case_initiation + the four rc10 platform
+	// registry kinds every deployment must speak (platform kinds,
+	// domain-injected policy). Sorted by EventTypes().
+	want := []string{
+		"BP-ENTRY-DESTINATION-AMEND-V1",
+		"BP-ENTRY-DESTINATION-PROVISION-V1",
+		"BP-ENTRY-DESTINATION-RETIRE-V1",
+		"BP-ENTRY-EXCHANGE-GENESIS-V1",
+		"case_initiation",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("TEMPLATE skeleton vocabulary drift: want %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("TEMPLATE skeleton vocabulary drift at %d: want %v, got %v", i, want, got)
+		}
 	}
 }
 

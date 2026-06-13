@@ -37,6 +37,8 @@ package clerk_base
 import (
 	"github.com/baseproof/tooling/libs/policy"
 
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
+
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
@@ -66,7 +68,7 @@ func allClerkRules() []policy.CosignatureRule {
 		RoleExecutiveClerk, RoleChiefDeputyClerk, RoleBranchManager,
 	}
 
-	return []policy.CosignatureRule{
+	rules := []policy.CosignatureRule{
 		// ─── COUNTY CLERK civic events ──────────────────────────
 		{
 			EventType:           EventMarriageLicenseIssued,
@@ -213,4 +215,9 @@ func allClerkRules() []policy.CosignatureRule {
 			IntraExchangeOnly:   true,
 		},
 	}
+
+	// ── PLATFORM REGISTRY KINDS (rc10) — clerk-exchange vocabulary:
+	// destination governance is an executive-tier act here.
+	rules = append(rules, platformkinds.CosignatureRulesWithRoles(executivePlusChief)...)
+	return rules
 }

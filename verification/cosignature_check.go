@@ -249,11 +249,21 @@ func extractEventType(payload []byte) (string, error) {
 	}
 	var probe struct {
 		EventType string `json:"event_type"`
+		Kind      string `json:"kind"`
 	}
 	if err := json.Unmarshal(payload, &probe); err != nil {
 		return "", err
 	}
-	return probe.EventType, nil
+	if probe.EventType != "" {
+		return probe.EventType, nil
+	}
+	// PLATFORM KINDS, DOMAIN-INJECTED POLICY (rc10): a platform registry
+	// payload carries a `kind` discriminator instead of `event_type`. The
+	// kind string IS the policy vocabulary key — the bundle's closed-set
+	// table either names it (with the domain's required mix) or the lookup
+	// refuses with the same unknown-event taxonomy as any other stranger.
+	// One table, one lookup, one rejection surface.
+	return probe.Kind, nil
 }
 
 // signerListContains reports whether any signature in sigs has

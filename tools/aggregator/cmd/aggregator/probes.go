@@ -28,11 +28,14 @@ DESCRIPTION:
 package main
 
 import (
+	"encoding/json"
+
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/clearcompass-ai/judicial-network/tools/aggregator"
 	"net/http"
 	"os"
 	"strings"
@@ -60,6 +63,11 @@ type dbProber interface {
 // registry + the readyz dependencies (db + ledger URL) so the
 // handlers can fail-fast when an upstream is unreachable.
 type probeHandlers struct {
+	// destinationsDB serves the rc10 directory route; refusals exposes
+	// the projector's named-refusal counters. Both optional (nil-safe).
+	destinationsDB *common.DB
+	refusals       *aggregator.RefusalCounter
+
 	metrics    *observability.MetricsRegistry
 	db         dbProber
 	ledgerURL  string
@@ -127,6 +135,10 @@ func (p *probeHandlers) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", p.healthz)
 	mux.HandleFunc("GET /readyz", p.readyz)
 	mux.Handle("GET /metrics", p.metrics.Handler())
+	// rc10: the destinations directory — served FROM THE PROJECTION
+	// (the on-log kinds, W2-judged), never from a frozen manifest. The
+	// manifest remains the seed/canary; this route is the source.
+	mux.HandleFunc("GET /v1/judicial/destinations", p.destinations)
 	return mux
 }
 
@@ -168,3 +180,48 @@ func (p *probeHandlers) readyz(w http.ResponseWriter, r *http.Request) {
 
 // Compile-time check that *common.DB satisfies dbProber.
 var _ dbProber = (*common.DB)(nil)
+
+// destinations serves GET /v1/judicial/destinations?state=&county=&type=
+// &after=&limit= from the rc10 projection: keyset pagination by
+// destination_ref, ETag from the max projected log position (If-None-Match
+// → 304). 503 until the projection store is wired.
+func (p *probeHandlers) destinations(w http.ResponseWriter, r *http.Request) {
+	if p.destinationsDB == nil {
+		http.Error(w, `{"error":"destinations projection not wired"}`, http.StatusServiceUnavailable)
+		return
+	}
+	q := r.URL.Query()
+	limit := 0
+	if v := q.Get("limit"); v != "" {
+		fmt.Sscanf(v, "%d", &limit)
+	}
+	rows, maxPos, err := aggregator.QueryDestinations(r.Context(), p.destinationsDB,
+		q.Get("state"), q.Get("county"), q.Get("type"), q.Get("after"), limit)
+	if err != nil {
+		http.Error(w, `{"error":"destinations query failed"}`, http.StatusInternalServerError)
+		return
+	}
+	etag := fmt.Sprintf(`"dest-%d"`, maxPos)
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Content-Type", "application/json")
+	next := ""
+	if len(rows) > 0 {
+		next = rows[len(rows)-1].DestinationRef
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"destinations": rows,
+		"next_after":   next,
+		"refusals":     p.refusalSnapshot(),
+	})
+}
+
+func (p *probeHandlers) refusalSnapshot() map[string]int {
+	if p.refusals == nil {
+		return nil
+	}
+	return p.refusals.Snapshot()
+}
