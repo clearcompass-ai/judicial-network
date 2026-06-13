@@ -83,6 +83,12 @@ type Dependencies struct {
 	// expose /v1/verify/complete.
 	SignatureVerifier attestation.SignatureVerifier
 
+	// Authority is the process-wide verifying AuthorityChainResolver the
+	// /v1/verify/cosignature handler checks each cosigner's claimed role
+	// against (G19) — the same instance the exchange submit gate uses, so
+	// read-side and write-side agree. nil ⇒ fail-closed on multi-sig.
+	Authority jurisdiction.AuthorityChainResolver
+
 	// PR-2 (baseproof v1.5.1 / issue #75 read-time Stage 6).
 	// PolicyStage holds per-log dependencies for the SDK Path C
 	// composite's Policy stage. When the feature flag

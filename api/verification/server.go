@@ -128,6 +128,13 @@ type ServerConfig struct {
 	// every other route is unaffected. Production wires the same
 	// jurisdiction.Registry the exchange submit gate uses.
 	Registry *jurisdiction.Registry
+
+	// Authority is the process-wide verifying AuthorityChainResolver the
+	// read-side cosignature check (/v1/verify/cosignature) uses to confirm
+	// each cosigner's claimed role against its on-log delegation chain
+	// (G19) — the same instance the exchange submit gate uses. nil keeps
+	// the verifier fail-closed on multi-sig entries.
+	Authority jurisdiction.AuthorityChainResolver
 }
 
 // Server is the verification service HTTP server.
@@ -157,6 +164,7 @@ func BuildHandler(cfg ServerConfig) http.Handler {
 		MultiTrust:         cfg.MultiTrust,
 		Journal:            cfg.Journal,
 		Registry:           cfg.Registry,
+		Authority:          cfg.Authority,
 	}
 
 	mux := http.NewServeMux()

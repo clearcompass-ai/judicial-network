@@ -211,9 +211,6 @@ func (backsNobody) Resolve(_ context.Context, req jurisdiction.AuthorityRequest)
 // pre-G19 trust resolver would have ADMITTED this self-asserted clerk.
 func TestBundleSubmitGate_CaseInitiation_SelfAssertedClerk_RejectedG19(t *testing.T) {
 	reg := davidsonRegistry(t)
-	davidson.SetAuthorityChainResolver(backsNobody{})
-	t.Cleanup(func() { davidson.SetAuthorityChainResolver(nil) })
-
 	b := gateBytes(t, atyDID, map[string]any{
 		"event_type": "case_initiation",
 		"signed_by_capacities": []map[string]any{
@@ -223,7 +220,10 @@ func TestBundleSubmitGate_CaseInitiation_SelfAssertedClerk_RejectedG19(t *testin
 			},
 		},
 	}, clerkDID)
-	rej := (&BundleSubmitGate{Registry: reg}).Admit(context.Background(), b)
+	// Authority backs no chain → the clerk's claim is unverified → dropped
+	// → not counted → insufficient_signers. The pre-G19 trust resolver
+	// would have ADMITTED this self-asserted clerk.
+	rej := (&BundleSubmitGate{Registry: reg, Authority: backsNobody{}}).Admit(context.Background(), b)
 	if rej == nil || rej.Code != "insufficient_signers" {
 		t.Fatalf("self-asserted clerk must be rejected at the gate (G19), got %+v", rej)
 	}

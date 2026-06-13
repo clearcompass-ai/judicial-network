@@ -130,11 +130,13 @@ type ServerConfig struct {
 }
 
 // NewBundleSubmitGate builds the production per-jurisdiction submit
-// gate over a frozen registry. The cosignature RoleResolver is
-// derived per-entry from each entry's signed_by_capacities block, so
-// the gate needs no off-log registry beyond the compiled-in Bundles.
-func NewBundleSubmitGate(r *jurisdiction.Registry) handlers.SubmitGater {
-	return &handlers.BundleSubmitGate{Registry: r}
+// gate over a frozen registry. The cosignature RoleResolver is the
+// VERIFYING verification.ChainRoleResolver, derived per-entry from each
+// entry's signed_by_capacities block and checked against authority —
+// the process-wide verifying AuthorityChainResolver (G19). authority
+// nil (ledger-less) ⇒ the gate fail-closes any multi-sig entry.
+func NewBundleSubmitGate(r *jurisdiction.Registry, authority jurisdiction.AuthorityChainResolver) handlers.SubmitGater {
+	return &handlers.BundleSubmitGate{Registry: r, Authority: authority}
 }
 
 // Server is the exchange HTTP server.

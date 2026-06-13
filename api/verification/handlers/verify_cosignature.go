@@ -56,6 +56,7 @@ import (
 	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/baseproof/baseproof/types"
 
+	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
@@ -110,9 +111,13 @@ func (h *VerifyCosignatureHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 
 	// Per-entry VERIFYING role resolver: each cosigner's claimed role in
 	// signed_by_capacities is checked against its on-log delegation chain
-	// via the destination Bundle's AuthorityChainResolver (G19). Mirrors
-	// the submit gate so read-side and write-side agree.
-	resolver, err := verification.NewChainRoleResolver(ctx, entry.DomainPayload, bundle.AuthorityChainResolver())
+	// via the gate's Authority resolver (G19). Mirrors the submit gate so
+	// read-side and write-side agree.
+	authority := h.deps.Authority
+	if authority == nil {
+		authority = jurisdiction.NoAuthorityChainResolver()
+	}
+	resolver, err := verification.NewChainRoleResolver(ctx, entry.DomainPayload, authority)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("role resolver: %v", err))
 		return
