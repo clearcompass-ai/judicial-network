@@ -16,7 +16,7 @@ permissions:
 
 env:
   REQUIRED_BASEPROOF_VERSION: v0.0.5-rc1
-  REQUIRED_LIBS_VERSION: v0.1.14
+  REQUIRED_LIBS_VERSION: v0.1.15
 
 jobs:
   sdk-version-pin:
