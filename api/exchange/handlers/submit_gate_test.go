@@ -17,6 +17,7 @@ DESCRIPTION:
 package handlers
 
 import (
+	"context"
 	"testing"
 
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
@@ -29,13 +30,13 @@ type stubGater struct {
 	rej *Rejection
 }
 
-func (s stubGater) Admit(_ []byte) *Rejection { return s.rej }
+func (s stubGater) Admit(_ context.Context, _ []byte) *Rejection { return s.rej }
 
 // ─── stubGater behavior pin ──────────────────────────────────────
 
 func TestStubGater_Admits(t *testing.T) {
 	g := stubGater{rej: nil}
-	if g.Admit(nil) != nil {
+	if g.Admit(context.Background(), nil) != nil {
 		t.Error("nil rejection must mean Admit pass")
 	}
 }
@@ -43,7 +44,7 @@ func TestStubGater_Admits(t *testing.T) {
 func TestStubGater_Rejects(t *testing.T) {
 	want := &Rejection{Code: "x", Reason: "y"}
 	g := stubGater{rej: want}
-	got := g.Admit(nil)
+	got := g.Admit(context.Background(), nil)
 	if got == nil || got.Code != "x" || got.Reason != "y" {
 		t.Errorf("stub rejection drift: got %+v", got)
 	}
@@ -53,7 +54,7 @@ func TestStubGater_Rejects(t *testing.T) {
 
 func TestBundleSubmitGate_DeserializeFails(t *testing.T) {
 	g := &BundleSubmitGate{Registry: jurisdiction.NewRegistry()}
-	rej := g.Admit([]byte("not an envelope"))
+	rej := g.Admit(context.Background(), []byte("not an envelope"))
 	if rej == nil || rej.Code != "deserialize_failed" {
 		t.Errorf("garbage bytes: want deserialize_failed, got %+v", rej)
 	}
@@ -63,7 +64,7 @@ func TestBundleSubmitGate_DeserializeFails(t *testing.T) {
 
 func TestBundleSubmitGate_NilBytes(t *testing.T) {
 	g := &BundleSubmitGate{Registry: jurisdiction.NewRegistry()}
-	rej := g.Admit(nil)
+	rej := g.Admit(context.Background(), nil)
 	if rej == nil || rej.Code != "deserialize_failed" {
 		t.Errorf("nil bytes: want deserialize_failed, got %+v", rej)
 	}

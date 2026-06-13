@@ -108,10 +108,13 @@ func (h *VerifyCosignatureHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Per-entry role resolver from the entry's own signed_by_capacities.
-	resolver, err := verification.NewPayloadRoleResolver(entry.DomainPayload)
+	// Per-entry VERIFYING role resolver: each cosigner's claimed role in
+	// signed_by_capacities is checked against its on-log delegation chain
+	// via the destination Bundle's AuthorityChainResolver (G19). Mirrors
+	// the submit gate so read-side and write-side agree.
+	resolver, err := verification.NewChainRoleResolver(ctx, entry.DomainPayload, bundle.AuthorityChainResolver())
 	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("malformed signed_by_capacities: %v", err))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("role resolver: %v", err))
 		return
 	}
 

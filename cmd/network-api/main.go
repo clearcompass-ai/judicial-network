@@ -274,6 +274,12 @@ func run(argv []string, d deps) error {
 		sdkguard.AssertResolverPopulated(judicialDeps.AuthoritativeResolver, "jn-authoritative-resolver")
 	}
 
+	// PRE-13b #181 (G19): wire the verifying AuthorityChainResolver into
+	// the Bundle seam so the cosignature gate checks each cosigner's
+	// claimed role against its on-log delegation chain. No-op (seam stays
+	// closed → fail-closed) when the ledger inputs are absent.
+	wireAuthorityResolvers(judicialDeps.Fetcher, judicialDeps.LeafReader)
+
 	// Bind api/judicial's caller-DID resolver to the composer's
 	// auth-set callerDID. Without this hook the judicial handlers
 	// never see the authenticated caller — every request 401s. The

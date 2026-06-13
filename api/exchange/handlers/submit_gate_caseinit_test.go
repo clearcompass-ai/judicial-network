@@ -25,6 +25,7 @@ DESCRIPTION:
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -34,6 +35,7 @@ import (
 	davidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"
+	"github.com/clearcompass-ai/judicial-network/verification"
 )
 
 const (
@@ -117,8 +119,12 @@ func TestBundleSubmitGate_CaseInitiation_BuilderEndToEnd(t *testing.T) {
 		t.Fatalf("Serialize: %v", err)
 	}
 
-	gate := &BundleSubmitGate{Registry: reg}
-	if rej := gate.Admit(b); rej != nil {
+	// Trust-mode resolver: this test pins the cosignature THRESHOLD
+	// mechanics, not chain verification (G19 has its own test). The
+	// builder clerk carries no delegation_ref, so a verifying resolver
+	// would drop it — MapRoleResolver supplies the role directly.
+	gate := &BundleSubmitGate{Registry: reg, Resolver: verification.NewMapRoleResolver().Bind(clerkDID, "court_clerk", davidson.ExchangeDID)}
+	if rej := gate.Admit(context.Background(), b); rej != nil {
 		t.Fatalf("expected admit, got code=%q reason=%q", rej.Code, rej.Reason)
 	}
 }
@@ -132,7 +138,7 @@ func TestBundleSubmitGate_CaseInitiation_NoCosigner_Rejected(t *testing.T) {
 		"event_type":    "case_initiation",
 		"docket_number": "2027-CR-8",
 	})
-	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
+	rej := (&BundleSubmitGate{Registry: reg}).Admit(context.Background(), b)
 	if rej == nil || rej.Code != string("insufficient_signers") {
 		t.Fatalf("want insufficient_signers, got %+v", rej)
 	}
@@ -141,7 +147,7 @@ func TestBundleSubmitGate_CaseInitiation_NoCosigner_Rejected(t *testing.T) {
 func TestBundleSubmitGate_CaseInitiation_NoEventType_Rejected(t *testing.T) {
 	reg := davidsonRegistry(t)
 	b := gateBytes(t, atyDID, map[string]any{"docket_number": "2027-CR-9"}, clerkDID)
-	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
+	rej := (&BundleSubmitGate{Registry: reg}).Admit(context.Background(), b)
 	if rej == nil || rej.Code != "missing_event_type" {
 		t.Fatalf("want missing_event_type, got %+v", rej)
 	}
@@ -156,7 +162,11 @@ func TestBundleSubmitGate_CaseInitiation_CrossExchangeClerk_Rejected(t *testing.
 			{"did": clerkDID, "role": "court_clerk", "exchange": "did:web:state:tn:shelby"},
 		},
 	}, clerkDID)
-	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
+	// Trust-mode resolver binding the clerk to the SHELBY exchange — the
+	// IntraExchangeOnly mismatch (shelby != davidson) is what this test
+	// pins, independent of chain verification.
+	gate := &BundleSubmitGate{Registry: reg, Resolver: verification.NewMapRoleResolver().Bind(clerkDID, "court_clerk", "did:web:state:tn:shelby")}
+	rej := gate.Admit(context.Background(), b)
 	if rej == nil || rej.Code != "exchange_mismatch" {
 		t.Fatalf("want exchange_mismatch, got %+v", rej)
 	}
@@ -169,7 +179,7 @@ func TestBundleSubmitGate_CaseInitiation_MalformedCapacities_Rejected(t *testing
 		"event_type":           "case_initiation",
 		"signed_by_capacities": "not-an-array",
 	}, clerkDID)
-	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
+	rej := (&BundleSubmitGate{Registry: reg}).Admit(context.Background(), b)
 	if rej == nil || rej.Code != "malformed_capacities" {
 		t.Fatalf("want malformed_capacities, got %+v", rej)
 	}
@@ -180,8 +190,41 @@ func TestBundleSubmitGate_UnknownExchange_Rejected(t *testing.T) {
 	reg := jurisdiction.NewRegistry()
 	reg.Freeze()
 	b := gateBytes(t, atyDID, map[string]any{"event_type": "case_initiation"}, clerkDID)
-	rej := (&BundleSubmitGate{Registry: reg}).Admit(b)
+	rej := (&BundleSubmitGate{Registry: reg}).Admit(context.Background(), b)
 	if rej == nil || rej.Code != "unknown_exchange" {
 		t.Fatalf("want unknown_exchange, got %+v", rej)
+	}
+}
+
+// backsNobody is an AuthorityChainResolver that backs no chain — every
+// claim is unverified. Drives the G19 drop at the gate.
+type backsNobody struct{}
+
+func (backsNobody) Resolve(_ context.Context, req jurisdiction.AuthorityRequest) jurisdiction.AuthorityVerdict {
+	return jurisdiction.AuthorityVerdict{OK: false, SignerDID: req.SignerDID, Rejection: "unbacked"}
+}
+
+// TestBundleSubmitGate_CaseInitiation_SelfAssertedClerk_RejectedG19 is the
+// gate-level G19 proof: a cosigner that CLAIMS court_clerk (with a
+// delegation_ref) but whose chain the authority does not back is dropped
+// by the verifying resolver → not counted → insufficient_signers. The
+// pre-G19 trust resolver would have ADMITTED this self-asserted clerk.
+func TestBundleSubmitGate_CaseInitiation_SelfAssertedClerk_RejectedG19(t *testing.T) {
+	reg := davidsonRegistry(t)
+	davidson.SetAuthorityChainResolver(backsNobody{})
+	t.Cleanup(func() { davidson.SetAuthorityChainResolver(nil) })
+
+	b := gateBytes(t, atyDID, map[string]any{
+		"event_type": "case_initiation",
+		"signed_by_capacities": []map[string]any{
+			{
+				"did": clerkDID, "role": "court_clerk", "exchange": davidson.ExchangeDID,
+				"delegation_ref": map[string]any{"log_did": davidson.ExchangeDID, "sequence": 9},
+			},
+		},
+	}, clerkDID)
+	rej := (&BundleSubmitGate{Registry: reg}).Admit(context.Background(), b)
+	if rej == nil || rej.Code != "insufficient_signers" {
+		t.Fatalf("self-asserted clerk must be rejected at the gate (G19), got %+v", rej)
 	}
 }

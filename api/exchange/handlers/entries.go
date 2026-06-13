@@ -397,7 +397,7 @@ func (h *EntrySubmitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// handler is a pure proxy — pre-3E.4 behavior preserved for
 	// tests and deployments without a Bundle Registry wired.
 	if h.deps.SubmitGate != nil {
-		if rej := h.deps.SubmitGate.Admit(body); rej != nil {
+		if rej := h.deps.SubmitGate.Admit(r.Context(), body); rej != nil {
 			status := http.StatusForbidden
 			if rej.Code == "deserialize_failed" {
 				status = http.StatusBadRequest
