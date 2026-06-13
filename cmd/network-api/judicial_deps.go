@@ -396,6 +396,18 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 	// spec is the prior ECDSA-only shape.
 	specs := make([]crosslog.WitnessSetSpec, len(cfg.Witness.Sets))
 	for i, s := range cfg.Witness.Sets {
+		// PRE-11 Phase B (Demote All Surviving Copies): a Set that restates
+		// the HOME log's witnesses duplicates the constitution's
+		// genesis_witness_set. Cross-check-fatal — equal = ok, mismatch =
+		// refuse boot. The on-log genesis set is authority, never the config
+		// copy; leaving the home set unconfigured derives it from the
+		// bootstrap (the env/k8s path). Foreign/peer sets are untouched —
+		// their on-log resolution is PRE-12.
+		if doc.ExchangeDID != "" && s.LogDID == doc.ExchangeDID {
+			if cerr := crossCheckHomeWitnessSet(s, doc.GenesisWitnessSet); cerr != nil {
+				return nil, cerr
+			}
+		}
 		spec, serr := witnessSpecWithBLS(s.LogDID, s.WitnessDIDs, s.QuorumK, s.WitnessDeclarationsFile, s.AuthorizedBLSWitnessIDs)
 		if serr != nil {
 			return nil, fmt.Errorf("witness set %q: %w", s.LogDID, serr)
@@ -403,6 +415,30 @@ func buildWitnessSets(cfg config.Operational) (map[string]*cosign.WitnessKeySet,
 		specs[i] = spec
 	}
 	return crosslog.BuildWitnessSetsForPolicy(specs, ids.NetworkID, allowedCosignTags)
+}
+
+// crossCheckHomeWitnessSet enforces PRE-11 Phase B's demotion of the home-log
+// witness set to cross-check-fatal: a WitnessSetConfig whose LogDID is the
+// bootstrap's own exchange_did must match the constitution's
+// genesis_witness_set exactly (as a DID set). Equal ⇒ ok; any drift ⇒ refuse
+// boot. The on-log genesis set is the authority; the config copy may only
+// agree, never override (and may be omitted entirely to derive it).
+func crossCheckHomeWitnessSet(s config.WitnessSetConfig, genesisWitnessSet []string) error {
+	want := make(map[string]struct{}, len(genesisWitnessSet))
+	for _, d := range genesisWitnessSet {
+		want[d] = struct{}{}
+	}
+	if len(s.WitnessDIDs) != len(want) {
+		return fmt.Errorf("witness set %q restates the home log but lists %d witness DIDs vs the constitution's genesis_witness_set %d — the on-log genesis set is authority; refusing to boot on a drifted copy (omit the home set to derive it)",
+			s.LogDID, len(s.WitnessDIDs), len(want))
+	}
+	for _, d := range s.WitnessDIDs {
+		if _, ok := want[d]; !ok {
+			return fmt.Errorf("witness set %q restates the home log but DID %q is absent from the constitution's genesis_witness_set — refusing to boot on a drifted copy",
+				s.LogDID, d)
+		}
+	}
+	return nil
 }
 
 // loadBootstrapDoc reads + parses the network bootstrap document. It is the
