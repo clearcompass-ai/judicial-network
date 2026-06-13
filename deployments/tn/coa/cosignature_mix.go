@@ -42,12 +42,14 @@ import (
 
 	"github.com/baseproof/tooling/libs/policy"
 
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
+
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // CosignatureRules is the TN COA cosig fixture.
 func CosignatureRules() []policy.CosignatureRule {
-	return []policy.CosignatureRule{
+	rules := []policy.CosignatureRule{
 		// ── appellate case lifecycle ─────────────────────────────
 		{
 			EventType:           "appellate_case_initiation",
@@ -125,6 +127,10 @@ func CosignatureRules() []policy.CosignatureRule {
 			IntraExchangeOnly:   false,
 		},
 	}
+
+	// ── PLATFORM REGISTRY KINDS (rc10) — shared TN mixes ─────────
+	rules = append(rules, platformkinds.CosignatureRules()...)
+	return rules
 }
 
 // MustCosignaturePolicy returns a policy populated with

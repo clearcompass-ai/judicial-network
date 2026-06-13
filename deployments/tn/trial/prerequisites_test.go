@@ -16,6 +16,8 @@ import (
 	"testing"
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
+
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 )
 
 // ─── Construction & validation ─────────────────────────────────────
@@ -110,7 +112,8 @@ func TestPrerequisitePolicy_VocabularyPin(t *testing.T) {
 		}
 	}
 	// Total size = base + motions, no extras.
-	wantSize := len(baseWant) + len(allMotions())
+	wantSize := len(baseWant) + len(allMotions()) +
+		len(platformkinds.PrerequisiteRules()) // rc10 platform registry kinds
 	// motion_continuance / motion_summary_judgment / responsive_pleading
 	// / motion_state_dismissal currently appear in BOTH lists (legacy
 	// base + §3 helper). De-dup before comparing.

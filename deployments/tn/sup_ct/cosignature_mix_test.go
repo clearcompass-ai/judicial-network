@@ -122,7 +122,7 @@ func TestCosignatureRules_PersonnelMajority(t *testing.T) {
 }
 
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const want = 11 // 4 appellate + remand + revocation +
+	const want = 15 // 4 appellate + remand + revocation +
 	//                 2 personnel + 3 topology
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("Sup Ct cosig rule count: want %d, got %d", want, got)

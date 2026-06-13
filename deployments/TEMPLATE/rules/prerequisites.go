@@ -28,15 +28,23 @@ import (
 	"fmt"
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
+
+	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 )
 
 // PrerequisiteRules returns the TEMPLATE skeleton vocabulary.
 // One event (case_initiation) with no prereqs — the universal
 // case-root anchor.
 func PrerequisiteRules() map[string][]prerequisites.Prereq {
-	return map[string][]prerequisites.Prereq{
+	rules := map[string][]prerequisites.Prereq{
 		"case_initiation": {},
 	}
+
+	// ── PLATFORM REGISTRY KINDS (rc10) — advisory lifecycle edges ─
+	for k, v := range platformkinds.PrerequisiteRules() {
+		rules[k] = v
+	}
+	return rules
 }
 
 // MustPrerequisitePolicy returns a policy populated with

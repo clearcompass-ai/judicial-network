@@ -22,9 +22,9 @@ func TestCosignatureRules_Validates(t *testing.T) {
 	}
 }
 
-func TestCosignatureRules_OneRule(t *testing.T) {
-	if got := len(CosignatureRules()); got != 1 {
-		t.Errorf("TEMPLATE skeleton must ship 1 rule; got %d", got)
+func TestCosignatureRules_SkeletonCount(t *testing.T) {
+	if got := len(CosignatureRules()); got != 5 {
+		t.Errorf("TEMPLATE skeleton must ship 5 rules (case_initiation + the 4 rc10 platform kinds); got %d", got)
 	}
 }
 

@@ -272,7 +272,7 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 //     events (institutional_key_rotation,
 //     mofn_escrow_recovery_execution).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 30
+	const baseRules = 34
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)

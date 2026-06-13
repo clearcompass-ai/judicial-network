@@ -177,7 +177,7 @@ func TestCosignatureRules_OpinionEventsJudgeOnly(t *testing.T) {
 // TestCosignatureRules_ExpectedCount pins the rule count so an
 // accidental addition / deletion shows up in CI.
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const want = 10 // 4 appellate + remand + 2 personnel + 3 topology
+	const want = 14 // 4 appellate + remand + 2 personnel + 3 topology
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN COA cosig rule count: want %d, got %d", want, got)
 	}
