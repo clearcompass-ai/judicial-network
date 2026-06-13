@@ -365,7 +365,7 @@ func buildManifestHandler(reg *jurisdiction.Registry, ledgerEndpoint string, led
 		}
 		if ledgerEndpoint != "" {
 			in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
-				ID: "ledger", URL: ledgerEndpoint, Protocol: "baseproof-ledger/v1",
+				ID: "ledger", URL: ledgerEndpoint, Protocol: "baseproof-ledger/v1", Auth: networkbundle.AuthNone,
 				Transport: networkbundle.Transport{TLS: "server-verify"}, Status: "/healthz",
 			})
 		}
@@ -381,6 +381,7 @@ func buildManifestHandler(reg *jurisdiction.Registry, ledgerEndpoint string, led
 		case publicURL != "":
 			in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
 				ID: "gate", URL: publicURL, Protocol: "baseproof-exchange/v1",
+				Auth:      networkbundle.AuthSignedEnvelope,
 				Transport: networkbundle.Transport{TLS: "mtls"}, Status: "/readyz",
 				DependsOn: dependsOnLedger(ledgerEndpoint),
 			})

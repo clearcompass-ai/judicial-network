@@ -73,6 +73,9 @@ func runPublishManifest(args []string) error {
 	token := fs.String("token", "", "Mode A bearer token (empty → the ledger must accept unauthenticated writes)")
 	anchor := fs.String("anchor", "", "manifest anchor schema position <log-did>@<seq> (required unless --publish-anchor)")
 	publishAnchor := fs.Bool("publish-anchor", false, "publish the manifest ANCHOR schema entry instead (step 1 of 2)")
+	networkID := fs.String("network-id", "", "the network's 64-hex content id (REQUIRED for step 2: VerifyManifest binds the manifest to it)")
+	var dtAnchors multiFlag
+	fs.Var(&dtAnchors, "datatype-anchor", "name=<log-did>@<seq>#<hash> (repeatable; anchors a driveable datatype on-log)")
 	networkName := fs.String("network-name", "", "network name for the manifest's network reference")
 	ledgerURL := fs.String("ledger-url", "", "public ledger endpoint to declare in the manifest")
 	gateURL := fs.String("gate-url", "", "public gate (network-api) endpoint to declare; empty ⇒ writes declared ledger-direct")
@@ -121,9 +124,17 @@ func runPublishManifest(args []string) error {
 	if err != nil {
 		return argsErr("%v", err)
 	}
+	if *networkID == "" {
+		return argsErr("--network-id is required: VerifyManifest refuses a manifest that names no network (publish-side validation, not consumer drift)")
+	}
+	dts, dtErr := dtAnchors.datatypes()
+	if dtErr != nil {
+		return argsErr("%v", dtErr)
+	}
 	in := networkbundle.BuildInput{
-		Network: networkbundle.NetworkRef{Name: *networkName},
-		Overlay: overlay,
+		Network:   networkbundle.NetworkRef{Name: *networkName, NetworkID: *networkID},
+		Datatypes: dts,
+		Overlay:   overlay,
 		Status: networkbundle.StatusProbes{
 			Protocol: "ledger:/v1/entries-hash/{hash}",
 			Finality: "ledger:/v1/tree/horizon",
@@ -132,13 +143,13 @@ func runPublishManifest(args []string) error {
 	}
 	if *ledgerURL != "" {
 		in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
-			ID: "ledger", URL: *ledgerURL, Protocol: "baseproof-ledger/v1",
+			ID: "ledger", URL: *ledgerURL, Protocol: "baseproof-ledger/v1", Auth: networkbundle.AuthNone,
 			Transport: networkbundle.Transport{TLS: "server-verify"}, Status: "/healthz",
 		})
 	}
 	if *gateURL != "" {
 		in.Endpoints = append(in.Endpoints, networkbundle.Endpoint{
-			ID: "gate", URL: *gateURL, Protocol: "baseproof-exchange/v1",
+			ID: "gate", URL: *gateURL, Protocol: "baseproof-exchange/v1", Auth: networkbundle.AuthSignedEnvelope,
 			Transport: networkbundle.Transport{TLS: "mtls"}, Status: "/readyz",
 			DependsOn: []string{"ledger"},
 		})
@@ -236,4 +247,37 @@ func parseAnchorPos(arg, defaultLogDID string) (sdktypes.LogPosition, error) {
 		return sdktypes.LogPosition{}, fmt.Errorf("--anchor sequence %q: not a uint64", arg[at+1:])
 	}
 	return sdktypes.LogPosition{LogDID: ld, Sequence: seq}, nil
+}
+
+// multiFlag collects repeatable --datatype-anchor values.
+type multiFlag []string
+
+func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
+func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
+
+// datatypes parses name=<log-did>@<seq>#<hash> triples into anchored
+// Datatype rows — the exact shape VerifyManifest's driveable-anchor rule
+// demands. Refuses malformed input at the flag, not at the consumer.
+func (m multiFlag) datatypes() ([]networkbundle.Datatype, error) {
+	out := make([]networkbundle.Datatype, 0, len(m))
+	for _, v := range m {
+		name, rest, ok := strings.Cut(v, "=")
+		if !ok || name == "" {
+			return nil, fmt.Errorf("--datatype-anchor %q: want name=<log-did>@<seq>#<hash>", v)
+		}
+		logDID, rest2, ok2 := strings.Cut(rest, "@")
+		if !ok2 || logDID == "" {
+			return nil, fmt.Errorf("--datatype-anchor %q: missing <log-did>@", v)
+		}
+		seqStr, hash, ok3 := strings.Cut(rest2, "#")
+		if !ok3 || len(hash) != 64 {
+			return nil, fmt.Errorf("--datatype-anchor %q: want @<seq>#<64-hex-hash>", v)
+		}
+		seq, err := strconv.ParseUint(seqStr, 10, 64)
+		if err != nil || seq == 0 {
+			return nil, fmt.Errorf("--datatype-anchor %q: sequence must be a positive integer", v)
+		}
+		out = append(out, networkbundle.Datatype{Name: name, LogDID: logDID, Sequence: seq, ContentHash: hash})
+	}
+	return out, nil
 }
