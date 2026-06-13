@@ -191,3 +191,172 @@ func TestEraFlip_ThroughTheRealStack(t *testing.T) {
 		t.Fatalf("rogue head: want ErrCannotResolveEra, got %v", err)
 	}
 }
+
+// TestEraFlip_SuccessorEraResolvesToNewSet completes #107's era-N+1 verdict
+// matrix IN PROCESS (memory journal → real resolver; no PG, no Docker): the
+// SAME stack that resolves an era-N head to set(N) must resolve an era-N+1
+// head (cosigned by the SUCCESSOR set after a rotation) to set(N+1) — and a
+// head cosigned by a CROSS-ERA mix (one key from each set) satisfies neither
+// era's quorum and is refused by name. This is the "rotate, then era-N
+// verifies under set(N) and era-N+1 under set(N+1), wrong refused" leg —
+// proven without the federation fleet; the live tri-network run is then
+// belt-and-suspenders, not the invariant's only home.
+func TestEraFlip_SuccessorEraResolvesToNewSet(t *testing.T) {
+	ctx := context.Background()
+	var nid cosign.NetworkID
+	for i := range nid {
+		nid[i] = byte(i + 7)
+	}
+	s0 := witnesstest.NewSet(t, nid, 3, 2)
+	s1 := witnesstest.NewSet(t, nid, 3, 2)
+
+	journal := witnessrotation.NewMemoryRotationJournal()
+	if err := journal.RecordRotation(ctx, types.WitnessRotationRecord{
+		Rotation:     witnesstest.MintRotation(t, nid, s0, s1, 2),
+		EffectivePos: types.LogPosition{LogDID: peerDID, Sequence: 100},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	inner, err := witnessrotation.NewJournalWitnessSetResolver(journal, []witnessrotation.LogTrustRoot{{
+		LogDID: peerDID, Genesis: s0.KeySet,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := New(inner, journal, []string{peerDID}, time.Minute, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// helper: a head at TreeSize cosigned by the first two members of `set`.
+	headCosignedBy := func(set *witnesstest.Set) types.CosignedTreeHead {
+		h := types.TreeHead{RootHash: [32]byte{9}, SMTRoot: [32]byte{8}, ReceiptRoot: [32]byte{7}, TreeSize: 200}
+		p := cosign.NewTreeHeadPayload(h)
+		ss := make([]types.WitnessSignature, 2)
+		for i := 0; i < 2; i++ {
+			sb, serr := cosign.SignECDSA(p, nid, cosign.HashAlgoSHA256, set.Privs[i])
+			if serr != nil {
+				t.Fatal(serr)
+			}
+			ss[i] = types.WitnessSignature{PubKeyID: set.Keys[i].ID, SchemeTag: signatures.SchemeECDSA, SigBytes: sb}
+		}
+		return types.CosignedTreeHead{TreeHead: h, Signatures: ss}
+	}
+
+	// era N+1: a head cosigned by the SUCCESSOR set resolves to set(N+1).
+	got, err := r.SetForHead(ctx, peerDID, headCosignedBy(s1))
+	if err != nil {
+		t.Fatalf("successor-era head must resolve era-correctly: %v", err)
+	}
+	if got.SetHash() != s1.KeySet.SetHash() {
+		t.Fatal("a head cosigned by the NEW set must resolve to set(N+1), not set(N)")
+	}
+
+	// era N: the same stack still resolves an outgoing-set head to set(N).
+	gotN, err := r.SetForHead(ctx, peerDID, headCosignedBy(s0))
+	if err != nil || gotN.SetHash() != s0.KeySet.SetHash() {
+		t.Fatalf("outgoing-set head must still resolve to set(N): set=%v err=%v", gotN != nil, err)
+	}
+
+	// cross-era mix: one key from each set — neither era's quorum is met;
+	// refused by name (the "wrong era is refused" half).
+	h := types.TreeHead{RootHash: [32]byte{9}, SMTRoot: [32]byte{8}, ReceiptRoot: [32]byte{7}, TreeSize: 200}
+	p := cosign.NewTreeHeadPayload(h)
+	mix := make([]types.WitnessSignature, 2)
+	for i, src := range []*witnesstest.Set{s0, s1} {
+		sb, serr := cosign.SignECDSA(p, nid, cosign.HashAlgoSHA256, src.Privs[i])
+		if serr != nil {
+			t.Fatal(serr)
+		}
+		mix[i] = types.WitnessSignature{PubKeyID: src.Keys[i].ID, SchemeTag: signatures.SchemeECDSA, SigBytes: sb}
+	}
+	if _, err := r.SetForHead(ctx, peerDID, types.CosignedTreeHead{TreeHead: h, Signatures: mix}); !errors.Is(err, ErrCannotResolveEra) {
+		t.Fatalf("a cross-era cosignature mix must refuse by name: %v", err)
+	}
+}
+
+// TestRebuildByReIngest_ByteIdenticalEraResolution is #173's invariant proven
+// IN PROCESS (memory journal → real resolver; no PG, no Docker): a JN's
+// per-peer rotation chain is an enforcer's CACHE — destroy it and rebuild
+// from the peers' feeds (here: re-record the SAME rotation sequence a cold
+// puller would re-ingest) and era resolution is BYTE-IDENTICAL. "Discard the
+// journal object and build a fresh one" IS process-death for an in-memory
+// cache; the dockerx container-restart leg is then environmental
+// confirmation, not the invariant's only home.
+func TestRebuildByReIngest_ByteIdenticalEraResolution(t *testing.T) {
+	ctx := context.Background()
+	var nid cosign.NetworkID
+	for i := range nid {
+		nid[i] = byte(i + 11)
+	}
+	s0 := witnesstest.NewSet(t, nid, 3, 2)
+	s1 := witnesstest.NewSet(t, nid, 3, 2)
+	s2 := witnesstest.NewSet(t, nid, 3, 2)
+
+	// The peer's rotation feed, in delivery order: s0→s1 @100, s1→s2 @200.
+	feed := []types.WitnessRotationRecord{
+		{Rotation: witnesstest.MintRotation(t, nid, s0, s1, 2), EffectivePos: types.LogPosition{LogDID: peerDID, Sequence: 100}},
+		{Rotation: witnesstest.MintRotation(t, nid, s1, s2, 2), EffectivePos: types.LogPosition{LogDID: peerDID, Sequence: 200}},
+	}
+	// headBy: a head at TreeSize cosigned by the first two members of `set`.
+	headBy := func(set *witnesstest.Set, treeSize uint64) types.CosignedTreeHead {
+		h := types.TreeHead{RootHash: [32]byte{1}, SMTRoot: [32]byte{2}, ReceiptRoot: [32]byte{3}, TreeSize: treeSize}
+		p := cosign.NewTreeHeadPayload(h)
+		ss := make([]types.WitnessSignature, 2)
+		for i := 0; i < 2; i++ {
+			sb, serr := cosign.SignECDSA(p, nid, cosign.HashAlgoSHA256, set.Privs[i])
+			if serr != nil {
+				t.Fatal(serr)
+			}
+			ss[i] = types.WitnessSignature{PubKeyID: set.Keys[i].ID, SchemeTag: signatures.SchemeECDSA, SigBytes: sb}
+		}
+		return types.CosignedTreeHead{TreeHead: h, Signatures: ss}
+	}
+
+	// build constructs a fresh journal+resolver and re-ingests the feed —
+	// exactly what a cold-booted puller does (in-memory cursors restart).
+	build := func() *Resolver {
+		j := witnessrotation.NewMemoryRotationJournal()
+		for _, rec := range feed {
+			if err := j.RecordRotation(ctx, rec); err != nil {
+				t.Fatal(err)
+			}
+		}
+		inner, err := witnessrotation.NewJournalWitnessSetResolver(j, []witnessrotation.LogTrustRoot{{LogDID: peerDID, Genesis: s0.KeySet}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := New(inner, j, []string{peerDID}, time.Minute, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+
+	// Resolve a head from EACH era against the original and the rebuilt
+	// resolver; every verdict must be byte-identical.
+	heads := []struct {
+		name string
+		head types.CosignedTreeHead
+		want [32]byte
+	}{
+		{"era-0 (genesis s0)", headBy(s0, 50), s0.KeySet.SetHash()},
+		{"era-1 (s1)", headBy(s1, 150), s1.KeySet.SetHash()},
+		{"era-2 (s2)", headBy(s2, 250), s2.KeySet.SetHash()},
+	}
+	orig := build()
+	rebuilt := build() // the "restart": a fresh process re-ingesting the same feed
+	for _, hc := range heads {
+		o, oerr := orig.SetForHead(ctx, peerDID, hc.head)
+		rb, rerr := rebuilt.SetForHead(ctx, peerDID, hc.head)
+		if oerr != nil || rerr != nil {
+			t.Fatalf("%s: resolution errored (orig=%v rebuilt=%v)", hc.name, oerr, rerr)
+		}
+		if o.SetHash() != hc.want || rb.SetHash() != hc.want {
+			t.Fatalf("%s: era-correctness broke (orig=%x rebuilt=%x want=%x)", hc.name, o.SetHash(), rb.SetHash(), hc.want)
+		}
+		if o.SetHash() != rb.SetHash() {
+			t.Fatalf("%s: REBUILD LAW BROKEN — rebuilt resolution differs from original", hc.name)
+		}
+	}
+}
