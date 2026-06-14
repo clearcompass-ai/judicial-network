@@ -63,10 +63,10 @@ func (b *bundle) PrerequisitePolicy() prerequisites.Policy       { return b.preq
 // the production verifier-backed resolver. Defaults to
 // NoAuthorityChainResolver() so tests and the in-tree
 // MustBundle() factory work out-of-the-box without a fetcher
-// dependency. Production injects the index-walk resolver
-// (verification.NewMultiLogAuthorityResolver(queriers, fetcher))
-// — the network-api builds it in buildAuthorityResolver and passes
-// it to the submit gate + verify handler by constructor injection.
+// dependency. Production deployments call
+// SetAuthorityChainResolver(resolver) at boot — typically with
+// a verification.NewBundleChainResolver(catalog, fetcher,
+// leafReader) — before registering the Bundle.
 var authorityChainResolver jurisdiction.AuthorityChainResolver = jurisdiction.NoAuthorityChainResolver()
 
 // SetAuthorityChainResolver injects a production resolver. Pass
