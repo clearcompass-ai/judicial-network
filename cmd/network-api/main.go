@@ -278,7 +278,7 @@ func run(argv []string, d deps) error {
 	// the submit gate + verify handler check each cosigner's claimed role
 	// against. nil in ledger-less mode → the gates fail-close any multi-sig
 	// entry rather than trust an unverifiable claim.
-	authority := buildAuthorityResolver(judicialDeps.DelegateQueriers, judicialDeps.Fetcher)
+	authority := buildAuthorityResolver(judicialDeps.Fetcher, judicialDeps.LeafReader)
 
 	// Bind api/judicial's caller-DID resolver to the composer's
 	// auth-set callerDID. Without this hook the judicial handlers
