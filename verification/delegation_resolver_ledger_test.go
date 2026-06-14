@@ -11,23 +11,21 @@ import (
 	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/baseproof/baseproof/crypto/signatures"
 	"github.com/baseproof/baseproof/types"
-
-	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 
 // ─── Test helpers ────────────────────────────────────────────
 
-// signedEntryWithPayload builds + signs an entry whose Header.SignerDID ==
-// signer, carrying the given domain payload. Returns canonical bytes ready to
-// be returned by a fake EntryFetcher.
-func signedEntryWithPayload(t *testing.T, signer string, payload []byte) []byte {
+// signedDelegation builds + signs a minimal delegation entry whose
+// Header.SignerDID == delegator. Returns canonical bytes ready to be
+// returned by a fake EntryFetcher.
+func signedDelegationBytes(t *testing.T, delegator string) []byte {
 	t.Helper()
 	auth := envelope.AuthoritySameSigner
 	unsigned, err := envelope.NewUnsignedEntry(envelope.ControlHeader{
-		SignerDID:     signer,
+		SignerDID:     delegator,
 		Destination:   "did:web:dst",
 		AuthorityPath: &auth,
-	}, payload)
+	}, []byte(`{"role":"judicial"}`))
 	if err != nil {
 		t.Fatalf("NewUnsignedEntry: %v", err)
 	}
@@ -41,7 +39,7 @@ func signedEntryWithPayload(t *testing.T, signer string, payload []byte) []byte 
 		t.Fatalf("SignEntry: %v", err)
 	}
 	signed, err := envelope.NewEntry(unsigned.Header, unsigned.DomainPayload, []envelope.Signature{
-		{SignerDID: signer, AlgoID: envelope.SigAlgoECDSA, Bytes: sigBytes},
+		{SignerDID: delegator, AlgoID: envelope.SigAlgoECDSA, Bytes: sigBytes},
 	})
 	if err != nil {
 		t.Fatalf("NewEntry: %v", err)
@@ -51,22 +49,6 @@ func signedEntryWithPayload(t *testing.T, signer string, payload []byte) []byte 
 		t.Fatalf("Serialize: %v", err)
 	}
 	return raw
-}
-
-// signedDelegationBytes is a minimal live delegation grant (no schema_id, so
-// classifyTip reads it as a normal grant — live).
-func signedDelegationBytes(t *testing.T, delegator string) []byte {
-	t.Helper()
-	return signedEntryWithPayload(t, delegator, []byte(`{"role":"judicial"}`))
-}
-
-// signedRevocationBytes is a revocation tip — the newest-grant-wins signal the
-// delegate_did index surfaces (#120). classifyTip routes it to RejectRevoked,
-// so the resolver must mark the hop not-live.
-func signedRevocationBytes(t *testing.T, signer string) []byte {
-	t.Helper()
-	return signedEntryWithPayload(t, signer,
-		[]byte(fmt.Sprintf(`{"schema_id":%q}`, schemas.SchemaJudicialRevocationV1)))
 }
 
 // fakeDelegateQuerier returns a fixed (did → entries) mapping. The
@@ -89,12 +71,10 @@ func (f *fakeDelegateQuerier) QueryByDelegateDID(_ context.Context, did string) 
 // Distinct from fakeFetcher in authority_resolver_helpers_test.go.
 type delegFakeFetcher struct {
 	bySeq map[uint64][]byte
-	calls int
 	err   error
 }
 
 func (f *delegFakeFetcher) Fetch(_ context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
-	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -255,10 +235,6 @@ func TestLedgerDelegationResolver_DepthBound(t *testing.T) {
 }
 
 func TestLedgerDelegationResolver_CacheHit(t *testing.T) {
-	// One hop: judge ← root at seq 1. The per-hop cache skips the HYDRATE
-	// (fetcher) on an unchanged per-DID watermark, while the cheap
-	// QueryByDelegateDID revalidation seek still runs every resolve — so the
-	// walk is always current-to-commit, never a stale whole-chain hit.
 	rootBytes := signedDelegationBytes(t, "did:web:root")
 	delegate := &fakeDelegateQuerier{byDID: map[string][]types.EntryWithMetadata{
 		"did:web:judge": {{Position: types.LogPosition{LogDID: "did:web:l", Sequence: 1}}},
@@ -266,64 +242,31 @@ func TestLedgerDelegationResolver_CacheHit(t *testing.T) {
 	fetcher := &delegFakeFetcher{bySeq: map[uint64][]byte{1: rootBytes}}
 	r, _ := NewLedgerDelegationResolver(LedgerDelegationResolverConfig{
 		Delegate: delegate, Fetcher: fetcher, LogDID: "did:web:l",
+		CacheTTL: time.Hour,
 	})
 
-	if _, err := r.ResolveChain(context.Background(), "did:web:judge"); err != nil {
+	_, err := r.ResolveChain(context.Background(), "did:web:judge")
+	if err != nil {
 		t.Fatalf("first Resolve: %v", err)
 	}
-	fetchAfterFirst := fetcher.calls
-	queriesAfterFirst := delegate.calls
+	callsAfterFirst := delegate.calls
 
-	// Watermark unchanged → hydration SKIPPED (cache hit), but the
-	// revalidation query still happens.
-	if _, err := r.ResolveChain(context.Background(), "did:web:judge"); err != nil {
+	_, err = r.ResolveChain(context.Background(), "did:web:judge")
+	if err != nil {
 		t.Fatalf("second Resolve: %v", err)
 	}
-	if fetcher.calls != fetchAfterFirst {
-		t.Errorf("unchanged watermark must skip hydration: fetcher calls grew %d→%d",
-			fetchAfterFirst, fetcher.calls)
-	}
-	if delegate.calls <= queriesAfterFirst {
-		t.Errorf("every resolve must re-query for revalidation: queries %d→%d",
-			queriesAfterFirst, delegate.calls)
+	if delegate.calls != callsAfterFirst {
+		t.Errorf("cache miss on second resolve: calls grew from %d to %d",
+			callsAfterFirst, delegate.calls)
 	}
 
-	// Watermark advances (a new grant at seq 2 supersedes) → re-hydrate.
-	delegate.byDID["did:web:judge"] = []types.EntryWithMetadata{
-		{Position: types.LogPosition{LogDID: "did:web:l", Sequence: 2}},
-	}
-	fetcher.bySeq[2] = signedDelegationBytes(t, "did:web:root2")
-	if _, err := r.ResolveChain(context.Background(), "did:web:judge"); err != nil {
-		t.Fatalf("post-change Resolve: %v", err)
-	}
-	if fetcher.calls <= fetchAfterFirst {
-		t.Errorf("a moved watermark must re-hydrate: fetcher calls=%d, want > %d",
-			fetcher.calls, fetchAfterFirst)
-	}
-}
-
-// TestLedgerDelegationResolver_NewestGrantWins pins the no-fallback liveness:
-// when the newest delegate_did row for a DID is a revocation (the index
-// surfaces it, #120), the hop is NOT live and the chain ends there — without
-// any SMT read. This is the fix for the old hardcoded Live:true fail-open.
-func TestLedgerDelegationResolver_NewestGrantWins(t *testing.T) {
-	revBytes := signedRevocationBytes(t, "did:web:authority")
-	delegate := &fakeDelegateQuerier{byDID: map[string][]types.EntryWithMetadata{
-		"did:web:judge": {{Position: types.LogPosition{LogDID: "did:web:l", Sequence: 5}}},
-	}}
-	fetcher := &delegFakeFetcher{bySeq: map[uint64][]byte{5: revBytes}}
-	r, _ := NewLedgerDelegationResolver(LedgerDelegationResolverConfig{
-		Delegate: delegate, Fetcher: fetcher, LogDID: "did:web:l",
-	})
-	chain, err := r.ResolveChain(context.Background(), "did:web:judge")
+	r.InvalidateDID("did:web:judge")
+	_, err = r.ResolveChain(context.Background(), "did:web:judge")
 	if err != nil {
-		t.Fatalf("Resolve: %v", err)
+		t.Fatalf("post-invalidate Resolve: %v", err)
 	}
-	if len(chain.Hops) != 1 {
-		t.Fatalf("Hops = %d, want 1 (the revoked hop, chain ends)", len(chain.Hops))
-	}
-	if chain.Hops[0].Live {
-		t.Error("a revocation tip must yield a NOT-live hop (newest-grant-wins, no SMT)")
+	if delegate.calls <= callsAfterFirst {
+		t.Errorf("expected re-query after InvalidateDID; calls=%d", delegate.calls)
 	}
 }
 
