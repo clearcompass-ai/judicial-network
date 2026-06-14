@@ -32,8 +32,20 @@ DESCRIPTION:
 	    caps at 3).
 	  - Revocation observed at any hop → reject.
 
-	The resolver is sub-millisecond on a warm cache; callers run it
-	on every entry submission as the read-side authority gate.
+	DEMOTED (PRE-13a). This resolver is NO LONGER the G19 cosignature
+	authority gate — that path now runs the canonical SDK+Tooling walk
+	(verification.SMTAuthorityResolver over tooling/libs/authority.
+	SMTChainResolver). AuthorityResolver survives only for the
+	action-authorization shape (requestedAction != "", with scope +
+	catalog checks) the SMT gate does not cover, and its tests.
+
+	CAVEAT — liveness. AuthorityResolver derives per-hop liveness from
+	verifier.EvaluateOrigin, which classifies a REAL self-targeting
+	delegation revocation (BuildRevocation TargetRoot == the revoked
+	delegation, Path A) as Amended ⇒ live: a false negative. The SDK's
+	delegation-liveness test (leaf OriginTip == position, used by
+	SMTAuthorityResolver) is the correct one. Before this resolver is
+	wired to any production gate again, port its liveness to that test.
 
 KEY ARCHITECTURAL DECISIONS:
   - Domain-payload chain walk (granter_delegation_ref) — not the

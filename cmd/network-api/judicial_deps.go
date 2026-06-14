@@ -210,11 +210,6 @@ func buildJudicialDeps(cfg config.Operational, registry *jurisdiction.Registry, 
 		return judicial.Dependencies{}, fmt.Errorf("build leaf reader: %w", err)
 	}
 	deps.LeafReader = leafReader
-	delegateQueriers, err := buildDelegateQueriers(cfg.LedgerEndpoint, registry, ledgerHTTPClient)
-	if err != nil {
-		return judicial.Dependencies{}, fmt.Errorf("build delegate queriers: %w", err)
-	}
-	deps.DelegateQueriers = delegateQueriers
 	resolver, err := buildDIDResolver()
 	if err != nil {
 		return judicial.Dependencies{}, fmt.Errorf("build DID resolver: %w", err)
@@ -829,32 +824,6 @@ func buildEntryFetcher(ledgerEndpoint, fetcherLogDID string, ledgerHTTPClient *h
 		LogDID:  fetcherLogDID,
 		Client:  ledgerHTTPClient, // nil ⇒ SDK default (server-verify only)
 	})
-}
-
-// buildDelegateQueriers constructs one verification.LedgerDelegateQuerier per
-// registered destination — the read-time shim Stage 6's delegation walker
-// consumes (via DelegateDIDQuerier interface). The map is keyed by destination
-// DID so each query routes to the right log. ledgerHTTPClient (nil ⇒ plain
-// http.Client with timeout) carries the JN's client cert when peer mTLS is
-// configured.
-//
-// The SDK's LedgerQueryAPI does not yet expose QueryByDelegateDID; this shim
-// fills that gap until the SDK lands the typed query method (then this folds
-// into buildLogQueries and the shim is deleted).
-func buildDelegateQueriers(ledgerEndpoint string, registry *jurisdiction.Registry, ledgerHTTPClient *http.Client) (map[string]verification.DelegateDIDQuerier, error) {
-	out := make(map[string]verification.DelegateDIDQuerier, registry.Len())
-	for _, didStr := range registry.ExchangeDIDs() {
-		q, err := verification.NewLedgerDelegateQuerier(verification.LedgerDelegateQuerierConfig{
-			BaseURL: ledgerEndpoint,
-			LogDID:  didStr,
-			Client:  ledgerHTTPClient, // nil ⇒ default plain client w/ Timeout
-		})
-		if err != nil {
-			return nil, fmt.Errorf("delegate querier for %s: %w", didStr, err)
-		}
-		out[didStr] = q
-	}
-	return out, nil
 }
 
 // buildLeafReader returns the smt.LeafReader the SDK verifier walkers

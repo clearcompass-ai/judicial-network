@@ -155,6 +155,25 @@ func CosignatureRules() []policy.CosignatureRule {
 			IntraExchangeOnly:   true,
 		},
 
+		// ── trial-in-progress docket record ──────────────────────
+		// hearing_convened_concluded marks the court in session for
+		// this case (the deployment writes it mid-trial); it gates the
+		// §3F mid-trial motions and precedes transcript_publication. It
+		// is a DOCKET/minute record — the court_clerk's docket_management
+		// act, not a party filing (no AllowedFilerRoles) and not a
+		// judicial decision — so the clerk is the single signer, same
+		// shape as verdict / transcript_publication. Previously the ONLY
+		// dictionary event_type with no cosignature rule, so the
+		// closed-set policy rejected it; the dictionary-coverage lock
+		// test (cosignature_coverage_test.go) now pins full coverage.
+		// (Role note: clerk per the docket_management scope; a bundle
+		// that requires the presiding judge to sign overrides this.)
+		{
+			EventType:           "hearing_convened_concluded",
+			RequiredSignerRoles: []string{"court_clerk"},
+			IntraExchangeOnly:   true,
+		},
+
 		// ── intra-exchange personnel events ──────────────────────
 		// Per v1.8 §12A: every appointment requires intra-
 		// exchange cosignature from sitting Adjudicators within
