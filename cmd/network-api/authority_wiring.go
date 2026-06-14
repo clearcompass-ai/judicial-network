@@ -1,17 +1,19 @@
 /*
 FILE PATH: cmd/network-api/authority_wiring.go
 
-PRE-13b #181: build the process-wide verifying AuthorityChainResolver the
+PRE-13a/13b #181: build the process-wide verifying AuthorityChainResolver the
 submit gate + verify handler use to check each cosigner's claimed role
 against its on-log delegation chain (default-ON, G19). A self-asserted
 judge — claims "judge" with no backing chain — is dropped at the gate and
 never counts toward quorum.
 
-Role verification is WALK-ONLY, so ONE resolver serves every jurisdiction:
-the per-jurisdiction RoleCatalog is never consulted; the ledger Fetcher +
-LeafReader are the only inputs that matter. The catalog handed to
-NewBundleChainResolver is therefore representative (per-jurisdiction
-catalog scoping applies only to a future action-authorization caller).
+PRE-13a: the walk is now the canonical SDK+Tooling delegation resolver
+(tooling/libs/authority.SMTChainResolver via verification.SMTAuthorityResolver),
+not the JN-local AuthorityResolver. Liveness is the SDK's delegation-liveness
+test (leaf OriginTip == position), which — unlike the retired EvaluateOrigin
+path — catches a self-targeting delegation revocation. Role verification is
+WALK-ONLY, so the per-jurisdiction RoleCatalog is not consulted here; the
+ledger Fetcher + LeafReader are the only inputs that matter.
 */
 package main
 
@@ -19,7 +21,6 @@ import (
 	"github.com/baseproof/baseproof/core/smt"
 	"github.com/baseproof/baseproof/types"
 
-	"github.com/clearcompass-ai/judicial-network/deployments/tn/trial"
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/verification"
 )
@@ -33,5 +34,5 @@ func buildAuthorityResolver(fetcher types.EntryFetcher, leaf smt.LeafReader) jur
 	if fetcher == nil || leaf == nil {
 		return nil
 	}
-	return verification.NewBundleChainResolver(trial.MustRoleCatalog(), fetcher, leaf)
+	return verification.NewSMTAuthorityResolver(fetcher, leaf)
 }

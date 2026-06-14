@@ -65,8 +65,8 @@ func (b *bundle) PrerequisitePolicy() prerequisites.Policy       { return b.preq
 // MustBundle() factory work out-of-the-box without a fetcher
 // dependency. Production deployments call
 // SetAuthorityChainResolver(resolver) at boot — typically with
-// a verification.NewBundleChainResolver(catalog, fetcher,
-// leafReader) — before registering the Bundle.
+// a verification.NewSMTAuthorityResolver(fetcher, leafReader) —
+// before registering the Bundle.
 var authorityChainResolver jurisdiction.AuthorityChainResolver = jurisdiction.NoAuthorityChainResolver()
 
 // SetAuthorityChainResolver injects a production resolver. Pass
