@@ -6,15 +6,19 @@ delegation resolver's wall-clock TTL.
 
 A TTL cache's defect is that it is keyed to a CLOCK: a revocation that lands
 mid-window goes unseen until the timer expires. This cache is keyed to LOG
-SEQUENCE instead. Each entry is tagged with the watermark (a log-sequence
-position) it was computed at; a Get supplies the CURRENT watermark for that
-key, and the entry is fresh only while the watermark has not advanced past it.
+SEQUENCE instead. Each entry is tagged with the revalidation FINGERPRINT — a
+log-sequence position the value derives from — at compute time; a Get supplies
+the CURRENT fingerprint for that key, and the entry is fresh only while that
+fingerprint is UNCHANGED.
 
-A revocation IS a log entry, so it advances the watermark at the position the
-cached value depends on — which makes the entry a MISS and forces a recompute
-from the log. The cache is invalidated by the TRUTH advancing, never by a
-clock. This is "projections are caches of the log, keyed to log position" made
-literal (Verify-Live-State / never-cache-truth), with no staleness window.
+A delegation change IS a log entry, so it moves the fingerprint at the position
+the cached value depends on — a new grant raises it, a revocation that drops
+the delegate's newest-live delegation lowers it — and EITHER move makes the
+entry a MISS that forces a recompute from the log. The match is therefore EXACT
+(unchanged), not "has-not-advanced": the per-key fingerprint is non-monotonic
+under revocation. The cache is invalidated by the TRUTH moving, never by a clock
+— "projections are caches of the log, keyed to log position" made literal
+(Verify-Live-State / never-cache-truth), with no staleness window.
 
 PER-KEY, NOT GLOBAL-HEAD: the watermark is supplied per key. With a per-DID
 watermark (idx_delegate_did_latest's last-modified sequence for a delegate
@@ -48,28 +52,30 @@ func NewSeqRevalidatingCache[V any]() *SeqRevalidatingCache[V] {
 	return &SeqRevalidatingCache[V]{entries: make(map[string]revEntry[V])}
 }
 
-// Get returns the cached value for key iff it is still fresh at currentSeq —
-// the watermark has not advanced past the basis the value was computed at
-// (currentSeq <= basis). Because the watermark is monotonic and basis was a
-// past reading, this is in practice "the key's watermark is unchanged." A
-// miss (absent key, or watermark advanced) returns ok=false; the caller
-// recomputes from the log and Sets with the fresh watermark.
+// Get returns the cached value for key iff its revalidation fingerprint is
+// UNCHANGED at currentSeq (currentSeq == basis). The match is EXACT, not
+// "has-not-advanced": a per-key fingerprint such as a delegate DID's
+// newest-live delegation sequence is non-monotonic — a revocation that drops
+// that delegation lowers it — so any move (up from a new grant, or down from a
+// revocation) is a miss. The caller recomputes from the log and Sets with the
+// fresh fingerprint.
 func (c *SeqRevalidatingCache[V]) Get(key string, currentSeq uint64) (V, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	e, ok := c.entries[key]
-	if !ok || currentSeq > e.basis {
+	if !ok || currentSeq != e.basis {
 		var zero V
 		return zero, false
 	}
 	return e.val, true
 }
 
-// Set stores val for key, tagged with basis — the watermark the value is
-// consistent with. Callers MUST read basis BEFORE computing val: if the
-// watermark advances during the compute, the next Get sees currentSeq > basis
-// and treats the entry as a miss, so a value computed against state that a
-// concurrent revocation has already superseded is never served stale.
+// Set stores val for key, tagged with basis — the revalidation fingerprint the
+// value derives from (e.g. the delegate DID's newest-live delegation sequence).
+// Callers MUST read basis BEFORE computing val: if the fingerprint moves during
+// the compute, the next Get sees currentSeq != basis and treats the entry as a
+// miss, so a value computed against state that a concurrent grant or revocation
+// has already changed is never served stale.
 func (c *SeqRevalidatingCache[V]) Set(key string, val V, basis uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

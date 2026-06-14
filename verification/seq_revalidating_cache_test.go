@@ -25,15 +25,22 @@ func TestSeqRevalidatingCache_NeverStale(t *testing.T) {
 		t.Fatalf("unchanged watermark must hit with the stored value, got (%q,%v)", v, ok)
 	}
 
-	// Watermark advanced (a delegation/revocation landed for this DID) → miss.
+	// Fingerprint moved UP (a new grant landed for this DID) → miss.
 	if _, ok := c.Get("did:a", 11); ok {
-		t.Fatal("advanced watermark must miss (never serve a value computed against a stale head)")
+		t.Fatal("a raised fingerprint must miss (a new grant — never serve the prior chain)")
 	}
 
-	// Recompute + Set at the new watermark → hit again at that watermark.
+	// Fingerprint moved DOWN (the newest-live delegation was REVOKED, so an
+	// older entry is now newest) → miss. This is the non-monotonic case that
+	// a "has-not-advanced" (<=) test would WRONGLY serve stale.
+	if _, ok := c.Get("did:a", 9); ok {
+		t.Fatal("a lowered fingerprint (revocation dropped the newest grant) must miss — exact match, not <=")
+	}
+
+	// Recompute + Set at the new fingerprint → hit again at that fingerprint.
 	c.Set("did:a", "chain-v2", 11)
 	if v, ok := c.Get("did:a", 11); !ok || v != "chain-v2" {
-		t.Fatalf("recompute at fresh watermark must hit, got (%q,%v)", v, ok)
+		t.Fatalf("recompute at the fresh fingerprint must hit, got (%q,%v)", v, ok)
 	}
 }
 
@@ -55,20 +62,21 @@ func TestSeqRevalidatingCache_PerKeyIndependence(t *testing.T) {
 	}
 }
 
-// TestSeqRevalidatingCache_SetRefreshesBasis confirms a re-Set moves the basis
-// forward, so a value cached at an older watermark cannot linger.
+// TestSeqRevalidatingCache_SetRefreshesBasis confirms a re-Set rebinds both the
+// value and the fingerprint, so a hit requires the NEW fingerprint and the old
+// one no longer matches.
 func TestSeqRevalidatingCache_SetRefreshesBasis(t *testing.T) {
 	c := NewSeqRevalidatingCache[string]()
 	c.Set("k", "old", 5)
+	if v, ok := c.Get("k", 5); !ok || v != "old" {
+		t.Fatalf("original fingerprint must hit with the original value, got (%q,%v)", v, ok)
+	}
 	c.Set("k", "new", 9)
-	if _, ok := c.Get("k", 6); !ok {
-		t.Fatal("watermark 6 <= basis 9 must hit after the refresh")
+	if v, ok := c.Get("k", 9); !ok || v != "new" {
+		t.Fatalf("re-Set must rebind value+fingerprint; want new@9, got (%q,%v)", v, ok)
 	}
-	if v, _ := c.Get("k", 9); v != "new" {
-		t.Fatalf("re-Set must overwrite the value, got %q", v)
-	}
-	if _, ok := c.Get("k", 10); ok {
-		t.Fatal("watermark past the refreshed basis must miss")
+	if _, ok := c.Get("k", 5); ok {
+		t.Fatal("the old fingerprint must no longer hit after the refresh")
 	}
 }
 
