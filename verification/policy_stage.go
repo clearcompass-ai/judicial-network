@@ -13,8 +13,8 @@ DESCRIPTION:
 	  2. Policy            — resolved via schemaParams.FindAttestationPolicy
 	  3. Candidates        — sdklog.LedgerQueryAPI.QueryByCosignatureOf
 	                         hydrated via types.EntryFetcher
-	  4. DelegationResolver — caller-supplied (typically
-	                          *LedgerDelegationResolver from this package)
+	  4. DelegationResolver — caller-supplied (the SDK delegation.Resolver,
+	                          built via NewResolverFromLookup in this package)
 
 	# SCOPE — read-time only
 

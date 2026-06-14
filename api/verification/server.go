@@ -106,7 +106,7 @@ type ServerConfig struct {
 	// Production wiring constructs each PolicyStageDeps from:
 	//   * sdklog.HTTPLedgerQueryAPI  (cosignature_of source)
 	//   * sdklog.HTTPEntryFetcher    (/raw bytes for candidate hydration)
-	//   * verification.LedgerDelegationResolver
+	//   * the SDK delegation.Resolver (NewResolverFromLookup)
 	//                                (DelegationChain walks)
 	//
 	// Tests inject fakes (see verify_complete_test.go).

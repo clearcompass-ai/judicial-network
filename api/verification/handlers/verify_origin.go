@@ -136,7 +136,7 @@ type Dependencies struct {
 //
 //   - Query:              *sdklog.HTTPLedgerQueryAPI (cosignature_of)
 //   - Fetcher:            *sdklog.HTTPEntryFetcher (/raw bytes)
-//   - DelegationResolver: *verification.LedgerDelegationResolver
+//   - DelegationResolver: the SDK *delegation.Resolver (NewResolverFromLookup)
 //
 // Tests inject fakes.
 type PolicyStageDeps struct {

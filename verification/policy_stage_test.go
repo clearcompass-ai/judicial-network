@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,29 @@ import (
 	sdklog "github.com/baseproof/baseproof/log"
 	"github.com/baseproof/baseproof/types"
 )
+
+// delegFakeFetcher hydrates by mapping LogPosition.Sequence to bytes. Re-homed
+// here from the retired delegation_resolver_ledger_test.go — policy_stage_test
+// is its only surviving user.
+type delegFakeFetcher struct {
+	bySeq map[uint64][]byte
+	err   error
+}
+
+func (f *delegFakeFetcher) Fetch(_ context.Context, pos types.LogPosition) (*types.EntryWithMetadata, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	b, ok := f.bySeq[pos.Sequence]
+	if !ok {
+		return nil, fmt.Errorf("fake fetcher: no entry at %d", pos.Sequence)
+	}
+	return &types.EntryWithMetadata{
+		Position:       pos,
+		CanonicalBytes: b,
+		LogTime:        time.Unix(1700000000, 0).UTC(),
+	}, nil
+}
 
 // signedPrimaryBytes builds a signed primary entry that optionally
 // declares an AttestationPolicyName. Returns canonical bytes.
