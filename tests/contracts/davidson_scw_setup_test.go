@@ -27,8 +27,8 @@ import (
 	"github.com/baseproof/baseproof/did"
 	sdkauth "github.com/baseproof/baseproof/exchange/auth"
 
-	"github.com/baseproof/tooling/libs/auth/keystore"
-	keysigner "github.com/baseproof/tooling/libs/auth/keystore/signer"
+	"github.com/baseproof/tooling/libs/keystore"
+	keysigner "github.com/baseproof/tooling/libs/keystore/signer"
 	composerapi "github.com/clearcompass-ai/judicial-network/api"
 	"github.com/clearcompass-ai/judicial-network/api/exchange"
 	authv2 "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"

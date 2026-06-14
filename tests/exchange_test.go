@@ -15,7 +15,7 @@ import (
 
 	"github.com/baseproof/baseproof/crypto/signatures"
 
-	"github.com/baseproof/tooling/libs/auth/keystore"
+	"github.com/baseproof/tooling/libs/keystore"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 )

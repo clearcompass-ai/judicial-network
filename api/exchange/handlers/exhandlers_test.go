@@ -11,7 +11,7 @@ import (
 	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/baseproof/baseproof/storage"
 
-	"github.com/baseproof/tooling/libs/auth/keystore"
+	"github.com/baseproof/tooling/libs/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 )
 
