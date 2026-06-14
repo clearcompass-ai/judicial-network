@@ -299,7 +299,9 @@ func (a gateAdapter) Admit(e *envelope.Entry) *aggregator.GateRejection {
 	if err != nil {
 		return &aggregator.GateRejection{Code: "serialize_failed", Reason: err.Error()}
 	}
-	if rej := a.gate.Admit(raw); rej != nil {
+	// Background re-judge: no request context, so a bounded background
+	// one. (Same judge, same verdict — see gateAdapter doc.)
+	if rej := a.gate.Admit(context.Background(), raw); rej != nil {
 		return &aggregator.GateRejection{Code: rej.Code, Reason: rej.Reason}
 	}
 	return nil

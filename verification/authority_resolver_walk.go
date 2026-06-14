@@ -99,6 +99,27 @@ func (r *AuthorityResolver) Resolve(
 		expectedGrantee = hop.payload.GranterDID
 	}
 
+	// Walk-only (the jurisdiction.AuthorityRequest contract): an empty
+	// requestedAction asks "is this chain structurally valid, and what
+	// role + scope does it resolve to?" — with NO action-permission
+	// decision. The walk above already enforced every structural
+	// invariant (grantee chain, per-hop liveness / expiry / revocation,
+	// depth cap, scope intersection); the role-verification consumer
+	// (ChainRoleResolver) compares the returned Role to the claimed
+	// role. Skipping the scope/catalog action checks here is REQUIRED:
+	// "" is never a scope token, so contains(effective, "") would
+	// otherwise reject every walk-only query as a scope violation.
+	if requestedAction == "" {
+		return &Authority{
+			OK:             true,
+			SignerDID:      signerDID,
+			Role:           tipRole,
+			EffectiveScope: effective,
+			Depth:          depth,
+			Rejection:      RejectNone,
+		}
+	}
+
 	// Catalog validation: confirm requestedAction is in the
 	// chain-effective scope, and the role allows it.
 	if !contains(effective, requestedAction) {

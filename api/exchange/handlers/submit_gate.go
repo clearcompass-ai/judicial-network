@@ -38,6 +38,10 @@ KEY DEPENDENCIES:
 package handlers
 
 import (
+	"context"
+	"errors"
+
+	"github.com/baseproof/baseproof/attestation"
 	"github.com/baseproof/baseproof/core/envelope"
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
@@ -51,7 +55,7 @@ import (
 // proxy on the no-gate path. Implementations MUST be safe for
 // concurrent use.
 type SubmitGater interface {
-	Admit(entryBytes []byte) *Rejection
+	Admit(ctx context.Context, entryBytes []byte) *Rejection
 }
 
 // Rejection is the closed-set output of a SubmitGater. Code is
@@ -71,11 +75,23 @@ type BundleSubmitGate struct {
 
 	// Resolver maps cosigner DIDs → role + exchange. OPTIONAL: when
 	// nil (the production default) Admit derives a per-entry
-	// verification.PayloadRoleResolver from the entry's
-	// signed_by_capacities block, so the gate needs no off-log
-	// registry. Tests may set a verification.MapRoleResolver for a
-	// deterministic role map.
+	// verification.ChainRoleResolver from the entry's
+	// signed_by_capacities block + g.Authority — so each cosigner's
+	// CLAIMED role is VERIFIED against its on-log delegation chain
+	// (G19: a self-asserted judge is dropped and does not count toward
+	// quorum). Tests may set a verification.MapRoleResolver (trust
+	// mode) for a deterministic, chain-free role map.
 	Resolver verification.RoleResolver
+
+	// Authority is the verifying AuthorityChainResolver the per-entry
+	// ChainRoleResolver checks claimed roles against (unless Resolver
+	// overrides). One process-wide instance serves every jurisdiction:
+	// role verification is walk-only, so the per-jurisdiction RoleCatalog
+	// is not consulted — only the ledger Fetcher + LeafReader matter. Set
+	// at boot via NewBundleSubmitGate. nil ⇒ verification is impossible,
+	// so any entry carrying signed_by_capacities is refused (fail-closed,
+	// never fail-open).
+	Authority jurisdiction.AuthorityChainResolver
 }
 
 // Admit deserializes entryBytes and runs the cosignature +
@@ -85,9 +101,11 @@ type BundleSubmitGate struct {
 // Order:
 //  1. envelope.Deserialize → "deserialize_failed" on parse error.
 //  2. Resolve Bundle      → "unknown_exchange" on miss.
-//  3. Derive RoleResolver → per-entry PayloadRoleResolver from the
-//     entry's signed_by_capacities (unless g.Resolver overrides);
-//     "malformed_capacities" when that block is present but invalid.
+//  3. Derive RoleResolver → per-entry ChainRoleResolver that verifies
+//     each cosigner's claimed role against its on-log delegation chain
+//     via g.Authority (unless g.Resolver overrides);
+//     "malformed_capacities" / "too_many_cosigners" on a bad
+//     signed_by_capacities block.
 //  4. CheckCosignature    → bubble the verifier rejection.
 //  5. Walker.Check        → bubble Hard rejections; Advisory
 //     violations are forwarded (treat as accept).
@@ -95,7 +113,7 @@ type BundleSubmitGate struct {
 // Implementations MUST NOT depend on any aggregator state — the
 // gate is the canonical writer-side validator and stands on the
 // log alone.
-func (g *BundleSubmitGate) Admit(entryBytes []byte) *Rejection {
+func (g *BundleSubmitGate) Admit(ctx context.Context, entryBytes []byte) *Rejection {
 	entry, err := envelope.Deserialize(entryBytes)
 	if err != nil {
 		return &Rejection{
@@ -117,22 +135,30 @@ func (g *BundleSubmitGate) Admit(entryBytes []byte) *Rejection {
 		}
 	}
 
-	// Cosignature gate. The RoleResolver maps each cosigner DID →
-	// role + exchange. In production it is derived per-entry from the
-	// entry's own signed_by_capacities block (the "no off-log
-	// registry" model — verification/payload_role_resolver.go); a
-	// non-nil g.Resolver overrides this (tests inject a
-	// MapRoleResolver for a deterministic role map).
+	// Cosignature gate. In production the RoleResolver is the VERIFYING
+	// verification.ChainRoleResolver: each cosigner's claimed role in
+	// signed_by_capacities is checked against its on-log delegation
+	// chain via g.Authority, so a self-asserted judge is dropped (G19).
+	// A non-nil g.Resolver overrides this (tests inject a MapRoleResolver
+	// — trusted, chain-free).
 	resolver := g.Resolver
 	if resolver == nil {
-		pr, err := verification.NewPayloadRoleResolver(entry.DomainPayload)
-		if err != nil {
-			return &Rejection{
-				Code:   "malformed_capacities",
-				Reason: err.Error(),
-			}
+		authority := g.Authority
+		if authority == nil {
+			// No verification capability (ledger-less boot): a closed
+			// resolver drops every claim, so a multi-sig entry fails
+			// closed rather than admit on an unverifiable claim.
+			authority = jurisdiction.NoAuthorityChainResolver()
 		}
-		resolver = pr
+		cr, err := verification.NewChainRoleResolver(ctx, entry.DomainPayload, authority)
+		if err != nil {
+			code := "malformed_capacities"
+			if errors.Is(err, attestation.ErrTooManyCosigners) {
+				code = "too_many_cosigners"
+			}
+			return &Rejection{Code: code, Reason: err.Error()}
+		}
+		resolver = cr
 	}
 	verdict := verification.CheckCosignature(entry,
 		bundle.CosignaturePolicy(),

@@ -274,6 +274,12 @@ func run(argv []string, d deps) error {
 		sdkguard.AssertResolverPopulated(judicialDeps.AuthoritativeResolver, "jn-authoritative-resolver")
 	}
 
+	// PRE-13b #181 (G19): the process-wide verifying AuthorityChainResolver
+	// the submit gate + verify handler check each cosigner's claimed role
+	// against. nil in ledger-less mode → the gates fail-close any multi-sig
+	// entry rather than trust an unverifiable claim.
+	authority := buildAuthorityResolver(judicialDeps.Fetcher, judicialDeps.LeafReader)
+
 	// Bind api/judicial's caller-DID resolver to the composer's
 	// auth-set callerDID. Without this hook the judicial handlers
 	// never see the authenticated caller — every request 401s. The
@@ -499,7 +505,7 @@ func run(argv []string, d deps) error {
 			// prerequisite walker on POST /v1/entries/submit, resolved
 			// from the same frozen Bundle registry. Without this the
 			// submit path is a pass-through proxy (the gate is dormant).
-			SubmitGate: exchange.NewBundleSubmitGate(registry),
+			SubmitGate: exchange.NewBundleSubmitGate(registry, authority),
 			// Gate-5 issuance: mint+attach a WriteAuthorization on every forwarded
 			// write when J is configured (nil → ungated proxy).
 			AdmissionAuthorizer: admissionAuthorizer,
@@ -513,6 +519,9 @@ func run(argv []string, d deps) error {
 		Verification: verification.ServerConfig{
 			// FED-1 #107: era-correct source-set resolution for cross-log verify.
 			Eras: eraResolver,
+			// PRE-13b #181 (G19): the verifying resolver the read-side
+			// cosignature check uses — same instance as the submit gate.
+			Authority: authority,
 			// SignatureVerifier is the native v1.7.1 receipt-aware
 			// verifier (did:key + did:pkh-EOA + did:web always live;
 			// EIP-1271 K-of-N when SmartContractWallet.Enabled). It
