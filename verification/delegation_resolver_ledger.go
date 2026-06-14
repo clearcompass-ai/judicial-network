@@ -71,6 +71,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/baseproof/baseproof/attestation"
 	"github.com/baseproof/baseproof/core/envelope"
@@ -113,8 +114,35 @@ type LedgerDelegationResolverConfig struct {
 	// Scope, optional. When nil, Hop.Scopes is left empty.
 	Scope ScopeExtractor
 
+	// Role, optional. Extracts the role a delegation grants, for the
+	// AuthorityVerdict's role-at-tip. Nil → empty role (structural use).
+	Role func(entry *envelope.Entry) string
+
+	// Expiry, optional. Extracts a delegation's expiry (ok=false when none is
+	// declared). Nil → no expiry check. The judicial gate wires
+	// JudicialHopExpiry so the verdict rejects an expired hop — parity with
+	// AuthorityResolver, which rejects any chain whose hops have expired.
+	Expiry func(entry *envelope.Entry) (at time.Time, ok bool)
+
+	// Now overrides the expiry clock (tests). Nil → time.Now.
+	Now func() time.Time
+
 	// MaxDepth bounds the walk. Default defaultMaxDelegationDepth.
 	MaxDepth int
+}
+
+// richHop is the full per-hop result of the shared index-walk: the structural
+// fields the SDK DelegationChain needs PLUS the role + expiry the
+// AuthorityVerdict needs. One walk, two projections (ResolveChain → chain,
+// Resolve → verdict) — the single index-walk seam (no duplicated walk loop).
+type richHop struct {
+	delegateDID  string
+	delegatorDID string
+	role         string
+	scopes       []string
+	expiresAt    time.Time
+	hasExpiry    bool
+	live         bool
 }
 
 // LedgerDelegationResolver implements attestation.DelegationResolver
@@ -125,13 +153,16 @@ type LedgerDelegationResolver struct {
 	fetcher  types.EntryFetcher
 	logDID   string
 	scope    ScopeExtractor
+	role     func(*envelope.Entry) string
+	expiry   func(*envelope.Entry) (time.Time, bool)
+	now      func() time.Time
 	maxDepth int
 	// cache is a PER-HOP cache keyed by delegate DID, revalidated by that
 	// DID's newest-delegation sequence (the per-DID watermark). It replaces
 	// the old whole-chain TTL cache: no timer, never-stale — a new grant or a
 	// revocation for a DID moves its watermark, so the exact-match Get misses
 	// and that hop is re-walked.
-	cache *SeqRevalidatingCache[attestation.DelegationHop]
+	cache *SeqRevalidatingCache[richHop]
 }
 
 // NewLedgerDelegationResolver constructs the resolver. Returns
@@ -151,13 +182,20 @@ func NewLedgerDelegationResolver(cfg LedgerDelegationResolverConfig) (*LedgerDel
 	if maxDepth <= 0 {
 		maxDepth = defaultMaxDelegationDepth
 	}
+	now := cfg.Now
+	if now == nil {
+		now = time.Now
+	}
 	return &LedgerDelegationResolver{
 		delegate: cfg.Delegate,
 		fetcher:  cfg.Fetcher,
 		logDID:   cfg.LogDID,
 		scope:    cfg.Scope,
+		role:     cfg.Role,
+		expiry:   cfg.Expiry,
+		now:      now,
 		maxDepth: maxDepth,
-		cache:    NewSeqRevalidatingCache[attestation.DelegationHop](),
+		cache:    NewSeqRevalidatingCache[richHop](),
 	}, nil
 }
 
@@ -179,7 +217,20 @@ func (r *LedgerDelegationResolver) ResolveChain(
 	if signerDID == "" {
 		return attestation.DelegationChain{}, nil
 	}
-	return r.walk(ctx, signerDID)
+	hops, _, err := r.walk(ctx, signerDID)
+	if err != nil {
+		return attestation.DelegationChain{}, err
+	}
+	out := make([]attestation.DelegationHop, len(hops))
+	for i, h := range hops {
+		out[i] = attestation.DelegationHop{
+			DelegateDID:  h.delegateDID,
+			DelegatorDID: h.delegatorDID,
+			Scopes:       h.scopes,
+			Live:         h.live,
+		}
+	}
+	return attestation.DelegationChain{Hops: out}, nil
 }
 
 // InvalidateDID drops the cached hop for did. The per-DID watermark makes
@@ -189,71 +240,70 @@ func (r *LedgerDelegationResolver) InvalidateDID(did string) {
 	r.cache.Invalidate(did)
 }
 
-// walk does the actual chain construction; see file docblock for the
-// algorithm. At each hop it re-checks the DID's per-DID watermark
-// (entries[0].Sequence) against the per-hop cache: on a watermark match it
-// reuses the cached hop and skips the hydrate + decode; on any change it
-// re-walks. Liveness is newest-grant-wins: a revocation/succession surfaced as
-// entries[0] (#120) marks the hop not-live and ends the chain.
+// walk does the chain construction shared by ResolveChain and Resolve. It
+// returns the rich hops plus `complete` — true iff the walk reached a root (an
+// empty delegate query), false if it stopped early (a not-live hop, the depth
+// cap, a cycle, or a signer-less entry). At each hop it re-checks the DID's
+// per-DID watermark (entries[0].Sequence) against the per-hop cache: a
+// watermark match reuses the cached hop and skips the hydrate + decode; any
+// change re-walks. Liveness is newest-grant-wins: a revocation/succession
+// surfaced as entries[0] (#120) marks the hop not-live and ends the chain.
 func (r *LedgerDelegationResolver) walk(
 	ctx context.Context, signerDID string,
-) (attestation.DelegationChain, error) {
+) ([]richHop, bool, error) {
 	visited := make(map[string]struct{}, r.maxDepth)
-	hops := make([]attestation.DelegationHop, 0, 4)
+	hops := make([]richHop, 0, 4)
 	did := signerDID
 
 	for i := 0; i < r.maxDepth; i++ {
 		if _, seen := visited[did]; seen {
-			// Cycle. Return what we have so the SDK can decide.
-			break
+			return hops, false, nil // cycle — not a clean root
 		}
 		visited[did] = struct{}{}
 
 		entries, err := r.delegate.QueryByDelegateDID(ctx, did)
 		if err != nil {
-			return attestation.DelegationChain{}, fmt.Errorf(
+			return nil, false, fmt.Errorf(
 				"%w: delegate query for %q: %w",
 				ErrLedgerDelegationResolver, did, err,
 			)
 		}
 		if len(entries) == 0 {
-			// No incoming delegation — this DID is a root or has
-			// no entry binding it. Chain ends here.
-			break
+			return hops, true, nil // reached a root (no incoming delegation)
 		}
 
 		// entries[0] is newest (ledger returns DESC). Its sequence is THIS
-		// DID's per-DID watermark — the revalidation fingerprint. A cache
-		// hit at this watermark reuses the hop and skips the canonical-bytes
-		// fetch + decode; any change (new grant raises it, a revocation that
-		// drops the newest grant lowers it) is an exact-match miss → re-walk.
+		// DID's per-DID watermark — the revalidation fingerprint. A cache hit
+		// at this watermark reuses the hop and skips the canonical-bytes fetch
+		// + decode; any change (new grant raises it, a revocation that drops
+		// the newest grant lowers it) is an exact-match miss → re-walk.
 		newest := entries[0]
 		fp := newest.Position.Sequence
 		if hop, ok := r.cache.Get(did, fp); ok {
 			hops = append(hops, hop)
-			if !hop.Live {
-				break // a revocation/succession withdrew authority here
+			if !hop.live {
+				return hops, false, nil // a revocation/succession withdrew authority
 			}
-			did = hop.DelegatorDID
+			did = hop.delegatorDID
 			continue
 		}
 
 		hydrated, err := r.fetcher.Fetch(ctx, newest.Position)
 		if err != nil {
-			return attestation.DelegationChain{}, fmt.Errorf(
+			return nil, false, fmt.Errorf(
 				"%w: hydrate entry %s: %w",
 				ErrLedgerDelegationResolver, newest.Position, err,
 			)
 		}
 		if hydrated == nil || hydrated.CanonicalBytes == nil {
-			return attestation.DelegationChain{}, fmt.Errorf(
+			return nil, false, fmt.Errorf(
 				"%w: fetcher returned no bytes for %s",
 				ErrLedgerDelegationResolver, newest.Position,
 			)
 		}
 		entry, err := envelope.Deserialize(hydrated.CanonicalBytes)
 		if err != nil {
-			return attestation.DelegationChain{}, fmt.Errorf(
+			return nil, false, fmt.Errorf(
 				"%w: deserialize entry %s: %w",
 				ErrLedgerDelegationResolver, newest.Position, err,
 			)
@@ -261,37 +311,36 @@ func (r *LedgerDelegationResolver) walk(
 
 		delegator := entry.Header.SignerDID
 		if delegator == "" {
-			// Defensive: entry without a signer can't be in a real
-			// chain. Stop the walk at this hop rather than emit a
-			// nonsense hop.
-			break
-		}
-
-		var scopes []string
-		if r.scope != nil {
-			scopes = r.scope(entry)
+			return hops, false, nil // malformed: a signer-less entry can't be a hop
 		}
 
 		// Newest-grant-wins liveness: the index surfaces a revocation or
-		// succession as entries[0] (delegate_did.go, #120). If the newest
-		// entry withdraws authority, the hop is NOT live and the chain ends
-		// here — no SMT read (the gate trusts the projection; the
-		// EvaluateOrigin lane stays for the external auditor).
-		hop := attestation.DelegationHop{
-			DelegateDID:  did,
-			DelegatorDID: delegator,
-			Scopes:       scopes,
-			Live:         !tipWithdrawsAuthority(entry.DomainPayload),
+		// succession as entries[0] (delegate_did.go, #120). A withdrawing tip
+		// → not-live → the chain ends here, no SMT read (the gate trusts the
+		// projection; the EvaluateOrigin lane stays for the external auditor).
+		hop := richHop{
+			delegateDID:  did,
+			delegatorDID: delegator,
+			live:         !tipWithdrawsAuthority(entry.DomainPayload),
+		}
+		if r.scope != nil {
+			hop.scopes = r.scope(entry)
+		}
+		if r.role != nil {
+			hop.role = r.role(entry)
+		}
+		if r.expiry != nil {
+			hop.expiresAt, hop.hasExpiry = r.expiry(entry)
 		}
 		r.cache.Set(did, hop, fp)
 		hops = append(hops, hop)
-		if !hop.Live {
-			break
+		if !hop.live {
+			return hops, false, nil
 		}
 		did = delegator
 	}
 
-	return attestation.DelegationChain{Hops: hops}, nil
+	return hops, false, nil // depth cap reached — chain not completed to a root
 }
 
 // Compile-time pin: the resolver implements the SDK interface.
