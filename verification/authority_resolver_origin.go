@@ -135,6 +135,23 @@ func classifyTip(payload []byte) string {
 	return probe.SchemaID
 }
 
+// tipWithdrawsAuthority reports whether a delegation entry's payload is a
+// revocation or succession — the newest-grant-wins signal the delegate_did
+// index surfaces as the newest row (PRE-13b #120, delegate_did.go). The
+// index-walk resolver uses it to mark a hop not-live WITHOUT an SMT read: the
+// position-fetch engine needs evaluateOrigin (SMT) only because it follows
+// granter_delegation_ref pointers and cannot see a later revocation; the
+// index-walk sees that revocation directly as entries[0]. The gate trusts the
+// projection (Q1=A); the SMT-authenticated EvaluateOrigin lane survives for the
+// external auditor (case_status.go), so this is not a downgrade.
+func tipWithdrawsAuthority(payload []byte) bool {
+	switch classifyTip(payload) {
+	case schemas.SchemaJudicialRevocationV1, schemas.SchemaJudicialSuccessionV1:
+		return true
+	}
+	return false
+}
+
 // evaluateOrigin reads the SMT leaf for the hop's position to detect
 // revocation/succession that has happened SINCE the delegation was
 // first published. nil LeafReader → skipped (the static delegation
