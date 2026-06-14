@@ -69,7 +69,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )

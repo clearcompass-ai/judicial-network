@@ -22,7 +22,7 @@ import (
 	"github.com/baseproof/baseproof/types"
 	"github.com/baseproof/baseproof/verifier"
 
-	"github.com/baseproof/tooling/libs/keystore"
+	"github.com/baseproof/tooling/libs/auth/keystore"
 )
 
 // produceRotation runs the production producer steps against the keystore:

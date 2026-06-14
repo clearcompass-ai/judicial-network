@@ -51,7 +51,7 @@ import (
 	"time"
 
 	middleware "github.com/baseproof/tooling/libs/httpmw"
-	"github.com/baseproof/tooling/libs/keystore"
+	"github.com/baseproof/tooling/libs/auth/keystore"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 
 	tndavidson "github.com/clearcompass-ai/judicial-network/deployments/tn/counties/davidson"

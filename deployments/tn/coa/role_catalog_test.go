@@ -126,7 +126,7 @@ func TestValidateGrant_COARejectsScopeOutsideAllowed(t *testing.T) {
 	// judge cannot exercise case_filing scope.
 	err := c.ValidateGrant("chief_judge", "judge",
 		[]string{"case_filing"}, 365*24*time.Hour)
-	if err == nil || !strings.Contains(err.Error(), "AllowedScope") {
+	if err == nil || !strings.Contains(err.Error(), "allowed_scope") {
 		t.Errorf("expected scope-outside-allowed error, got: %v", err)
 	}
 }
@@ -135,7 +135,7 @@ func TestValidateGrant_COARejectsExcessiveDuration(t *testing.T) {
 	c := MustRoleCatalog()
 	err := c.ValidateGrant("chief_judge", "judge",
 		[]string{"opinion_publication"}, 100*365*24*time.Hour)
-	if err == nil || !strings.Contains(err.Error(), "MaxDuration") {
+	if err == nil || !strings.Contains(err.Error(), "max_duration") {
 		t.Errorf("expected MaxDuration rejection, got: %v", err)
 	}
 }

@@ -39,7 +39,7 @@ import (
 	"testing"
 
 	"github.com/baseproof/baseproof/core/envelope"
-	"github.com/baseproof/tooling/libs/identity"
+	"github.com/baseproof/tooling/libs/auth/identity"
 	"github.com/clearcompass-ai/judicial-network/delegation"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )

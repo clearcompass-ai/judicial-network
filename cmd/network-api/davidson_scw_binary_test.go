@@ -53,8 +53,8 @@ import (
 	"github.com/baseproof/baseproof/did"
 
 	middleware "github.com/baseproof/tooling/libs/httpmw"
-	"github.com/baseproof/tooling/libs/keystore"
-	keysigner "github.com/baseproof/tooling/libs/keystore/signer"
+	"github.com/baseproof/tooling/libs/auth/keystore"
+	keysigner "github.com/baseproof/tooling/libs/auth/keystore/signer"
 	"github.com/clearcompass-ai/judicial-network/api/config"
 	"github.com/clearcompass-ai/judicial-network/internal/testutil"
 

@@ -59,7 +59,7 @@ import (
 	"time"
 
 	"github.com/baseproof/baseproof/builder"
-	"github.com/baseproof/tooling/libs/identity"
+	"github.com/baseproof/tooling/libs/auth/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

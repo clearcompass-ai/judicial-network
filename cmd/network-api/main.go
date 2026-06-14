@@ -58,7 +58,7 @@ import (
 	middleware "github.com/baseproof/tooling/libs/httpmw"
 	"github.com/baseproof/tooling/libs/httpmw/observability"
 	"github.com/baseproof/tooling/libs/httpmw/reliability"
-	"github.com/baseproof/tooling/libs/keystore"
+	"github.com/baseproof/tooling/libs/auth/keystore"
 	"github.com/baseproof/tooling/libs/sdkguard"
 	"github.com/baseproof/tooling/libs/tracing"
 	"github.com/clearcompass-ai/judicial-network/api"

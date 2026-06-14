@@ -53,7 +53,7 @@ import (
 
 	"github.com/baseproof/baseproof/builder"
 	"github.com/baseproof/baseproof/types"
-	"github.com/baseproof/tooling/libs/identity"
+	"github.com/baseproof/tooling/libs/auth/identity"
 	"github.com/clearcompass-ai/judicial-network/schemas"
 )
 

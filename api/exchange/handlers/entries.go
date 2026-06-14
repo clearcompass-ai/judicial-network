@@ -54,7 +54,7 @@ import (
 
 	"github.com/baseproof/tooling/libs/httpmw/observability"
 	"github.com/baseproof/tooling/libs/httpmw/reliability"
-	"github.com/baseproof/tooling/libs/keystore"
+	"github.com/baseproof/tooling/libs/auth/keystore"
 	auth "github.com/clearcompass-ai/judicial-network/api/exchange/auth/v2"
 	"github.com/clearcompass-ai/judicial-network/api/exchange/index"
 )

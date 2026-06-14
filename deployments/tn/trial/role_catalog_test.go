@@ -171,7 +171,7 @@ func TestValidateGrant_TNTrialRejectsScopeOutsideAllowed(t *testing.T) {
 	// court_clerk cannot exercise case_decision.
 	err := c.ValidateGrant("judge", "court_clerk",
 		[]string{"case_decision"}, 365*24*time.Hour)
-	if err == nil || !strings.Contains(err.Error(), "AllowedScope") {
+	if err == nil || !strings.Contains(err.Error(), "allowed_scope") {
 		t.Errorf("expected scope-outside-allowed error, got: %v", err)
 	}
 }
@@ -180,7 +180,7 @@ func TestValidateGrant_TNTrialRejectsExcessiveDuration(t *testing.T) {
 	c := MustRoleCatalog()
 	err := c.ValidateGrant("judge", "court_clerk",
 		[]string{"case_filing"}, 100*365*24*time.Hour)
-	if err == nil || !strings.Contains(err.Error(), "MaxDuration") {
+	if err == nil || !strings.Contains(err.Error(), "max_duration") {
 		t.Errorf("expected MaxDuration rejection, got: %v", err)
 	}
 }

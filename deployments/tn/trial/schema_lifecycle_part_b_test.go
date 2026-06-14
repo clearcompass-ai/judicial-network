@@ -23,7 +23,7 @@ import (
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 )
 
 // findRulePartB is the local lookup helper. Named "PartB" to

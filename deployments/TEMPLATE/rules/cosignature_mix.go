@@ -24,7 +24,7 @@ package rules
 import (
 	"fmt"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 
 	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 

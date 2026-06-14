@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/baseproof/tooling/libs/identity"
+	"github.com/baseproof/tooling/libs/auth/identity"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
