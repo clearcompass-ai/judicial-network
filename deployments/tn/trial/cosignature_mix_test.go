@@ -271,8 +271,11 @@ func TestCosignatureRules_GuardianAdLitemRequiresAppointment(t *testing.T) {
 //     28 → 30: Issue #67 Part D added §14 Crypto & Key Maintenance 2
 //     events (institutional_key_rotation,
 //     mofn_escrow_recovery_execution).
+//     34 → 35: dictionary-coverage fix added hearing_convened_concluded
+//     (the trial-in-progress docket record; previously the only prereq
+//     event_type with no cosignature rule — see cosignature_coverage_test.go).
 func TestCosignatureRules_ExpectedCount(t *testing.T) {
-	const baseRules = 34
+	const baseRules = 35
 	want := baseRules + len(motionCosignatureRules())
 	if got := len(CosignatureRules()); got != want {
 		t.Errorf("TN trial cosig rule count: want %d, got %d", want, got)
