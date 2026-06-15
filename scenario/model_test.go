@@ -2,12 +2,13 @@ package scenario
 
 import "testing"
 
-// TestTennesseeCourts_WellFormed pins the modeled jurisdictions: each must be
-// seedable (DID + roles + a non-empty bench, bar, and divisions with case types).
-func TestTennesseeCourts_WellFormed(t *testing.T) {
-	courts := TennesseeCourts()
+// TestModeledJurisdictions_WellFormed pins every modeled jurisdiction (the active
+// Davidson + Supreme, plus the backlog Criminal Appeals): each must be seedable
+// (DID + roles + a non-empty bench, bar, and divisions with case types).
+func TestModeledJurisdictions_WellFormed(t *testing.T) {
+	courts := append(ActiveCourts(), TennesseeCriminalAppeals())
 	if len(courts) != 3 {
-		t.Fatalf("want 3 TN jurisdictions (Davidson, Criminal Appeals, Supreme), got %d", len(courts))
+		t.Fatalf("want 3 modeled jurisdictions (Davidson, Supreme, Criminal Appeals), got %d", len(courts))
 	}
 	seen := map[string]bool{}
 	for _, j := range courts {
@@ -39,6 +40,31 @@ func TestTennesseeCourts_WellFormed(t *testing.T) {
 					t.Errorf("%s / %s: adjudicator missing name/role: %+v", j.Key, d.Name, a)
 				}
 			}
+		}
+	}
+}
+
+// TestActiveCourts_DeploymentBacked: the active set is exactly Davidson + the
+// Supreme Court, both on real (derived) deployment DIDs — never the Criminal
+// Appeals placeholder DID.
+func TestActiveCourts_DeploymentBacked(t *testing.T) {
+	active := ActiveCourts()
+	if len(active) != 2 {
+		t.Fatalf("active set must be Davidson + Supreme (2), got %d", len(active))
+	}
+	want := map[string]bool{"davidson": false, "tn_supreme": false}
+	for _, j := range active {
+		if _, ok := want[j.Key]; !ok {
+			t.Errorf("unexpected active jurisdiction %q", j.Key)
+		}
+		want[j.Key] = true
+		if j.ExchangeDID == criminalAppealsExchangeDID {
+			t.Errorf("%s: an active court must be deployment-backed, not the CCA placeholder DID", j.Key)
+		}
+	}
+	for k, found := range want {
+		if !found {
+			t.Errorf("active set missing %q", k)
 		}
 	}
 }
