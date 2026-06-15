@@ -53,7 +53,7 @@ func DavidsonCounty() Jurisdiction {
 						},
 					},
 				},
-				Clerk: ClerkOffice{Name: "Joseph P. Day, Circuit Court Clerk", Address: "1 Public Square Suite 302, Nashville, TN 37201", Clerks: 1},
+				Clerk: ClerkOffice{Name: "Joseph P. Day, Circuit Court Clerk", Address: "1 Public Square Suite 302, Nashville, TN 37201", Clerks: 3}, // head clerk + deputy clerks
 			},
 			{
 				Name: "Davidson County Juvenile Court",
@@ -74,7 +74,7 @@ func DavidsonCounty() Jurisdiction {
 						},
 					},
 				},
-				Clerk: ClerkOffice{Name: "Juvenile Court Clerk", Address: "100 Woodland St, Nashville, TN 37213", Clerks: 1},
+				Clerk: ClerkOffice{Name: "Juvenile Court Clerk", Address: "100 Woodland St, Nashville, TN 37213", Clerks: 2}, // clerk + deputy
 			},
 		},
 		// The Davidson bar: 5 attorneys spanning the trial court's civil + criminal
