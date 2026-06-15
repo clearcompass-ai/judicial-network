@@ -49,9 +49,10 @@ const ExchangeDID = "did:web:state:tn:davidson"
 // policy method to the shared TN trial framework. Constructed
 // once at boot; immutable thereafter.
 type bundle struct {
-	catalog schemas.RoleCatalog
-	cosig   policy.CosignatureMixPolicy
-	preqs   prerequisites.Policy
+	catalog   schemas.RoleCatalog
+	cosig     policy.CosignatureMixPolicy
+	preqs     prerequisites.Policy
+	templates jurisdiction.TemplateSet
 }
 
 func (b *bundle) ExchangeDID() string                            { return ExchangeDID }
@@ -96,17 +97,28 @@ func (b *bundle) AppellateVocabulary() jurisdiction.AppellateVocab {
 	return trial.AppellateVocabulary()
 }
 
-// Static check.
-var _ jurisdiction.Bundle = (*bundle)(nil)
+// EntryTemplates exposes the TN trial-court authoring templates (the optional
+// jurisdiction.TemplateProvider surface) so jurisdiction.Compose can author
+// entries from the same policies this bundle validates against.
+func (b *bundle) EntryTemplates() jurisdiction.TemplateSet {
+	return b.templates
+}
+
+// Static checks.
+var (
+	_ jurisdiction.Bundle           = (*bundle)(nil)
+	_ jurisdiction.TemplateProvider = (*bundle)(nil)
+)
 
 // MustBundle returns the canonical Davidson Bundle. Panics if
 // any underlying TN trial fixture fails to validate (a bug in
 // the shared framework).
 func MustBundle() jurisdiction.Bundle {
 	b := &bundle{
-		catalog: trial.MustRoleCatalog(),
-		cosig:   trial.MustCosignaturePolicy(),
-		preqs:   trial.MustPrerequisitePolicy(),
+		catalog:   trial.MustRoleCatalog(),
+		cosig:     trial.MustCosignaturePolicy(),
+		preqs:     trial.MustPrerequisitePolicy(),
+		templates: trial.MustTemplateSet(),
 	}
 	if err := jurisdiction.Validate(b); err != nil {
 		panic(fmt.Sprintf("tn/counties/davidson: bundle invalid: %v", err))
