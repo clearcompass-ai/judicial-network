@@ -21,10 +21,12 @@ DESCRIPTION:
 	  - TestCensus_EvaluateOriginConfinedToEntityState: verifier.EvaluateOrigin
 	    may appear ONLY in the entity/case-state allowlist. A NEW engine that
 	    calls it on a delegation/authority path fails CI here.
-	  - TestLock_AuthorityResolverNotWiredToGate: the demoted AuthorityResolver
-	    still carries the stale EvaluateOrigin liveness; its caveat ("port
-	    liveness before wiring to any gate") is enforced here, not by a comment —
-	    no PRODUCTION code may construct it.
+	  - TestLock_NoLegacyAuthorityWalkRegrows: the retired JN-local
+	    AuthorityResolver (which carried the stale EvaluateOrigin liveness) must
+	    not reappear — a re-declared `type AuthorityResolver` fails CI here. With
+	    the tooling-home pin (authority/home_pin_test.go, which refuses the
+	    verifier import at the canonical resolver) this is the cross-layer
+	    false-green guard.
 */
 package verification
 
@@ -47,13 +49,6 @@ var evaluateOriginAllowlist = map[string]string{
 	"cases/artifact/retrieve.go":                 "entity-state access check",
 	"cases/docket_query.go":                      "case-state docket lookup",
 	"verification/case_status.go":                "case-state",
-
-	// DEMOTED delegation engine. Allowed ONLY because
-	// TestLock_AuthorityResolverNotWiredToGate proves it cannot reach a
-	// production gate (the live gate uses SMTAuthorityResolver / OriginTip==
-	// position). Delete this entry — and the engine — when the action-authz
-	// path is removed.
-	"verification/authority_resolver_origin.go": "demoted, off-gate (see lock test)",
 }
 
 func jnModuleRoot(t *testing.T) string {
@@ -127,32 +122,26 @@ func TestCensus_EvaluateOriginConfinedToEntityState(t *testing.T) {
 	})
 }
 
-// TestLock_AuthorityResolverNotWiredToGate enforces the AuthorityResolver
-// caveat with a test rather than a comment: no production code may construct
-// the demoted engine (it carries the stale EvaluateOrigin liveness). The engine's
-// own definition files are exempt (they declare it; they do not wire it).
-func TestLock_AuthorityResolverNotWiredToGate(t *testing.T) {
+// TestLock_NoLegacyAuthorityWalkRegrows is the JN-side regrowth guard: the
+// retired JN-local AuthorityResolver (which derived liveness from the stale
+// verifier.EvaluateOrigin — the revoked-judge false negative) must not reappear.
+// A re-declared `type AuthorityResolver` in production fails CI here. The gate's
+// only authority engine is SMTAuthorityResolver over tooling/libs/auth/authority
+// (OriginTip==position); its companion tooling-home pin (home_pin_test.go)
+// refuses the verifier import. Together they are the cross-layer false-green
+// guard the rollback loop lacked.
+func TestLock_NoLegacyAuthorityWalkRegrows(t *testing.T) {
 	root := jnModuleRoot(t)
 	walkProdGoFiles(t, root, func(rel string, f *ast.File, fset *token.FileSet) {
-		if strings.HasPrefix(rel, "verification/authority_resolver") {
-			return // the engine's own files
-		}
 		ast.Inspect(f, func(n ast.Node) bool {
-			cl, ok := n.(*ast.CompositeLit)
+			ts, ok := n.(*ast.TypeSpec)
 			if !ok {
 				return true
 			}
-			name := ""
-			switch tt := cl.Type.(type) {
-			case *ast.Ident:
-				name = tt.Name
-			case *ast.SelectorExpr:
-				name = tt.Sel.Name
-			}
-			if name == "AuthorityResolver" {
-				t.Errorf("%s: constructs AuthorityResolver in production — it carries the stale "+
-					"EvaluateOrigin liveness (revoked-judge false negative). The gate must use "+
-					"SMTAuthorityResolver (OriginTip==position). Port its liveness before wiring it.", rel)
+			if ts.Name.Name == "AuthorityResolver" {
+				t.Errorf("%s: re-declares type AuthorityResolver — the JN-local delegation walk was "+
+					"retired (it carried the EvaluateOrigin revoked-judge false negative). The gate uses "+
+					"SMTAuthorityResolver (OriginTip==position). Do not regrow a domain-local walk.", rel)
 			}
 			return true
 		})

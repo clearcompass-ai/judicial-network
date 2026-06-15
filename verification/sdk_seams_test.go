@@ -63,22 +63,6 @@ func TestVerifyEntryViaSDK_NilEntry_WrapsSDKErr(t *testing.T) {
 	}
 }
 
-// ─── (*AuthorityResolver).VerifyKeyAtPosition ──────────────────
-
-func TestAuthorityResolver_VerifyKeyAtPosition_WrapsSDKSentinel(t *testing.T) {
-	r := &AuthorityResolver{}
-	// Empty SignerDID → SDK returns ErrEmptySignerDID (or similar
-	// guard); we just verify the JN wrapper wraps it.
-	_, err := r.VerifyKeyAtPosition(
-		context.Background(),
-		verifier.KeyAtPositionQuery{}, // zero-value triggers SDK guard
-		nil,
-	)
-	if !errors.Is(err, ErrKeyAtPositionSDK) {
-		t.Errorf("err = %v, want errors.Is(ErrKeyAtPositionSDK)", err)
-	}
-}
-
 // ─── CheckCosignatureWithVerifier ──────────────────────────────
 
 // signedSingleSigEntry builds a fully-signed single-sig entry for
@@ -173,6 +157,5 @@ func TestCheckCosignatureWithVerifier_CryptoRejected_VerdictBranch(t *testing.T)
 var (
 	_ = VerifyEvidenceChainViaSDK
 	_ = VerifyEntryViaSDK
-	_ = (*AuthorityResolver)(nil).VerifyKeyAtPosition
 	_ = CheckCosignatureWithVerifier
 )

@@ -224,3 +224,28 @@ func TestSMTAuthorityResolver_RevokedMidChain(t *testing.T) {
 		t.Errorf("Rejection = %q, want revoked", v.Rejection)
 	}
 }
+
+// TestSMTAuthorityResolver_SucceededLeaf_NotLive (D-group): a superseded
+// delegation — its leaf OriginTip advanced off its own position via a
+// succession — is rejected at the gate. The successor governs, not the old
+// grant (the retired AuthorityResolver "followed through" the superseded grant;
+// OriginTip==position refuses it). Same liveness geometry as a revocation.
+func TestSMTAuthorityResolver_SucceededLeaf_NotLive(t *testing.T) {
+	f := newFakeFetcher()
+	judgePos := at(1)
+	succPos := at(2)
+	ref := mkJNDeleg(t, f, judgePos, saInst, saJudge, "judge", []string{"case_filing"}, nil, time.Hour)
+
+	leaf := &fakeLeafReader{originTipFor: map[[32]byte]types.LogPosition{
+		smt.DeriveKey(judgePos): succPos, // succession advanced the tip ⇒ superseded
+	}}
+
+	r := NewSMTAuthorityResolver(f, leaf)
+	v := r.Resolve(context.Background(), reqFor(saJudge, ref))
+	if v.OK {
+		t.Fatal("a superseded (succeeded) delegation MUST NOT verify at the gate — the successor governs")
+	}
+	if v.Rejection != "revoked" {
+		t.Errorf("Rejection = %q, want revoked (succession is a liveness lapse on the old leaf)", v.Rejection)
+	}
+}
