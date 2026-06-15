@@ -113,49 +113,66 @@ func clerksOfCourt(reg *Registry, court string) []*Principal {
 	return out
 }
 
-// planCaseInitiation builds one unsigned case_initiation entry: the accepting
-// clerk is declared in signed_by_capacities; the division/specialty/caption ride
-// the domain payload.
+// planCaseInitiation plans one case_initiation: the docket/venue metadata, the
+// two clerks, and a sample unsigned entry. The accepting clerk is declared in
+// signed_by_capacities; the division/specialty/caption ride the domain payload.
+// The filed date is a historical 2026 payload value — distinct from the entry's
+// protocol EventTime, which is set fresh (≈now) at submit time so the ledger's
+// freshness gate accepts it.
 func planCaseInitiation(j Jurisdiction, v filingVenue, caseType string, seq int, filed time.Time, primary, cosigner *Principal) (*PlannedCase, error) {
-	sbc := schemas.SignedByCapacity{
-		DID:           cosigner.DID,
-		Role:          cosigner.Role, // court_clerk
-		Exchange:      j.InstitutionalDID,
-		DelegationRef: cosigner.Delegation, // present once Seed has run
-	}
-	docket := docketNumber(v.division.Specialty, seq)
-	caption := caseCaption(v.division.Specialty, seq)
-	filedDate := filed.Format("2006-01-02")
-
-	res, err := cases.InitiateCase(cases.InitiationConfig{
-		Destination:  j.ExchangeDID,
-		SignerDID:    primary.DID,
-		DocketNumber: docket,
-		CaseType:     caseType,
-		FiledDate:    filedDate,
-		ExtraPayload: map[string]interface{}{
-			"specialty": v.division.Specialty,
-			"division":  v.division.Name,
-			"caption":   caption,
-		},
-		Cosigners: []schemas.SignedByCapacity{sbc},
-		EventTime: filed.Unix(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("scenario: build case_initiation %s: %w", docket, err)
-	}
-	return &PlannedCase{
-		DocketNumber: docket,
+	pc := &PlannedCase{
+		DocketNumber: docketNumber(v.division.Specialty, seq),
 		Court:        v.court,
 		Division:     v.division.Name,
 		Specialty:    v.division.Specialty,
 		CaseType:     caseType,
-		Caption:      caption,
-		FiledDate:    filedDate,
+		Caption:      caseCaption(v.division.Specialty, seq),
+		FiledDate:    filed.Format("2006-01-02"),
 		Primary:      primary,
 		Cosigner:     cosigner,
-		Entry:        res.Entry,
-	}, nil
+	}
+	// Sample entry for inspection + tests; Provision rebuilds it fresh at
+	// submit time via InitiationEntry so EventTime is within the freshness gate.
+	entry, err := pc.InitiationEntry(j, time.Now().UTC().UnixMicro())
+	if err != nil {
+		return nil, err
+	}
+	pc.Entry = entry
+	return pc, nil
+}
+
+// InitiationEntry builds a signable case_initiation entry for this planned case
+// at the given protocol EventTime (microseconds). The accepting clerk is
+// declared in signed_by_capacities (carrying its on-log delegation_ref, set by
+// Seed) so the verifier resolves the cosigner's role + exchange with no off-log
+// registry. Build it inline at submit time — a pre-built batch goes stale
+// against the ledger's ≈5-minute freshness gate (cf. the ledger's
+// _validation_determinism.sh: "built inline ... no staleness").
+func (pc *PlannedCase) InitiationEntry(j Jurisdiction, eventTimeMicros int64) (*envelope.Entry, error) {
+	sbc := schemas.SignedByCapacity{
+		DID:           pc.Cosigner.DID,
+		Role:          pc.Cosigner.Role, // court_clerk
+		Exchange:      j.InstitutionalDID,
+		DelegationRef: pc.Cosigner.Delegation, // present once Seed has run
+	}
+	res, err := cases.InitiateCase(cases.InitiationConfig{
+		Destination:  j.ExchangeDID,
+		SignerDID:    pc.Primary.DID,
+		DocketNumber: pc.DocketNumber,
+		CaseType:     pc.CaseType,
+		FiledDate:    pc.FiledDate,
+		ExtraPayload: map[string]interface{}{
+			"specialty": pc.Specialty,
+			"division":  pc.Division,
+			"caption":   pc.Caption,
+		},
+		Cosigners: []schemas.SignedByCapacity{sbc},
+		EventTime: eventTimeMicros,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scenario: build case_initiation %s: %w", pc.DocketNumber, err)
+	}
+	return res.Entry, nil
 }
 
 // docketNumber renders a unique TN-style docket: <year>-<division-code>-<seq>.
