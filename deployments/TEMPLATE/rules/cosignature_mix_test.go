@@ -13,7 +13,7 @@ package rules
 import (
 	"testing"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 )
 
 func TestCosignatureRules_Validates(t *testing.T) {

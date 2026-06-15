@@ -158,9 +158,11 @@ func ParseCatalogJSON(data []byte) (*InMemoryCatalog, error) {
 	return NewInMemoryCatalog(roles)
 }
 
-// ReloadFromFile re-reads the catalog file and atomically replaces
-// the catalog contents. Used by SIGHUP handlers.
-func (c *InMemoryCatalog) ReloadFromFile(path string) error {
+// ReloadCatalogFromFile re-reads the catalog file and atomically replaces
+// the catalog contents. Used by SIGHUP handlers. (Free function rather than
+// a method: InMemoryCatalog now lives in libs/auth/policy; the file loader
+// is the JN-side content concern.)
+func ReloadCatalogFromFile(c *InMemoryCatalog, path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("schemas/role_catalog_loader: read %q: %w", path, err)
@@ -176,11 +178,11 @@ func (c *InMemoryCatalog) ReloadFromFile(path string) error {
 	return c.Replace(roles)
 }
 
-// WatchSignal subscribes to SIGHUP and reloads the catalog from path
+// WatchCatalogSignal subscribes to SIGHUP and reloads the catalog from path
 // whenever the signal arrives. Runs until ctx-like channel done is
 // closed. Failures log but do not panic — the previous catalog stays
 // in effect. Optional; production deployments call this in main().
-func (c *InMemoryCatalog) WatchSignal(path string, done <-chan struct{}, logf func(format string, args ...any)) {
+func WatchCatalogSignal(c *InMemoryCatalog, path string, done <-chan struct{}, logf func(format string, args ...any)) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGHUP)
 	go func() {
@@ -190,7 +192,7 @@ func (c *InMemoryCatalog) WatchSignal(path string, done <-chan struct{}, logf fu
 			case <-done:
 				return
 			case <-ch:
-				if err := c.ReloadFromFile(path); err != nil {
+				if err := ReloadCatalogFromFile(c, path); err != nil {
 					if logf != nil {
 						logf("role_catalog: reload from %s failed (keeping previous): %v", path, err)
 					}

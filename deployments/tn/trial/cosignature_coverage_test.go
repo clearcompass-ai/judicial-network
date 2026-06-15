@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 )
 
 // TestDictionaryCoverage_EveryPrereqEventHasACosignatureRule locks the

@@ -40,7 +40,7 @@ import (
 	"fmt"
 	"time"
 
-	libpolicy "github.com/baseproof/tooling/libs/policy"
+	libpolicy "github.com/baseproof/tooling/libs/auth/policy"
 )
 
 // FilerRole is the platform's opaque filer-capacity token (libs/policy);

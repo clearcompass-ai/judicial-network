@@ -6,7 +6,7 @@ import (
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 )
 
 func findRulePartD(rules []policy.CosignatureRule, eventType string) *policy.CosignatureRule {

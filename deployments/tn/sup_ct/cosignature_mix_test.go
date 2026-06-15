@@ -12,7 +12,7 @@ package sup_ct
 import (
 	"testing"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 )
 
 func TestCosignatureRules_AllValid(t *testing.T) {

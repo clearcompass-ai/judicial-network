@@ -121,8 +121,8 @@ func TestParseCatalogJSON_RejectsInvalidRole(t *testing.T) {
 		"default_scope":["a"]
 	}]}`
 	_, err := ParseCatalogJSON([]byte(bad))
-	if err == nil || !strings.Contains(err.Error(), "exceeds max_duration") {
-		t.Fatalf("expected role-validation error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "max_duration") {
+		t.Fatalf("expected role-validation error (default>max), got: %v", err)
 	}
 }
 
@@ -174,7 +174,7 @@ func TestReloadFromFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte(single), 0o600); err != nil {
 		t.Fatalf("write 2: %v", err)
 	}
-	if err := c.ReloadFromFile(path); err != nil {
+	if err := ReloadCatalogFromFile(c, path); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 	post := c.List()
@@ -201,7 +201,7 @@ func TestReloadFromFile_FailureKeepsPrevious(t *testing.T) {
 	if err := os.WriteFile(path, []byte("not valid"), 0o600); err != nil {
 		t.Fatalf("stomp: %v", err)
 	}
-	if err := c.ReloadFromFile(path); err == nil {
+	if err := ReloadCatalogFromFile(c, path); err == nil {
 		t.Fatal("expected reload error")
 	}
 

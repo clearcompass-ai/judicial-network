@@ -35,7 +35,7 @@ import (
 	"github.com/baseproof/baseproof/core/envelope"
 	"github.com/baseproof/baseproof/core/smt"
 	"github.com/baseproof/baseproof/types"
-	"github.com/baseproof/tooling/libs/authority"
+	"github.com/baseproof/tooling/libs/auth/authority"
 
 	"github.com/clearcompass-ai/judicial-network/jurisdiction"
 	"github.com/clearcompass-ai/judicial-network/schemas"

@@ -24,7 +24,7 @@ KEY DEPENDENCIES:
 */
 package schemas
 
-import libpolicy "github.com/baseproof/tooling/libs/policy"
+import libpolicy "github.com/baseproof/tooling/libs/auth/policy"
 
 // Actor is the platform classification enum (libs/policy). Stable wire
 // values; methods (String, IsValid, HoldsKeys) ride the platform type.

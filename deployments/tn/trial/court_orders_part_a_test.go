@@ -28,7 +28,7 @@ import (
 
 	prerequisites "github.com/baseproof/tooling/libs/prereq"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 )
 
 // hasPrefix is a small helper to avoid pulling in strings for

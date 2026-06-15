@@ -45,7 +45,7 @@ package trial
 import (
 	"fmt"
 
-	"github.com/baseproof/tooling/libs/policy"
+	"github.com/baseproof/tooling/libs/auth/policy"
 
 	"github.com/clearcompass-ai/judicial-network/deployments/platformkinds"
 	"github.com/clearcompass-ai/judicial-network/schemas"
@@ -142,16 +142,19 @@ func CosignatureRules() []policy.CosignatureRule {
 		{
 			EventType:           "verdict",
 			RequiredSignerRoles: []string{"judge"},
+			RequiredScope:       []string{"case_decision"},
 			IntraExchangeOnly:   true,
 		},
 		{
 			EventType:           "final_judgment",
 			RequiredSignerRoles: []string{"judge"},
+			RequiredScope:       []string{"case_decision"},
 			IntraExchangeOnly:   true,
 		},
 		{
 			EventType:           "transcript_publication",
 			RequiredSignerRoles: []string{"court_reporter"},
+			RequiredScope:       []string{"transcript_publication"},
 			IntraExchangeOnly:   true,
 		},
 
@@ -189,12 +192,14 @@ func CosignatureRules() []policy.CosignatureRule {
 		{
 			EventType:           "clerk_appointment",
 			RequiredSignerRoles: []string{"judge"},
+			RequiredScope:       []string{"invite:court_clerk"},
 			MinSignerCosigners:  2,
 			IntraExchangeOnly:   true,
 		},
 		{
 			EventType:           "court_reporter_appointment",
 			RequiredSignerRoles: []string{"judge"},
+			RequiredScope:       []string{"invite:court_reporter"},
 			MinSignerCosigners:  2,
 			IntraExchangeOnly:   true,
 		},

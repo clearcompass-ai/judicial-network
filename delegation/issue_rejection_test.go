@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/baseproof/tooling/libs/identity"
+	"github.com/baseproof/tooling/libs/auth/identity"
 )
 
 // ─── request validation ────────────────────────────────────────────
