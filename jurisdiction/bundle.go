@@ -174,6 +174,24 @@ func Validate(b Bundle) error {
 				ErrVocabularyMismatch, evt.EventType)
 		}
 	}
+	// Template↔policy parity (only when the bundle opts into composition):
+	// every authoring template MUST align with BOTH validation surfaces — it
+	// must have a cosignature rule AND be in the prerequisite vocabulary — so an
+	// authored entry structurally cannot drift from what the gate accepts. The
+	// reverse (every policy event has a template) is NOT required: templates
+	// roll out per event, a subset of the full vocabulary.
+	if tp, ok := b.(TemplateProvider); ok {
+		for _, evt := range tp.EntryTemplates().EventTypes() {
+			if _, lerr := cp.Lookup(evt); lerr != nil {
+				return fmt.Errorf("%w: template event %q has no cosignature rule",
+					ErrInvalidBundle, evt)
+			}
+			if !pp.KnowsEventType(evt) {
+				return fmt.Errorf("%w: template event %q not in prereq vocabulary",
+					ErrVocabularyMismatch, evt)
+			}
+		}
+	}
 	if b.AuthorityChainResolver() == nil {
 		return fmt.Errorf("%w: nil AuthorityChainResolver", ErrInvalidBundle)
 	}

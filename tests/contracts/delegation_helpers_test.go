@@ -130,7 +130,6 @@ type contractFixture struct {
 	leafs        *leafBackend
 	catalog      schemas.RoleCatalog
 	roleResolver *verification.MapRoleResolver
-	resolver     *verification.AuthorityResolver
 	buildCtx     *delegation.BuildContext
 
 	// keys maps a DID to the secp256k1 key bound on the stub.
@@ -158,11 +157,6 @@ func newFixture(t *testing.T) *contractFixture {
 		ExchangeDID:      exchangeDID,
 		InstitutionalDID: institutionalDID,
 	}
-	res := &verification.AuthorityResolver{
-		Fetcher:    op,
-		LeafReader: lb,
-		Catalog:    cat,
-	}
 	return &contractFixture{
 		logDID:           logDID,
 		exchangeDID:      exchangeDID,
@@ -172,7 +166,6 @@ func newFixture(t *testing.T) *contractFixture {
 		leafs:            lb,
 		catalog:          cat,
 		roleResolver:     verification.NewMapRoleResolver(),
-		resolver:         res,
 		buildCtx:         bc,
 		keys:             make(map[string]*secp256k1.PrivateKey),
 	}
@@ -203,12 +196,6 @@ func (f *contractFixture) issue(t *testing.T, req delegation.IssueRequest) schem
 	}
 	f.roleResolver.Bind(req.GranteeDID, req.GranteeRole, f.institutionalDID)
 	return res.Position
-}
-
-// resolve is a thin wrapper around verification.AuthorityResolver.Resolve
-// for assertion clarity in tests.
-func (f *contractFixture) resolve(signerDID string, ref schemas.LogPositionRef, action string) *verification.Authority {
-	return f.resolver.Resolve(context.Background(), signerDID, ref, action)
 }
 
 // envelopeAt fetches and deserializes the entry at pos. Used by
